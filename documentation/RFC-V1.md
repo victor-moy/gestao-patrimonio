@@ -47,7 +47,7 @@ Foi realizada **1 entrevista aprofundada** com o gestor do setor de patrimônio 
 
 Como evidência concreta do engajamento do parceiro, o documento de fluxograma do ciclo de vida do patrimônio (Versão 1) foi encaminhado ao gestor para validação. O gestor retornou com **13 comentários estruturados** sobre o documento, propondo ajustes de nomenclatura, inclusão de novos perfis de usuário e detalhamento de fluxos, o que resultou na elaboração da Versão 2 do fluxograma. Esse processo evidencia interesse real e participação ativa do parceiro na definição do escopo.
 
-> 📎 *Imagem: print do documento de fluxograma com os comentários do gestor (a ser adicionada)*
+![Comentários do gestor no fluxograma](assets/comments.png)
 
 ---
 
