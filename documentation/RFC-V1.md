@@ -6,13 +6,13 @@
 
 ## Identificação
 
-| Campo | Valor |
-|---|---|
-| **Título do Projeto** | Sistema de Gestão de Patrimônio |
-| **Linha de Projeto (Direction)** | Web |
-| **Autor** | Victor Moy da Cruz |
-| **Data da Proposta** | 12/04/2026 |
-| **Versão** | 1.0 |
+| Campo                            | Valor                           |
+| -------------------------------- | ------------------------------- |
+| **Título do Projeto**            | Sistema de Gestão de Patrimônio |
+| **Linha de Projeto (Direction)** | Web                             |
+| **Autor**                        | Victor Moy da Cruz              |
+| **Data da Proposta**             | 12/04/2026                      |
+| **Versão**                       | 1.0                             |
 
 ---
 
@@ -62,6 +62,8 @@ Foram investigadas quatro soluções existentes que atendem, parcialmente, ao me
 - **Funcionalidades principais:** Controle patrimonial contábil com cálculo de depreciação fiscal e societária, movimentações em grupo, transferências, baixas parciais, controle multi-filial e conformidade com o MCASP (Manual de Contabilidade Aplicada ao Setor Público).
 - **Limitações:** Foco eminentemente contábil-financeiro. Não contempla fluxo de manutenção com terceirizadas (orçamento, laudo, validação de fiscal de contrato), nem gestão de solicitações por unidades de atendimento, nem dashboards analíticos operacionais.
 
+![Print do Sistema Afixcode](assets/afixcode.png)
+
 #### Fiorilli Software — SCPI Patrimônio
 
 - **Link:** https://fiorilli.com.br
@@ -69,12 +71,16 @@ Foram investigadas quatro soluções existentes que atendem, parcialmente, ao me
 - **Funcionalidades principais:** Gestão de movimentação física e financeira dos bens, depreciação automática, controle de veículos e equipamentos, manutenção preventiva e inventário. Integrado a ERP público completo.
 - **Limitações:** Sistema genérico de gestão municipal, sem customização para fluxos específicos de secretaria de saúde. Não oferece controle de atas de registro de preços com saldo e vencimento, nem fluxo de solicitação e aprovação por perfil de unidade de atendimento.
 
+![Print do Sistema SCPI](assets/scpi.jpg)
+
 #### GLPI
 
 - **Link:** https://glpi-project.org/pt-br
 - **Público-alvo:** Equipes de TI em empresas e órgãos públicos.
 - **Funcionalidades principais:** Gestão de ativos de TI, helpdesk, tickets de chamado, histórico de manutenção, contratos e garantias. Open source e amplamente adotado no setor público brasileiro.
 - **Limitações:** Concebido para ativos de TI. A própria secretaria já o utiliza para abertura de chamados, mas ele não suporta os fluxos específicos necessários: tombamento físico de equipamentos médicos, cessão de uso entre unidades de saúde, controle de atas de licitação e dashboards analíticos de gestão patrimonial.
+
+![Print do Sistema GLPI](assets/glpi.png)
 
 #### Prodata Patrimônio
 
@@ -85,12 +91,12 @@ Foram investigadas quatro soluções existentes que atendem, parcialmente, ao me
 
 #### Comparação entre Soluções
 
-| Solução | Pontos Fortes | Limitações | Diferencial vs. Projeto |
-|---|---|---|---|
-| AfixPat | Conformidade MCASP; depreciação contábil | Sem fluxo de manutenção; sem dashboards | Sem gestão operacional de saúde |
-| Fiorilli SCPI | ERP municipal completo; manutenção preventiva | Genérico; sem atas; sem perfis por unidade | Não atende fluxos específicos de saúde |
-| GLPI | Open source; tickets; histórico manutenção TI | Focado em TI; sem tombamento físico; sem atas | Já usado pela secretaria, mas insuficiente |
-| Prodata Patrimônio | Gestão do ciclo completo do bem | Genérico; sem manutenção com terceirizadas | Sem fluxo de cessão e empréstimo entre unidades |
+| Solução            | Pontos Fortes                                 | Limitações                                    | Diferencial vs. Projeto                         |
+| ------------------ | --------------------------------------------- | --------------------------------------------- | ----------------------------------------------- |
+| AfixPat            | Conformidade MCASP; depreciação contábil      | Sem fluxo de manutenção; sem dashboards       | Sem gestão operacional de saúde                 |
+| Fiorilli SCPI      | ERP municipal completo; manutenção preventiva | Genérico; sem atas; sem perfis por unidade    | Não atende fluxos específicos de saúde          |
+| GLPI               | Open source; tickets; histórico manutenção TI | Focado em TI; sem tombamento físico; sem atas | Já usado pela secretaria, mas insuficiente      |
+| Prodata Patrimônio | Gestão do ciclo completo do bem               | Genérico; sem manutenção com terceirizadas    | Sem fluxo de cessão e empréstimo entre unidades |
 
 #### Diferencial do Projeto
 
@@ -125,7 +131,7 @@ O sistema será utilizado por **cinco perfis distintos** de usuários, com níve
 
 #### Objetivo Geral
 
-Desenvolver um sistema web de gestão de patrimônio físico para a Secretaria Municipal de Saúde de Joinville, centralizando o ciclo de vida dos equipamentos — do cadastro à baixa — e oferecendo dashboards analíticos para suporte à decisão gerencial, eliminando a dependência de planilhas manuais e dispersas.
+Desenvolver um sistema web de gestão de patrimônio físico para a Secretaria Municipal de Saúde de Joinville, centralizando o ciclo de vida dos equipamentos (do cadastro à baixa) e oferecendo dashboards analíticos para suporte à decisão gerencial, eliminando a dependência de planilhas manuais e dispersas.
 
 #### Objetivos Específicos
 
