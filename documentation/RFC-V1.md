@@ -18,15 +18,11 @@
 
 ## 1. Visão do Produto e Impacto (O Problema)
 
-> O objetivo desta seção é responder uma pergunta fundamental: **este projeto resolve um problema real ou é apenas um exercício técnico?**
-
----
-
 ### 1.1 Contexto e Problema
 
 A Secretaria Municipal de Saúde de Joinville gerencia um extenso patrimônio físico distribuído por aproximadamente **60 unidades de atendimento** da rede pública — incluindo UBS (Unidades Básicas de Saúde), UME e CAC. Esse patrimônio engloba cerca de **180 autoclaves** e centenas de outros equipamentos médicos e de infraestrutura, cada um identificado individualmente por número de tombamento.
 
-O problema central é a ausência de uma solução integrada de gestão. Atualmente, as informações são mantidas em **planilhas dispersas**, sem padronização nem centralização. A equipe de patrimônio recorre a múltiplos sistemas para operações distintas: o **GLPI** para abertura de chamados de manutenção, o **Branet/DOWS** para recolha de materiais, o **e-Público** para o cadastro inicial dos itens e o **SEI** para tramitação de documentos. Nenhum desses sistemas "conversa" entre si, e o resultado é uma visão fragmentada e defasada do patrimônio real.
+O problema central é a ausência de uma solução integrada de gestão. Atualmente, as informações são mantidas em **planilhas dispersas**, sem padronização nem centralização. A equipe de patrimônio recorre a múltiplos sistemas para operações distintas: o **GLPI** para abertura de chamados de manutenção, o **Branet/DOWS** para recolha de materiais, o **e-Pública** para o cadastro inicial dos itens e o **SEI** para tramitação de documentos. Nenhum desses sistemas "conversa" entre si, e o resultado é uma visão fragmentada e defasada do patrimônio real.
 
 **Consequências práticas da falta de integração:**
 
