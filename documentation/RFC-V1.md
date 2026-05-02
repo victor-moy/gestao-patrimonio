@@ -454,6 +454,8 @@ Os itens abaixo foram explicitamente excluídos do escopo deste projeto, seja po
 
 O diagrama abaixo representa a visão macro do sistema: um equipamento entra pelo cadastro, passa por eventos ao longo da sua vida útil e é encerrado por um dos três tipos de baixa.
 
+> Para o fluxograma detalhado com perfis e responsabilidades, consulte o documento **Fluxograma do Patrimônio V2** na pasta `documentation/assets/`.
+
 ```mermaid
 flowchart TD
     A([Início]) --> B[Importação via CSV\nou Cadastro Manual]
@@ -602,6 +604,8 @@ flowchart TD
 
 ### 3.2 Fluxos Alternativos
 
+Esta seção descreve os cenários de exceção, erro e cancelamento para cada módulo principal.
+
 ---
 
 #### FA01 — Manutenção negada pelo Gestor de Manutenção
@@ -617,7 +621,7 @@ flowchart TD
 
 ---
 
-#### FA02 — Orçamento da terceirizada rejeitado - Laudo de Baixa
+#### FA02 — Orçamento da terceirizada rejeitado — Laudo de Baixa
 
 **Gatilho:** O Gestor de Manutenção avalia que o custo de manutenção é inviável ou que o equipamento é irrecuperável.
 
