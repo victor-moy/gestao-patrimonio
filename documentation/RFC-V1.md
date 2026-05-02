@@ -487,38 +487,28 @@ flowchart TD
 O fluxo de manutenção é o mais complexo do sistema, envolvendo quatro atores: Unidade, Gestor de Manutenção, terceirizada (externa ao sistema) e o próprio Sistema (para ações automáticas).
 
 ```mermaid
-sequenceDiagram
-    actor Unidade
-    actor GestorManutenção as Gestor Manutenção
-    actor Sistema
+flowchart TD
+    A([Unidade: Abre solicitação de manutenção]) --> B
+    B[Gestor Manutenção: Analisa a solicitação]
+    B --> C{Aprova?}
 
-    Unidade->>Sistema: Abre solicitação de manutenção
-    Note right of Unidade: Descreve o problema e justificativa
-    Sistema-->>GestorManutenção: Notifica nova solicitação
+    C -->|Não| D[Gestor: Registra motivo da negação]
+    D --> E([Equipamento permanece Ativo])
 
-    alt Solicitação Negada
-        GestorManutenção->>Sistema: Nega com justificativa
-        Sistema-->>Unidade: Notifica negação
-        Note over Sistema: Equipamento permanece ativo
-    else Solicitação Aprovada
-        GestorManutenção->>Sistema: Aprova solicitação
-        Sistema-->>Unidade: Status atualizado: Em Manutenção
-        Note over Sistema: Terceirizada realiza avaliação externa
-        GestorManutenção->>Sistema: Registra orçamento da terceirizada
+    C -->|Sim| F([Status: Em Manutenção])
+    F --> G[Terceirizada: Realiza avaliação — externo ao sistema]
+    G --> H[Gestor Manutenção: Registra orçamento recebido]
+    H --> I{Manutenção é viável?}
 
-        alt Orçamento Rejeitado — Equipamento Irrecuperável
-            GestorManutenção->>Sistema: Emite laudo de baixa
-            Sistema->>Sistema: Abre automaticamente solicitação\nde novo item para a Unidade
-            Sistema-->>Unidade: Status atualizado: Baixado
-        else Orçamento Aprovado
-            GestorManutenção->>Sistema: Aprova orçamento
-            Note over Sistema: Terceirizada executa a manutenção
-            Unidade->>Sistema: Confirma retorno do equipamento
-            GestorManutenção->>Sistema: Valida retorno como fiscal do contrato
-            Sistema-->>Unidade: Status atualizado: Ativo
-            Note right of Sistema: Histórico e custo registrados
-        end
-    end
+    I -->|Não| J[Gestor: Emite Laudo de Baixa]
+    J --> K[Sistema: Abre solicitação de novo item automaticamente]
+    K --> L([Status: Baixado])
+
+    I -->|Sim| M[Gestor: Aprova orçamento]
+    M --> N[Terceirizada: Executa a manutenção — externo ao sistema]
+    N --> O[Unidade: Confirma retorno do equipamento]
+    O --> P[Gestor Manutenção: Valida retorno como fiscal do contrato]
+    P --> Q([Status: Ativo — Histórico e custo registrados])
 ```
 
 ---
