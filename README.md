@@ -8,4 +8,4 @@ Sistema web para gestão do patrimônio físico da Secretaria Municipal de Saúd
 
 ## Documentação
 
-- [RFC v1.0](documentation/RFC-V1.md) — visão do produto, problema, benchmark, escopo e objetivos
+- [RFC v1.0](documentation/RFC.pdf) — visão do produto, problema, benchmark, escopo e objetivos
