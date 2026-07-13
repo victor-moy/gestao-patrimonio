@@ -610,11 +610,11 @@ export async function registrarEntrada(
       where: { tipoEquipamentoId: solicitacao.tipoEquipamentoId! },
       create: {
         tipoEquipamentoId: solicitacao.tipoEquipamentoId!,
-        quantidadeInterna: itens.length,
+        quantidade: itens.length,
         ultimaEntradaEm: new Date(),
       },
       update: {
-        quantidadeInterna: { increment: itens.length },
+        quantidade: { increment: itens.length },
         ultimaEntradaEm: new Date(),
       },
     });
