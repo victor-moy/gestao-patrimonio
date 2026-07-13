@@ -1,0 +1,115 @@
+# Pipeline CI/CD conforme RFC seção 5.5.1
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Qualidade e Testes
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # ---------- Backend ----------
+      - name: Backend — instalar dependências
+        working-directory: backend
+        run: npm ci
+
+      - name: Backend — Prisma generate
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Backend — ESLint (+ eslint-plugin-security)
+        working-directory: backend
+        run: npm run lint
+
+      - name: Backend — testes com cobertura (meta ≥ 75% linhas)
+        working-directory: backend
+        run: npm run test:coverage
+
+      # ---------- Frontend ----------
+      - name: Frontend — instalar dependências
+        working-directory: frontend
+        run: npm ci
+
+      - name: Frontend — ESLint
+        working-directory: frontend
+        run: npm run lint
+
+      - name: Frontend — testes com cobertura (meta ≥ 25% linhas)
+        working-directory: frontend
+        run: npm run test:coverage
+
+      - name: Frontend — build
+        working-directory: frontend
+        run: npm run build
+
+      - name: Cobertura como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            backend/coverage/lcov.info
+            frontend/coverage/lcov.info
+          if-no-files-found: ignore
+
+      # SonarCloud (requer SONAR_TOKEN configurado nos secrets do repositório)
+      - name: SonarCloud Analysis
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-prod:
+    name: Entrega produção (VM da Secretaria)
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Self-hosted runner instalado como serviço na VM — sem SSH externo
+    runs-on: [self-hosted, producao]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Subir containers
+        run: |
+          docker compose build
+          docker compose up -d
+      - name: Verificação de saúde
+        run: |
+          sleep 10
+          curl --fail --silent http://localhost:8080/api/health
+
+  deploy-demo:
+    name: Entrega demonstração (sgp.yomlabs.io)
+    needs: ci
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: [self-hosted, demo]
+    defaults:
+      run:
+        working-directory: /app/gestao-patrimonio
+    steps:
+      - name: Atualizar código
+        run: git pull origin main
+      - name: Rebuild e subir containers
+        run: |
+          docker compose build
+          docker compose up -d
+      - name: Verificação de saúde
+        run: |
+          sleep 15
+          curl --fail --silent http://localhost/api/health

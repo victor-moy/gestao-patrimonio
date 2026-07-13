@@ -1,0 +1,407 @@
+// Sistema de Gestão de Patrimônio — SMS Joinville
+// Modelo de dados conforme RFC seção 5.2 (11 entidades de domínio
+// + estoque do galpão e registro de notificações).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------
+// Enums
+// ----------------------------------------------------------------
+
+enum Perfil {
+  GESTOR_PATRIMONIO
+  GESTOR_MANUTENCAO
+  UNIDADE
+  GALPAO
+}
+
+enum TipoUnidade {
+  UBS
+  UME
+  CAC
+  GALPAO
+  OUTRO
+}
+
+enum EstadoConservacao {
+  OTIMO
+  BOM
+  REGULAR
+  RUIM
+  PESSIMO
+}
+
+enum StatusEquipamento {
+  ATIVO
+  EM_MANUTENCAO
+  EMPRESTADO
+  BAIXADO
+}
+
+// Ciclo de manutenção (RFC 2.3 / fluxo da Figura 6 — 7 etapas)
+enum StatusManutencao {
+  PENDENTE_APROVACAO
+  NEGADA
+  AGUARDANDO_ORCAMENTO
+  ORCAMENTO_REGISTRADO
+  EM_EXECUCAO
+  AGUARDANDO_RETORNO
+  CONCLUIDA
+  BAIXADO
+}
+
+enum TipoSolicitacao {
+  NOVO_ITEM
+  CESSAO_USO
+  EMPRESTIMO
+  RECOLHA
+}
+
+enum StatusSolicitacao {
+  PENDENTE_APROVACAO
+  NEGADA
+  APROVADA
+  APROVADA_AGUARDANDO_ATA
+  AGUARDANDO_SAIDA
+  AGUARDANDO_RECEBIMENTO
+  AGUARDANDO_RETORNO
+  AGUARDANDO_ENTREGA
+  CONCLUIDA
+  CANCELADA
+}
+
+enum TipoMovimentacao {
+  CADASTRO
+  IMPORTACAO_CSV
+  ENVIO_MANUTENCAO
+  RETORNO_MANUTENCAO
+  BAIXA
+  CESSAO_USO
+  EMPRESTIMO
+  DEVOLUCAO_EMPRESTIMO
+  RECOLHA
+  DESPACHO_GALPAO
+  RECEBIMENTO_GALPAO
+  ATUALIZACAO_CADASTRO
+}
+
+enum OrigemRecurso {
+  REGULAR
+  EMENDA_PARLAMENTAR
+}
+
+enum StatusNotificacao {
+  ENVIADA
+  FALHA
+  REGISTRADA
+}
+
+// ----------------------------------------------------------------
+// Entidades
+// ----------------------------------------------------------------
+
+model Usuario {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  matricula String   @unique
+  senhaHash String   @map("senha_hash")
+  perfil    Perfil
+  ativo     Boolean  @default(true)
+  unidadeId String?  @map("unidade_id")
+  unidade   Unidade? @relation(fields: [unidadeId], references: [id])
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  movimentacoes           Movimentacao[]
+  movimentacoesEstoque    MovimentacaoEstoque[] @relation("MovEstoqueUsuario")
+  solicitacoesCriadas     Solicitacao[]  @relation("SolicitacaoCriadaPor")
+  solicitacoesDecididas   Solicitacao[]  @relation("SolicitacaoDecididaPor")
+  manutencoesSolicitadas  Manutencao[]   @relation("ManutencaoSolicitante")
+  manutencoesDecididas    Manutencao[]   @relation("ManutencaoDecididaPor")
+  logsAuditoria           LogAuditoria[]
+  unidadesResponsavel     Unidade[]      @relation("UnidadeResponsavel")
+
+  @@map("usuario")
+}
+
+model Unidade {
+  id            String      @id @default(uuid())
+  nome          String      @unique
+  tipo          TipoUnidade
+  endereco      String?
+  emailBase     String?     @map("email_base")
+  // Responsável é um usuário do sistema (selecionado no cadastro)
+  responsavelId String?     @map("responsavel_id")
+  responsavel   Usuario?    @relation("UnidadeResponsavel", fields: [responsavelId], references: [id])
+  ativo         Boolean     @default(true)
+  criadoEm      DateTime    @default(now()) @map("criado_em")
+
+  usuarios                Usuario[]
+  equipamentos            Equipamento[]  @relation("EquipamentoUnidade")
+  equipamentosEmprestados Equipamento[]  @relation("EquipamentoUnidadeTemporaria")
+  movimentacoesOrigem     Movimentacao[]        @relation("MovimentacaoOrigem")
+  movimentacoesDestino    Movimentacao[]        @relation("MovimentacaoDestino")
+  movimentacoesEstoque    MovimentacaoEstoque[] @relation("MovEstoqueDestino")
+  solicitacoesOrigem      Solicitacao[]  @relation("SolicitacaoOrigem")
+  solicitacoesDestino     Solicitacao[]  @relation("SolicitacaoDestino")
+  manutencoes             Manutencao[]
+  atasEspecificas         Ata[]          @relation("AtaUnidadeEspecifica")
+
+  @@map("unidade")
+}
+
+model Categoria {
+  id        String   @id @default(uuid())
+  nome      String   @unique
+  descricao String?
+  // Cor de identificação exibida nos cards de Configurações (Figma)
+  cor       String?
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  tipos TipoEquipamento[]
+
+  @@map("categoria")
+}
+
+model TipoEquipamento {
+  id          String    @id @default(uuid())
+  codigo      String    @unique
+  nome        String
+  descricao   String?
+  categoriaId String    @map("categoria_id")
+  categoria   Categoria @relation(fields: [categoriaId], references: [id])
+  criadoEm    DateTime  @default(now()) @map("criado_em")
+
+  equipamentos  Equipamento[]
+  solicitacoes  Solicitacao[]
+  estoqueGalpao EstoqueGalpao?
+
+  @@map("tipo_equipamento")
+}
+
+model Equipamento {
+  id                 String            @id @default(uuid())
+  // RN01: tombamento único e imutável após o cadastro
+  tombamento         String            @unique
+  descricao          String
+  tipoEquipamentoId  String            @map("tipo_equipamento_id")
+  tipoEquipamento    TipoEquipamento   @relation(fields: [tipoEquipamentoId], references: [id])
+  unidadeId          String            @map("unidade_id")
+  unidade            Unidade           @relation("EquipamentoUnidade", fields: [unidadeId], references: [id])
+  // RN06: durante empréstimo o tombamento permanece na origem;
+  // a receptora aparece apenas como detentora temporária.
+  unidadeTemporariaId String?          @map("unidade_temporaria_id")
+  unidadeTemporaria  Unidade?          @relation("EquipamentoUnidadeTemporaria", fields: [unidadeTemporariaId], references: [id])
+  estadoConservacao  EstadoConservacao @map("estado_conservacao")
+  status             StatusEquipamento @default(ATIVO)
+  // RN10: flag de emenda parlamentar visível em relatórios e históricos
+  emendaParlamentar  Boolean           @default(false) @map("emenda_parlamentar")
+  dataAquisicao      DateTime?         @map("data_aquisicao")
+  observacoes        String?
+  criadoEm           DateTime          @default(now()) @map("criado_em")
+  atualizadoEm       DateTime          @updatedAt @map("atualizado_em")
+
+  movimentacoes Movimentacao[]
+  manutencoes   Manutencao[]
+  solicitacoes  Solicitacao[]
+
+  @@map("equipamento")
+}
+
+// Log imutável de eventos que alteram localização/status (RF10)
+model Movimentacao {
+  id               String           @id @default(uuid())
+  equipamentoId    String           @map("equipamento_id")
+  equipamento      Equipamento      @relation(fields: [equipamentoId], references: [id])
+  tipo             TipoMovimentacao
+  descricao        String
+  unidadeOrigemId  String?          @map("unidade_origem_id")
+  unidadeOrigem    Unidade?         @relation("MovimentacaoOrigem", fields: [unidadeOrigemId], references: [id])
+  unidadeDestinoId String?          @map("unidade_destino_id")
+  unidadeDestino   Unidade?         @relation("MovimentacaoDestino", fields: [unidadeDestinoId], references: [id])
+  usuarioId        String?          @map("usuario_id")
+  usuario          Usuario?         @relation(fields: [usuarioId], references: [id])
+  criadoEm         DateTime         @default(now()) @map("criado_em")
+
+  @@map("movimentacao")
+}
+
+model Manutencao {
+  id                  String           @id @default(uuid())
+  equipamentoId       String           @map("equipamento_id")
+  equipamento         Equipamento      @relation(fields: [equipamentoId], references: [id])
+  unidadeId           String           @map("unidade_id")
+  unidade             Unidade          @relation(fields: [unidadeId], references: [id])
+  solicitanteId       String           @map("solicitante_id")
+  solicitante         Usuario          @relation("ManutencaoSolicitante", fields: [solicitanteId], references: [id])
+  descricaoProblema   String           @map("descricao_problema")
+  justificativa       String
+  status              StatusManutencao @default(PENDENTE_APROVACAO)
+  motivoNegacao       String?          @map("motivo_negacao")
+  decididoPorId       String?          @map("decidido_por_id")
+  decididoPor         Usuario?         @relation("ManutencaoDecididaPor", fields: [decididoPorId], references: [id])
+  contratoId          String?          @map("contrato_id")
+  contrato            Contrato?        @relation(fields: [contratoId], references: [id])
+  orcamentoValor      Decimal?         @map("orcamento_valor") @db.Decimal(12, 2)
+  orcamentoDescricao  String?          @map("orcamento_descricao")
+  // Laudo de baixa (RF16)
+  laudoBaixa          String?          @map("laudo_baixa")
+  // RN11: confirmação dupla de retorno
+  confirmadoUnidade   Boolean          @default(false) @map("confirmado_unidade")
+  confirmadoGestor    Boolean          @default(false) @map("confirmado_gestor")
+  estadoPosManutencao EstadoConservacao? @map("estado_pos_manutencao")
+  custoFinal          Decimal?         @map("custo_final") @db.Decimal(12, 2)
+  dataEnvio           DateTime?        @map("data_envio")
+  dataConclusao       DateTime?        @map("data_conclusao")
+  criadoEm            DateTime         @default(now()) @map("criado_em")
+  atualizadoEm        DateTime         @updatedAt @map("atualizado_em")
+
+  @@map("manutencao")
+}
+
+model Solicitacao {
+  id                  String            @id @default(uuid())
+  tipo                TipoSolicitacao
+  status              StatusSolicitacao @default(PENDENTE_APROVACAO)
+  unidadeOrigemId     String            @map("unidade_origem_id")
+  unidadeOrigem       Unidade           @relation("SolicitacaoOrigem", fields: [unidadeOrigemId], references: [id])
+  unidadeDestinoId    String?           @map("unidade_destino_id")
+  unidadeDestino      Unidade?          @relation("SolicitacaoDestino", fields: [unidadeDestinoId], references: [id])
+  equipamentoId       String?           @map("equipamento_id")
+  equipamento         Equipamento?      @relation(fields: [equipamentoId], references: [id])
+  tipoEquipamentoId   String?           @map("tipo_equipamento_id")
+  tipoEquipamento     TipoEquipamento?  @relation(fields: [tipoEquipamentoId], references: [id])
+  quantidade          Int?
+  justificativa       String
+  origemRecurso       OrigemRecurso?    @map("origem_recurso")
+  ataId               String?           @map("ata_id")
+  ata                 Ata?              @relation(fields: [ataId], references: [id])
+  valorVinculado      Decimal?          @map("valor_vinculado") @db.Decimal(12, 2)
+  motivoNegacao       String?           @map("motivo_negacao")
+  // Empréstimo (RF24-27)
+  dataRetornoPrevista DateTime?         @map("data_retorno_prevista")
+  estadoRecebimento   EstadoConservacao? @map("estado_recebimento")
+  // RN07: solicitação aberta automaticamente pelo Sistema após laudo de baixa
+  automatica          Boolean           @default(false)
+  criadoPorId         String?           @map("criado_por_id")
+  criadoPor           Usuario?          @relation("SolicitacaoCriadaPor", fields: [criadoPorId], references: [id])
+  decididoPorId       String?           @map("decidido_por_id")
+  decididoPor         Usuario?          @relation("SolicitacaoDecididaPor", fields: [decididoPorId], references: [id])
+  criadoEm            DateTime          @default(now()) @map("criado_em")
+  atualizadoEm        DateTime          @updatedAt @map("atualizado_em")
+
+  @@map("solicitacao")
+}
+
+enum StatusContrato {
+  ATIVO
+  RENOVACAO_PENDENTE
+  EXPIRADO
+}
+
+model Contrato {
+  id                 String         @id @default(uuid())
+  numero             String         @unique
+  empresa            String
+  cnpj               String?        @unique
+  tipo               String
+  objeto             String
+  valorTotal         Decimal?       @map("valor_total") @db.Decimal(14, 2)
+  condicoesPagamento String?        @map("condicoes_pagamento")
+  status             StatusContrato @default(ATIVO)
+  observacoes        String?
+  vigenciaInicio     DateTime       @map("vigencia_inicio")
+  vigenciaFim        DateTime       @map("vigencia_fim")
+  ativo              Boolean        @default(true)
+  criadoEm           DateTime       @default(now()) @map("criado_em")
+
+  manutencoes Manutencao[]
+
+  @@map("contrato")
+}
+
+model Ata {
+  id                  String   @id @default(uuid())
+  numero              String   @unique
+  fornecedor          String   @default("")
+  descricao           String
+  valorTotal          Decimal  @map("valor_total") @db.Decimal(14, 2)
+  // RN09: saldo nunca pode ficar negativo
+  saldo               Decimal  @db.Decimal(14, 2)
+  vencimento          DateTime
+  // Se preenchida, a ata só pode ser utilizada por esta unidade (Figma)
+  unidadeEspecificaId String?  @map("unidade_especifica_id")
+  unidadeEspecifica   Unidade? @relation("AtaUnidadeEspecifica", fields: [unidadeEspecificaId], references: [id])
+  ativo               Boolean  @default(true)
+  criadoEm            DateTime @default(now()) @map("criado_em")
+
+  solicitacoes Solicitacao[]
+
+  @@map("ata")
+}
+
+// RF31: estoque interno (guarda física) x estoque Branet (registro
+// oficial de saída), por tipo de equipamento.
+model EstoqueGalpao {
+  id                String                @id @default(uuid())
+  tipoEquipamentoId String                @unique @map("tipo_equipamento_id")
+  tipoEquipamento   TipoEquipamento       @relation(fields: [tipoEquipamentoId], references: [id])
+  quantidade        Int                   @default(0)
+  reservado         Int                   @default(0)
+  ultimaEntradaEm   DateTime?             @map("ultima_entrada_em")
+  atualizadoEm      DateTime              @updatedAt @map("atualizado_em")
+  movimentacoes     MovimentacaoEstoque[]
+
+  @@map("estoque_galpao")
+}
+
+model MovimentacaoEstoque {
+  id                 String        @id @default(uuid())
+  estoqueId          String        @map("estoque_id")
+  estoque            EstoqueGalpao @relation(fields: [estoqueId], references: [id])
+  tipo               String        // ENTRADA | SAIDA
+  quantidade         Int
+  unidadeDestinoId   String?       @map("unidade_destino_id")
+  unidadeDestino     Unidade?      @relation("MovEstoqueDestino", fields: [unidadeDestinoId], references: [id])
+  atualizadoNoBranet Boolean       @default(false) @map("atualizado_no_branet")
+  usuarioId          String?       @map("usuario_id")
+  usuario            Usuario?      @relation("MovEstoqueUsuario", fields: [usuarioId], references: [id])
+  criadoEm           DateTime      @default(now()) @map("criado_em")
+
+  @@map("movimentacao_estoque")
+}
+
+// RNF06: log de auditoria imutável com snapshots antes/depois
+model LogAuditoria {
+  id          String   @id @default(uuid())
+  usuarioId   String?  @map("usuario_id")
+  usuario     Usuario? @relation(fields: [usuarioId], references: [id])
+  acao        String
+  entidade    String
+  entidadeId  String?  @map("entidade_id")
+  dadosAntes  Json?    @map("dados_antes")
+  dadosDepois Json?    @map("dados_depois")
+  criadoEm    DateTime @default(now()) @map("criado_em")
+
+  @@map("log_auditoria")
+}
+
+// Registro de cada envio de notificação (seção 5.3 do RFC)
+model Notificacao {
+  id           String            @id @default(uuid())
+  destinatario String
+  assunto      String
+  corpo        String
+  status       StatusNotificacao
+  erro         String?
+  criadoEm     DateTime          @default(now()) @map("criado_em")
+
+  @@map("notificacao")
+}

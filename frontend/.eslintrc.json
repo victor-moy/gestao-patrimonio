@@ -1,0 +1,16 @@
+{
+  "root": true,
+  "env": { "browser": true, "es2022": true },
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint", "security"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:security/recommended-legacy"
+  ],
+  "rules": {
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "security/detect-object-injection": "off"
+  },
+  "ignorePatterns": ["dist", "node_modules", "coverage"]
+}
