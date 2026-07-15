@@ -29,7 +29,7 @@ const unidadeSchema = z.object({
   tipo: z.nativeEnum(TipoUnidade),
   endereco: z.string().nullable().optional(),
   emailBase: z.string().email().nullable().optional(),
-  responsavelId: z.string().uuid(),
+  responsavelId: z.string().uuid().optional(),
 });
 
 async function buscarUsuarioAtivo(responsavelId: string) {

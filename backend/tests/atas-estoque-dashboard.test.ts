@@ -94,35 +94,32 @@ describe('Estoque do galpão (RF31/RF32)', () => {
   it('bloqueia saída acima do disponível', async () => {
     prismaMock.estoqueGalpao.findUnique.mockResolvedValue({
       id: 'est-1',
-      quantidadeInterna: 1,
-      quantidadeBranet: 5,
+      quantidade: 1,
       tipoEquipamento: {},
     } as never);
     const res = await request(app)
       .post('/estoque/saida')
       .set(auth('GALPAO', { unidadeId: 'galpao-1' }))
-      .send({ tipoEquipamentoId: UUID, quantidade: 3, origem: 'INTERNO' });
+      .send({ tipoEquipamentoId: UUID, quantidade: 3, unidadeDestinoId: UUID });
     expect(res.status).toBe(422);
     expect(res.body.mensagem).toContain('indisponível');
   });
 
-  it('estoques interno e Branet são movimentados separadamente (RF31)', async () => {
-    prismaMock.estoqueGalpao.findUnique.mockResolvedValue({
-      id: 'est-1',
-      quantidadeInterna: 1,
-      quantidadeBranet: 5,
-      tipoEquipamento: {},
+  it('alterna o status de reconciliação com o Branet por movimentação (RF31)', async () => {
+    prismaMock.movimentacaoEstoque.findUnique.mockResolvedValue({
+      id: 'mov-1',
+      atualizadoNoBranet: false,
     } as never);
-    prismaMock.estoqueGalpao.update.mockResolvedValue({ id: 'est-1' } as never);
+    prismaMock.movimentacaoEstoque.update.mockResolvedValue({
+      id: 'mov-1',
+      atualizadoNoBranet: true,
+    } as never);
     const res = await request(app)
-      .post('/estoque/saida')
-      .set(auth('GALPAO', { unidadeId: 'galpao-1' }))
-      .send({ tipoEquipamentoId: UUID, quantidade: 3, origem: 'BRANET' });
+      .patch('/estoque/movimentacoes/mov-1')
+      .set(auth('GALPAO', { unidadeId: 'galpao-1' }));
     expect(res.status).toBe(200);
-    expect(prismaMock.estoqueGalpao.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { quantidadeBranet: { decrement: 3 } },
-      }),
+    expect(prismaMock.movimentacaoEstoque.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { atualizadoNoBranet: true } }),
     );
   });
 });
