@@ -1,71 +1,176 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { api, urlArquivo } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { Modal } from '../components/Modal';
-import { IconeCaixa, IconeEntrada, IconeSaida } from '../components/icons';
-import type { Categoria, EstoqueItem, MovimentacaoEstoque, Unidade } from '../types';
-import { formatarData } from '../utils/format';
+import { IconeBusca, IconeCaixa, IconeEntrada, IconeSaida, IconeUpload } from '../components/icons';
+import type { Categoria, EstoqueItem, Unidade } from '../types';
+import { capitalizarPalavras } from '../utils/format';
+
+interface ResultadoImportacaoEstoque {
+  totalLinhas: number;
+  itensUnicos: number;
+  tiposCriados: number;
+  itensAtualizados: number;
+  ajustes: number;
+  duplicados: string[];
+}
+
+type StatusItem = 'OK' | 'BAIXO' | 'ESGOTADO';
+type FiltroStatus = '' | StatusItem;
+type Ordenacao = 'nome' | 'qtd_asc' | 'qtd_desc';
+
+const TAMANHO_PAGINA = 20;
+
+function statusDoItem(qtd: number): StatusItem {
+  if (qtd === 0) return 'ESGOTADO';
+  if (qtd <= 3) return 'BAIXO';
+  return 'OK';
+}
+
+function rotuloStatus(status: StatusItem) {
+  if (status === 'ESGOTADO') return 'Esgotado';
+  if (status === 'BAIXO') return 'Estoque baixo';
+  return 'Em estoque';
+}
+
+function corStatus(status: StatusItem) {
+  if (status === 'ESGOTADO') return 'var(--red-text)';
+  if (status === 'BAIXO') return 'var(--yellow-text)';
+  return 'var(--green)';
+}
+
+// Gera os números de página exibidos na paginação, com "..." nas lacunas
+function paginasVisiveis(atual: number, total: number): Array<number | '...'> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const paginas = new Set([1, total, atual - 1, atual, atual + 1]);
+  const ordenadas = Array.from(paginas)
+    .filter((p) => p >= 1 && p <= total)
+    .sort((a, b) => a - b);
+  const resultado: Array<number | '...'> = [];
+  ordenadas.forEach((p, i) => {
+    if (i > 0 && p - (ordenadas[i - 1] as number) > 1) resultado.push('...');
+    resultado.push(p);
+  });
+  return resultado;
+}
 
 export function Estoque() {
-  const [aba, setAba] = useState<'estoque' | 'movimentacoes'>('estoque');
   const [itens, setItens] = useState<EstoqueItem[]>([]);
-  const [movimentacoes, setMovimentacoes] = useState<MovimentacaoEstoque[]>([]);
   const [busca, setBusca] = useState('');
-  const [modal, setModal] = useState<'entrada' | 'saida' | null>(null);
+  const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('');
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>('nome');
+  const [pagina, setPagina] = useState(1);
+  const [modal, setModal] = useState<{ operacao: 'entrada' | 'saida'; tipoId?: string } | null>(null);
   const [mensagem, setMensagem] = useMensagemTemporaria();
   const [erro, setErro] = useState<string | null>(null);
+  const inputCsv = useRef<HTMLInputElement>(null);
 
   const carregar = useCallback(() => {
     api.get<EstoqueItem[]>('/estoque').then(setItens).catch((e) => setErro(e.message));
-    api.get<MovimentacaoEstoque[]>('/estoque/movimentacoes').then(setMovimentacoes).catch(() => {});
   }, []);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
 
-  async function toggleBranet(id: string) {
+  async function importarCsv(arquivo: File) {
+    setErro(null);
+    setMensagem(null);
+    const form = new FormData();
+    form.append('arquivo', arquivo);
     try {
-      const atualizado = await api.patch<MovimentacaoEstoque>(`/estoque/movimentacoes/${id}`, {});
-      setMovimentacoes((prev) => prev.map((m) => (m.id === id ? atualizado : m)));
+      const r = await api.post<ResultadoImportacaoEstoque>('/estoque/importar-csv', form);
+      setMensagem(
+        `Importação concluída: ${r.itensUnicos} itens processados` +
+          `${r.tiposCriados > 0 ? `, ${r.tiposCriados} novos cadastrados` : ''}` +
+          `${r.ajustes > 0 ? `, ${r.ajustes} com ajuste de saldo` : ''}.` +
+          (r.duplicados.length > 0
+            ? ` Códigos duplicados no arquivo (usada a última ocorrência): ${r.duplicados.join(', ')}.`
+            : ''),
+      );
+      carregar();
     } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro');
+      setErro(e instanceof Error ? e.message : 'Erro na importação');
     }
   }
 
-  const filtrados = itens.filter(
-    (i) =>
-      !busca ||
-      i.tipoEquipamento.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      i.tipoEquipamento.codigo.toLowerCase().includes(busca.toLowerCase()),
-  );
-
-  const movFiltradas = movimentacoes.filter(
-    (m) =>
-      !busca ||
-      m.estoque.tipoEquipamento.nome.toLowerCase().includes(busca.toLowerCase()) ||
-      m.estoque.tipoEquipamento.codigo.toLowerCase().includes(busca.toLowerCase()),
-  );
-
-  function statusEstoque(qtd: number) {
-    if (qtd === 0) return <span className="badge badge-red">Esgotado</span>;
-    if (qtd <= 3) return <span className="badge badge-yellow">Estoque Baixo</span>;
-    return <span className="badge badge-green">Disponível</span>;
+  function limparFiltrosEstoque() {
+    setBusca('');
+    setFiltroCategoria('');
+    setFiltroStatus('');
+    setOrdenacao('nome');
+    setPagina(1);
   }
+
+  // Totais gerais (não sofrem efeito dos filtros/busca — visão geral do estoque)
+  const stats = useMemo(() => {
+    const baixo = itens.filter((i) => statusDoItem(i.quantidade) === 'BAIXO').length;
+    const esgotado = itens.filter((i) => statusDoItem(i.quantidade) === 'ESGOTADO').length;
+    return { total: itens.length, baixo, esgotado };
+  }, [itens]);
+
+  const categoriasDisponiveis = useMemo(
+    () =>
+      Array.from(
+        new Set(itens.map((i) => i.tipoEquipamento.categoria?.nome).filter((n): n is string => !!n)),
+      ).sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    [itens],
+  );
+
+  const filtradosOrdenados = useMemo(() => {
+    const alvo = busca.toLowerCase();
+    const filtrados = itens.filter((i) => {
+      const buscaOk =
+        !alvo ||
+        i.tipoEquipamento.nome.toLowerCase().includes(alvo) ||
+        i.tipoEquipamento.codigo.toLowerCase().includes(alvo) ||
+        (i.tipoEquipamento.categoria?.nome.toLowerCase().includes(alvo) ?? false);
+      const categoriaOk = !filtroCategoria || i.tipoEquipamento.categoria?.nome === filtroCategoria;
+      const statusOk = !filtroStatus || statusDoItem(i.quantidade) === filtroStatus;
+      return buscaOk && categoriaOk && statusOk;
+    });
+    return [...filtrados].sort((a, b) => {
+      if (ordenacao === 'qtd_asc') return a.quantidade - b.quantidade;
+      if (ordenacao === 'qtd_desc') return b.quantidade - a.quantidade;
+      return a.tipoEquipamento.nome.localeCompare(b.tipoEquipamento.nome, 'pt-BR');
+    });
+  }, [itens, busca, filtroCategoria, filtroStatus, ordenacao]);
+
+  // Sempre que os filtros/busca mudam, volta pra primeira página
+  useEffect(() => {
+    setPagina(1);
+  }, [busca, filtroCategoria, filtroStatus, ordenacao]);
+
+  const totalPaginas = Math.max(1, Math.ceil(filtradosOrdenados.length / TAMANHO_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const inicio = (paginaAtual - 1) * TAMANHO_PAGINA;
+  const itensDaPagina = filtradosOrdenados.slice(inicio, inicio + TAMANHO_PAGINA);
 
   return (
     <>
       <div className="page-header">
         <div>
           <h2>Gestão de Estoque</h2>
-          <p className="subtitle">Controle do estoque físico no Galpão</p>
+          <p className="subtitle">Controle do estoque disponível para distribuição</p>
         </div>
         <div className="page-actions">
-          <button className="btn btn-success" onClick={() => setModal('entrada')}>
-            <IconeEntrada /> Registrar Entrada
-          </button>
-          <button className="btn btn-primary" onClick={() => setModal('saida')}>
-            <IconeSaida /> Registrar Saída
+          <input
+            ref={inputCsv}
+            type="file"
+            accept=".csv"
+            style={{ display: 'none' }}
+            onChange={(e) => {
+              const arquivo = e.target.files?.[0];
+              if (arquivo) importarCsv(arquivo);
+              e.target.value = '';
+            }}
+          />
+          <button
+            className="btn btn-outline btn-leve"
+            onClick={() => inputCsv.current?.click()}
+          >
+            <IconeUpload /> Importar CSV
           </button>
         </div>
       </div>
@@ -73,130 +178,265 @@ export function Estoque() {
       {mensagem && <div className="success-banner toast-sucesso">{mensagem}</div>}
       {erro && <div className="error-banner toast-erro">{erro}</div>}
 
-      <div className="inner-tabs">
-        <button
-          className={`inner-tab${aba === 'estoque' ? ' active' : ''}`}
-          onClick={() => { setAba('estoque'); setBusca(''); }}
-        >
-          Estoque
-        </button>
-        <button
-          className={`inner-tab${aba === 'movimentacoes' ? ' active' : ''}`}
-          onClick={() => { setAba('movimentacoes'); setBusca(''); }}
-        >
-          Movimentações
-        </button>
-      </div>
-
-      <div className="card">
-        <div className="toolbar">
-          <input
-            className="search"
-            placeholder={aba === 'estoque' ? 'Buscar por tipo ou código...' : 'Buscar por tipo ou código...'}
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
-        </div>
-
-        {aba === 'estoque' ? (
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Código</th>
-                  <th>Tipo de Item</th>
-                  <th>Quantidade</th>
-                  <th>Reservado</th>
-                  <th>Última Entrada</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtrados.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.tipoEquipamento.codigo}</td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <IconeCaixa /> {item.tipoEquipamento.nome}
-                      </div>
-                    </td>
-                    <td style={{ fontWeight: 700, color: item.quantidade > 0 ? 'var(--green)' : 'inherit' }}>
-                      {item.quantidade}
-                    </td>
-                    <td style={{ color: item.reservado > 0 ? '#b45309' : 'inherit' }}>
-                      {item.reservado}
-                    </td>
-                    <td>{formatarData(item.ultimaEntradaEm)}</td>
-                    <td>{statusEstoque(item.quantidade)}</td>
-                  </tr>
-                ))}
-                {filtrados.length === 0 && (
-                  <tr>
-                    <td colSpan={6}>
-                      <div className="empty-state">Nenhum item no estoque</div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+      <div className="estoque-stats">
+            <div className="estoque-stat">
+              <div className="estoque-stat-icone estoque-stat-icone--azul">
+                <IconeCaixa />
+              </div>
+              <div>
+                <div className="estoque-stat-valor">{stats.total}</div>
+                <div className="estoque-stat-label">Total de produtos</div>
+              </div>
+            </div>
+            <div className="estoque-stat">
+              <div className="estoque-stat-icone estoque-stat-icone--amber">
+                <IconeCaixa />
+              </div>
+              <div>
+                <div className="estoque-stat-valor">{stats.baixo}</div>
+                <div className="estoque-stat-label">Estoque baixo</div>
+              </div>
+            </div>
+            <div className="estoque-stat">
+              <div className="estoque-stat-icone estoque-stat-icone--vermelho">
+                <IconeCaixa />
+              </div>
+              <div>
+                <div className="estoque-stat-valor">{stats.esgotado}</div>
+                <div className="estoque-stat-label">Esgotados</div>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Tipo</th>
-                  <th>Item</th>
-                  <th>Qtd</th>
-                  <th>Unidade Destino</th>
-                  <th>Registrado por</th>
-                  <th>Branet</th>
-                </tr>
-              </thead>
-              <tbody>
-                {movFiltradas.map((m) => (
-                  <tr key={m.id}>
-                    <td>{formatarData(m.criadoEm)}</td>
-                    <td>
-                      <span className={`badge badge-${m.tipo === 'ENTRADA' ? 'green' : 'blue'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        {m.tipo === 'ENTRADA' ? <><IconeEntrada /> Entrada</> : <><IconeSaida /> Saída</>}
+
+          <div className="card">
+            <div className="estoque-toolbar">
+              <div className="estoque-search">
+                <IconeBusca />
+                <input
+                  placeholder="Buscar por nome, código ou categoria..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
+              </div>
+              <select
+                className="estoque-select"
+                value={filtroCategoria}
+                onChange={(e) => setFiltroCategoria(e.target.value)}
+              >
+                <option value="">Todas as categorias</option>
+                {categoriasDisponiveis.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="estoque-select"
+                value={filtroStatus}
+                onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
+              >
+                <option value="">Todos os status</option>
+                <option value="OK">Em estoque</option>
+                <option value="BAIXO">Estoque baixo</option>
+                <option value="ESGOTADO">Esgotado</option>
+              </select>
+              <select
+                className="estoque-select"
+                value={ordenacao}
+                onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
+              >
+                <option value="nome">Ordenar por nome</option>
+                <option value="qtd_asc">Menor quantidade</option>
+                <option value="qtd_desc">Maior quantidade</option>
+              </select>
+            </div>
+
+            <div className="estoque-tabela-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Imagem</th>
+                    <th>Produto</th>
+                    <th>Código</th>
+                    <th>Categoria</th>
+                    <th>Estoque</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {itensDaPagina.map((item) => {
+                    const status = statusDoItem(item.quantidade);
+                    const cor = item.tipoEquipamento.categoria?.cor || '#6b7280';
+                    return (
+                      <tr key={item.id}>
+                        <td>
+                          <div className="estoque-produto-thumb">
+                            {item.tipoEquipamento.imagemUrl ? (
+                              <img
+                                src={urlArquivo(item.tipoEquipamento.imagemUrl)}
+                                alt={item.tipoEquipamento.nome}
+                              />
+                            ) : (
+                              <IconeCaixa />
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="estoque-produto-nome">
+                            {capitalizarPalavras(item.tipoEquipamento.nome)}
+                          </div>
+                          {item.tipoEquipamento.descricao && (
+                            <div className="celula-sub">{capitalizarPalavras(item.tipoEquipamento.descricao)}</div>
+                          )}
+                        </td>
+                        <td>#{item.tipoEquipamento.codigo}</td>
+                        <td>
+                          {item.tipoEquipamento.categoria && (
+                            <span
+                              className="pill-categoria"
+                              style={{ background: `${cor}1f`, color: cor }}
+                            >
+                              {item.tipoEquipamento.categoria.nome}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <span style={{ fontWeight: 700, color: corStatus(status) }}>
+                            {item.quantidade} <small>un.</small>
+                          </span>
+                        </td>
+                        <td>
+                          <span
+                            className={`badge badge-leve badge-${
+                              status === 'ESGOTADO' ? 'red' : status === 'BAIXO' ? 'yellow' : 'green'
+                            }`}
+                          >
+                            {rotuloStatus(status)}
+                          </span>
+                        </td>
+                        <td>
+                          <div className="estoque-acoes-linha">
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm btn-leve"
+                              onClick={() => setModal({ operacao: 'entrada', tipoId: item.tipoEquipamento.id })}
+                            >
+                              <IconeEntrada /> Entrada
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm btn-leve"
+                              onClick={() => setModal({ operacao: 'saida', tipoId: item.tipoEquipamento.id })}
+                            >
+                              <IconeSaida /> Saída
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {itensDaPagina.length === 0 && (
+                    <tr>
+                      <td colSpan={7}>
+                        <div className="estoque-vazio">
+                          <div className="estoque-vazio-icone">
+                            <IconeCaixa />
+                          </div>
+                          {itens.length === 0 ? (
+                            <>
+                              <div className="estoque-vazio-titulo">Nenhum item cadastrado no estoque</div>
+                              <div className="estoque-vazio-sub">
+                                Os itens aparecerão aqui após o primeiro cadastro ou importação.
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="estoque-vazio-titulo">Nenhum item encontrado</div>
+                              <div className="estoque-vazio-sub">
+                                Ajuste a busca ou os filtros para ver outros itens.
+                              </div>
+                              <button type="button" className="btn btn-ghost btn-sm" onClick={limparFiltrosEstoque}>
+                                Limpar filtros
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {filtradosOrdenados.length > 0 && (
+              <div className="estoque-paginacao">
+                <div className="estoque-paginacao-info">
+                  Mostrando {inicio + 1} a {Math.min(inicio + TAMANHO_PAGINA, filtradosOrdenados.length)} de{' '}
+                  {filtradosOrdenados.length} produtos
+                </div>
+                <div className="estoque-paginacao-botoes">
+                  <button
+                    type="button"
+                    className="btn-icone"
+                    disabled={paginaAtual === 1}
+                    onClick={() => setPagina(1)}
+                    aria-label="Primeira página"
+                  >
+                    «
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-icone"
+                    disabled={paginaAtual === 1}
+                    onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                    aria-label="Página anterior"
+                  >
+                    ‹
+                  </button>
+                  {paginasVisiveis(paginaAtual, totalPaginas).map((p, i) =>
+                    p === '...' ? (
+                      <span key={`ellipsis-${i}`} className="estoque-paginacao-ellipsis">
+                        …
                       </span>
-                    </td>
-                    <td>
-                      <div style={{ fontWeight: 600 }}>{m.estoque.tipoEquipamento.nome}</div>
-                      <div className="celula-sub">{m.estoque.tipoEquipamento.codigo}</div>
-                    </td>
-                    <td>{m.quantidade}</td>
-                    <td>{m.unidadeDestino?.nome ?? '—'}</td>
-                    <td>{m.usuario?.nome ?? '—'}</td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={m.atualizadoNoBranet}
-                        onChange={() => toggleBranet(m.id)}
-                        title={m.atualizadoNoBranet ? 'Atualizado no Branet' : 'Pendente no Branet'}
-                        style={{ cursor: 'pointer', width: 'auto' }}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {movFiltradas.length === 0 && (
-                  <tr>
-                    <td colSpan={7}>
-                      <div className="empty-state">Nenhuma movimentação registrada</div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                    ) : (
+                      <button
+                        type="button"
+                        key={p}
+                        className={`estoque-paginacao-pagina${p === paginaAtual ? ' active' : ''}`}
+                        onClick={() => setPagina(p)}
+                      >
+                        {p}
+                      </button>
+                    ),
+                  )}
+                  <button
+                    type="button"
+                    className="btn-icone"
+                    disabled={paginaAtual === totalPaginas}
+                    onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                    aria-label="Próxima página"
+                  >
+                    ›
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-icone"
+                    disabled={paginaAtual === totalPaginas}
+                    onClick={() => setPagina(totalPaginas)}
+                    aria-label="Última página"
+                  >
+                    »
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
       {modal && (
         <MovimentarEstoque
-          operacao={modal}
+          operacao={modal.operacao}
+          tipoEquipamentoIdInicial={modal.tipoId}
           onFechar={() => setModal(null)}
           onSucesso={(msg) => {
             setModal(null);
@@ -211,10 +451,12 @@ export function Estoque() {
 
 function MovimentarEstoque({
   operacao,
+  tipoEquipamentoIdInicial,
   onFechar,
   onSucesso,
 }: {
   operacao: 'entrada' | 'saida';
+  tipoEquipamentoIdInicial?: string;
   onFechar: () => void;
   onSucesso: (mensagem: string) => void;
 }) {
@@ -222,7 +464,7 @@ function MovimentarEstoque({
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [erro, setErro] = useMensagemTemporaria();
   const [form, setForm] = useState({
-    tipoEquipamentoId: '',
+    tipoEquipamentoId: tipoEquipamentoIdInicial ?? '',
     quantidade: 1,
     unidadeDestinoId: '',
   });

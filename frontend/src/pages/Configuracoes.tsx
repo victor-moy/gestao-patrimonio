@@ -1,12 +1,13 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { api } from '../api/client';
+import { api, urlArquivo } from '../api/client';
 import { Modal } from '../components/Modal';
 import { TextoTruncado } from '../components/TextoTruncado';
 import {
   IconeAlerta,
   IconeAtas,
   IconeBusca,
+  IconeCaixa,
   IconeCalendario,
   IconeContratos,
   IconeDinheiro,
@@ -934,25 +935,49 @@ function FormTipo({
     descricao: tipo?.descricao ?? '',
   };
   const [form, setForm] = useState(inicial);
+  const [imagemAtual, setImagemAtual] = useState(tipo?.imagemUrl ?? null);
+  const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
+  const [previewImagem, setPreviewImagem] = useState<string | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const inputImagem = useRef<HTMLInputElement>(null);
+
+  function selecionarImagem(arquivo: File) {
+    setArquivoImagem(arquivo);
+    setPreviewImagem(URL.createObjectURL(arquivo));
+  }
+
+  async function removerImagemAtual() {
+    if (!tipo || !window.confirm('Remover a imagem deste tipo de equipamento?')) return;
+    try {
+      await api.delete(`/categorias/tipos/${tipo.id}/imagem`);
+      setImagemAtual(null);
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : 'Erro ao remover imagem');
+    }
+  }
 
   async function aoEnviar(e: FormEvent) {
     e.preventDefault();
     setErro(null);
-    if (tipo && semAlteracoes(inicial, form)) {
+    if (tipo && semAlteracoes(inicial, form) && !arquivoImagem) {
       onFechar();
       return;
     }
     const payload = { ...form, descricao: form.descricao || null };
+    setEnviando(true);
     try {
-      if (tipo) {
-        await api.patch(`/categorias/tipos/${tipo.id}`, payload);
-        onSucesso('Tipo atualizado.');
-      } else {
-        await api.post('/categorias/tipos', payload);
-        onSucesso('Tipo cadastrado.');
+      const salvo = tipo
+        ? await api.patch<TipoEquipamento>(`/categorias/tipos/${tipo.id}`, payload)
+        : await api.post<TipoEquipamento>('/categorias/tipos', payload);
+      if (arquivoImagem) {
+        const dadosImagem = new FormData();
+        dadosImagem.append('imagem', arquivoImagem);
+        await api.post(`/categorias/tipos/${salvo.id}/imagem`, dadosImagem);
       }
+      onSucesso(tipo ? 'Tipo atualizado.' : 'Tipo cadastrado.');
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro');
+      setEnviando(false);
     }
   }
 
@@ -960,6 +985,43 @@ function FormTipo({
     <Modal titulo={tipo ? 'Editar Tipo de Equipamento' : 'Novo Tipo de Equipamento'} onFechar={onFechar}>
       <form onSubmit={aoEnviar}>
         {erro && <div className="error-banner toast-erro">{erro}</div>}
+        <div className="field">
+          <label>Imagem do Equipamento</label>
+          <div className="imagem-upload">
+            <div className="imagem-upload-preview">
+              {previewImagem || imagemAtual ? (
+                <img src={previewImagem ?? urlArquivo(imagemAtual!)} alt="" />
+              ) : (
+                <IconeCaixa />
+              )}
+            </div>
+            <div className="imagem-upload-acoes">
+              <input
+                ref={inputImagem}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                style={{ display: 'none' }}
+                onChange={(e) => {
+                  const arquivo = e.target.files?.[0];
+                  if (arquivo) selecionarImagem(arquivo);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => inputImagem.current?.click()}
+              >
+                {imagemAtual || previewImagem ? 'Trocar imagem' : 'Selecionar imagem'}
+              </button>
+              {tipo && imagemAtual && !previewImagem && (
+                <button type="button" className="btn btn-excluir btn-sm" onClick={removerImagemAtual}>
+                  Remover
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
         <div className="field">
           <label>Código *</label>
           <input
@@ -1009,9 +1071,9 @@ function FormTipo({
           <button
             type="submit"
             className="btn btn-primary"
-            disabled={semAlteracoes(inicial, form)}
+            disabled={enviando || (semAlteracoes(inicial, form) && !arquivoImagem)}
           >
-            {tipo ? 'Salvar' : 'Cadastrar'}
+            {enviando ? 'Salvando...' : tipo ? 'Salvar' : 'Cadastrar'}
           </button>
         </div>
       </form>

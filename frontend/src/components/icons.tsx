@@ -74,6 +74,18 @@ export const IconeChevron = () => (
   </Icone>
 );
 
+export const IconeMenu = () => (
+  <Icone>
+    <path d="M3 12h18M3 6h18M3 18h18" />
+  </Icone>
+);
+
+export const IconeFechar = () => (
+  <Icone>
+    <path d="M18 6L6 18M6 6l12 12" />
+  </Icone>
+);
+
 export const IconeUsuarios = () => (
   <Icone>
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -191,6 +203,14 @@ export const IconeSaida = () => (
     <path d="M12 21V9" />
     <path d="M8 13l4-4 4 4" />
     <path d="M3 7V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1" />
+  </Icone>
+);
+
+export const IconeUpload = () => (
+  <Icone width="16" height="16">
+    <path d="M17 8l-5-5-5 5" />
+    <path d="M12 3v12" />
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
   </Icone>
 );
 

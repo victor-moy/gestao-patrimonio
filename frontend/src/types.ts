@@ -30,6 +30,7 @@ export interface TipoEquipamento {
   codigo: string;
   nome: string;
   descricao?: string | null;
+  imagemUrl?: string | null;
   categoriaId: string;
   categoria?: { nome: string };
   quantidadeEquipamentos?: number;
@@ -163,7 +164,7 @@ export interface EstoqueItem {
   quantidade: number;
   reservado: number;
   ultimaEntradaEm: string | null;
-  tipoEquipamento: TipoEquipamento & { categoria?: { nome: string } };
+  tipoEquipamento: TipoEquipamento & { categoria?: { nome: string; cor: string | null } };
 }
 
 export interface MovimentacaoEstoque {

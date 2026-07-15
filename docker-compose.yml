@@ -35,8 +35,10 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-SGP <sgp@joinville.sc.gov.br>}
-    expose:
-      - '3333'
+    volumes:
+      - api-uploads:/app/uploads
+    ports:
+      - '3333:3333'
 
   web:
     build: ./frontend
@@ -72,3 +74,4 @@ services:
 volumes:
   pgdata:
   grafana-data:
+  api-uploads:

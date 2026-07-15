@@ -17,6 +17,7 @@ import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { importacaoRouter } from './modules/importacao/importacao.routes';
 import { tratarErros } from './middlewares/error';
 import { prisma } from './lib/prisma';
+import { UPLOADS_DIR } from './lib/uploads';
 
 export function criarApp() {
   const app = express();
@@ -24,6 +25,7 @@ export function criarApp() {
   app.use(helmet());
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
+  app.use('/uploads', express.static(UPLOADS_DIR));
 
   // Observabilidade (RFC 5.5.4)
   const register = new client.Registry();

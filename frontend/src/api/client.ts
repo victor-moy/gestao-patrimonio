@@ -1,5 +1,9 @@
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
+export function urlArquivo(caminho: string) {
+  return `${API_URL}${caminho}`;
+}
+
 const storage = () => globalThis.localStorage as Storage | undefined;
 
 let token: string | null = storage()?.getItem('sgp_token') ?? null;

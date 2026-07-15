@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { ROTULO_PERFIL } from '../utils/format';
+import logoPrefeitura from '../assets/logo-prefeitura-saude.png';
 import {
   IconeChevron,
   IconeEstoque,
+  IconeFechar,
   IconeInicio,
   IconeInventario,
   IconeManutencoes,
+  IconeMenu,
   IconeRelatorios,
   IconeSolicitacoes,
 } from './icons';
@@ -35,29 +37,54 @@ export function Layout() {
   const { usuario, logout } = useAuth();
   const location = useLocation();
   const [menuAberto, setMenuAberto] = useState(false);
+  const [sidebarAberta, setSidebarAberta] = useState(false);
 
   if (!usuario) return null;
 
   const tabs = TABS.filter((t) => t.perfis.includes(usuario.perfil));
 
+  const fecharSidebar = () => setSidebarAberta(false);
+
   return (
-    <>
-      <header className="app-header">
-        <div className="app-header-inner">
-          <div className="app-title">
-            <h1>Sistema de Gestão de Patrimônio</h1>
-            <p>Secretaria Municipal de Saúde - Joinville</p>
+    <div className="app-shell">
+      {sidebarAberta && <div className="sidebar-backdrop" onClick={fecharSidebar} />}
+      <aside className={`sidebar${sidebarAberta ? ' aberta' : ''}`}>
+        <div className="sidebar-brand">
+          <div className="sidebar-logo-plate">
+            <img
+              className="sidebar-logo"
+              src={logoPrefeitura}
+              alt="Prefeitura de Joinville - Secretaria da Saúde"
+            />
           </div>
+          <button className="sidebar-fechar" onClick={fecharSidebar} aria-label="Fechar menu">
+            <IconeFechar />
+          </button>
+        </div>
+        <nav className="sidebar-nav">
+          {tabs.map((tab) => (
+            <NavLink
+              key={tab.para}
+              to={tab.para}
+              end={tab.para === '/'}
+              onClick={fecharSidebar}
+              className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+            >
+              {tab.icone} {tab.rotulo}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
           <button
             className="user-button"
             onClick={() => setMenuAberto((v) => !v)}
             aria-label="Menu do usuário"
           >
+            <span className="avatar">{usuario.nome.charAt(0).toUpperCase()}</span>
             <div className="user-meta">
               <div className="email">{usuario.nome}</div>
               <div className="role">{usuario.email}</div>
             </div>
-            <span className="avatar">{usuario.nome.charAt(0).toUpperCase()}</span>
             <span className="chevron">
               <IconeChevron />
             </span>
@@ -77,24 +104,26 @@ export function Layout() {
             </div>
           )}
         </div>
-      </header>
-      <nav className="app-nav">
-        <div className="tabs">
-          {tabs.map((tab) => (
-            <NavLink
-              key={tab.para}
-              to={tab.para}
-              end={tab.para === '/'}
-              className={({ isActive }) => `tab${isActive ? ' active' : ''}`}
-            >
-              {tab.icone} {tab.rotulo}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
-      <main className="page">
-        <Outlet />
-      </main>
-    </>
+      </aside>
+      <div className="app-content">
+        <header className="app-topbar">
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarAberta(true)}
+            aria-label="Abrir menu"
+          >
+            <IconeMenu />
+          </button>
+          <img
+            className="app-topbar-logo"
+            src={logoPrefeitura}
+            alt="Prefeitura de Joinville - Secretaria da Saúde"
+          />
+        </header>
+        <main className="page">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 }

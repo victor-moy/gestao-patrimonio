@@ -7,6 +7,7 @@ import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
+import { uploadImagemTipo, removerImagemTipo } from '../../lib/uploads';
 
 // Taxonomia de grupos/subgrupos espelhando o e-Pública
 // (feedback da reunião de 12/05/2026).
@@ -159,6 +160,59 @@ categoriasRouter.patch(
   },
 );
 
+categoriasRouter.post(
+  '/tipos/:id/imagem',
+  permitir(Perfil.GESTOR_PATRIMONIO, Perfil.GALPAO),
+  uploadImagemTipo.single('imagem'),
+  async (req, res) => {
+    if (!req.file) {
+      throw new AppError('Envie a imagem no campo "imagem".', 422);
+    }
+    const antes = await prisma.tipoEquipamento.findUnique({ where: { id: req.params.id } });
+    if (!antes) throw new AppError('Tipo de equipamento não encontrado.', 404);
+
+    removerImagemTipo(antes.imagemUrl);
+    const imagemUrl = `/uploads/tipos/${req.file.filename}`;
+    const tipo = await prisma.tipoEquipamento.update({
+      where: { id: req.params.id },
+      data: { imagemUrl },
+    });
+    await registrarAuditoria({
+      usuarioId: req.usuario!.sub,
+      acao: 'ATUALIZAR_IMAGEM_TIPO_EQUIPAMENTO',
+      entidade: 'tipo_equipamento',
+      entidadeId: tipo.id,
+      dadosAntes: { imagemUrl: antes.imagemUrl },
+      dadosDepois: { imagemUrl },
+    });
+    res.json(tipo);
+  },
+);
+
+categoriasRouter.delete(
+  '/tipos/:id/imagem',
+  permitir(Perfil.GESTOR_PATRIMONIO, Perfil.GALPAO),
+  async (req, res) => {
+    const antes = await prisma.tipoEquipamento.findUnique({ where: { id: req.params.id } });
+    if (!antes) throw new AppError('Tipo de equipamento não encontrado.', 404);
+
+    removerImagemTipo(antes.imagemUrl);
+    const tipo = await prisma.tipoEquipamento.update({
+      where: { id: req.params.id },
+      data: { imagemUrl: null },
+    });
+    await registrarAuditoria({
+      usuarioId: req.usuario!.sub,
+      acao: 'ATUALIZAR_IMAGEM_TIPO_EQUIPAMENTO',
+      entidade: 'tipo_equipamento',
+      entidadeId: tipo.id,
+      dadosAntes: { imagemUrl: antes.imagemUrl },
+      dadosDepois: { imagemUrl: null },
+    });
+    res.json(tipo);
+  },
+);
+
 categoriasRouter.delete(
   '/tipos/:id',
   permitir(Perfil.GESTOR_PATRIMONIO),
@@ -176,6 +230,7 @@ categoriasRouter.delete(
     }
     await prisma.estoqueGalpao.deleteMany({ where: { tipoEquipamentoId: req.params.id } });
     await prisma.tipoEquipamento.delete({ where: { id: req.params.id } });
+    removerImagemTipo(tipo.imagemUrl);
     await registrarAuditoria({
       usuarioId: req.usuario!.sub,
       acao: 'EXCLUIR_TIPO_EQUIPAMENTO',

@@ -18,6 +18,15 @@ export function formatarMoedaCompacta(valor: number) {
   return formatarMoeda(valor);
 }
 
+// Converte texto em CAIXA ALTA para "Primeira Letra De Cada Palavra Maiúscula"
+export function capitalizarPalavras(texto: string) {
+  return texto
+    .toLowerCase()
+    .split(' ')
+    .map((palavra) => (palavra ? palavra.charAt(0).toUpperCase() + palavra.slice(1) : palavra))
+    .join(' ');
+}
+
 export const ROTULO_ESTADO: Record<string, string> = {
   OTIMO: 'Ótimo',
   BOM: 'Bom',

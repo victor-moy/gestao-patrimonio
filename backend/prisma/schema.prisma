@@ -175,6 +175,7 @@ model TipoEquipamento {
   codigo      String    @unique
   nome        String
   descricao   String?
+  imagemUrl   String?   @map("imagem_url")
   categoriaId String    @map("categoria_id")
   categoria   Categoria @relation(fields: [categoriaId], references: [id])
   criadoEm    DateTime  @default(now()) @map("criado_em")
