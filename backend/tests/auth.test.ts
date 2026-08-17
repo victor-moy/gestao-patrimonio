@@ -80,6 +80,50 @@ describe('Autenticação (RF01, RF03, RF04, RNF04)', () => {
   });
 });
 
+describe('Impersonação (Gestor de Patrimônio "entra como" outro usuário)', () => {
+  const unidadeUsuario = {
+    id: 'user-2',
+    nome: 'Ana da Unidade',
+    email: 'ana@joinville.sc.gov.br',
+    matricula: '10002',
+    perfil: 'UNIDADE' as const,
+    ativo: true,
+    unidadeId: 'unidade-1',
+    criadoEm: new Date(),
+    unidade: { id: 'unidade-1', nome: 'UBSF Bucarein' },
+  };
+
+  it('permite que o Gestor de Patrimônio entre como outro usuário e retorna um novo token', async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue(unidadeUsuario as never);
+    const res = await request(app)
+      .post('/auth/impersonar/user-2')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeDefined();
+    expect(res.body.usuario.perfil).toBe('UNIDADE');
+    expect(res.body.usuario.unidadeNome).toBe('UBSF Bucarein');
+    expect(prismaMock.logAuditoria.create).toHaveBeenCalled();
+  });
+
+  it('rejeita usuário alvo inexistente ou inativo', async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue(null);
+    const res = await request(app)
+      .post('/auth/impersonar/user-999')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(404);
+  });
+
+  it('bloqueia perfis que não sejam Gestor de Patrimônio (RN04)', async () => {
+    const res = await request(app)
+      .post('/auth/impersonar/user-2')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send();
+    expect(res.status).toBe(403);
+  });
+});
+
 describe('RBAC (RNF05, RN03, RN04)', () => {
   it('impede que a Unidade aprove manutenções (RN03)', async () => {
     const res = await request(app)

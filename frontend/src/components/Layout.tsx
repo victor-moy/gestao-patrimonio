@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import logoPrefeitura from '../assets/logo-prefeitura-saude.png';
+import { SeletorImpersonar } from './SeletorImpersonar';
 import {
   IconeChevron,
   IconeEstoque,
@@ -34,10 +35,11 @@ const TABS: TabDef[] = [
 ];
 
 export function Layout() {
-  const { usuario, logout } = useAuth();
+  const { usuario, logout, impersonando, voltarAoMestre } = useAuth();
   const location = useLocation();
   const [menuAberto, setMenuAberto] = useState(false);
   const [sidebarAberta, setSidebarAberta] = useState(false);
+  const [seletorAberto, setSeletorAberto] = useState(false);
 
   if (!usuario) return null;
 
@@ -46,7 +48,14 @@ export function Layout() {
   const fecharSidebar = () => setSidebarAberta(false);
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}`}>
+      {impersonando && (
+        <div className="impersonar-banner">
+          Você está entrando como <strong>{usuario.nome}</strong> ({usuario.email})
+          <button onClick={voltarAoMestre}>Voltar ao meu usuário</button>
+        </div>
+      )}
+      {seletorAberto && <SeletorImpersonar onFechar={() => setSeletorAberto(false)} />}
       {sidebarAberta && <div className="sidebar-backdrop" onClick={fecharSidebar} />}
       <aside className={`sidebar${sidebarAberta ? ' aberta' : ''}`}>
         <div className="sidebar-brand">
@@ -99,6 +108,16 @@ export function Layout() {
                 >
                   Configurações do Sistema
                 </NavLink>
+              )}
+              {usuario.perfil === 'GESTOR_PATRIMONIO' && !impersonando && (
+                <button
+                  onClick={() => {
+                    setMenuAberto(false);
+                    setSeletorAberto(true);
+                  }}
+                >
+                  Entrar como...
+                </button>
               )}
               <button onClick={logout}>Sair</button>
             </div>
