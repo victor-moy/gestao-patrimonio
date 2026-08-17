@@ -164,7 +164,7 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
     prismaMock.manutencao.update.mockResolvedValue({
       ...manutencaoBase,
       status: 'BAIXADO',
-      laudoBaixa: 'Custo inviável',
+      laudoBaixa: '/uploads/laudos/laudo.pdf',
     } as never);
     prismaMock.solicitacao.create.mockResolvedValue({ id: 'sol-auto' } as never);
     prismaMock.usuario.findMany.mockResolvedValue([
@@ -174,7 +174,8 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
     const res = await request(app)
       .post('/manutencoes/man-1/validar-orcamento')
       .set(auth('GESTOR_MANUTENCAO'))
-      .send({ aprovado: false, laudoBaixa: 'Custo inviável' });
+      .field('aprovado', 'false')
+      .attach('laudo', Buffer.from('%PDF-fake'), { filename: 'laudo.pdf', contentType: 'application/pdf' });
 
     expect(res.status).toBe(200);
     // Equipamento baixado
@@ -182,10 +183,10 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
       where: { id: 'eq-1' },
       data: { status: 'BAIXADO' },
     });
-    // RN07 — solicitação automática de novo item
+    // RN07 — solicitação automática de substituição
     expect(prismaMock.solicitacao.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ tipo: 'NOVO_ITEM', automatica: true }),
+        data: expect.objectContaining({ tipo: 'SUBSTITUICAO', equipamentoId: 'eq-1', automatica: true }),
       }),
     );
   });
@@ -198,7 +199,7 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
     const res = await request(app)
       .post('/manutencoes/man-1/validar-orcamento')
       .set(auth('GESTOR_MANUTENCAO'))
-      .send({ aprovado: false });
+      .field('aprovado', 'false');
     expect(res.status).toBe(422);
   });
 

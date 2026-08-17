@@ -114,3 +114,47 @@ describe('Inventário (RF06-RF10, RN01)', () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe('Baixa manual de equipamento (leilão, extravio, roubo)', () => {
+  it('dá baixa manual com motivo e registra auditoria', async () => {
+    prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoBase as never);
+    prismaMock.equipamento.update.mockResolvedValue({
+      ...equipamentoBase,
+      status: 'BAIXADO',
+      motivoBaixa: 'LEILAO',
+    } as never);
+    const res = await request(app)
+      .post('/equipamentos/eq-1/baixa')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ motivo: 'LEILAO', observacao: 'Lote 12/2026' });
+    expect(res.status).toBe(200);
+    expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'eq-1' },
+        data: { status: 'BAIXADO', motivoBaixa: 'LEILAO' },
+      }),
+    );
+    expect(prismaMock.logAuditoria.create).toHaveBeenCalled();
+  });
+
+  it('bloqueia baixa de equipamento já baixado', async () => {
+    prismaMock.equipamento.findUnique.mockResolvedValue({
+      ...equipamentoBase,
+      status: 'BAIXADO',
+    } as never);
+    const res = await request(app)
+      .post('/equipamentos/eq-1/baixa')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ motivo: 'EXTRAVIO' });
+    expect(res.status).toBe(422);
+    expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
+  });
+
+  it('rejeita motivo de baixa inválido', async () => {
+    const res = await request(app)
+      .post('/equipamentos/eq-1/baixa')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ motivo: 'INVALIDO' });
+    expect(res.status).toBe(422);
+  });
+});
