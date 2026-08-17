@@ -23,9 +23,13 @@ enum Perfil {
 }
 
 enum TipoUnidade {
-  UBS
-  UME
-  CAC
+  UBSF
+  UPA
+  PA
+  FARMACIA
+  SERVICO_ESPECIAL
+  SERVICO_VIGILANCIA
+  UNIDADE_ADMINISTRATIVA
   GALPAO
   OUTRO
 }
@@ -43,6 +47,16 @@ enum StatusEquipamento {
   EM_MANUTENCAO
   EMPRESTADO
   BAIXADO
+  CEDIDO
+}
+
+// Motivo da baixa definitiva de um equipamento (leilão, extravio, etc.)
+enum MotivoBaixa {
+  LEILAO
+  EXTRAVIO
+  ROUBO
+  SUBSTITUICAO
+  OUTRO
 }
 
 // Ciclo de manutenção (RFC 2.3 / fluxo da Figura 6 — 7 etapas)
@@ -58,7 +72,8 @@ enum StatusManutencao {
 }
 
 enum TipoSolicitacao {
-  NOVO_ITEM
+  SUBSTITUICAO
+  AMPLIACAO
   CESSAO_USO
   EMPRESTIMO
   RECOLHA
@@ -75,6 +90,12 @@ enum StatusSolicitacao {
   AGUARDANDO_ENTREGA
   CONCLUIDA
   CANCELADA
+  EXPIRADA
+  // Fluxo de Ampliação/Substituição (feedback do Gestor de Patrimônio):
+  // aprovação não expõe ata ao solicitante — só decide reservado ou não.
+  RESERVADO
+  AGUARDANDO_DISPONIBILIDADE
+  AGUARDANDO_VALIDACAO
 }
 
 enum TipoMovimentacao {
@@ -153,6 +174,7 @@ model Unidade {
   solicitacoesDestino     Solicitacao[]  @relation("SolicitacaoDestino")
   manutencoes             Manutencao[]
   atasEspecificas         Ata[]          @relation("AtaUnidadeEspecifica")
+  estoquesGalpao          EstoqueGalpao[]
 
   @@map("unidade")
 }
@@ -180,9 +202,9 @@ model TipoEquipamento {
   categoria   Categoria @relation(fields: [categoriaId], references: [id])
   criadoEm    DateTime  @default(now()) @map("criado_em")
 
-  equipamentos  Equipamento[]
-  solicitacoes  Solicitacao[]
-  estoqueGalpao EstoqueGalpao?
+  equipamentos   Equipamento[]
+  solicitacoes   Solicitacao[]
+  estoquesGalpao EstoqueGalpao[]
 
   @@map("tipo_equipamento")
 }
@@ -202,10 +224,19 @@ model Equipamento {
   unidadeTemporaria  Unidade?          @relation("EquipamentoUnidadeTemporaria", fields: [unidadeTemporariaId], references: [id])
   estadoConservacao  EstadoConservacao @map("estado_conservacao")
   status             StatusEquipamento @default(ATIVO)
+  // Preenchido quando status = BAIXADO (leilão, extravio, roubo, substituição...)
+  motivoBaixa        MotivoBaixa?      @map("motivo_baixa")
   // RN10: flag de emenda parlamentar visível em relatórios e históricos
   emendaParlamentar  Boolean           @default(false) @map("emenda_parlamentar")
   dataAquisicao      DateTime?         @map("data_aquisicao")
   observacoes        String?
+  // Ampliação/Substituição: solicitação que gerou este item (tombamento
+  // capturado pelo Gestor ao marcar lançado no Branet) — permite listar os
+  // itens de uma solicitação pra conferência/ajuste no recebimento. Exceção
+  // estreita à RN01 (tombamento imutável): só estes itens, só enquanto a
+  // solicitação está AGUARDANDO_VALIDACAO, podem ter o tombamento corrigido.
+  criadoPorSolicitacaoId String?       @map("criado_por_solicitacao_id")
+  criadoPorSolicitacao   Solicitacao?  @relation("EquipamentoCriadoPorSolicitacao", fields: [criadoPorSolicitacaoId], references: [id])
   criadoEm           DateTime          @default(now()) @map("criado_em")
   atualizadoEm       DateTime          @updatedAt @map("atualizado_em")
 
@@ -286,9 +317,28 @@ model Solicitacao {
   ata                 Ata?              @relation(fields: [ataId], references: [id])
   valorVinculado      Decimal?          @map("valor_vinculado") @db.Decimal(12, 2)
   motivoNegacao       String?           @map("motivo_negacao")
-  // Empréstimo (RF24-27)
+  // Anexo opcional (PDF ou imagem) — comprovante de autorização/projeto interno
+  anexoUrl            String?           @map("anexo_url")
+  // Cessão de Uso: nome da entidade externa (fora do município) que recebe o equipamento
+  entidadeExternaNome String?           @map("entidade_externa_nome")
+  // Empréstimo (RF24-27) — ausência de data indica transferência permanente
   dataRetornoPrevista DateTime?         @map("data_retorno_prevista")
   estadoRecebimento   EstadoConservacao? @map("estado_recebimento")
+  // Ampliação/Substituição: registro manual de que o pedido foi lançado no
+  // Branet (não é integração — só um marcador de auditoria), feito pelo
+  // Gestor de Patrimônio ao marcar RESERVADO → AGUARDANDO_ENTREGA, junto
+  // com o número do pedido e o(s) tombamento(s) (feedback do cliente 17/08)
+  numeroPedidoBranet  String?           @map("numero_pedido_branet")
+  pedidoEntregaRegistradoEm DateTime?   @map("pedido_entrega_registrado_em")
+  // Definida pelo Gestor de Patrimônio (não pelo solicitante), usada junto
+  // com a antiguidade pra decidir prioridade entre pedidos aguardando estoque.
+  // Escala 1–3, 1 = mais urgente.
+  prioridade          Int?
+  // Confirmação de recebimento (Unidade): OK/Não OK binário, distinto do
+  // estadoRecebimento de 5 níveis usado pelo Empréstimo. Se os tombamentos
+  // informados não baterem com o cadastrado, vira anomalia automaticamente.
+  recebimentoOk       Boolean?          @map("recebimento_ok")
+  observacaoRecebimento String?         @map("observacao_recebimento")
   // RN07: solicitação aberta automaticamente pelo Sistema após laudo de baixa
   automatica          Boolean           @default(false)
   criadoPorId         String?           @map("criado_por_id")
@@ -297,6 +347,8 @@ model Solicitacao {
   decididoPor         Usuario?          @relation("SolicitacaoDecididaPor", fields: [decididoPorId], references: [id])
   criadoEm            DateTime          @default(now()) @map("criado_em")
   atualizadoEm        DateTime          @updatedAt @map("atualizado_em")
+
+  itensGerados        Equipamento[]     @relation("EquipamentoCriadoPorSolicitacao")
 
   @@map("solicitacao")
 }
@@ -348,18 +400,21 @@ model Ata {
   @@map("ata")
 }
 
-// RF31: estoque interno (guarda física) x estoque Branet (registro
-// oficial de saída), por tipo de equipamento.
+// RF31: estoque físico por galpão (CIAD/Branet, Guanabara), por tipo de equipamento.
 model EstoqueGalpao {
   id                String                @id @default(uuid())
-  tipoEquipamentoId String                @unique @map("tipo_equipamento_id")
+  tipoEquipamentoId String                @map("tipo_equipamento_id")
   tipoEquipamento   TipoEquipamento       @relation(fields: [tipoEquipamentoId], references: [id])
+  // Unidade (tipo GALPAO) dona deste pool de estoque
+  unidadeId         String                @map("unidade_id")
+  unidade           Unidade               @relation(fields: [unidadeId], references: [id])
   quantidade        Int                   @default(0)
   reservado         Int                   @default(0)
   ultimaEntradaEm   DateTime?             @map("ultima_entrada_em")
   atualizadoEm      DateTime              @updatedAt @map("atualizado_em")
   movimentacoes     MovimentacaoEstoque[]
 
+  @@unique([tipoEquipamentoId, unidadeId])
   @@map("estoque_galpao")
 }
 

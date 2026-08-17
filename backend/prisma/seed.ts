@@ -6,23 +6,36 @@ const prisma = new PrismaClient();
 async function main() {
   const senhaHash = await bcrypt.hash('sgp12345', 10);
 
-  // Unidades
+  // Unidades — só existem 2 galpões operacionais reais (feedback do cliente)
   const galpao = await prisma.unidade.upsert({
-    where: { nome: 'Galpão Central' },
+    where: { nome: 'Galpão CIAD/Branet' },
     update: {},
     create: {
-      nome: 'Galpão Central',
+      nome: 'Galpão CIAD/Branet',
       tipo: 'GALPAO',
       endereco: 'R. do Almoxarifado, 100 - Joinville',
-      emailBase: 'galpao@joinville.sc.gov.br',
+      emailBase: 'galpao.ciad@joinville.sc.gov.br',
     },
   });
-  const nomesUnidades: Array<[string, 'UBS' | 'UME' | 'CAC']> = [
-    ['UBS Centro', 'UBS'],
-    ['UBS Norte', 'UBS'],
-    ['UBS Sul', 'UBS'],
-    ['UME Guanabara', 'UME'],
-    ['CAC', 'CAC'],
+  const galpaoGuanabara = await prisma.unidade.upsert({
+    where: { nome: 'Galpão Guanabara' },
+    update: {},
+    create: {
+      nome: 'Galpão Guanabara',
+      tipo: 'GALPAO',
+      endereco: 'R. Guanabara, s/n - Joinville',
+      emailBase: 'galpao.guanabara@joinville.sc.gov.br',
+    },
+  });
+  const nomesUnidades: Array<[string, 'UBSF' | 'UPA' | 'PA' | 'FARMACIA' | 'SERVICO_ESPECIAL' | 'UNIDADE_ADMINISTRATIVA']> = [
+    ['UBS Centro', 'UBSF'],
+    ['UBS Norte', 'UBSF'],
+    ['UBS Sul', 'UBSF'],
+    ['UPA Norte', 'UPA'],
+    ['PA Boa Vista', 'PA'],
+    ['Farmácia Central', 'FARMACIA'],
+    ['UME Guanabara', 'UNIDADE_ADMINISTRATIVA'],
+    ['CAC', 'SERVICO_ESPECIAL'],
   ];
   const unidades: Record<string, string> = {};
   for (const [nome, tipo] of nomesUnidades) {
@@ -193,17 +206,33 @@ async function main() {
     },
   });
 
-  // Estoque do galpão
+  // Estoque dos galpões (CIAD/Branet e Guanabara — os 2 pools reais)
   for (const [codigo, quantidade] of [
     ['AUT-V21', 8],
     ['AUT-V75', 2],
     ['MIC-BIN', 8],
   ] as Array<[string, number]>) {
     await prisma.estoqueGalpao.upsert({
-      where: { tipoEquipamentoId: tipos[codigo] },
+      where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId: tipos[codigo], unidadeId: galpao.id } },
       update: {},
       create: {
         tipoEquipamentoId: tipos[codigo],
+        unidadeId: galpao.id,
+        quantidade,
+        ultimaEntradaEm: new Date(),
+      },
+    });
+  }
+  for (const [codigo, quantidade] of [
+    ['GEL-300', 4],
+    ['CEN-01', 3],
+  ] as Array<[string, number]>) {
+    await prisma.estoqueGalpao.upsert({
+      where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId: tipos[codigo], unidadeId: galpaoGuanabara.id } },
+      update: {},
+      create: {
+        tipoEquipamentoId: tipos[codigo],
+        unidadeId: galpaoGuanabara.id,
         quantidade,
         ultimaEntradaEm: new Date(),
       },
