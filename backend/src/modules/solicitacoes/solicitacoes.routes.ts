@@ -4,6 +4,8 @@ import { EstadoConservacao, OrigemRecurso, Perfil, TipoSolicitacao } from '@pris
 import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
+import { AppError } from '../../errors/AppError';
+import { uploadAnexoSolicitacao } from '../../lib/uploads';
 import * as service from './solicitacoes.service';
 
 export const solicitacoesRouter = Router();
@@ -30,7 +32,18 @@ const criarSchema = z.object({
   unidadeDestinoId: z.string().uuid().optional(),
   tipoEquipamentoId: z.string().uuid().optional(),
   quantidade: z.number().int().positive().optional(),
+  // Ampliação: seleção de múltiplos itens numa única solicitação — o
+  // sistema cria uma Solicitacao por item internamente (feedback 17/08)
+  itens: z
+    .array(
+      z.object({
+        tipoEquipamentoId: z.string().uuid(),
+        quantidade: z.number().int().positive(),
+      }),
+    )
+    .optional(),
   origemRecurso: z.nativeEnum(OrigemRecurso).optional(),
+  entidadeExternaNome: z.string().min(2).optional(),
   dataRetornoPrevista: z.coerce.date().optional(),
 });
 
@@ -39,23 +52,20 @@ solicitacoesRouter.post(
   permitir(Perfil.UNIDADE, Perfil.GESTOR_PATRIMONIO),
   validarBody(criarSchema),
   async (req, res) => {
-    const solicitacao = await service.criar(req.usuario!, req.body);
-    res.status(201).json(solicitacao);
+    const ids = await service.criar(req.usuario!, req.body);
+    res.status(201).json({ ids });
   },
 );
 
-// RN04 — somente o Gestor de Patrimônio aprova cessões e novos itens
+// RN04 — somente o Gestor de Patrimônio aprova. Pra Ampliação/Substituição o
+// próprio sistema decide reservado ou aguardando disponibilidade. Prioridade
+// (1–3, opcional) é definida pelo Gestor, não pelo solicitante (feedback 17/08).
 solicitacoesRouter.post(
   '/:id/aprovar',
   permitir(Perfil.GESTOR_PATRIMONIO),
-  validarBody(
-    z.object({
-      ataId: z.string().uuid().optional(),
-      valorVinculado: z.number().positive().optional(),
-    }),
-  ),
+  validarBody(z.object({ prioridade: z.number().int().min(1).max(3).optional() })),
   async (req, res) => {
-    res.json(await service.aprovar(req.usuario!, req.params.id, req.body));
+    res.json(await service.aprovar(req.usuario!, req.params.id, req.body.prioridade));
   },
 );
 
@@ -85,6 +95,47 @@ solicitacoesRouter.post(
   },
 );
 
+// Retry manual de reserva de estoque pra quem está aguardando disponibilidade
+solicitacoesRouter.post(
+  '/:id/tentar-reservar-estoque',
+  permitir(Perfil.GESTOR_PATRIMONIO),
+  async (req, res) => {
+    res.json(await service.tentarReservarEstoque(req.usuario!, req.params.id));
+  },
+);
+
+// Gestor de Patrimônio marca que o pedido foi lançado no Branet (RESERVADO →
+// AGUARDANDO_ENTREGA), informando o número do pedido e o tombamento de cada
+// item — não é mais uma etapa separada do Galpão (feedback 17/08)
+solicitacoesRouter.post(
+  '/:id/lancar-branet',
+  permitir(Perfil.GESTOR_PATRIMONIO),
+  validarBody(
+    z.object({
+      numeroPedidoBranet: z.string().min(1, 'informe o número do pedido'),
+      itens: z
+        .array(
+          z.object({
+            tombamento: z.string().min(1),
+            descricao: z.string().min(2),
+            dataAquisicao: z.coerce.date().optional(),
+          }),
+        )
+        .min(1),
+    }),
+  ),
+  async (req, res) => {
+    res.json(
+      await service.marcarLancadoBranet(
+        req.usuario!,
+        req.params.id,
+        req.body.numeroPedidoBranet,
+        req.body.itens,
+      ),
+    );
+  },
+);
+
 solicitacoesRouter.post(
   '/:id/confirmar-saida',
   permitir(Perfil.UNIDADE, Perfil.GESTOR_PATRIMONIO),
@@ -93,14 +144,28 @@ solicitacoesRouter.post(
   },
 );
 
+const confirmarRecebimentoSchema = z.object({
+  // Empréstimo (fluxo antigo, inalterado): 5 níveis de conservação
+  estadoRecebimento: z.nativeEnum(EstadoConservacao).optional(),
+  // Ampliação/Substituição (feedback 17/08): OK/Não OK binário
+  ok: z.boolean().optional(),
+  observacao: z.string().optional(),
+  itens: z
+    .array(
+      z.object({
+        equipamentoId: z.string().uuid(),
+        tombamentoConfirmado: z.string().min(1),
+      }),
+    )
+    .optional(),
+});
+
 solicitacoesRouter.post(
   '/:id/confirmar-recebimento',
   permitir(Perfil.UNIDADE, Perfil.GESTOR_PATRIMONIO),
-  validarBody(z.object({ estadoRecebimento: z.nativeEnum(EstadoConservacao).optional() })),
+  validarBody(confirmarRecebimentoSchema),
   async (req, res) => {
-    res.json(
-      await service.confirmarRecebimento(req.usuario!, req.params.id, req.body.estadoRecebimento),
-    );
+    res.json(await service.confirmarRecebimento(req.usuario!, req.params.id, req.body));
   },
 );
 
@@ -112,26 +177,36 @@ solicitacoesRouter.post(
   },
 );
 
-// UC18 — galpão registra entrada física e cadastra tombamentos
-solicitacoesRouter.post(
-  '/:id/registrar-entrada',
-  permitir(Perfil.GALPAO),
+// Exceção estreita à RN01 (tombamento imutável): só pros itens gerados por
+// esta solicitação, e só enquanto aguarda validação — corrige uma divergência
+// apontada na confirmação de recebimento antes de concluir (feedback 17/08)
+solicitacoesRouter.patch(
+  '/:id/ajustar-tombamento',
+  permitir(Perfil.GESTOR_PATRIMONIO),
   validarBody(
     z.object({
       itens: z
         .array(
           z.object({
+            equipamentoId: z.string().uuid(),
             tombamento: z.string().min(1),
-            descricao: z.string().min(2),
-            estadoConservacao: z.nativeEnum(EstadoConservacao),
-            dataAquisicao: z.coerce.date().optional(),
+            descricao: z.string().min(2).optional(),
           }),
         )
         .min(1),
     }),
   ),
   async (req, res) => {
-    res.json(await service.registrarEntrada(req.usuario!, req.params.id, req.body.itens));
+    res.json(await service.ajustarTombamento(req.usuario!, req.params.id, req.body.itens));
+  },
+);
+
+// Validação final do Gestor de Patrimônio, depois que a unidade já confirmou
+solicitacoesRouter.post(
+  '/:id/concluir',
+  permitir(Perfil.GESTOR_PATRIMONIO),
+  async (req, res) => {
+    res.json(await service.concluirSolicitacao(req.usuario!, req.params.id));
   },
 );
 
@@ -140,5 +215,20 @@ solicitacoesRouter.post(
   permitir(Perfil.GALPAO),
   async (req, res) => {
     res.json(await service.confirmarRecolha(req.usuario!, req.params.id));
+  },
+);
+
+// Anexo (opcional, qualquer tipo de solicitação) — PDF ou imagem, comprovante
+// de que a ampliação foi autorizada dentro de um projeto interno
+solicitacoesRouter.post(
+  '/:id/anexo',
+  permitir(Perfil.UNIDADE, Perfil.GESTOR_PATRIMONIO),
+  uploadAnexoSolicitacao.single('anexo'),
+  async (req, res) => {
+    if (!req.file) {
+      throw new AppError('Envie o anexo no campo "anexo".', 422);
+    }
+    const anexoUrl = `/uploads/solicitacoes/${req.file.filename}`;
+    res.json(await service.anexarArquivo(req.usuario!, req.params.id, anexoUrl));
   },
 );
