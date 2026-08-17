@@ -23,7 +23,7 @@ import {
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
 import type { Ata, Categoria, Contrato, TipoEquipamento, Unidade, Usuario } from '../types';
-import { formatarData, formatarMoeda, ROTULO_PERFIL } from '../utils/format';
+import { formatarData, formatarMoeda, ROTULO_PERFIL, ROTULO_TIPO_UNIDADE } from '../utils/format';
 
 type Secao = 'usuarios' | 'unidades' | 'equipamentos' | 'atas' | 'contratos';
 
@@ -427,7 +427,7 @@ function SecaoUnidades() {
                   <div className="cc-nome">
                     <TextoTruncado texto={u.nome} />
                   </div>
-                  <div className="cc-sub">{u.tipo}</div>
+                  <div className="cc-sub">{ROTULO_TIPO_UNIDADE[u.tipo] ?? u.tipo}</div>
                 </div>
               </div>
               <div className="cc-divisor" />
@@ -492,7 +492,7 @@ function FormUnidade({
   const [usuarios, setUsuarios] = useState<UsuarioLista[]>([]);
   const inicial = {
     nome: unidade?.nome ?? '',
-    tipo: unidade?.tipo ?? 'UBS',
+    tipo: unidade?.tipo ?? 'UBSF',
     endereco: unidade?.endereco ?? '',
     emailBase: unidade?.emailBase ?? '',
     responsavelId: unidade?.responsavel?.id ?? unidade?.responsavelId ?? '',
@@ -547,11 +547,11 @@ function FormUnidade({
         <div className="field">
           <label>Tipo *</label>
           <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value as never })}>
-            <option value="UBS">UBS</option>
-            <option value="UME">UME</option>
-            <option value="CAC">CAC</option>
-            <option value="GALPAO">Galpão</option>
-            <option value="OUTRO">Outro</option>
+            {Object.entries(ROTULO_TIPO_UNIDADE).map(([valor, rotulo]) => (
+              <option key={valor} value={valor}>
+                {rotulo}
+              </option>
+            ))}
           </select>
         </div>
         <div className="field">

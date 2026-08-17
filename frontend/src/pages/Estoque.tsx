@@ -28,9 +28,9 @@ function statusDoItem(qtd: number): StatusItem {
 }
 
 function rotuloStatus(status: StatusItem) {
-  if (status === 'ESGOTADO') return 'Esgotado';
+  if (status === 'ESGOTADO') return 'Estoque zero';
   if (status === 'BAIXO') return 'Estoque baixo';
-  return 'Em estoque';
+  return 'Estoque coberto';
 }
 
 function corStatus(status: StatusItem) {
@@ -56,6 +56,8 @@ function paginasVisiveis(atual: number, total: number): Array<number | '...'> {
 
 export function Estoque() {
   const [itens, setItens] = useState<EstoqueItem[]>([]);
+  const [galpoes, setGalpoes] = useState<Unidade[]>([]);
+  const [galpaoId, setGalpaoId] = useState('');
   const [busca, setBusca] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('');
@@ -66,9 +68,24 @@ export function Estoque() {
   const [erro, setErro] = useState<string | null>(null);
   const inputCsv = useRef<HTMLInputElement>(null);
 
-  const carregar = useCallback(() => {
-    api.get<EstoqueItem[]>('/estoque').then(setItens).catch((e) => setErro(e.message));
+  useEffect(() => {
+    api
+      .get<Unidade[]>('/unidades')
+      .then((us) => {
+        const soGalpoes = us.filter((u) => u.tipo === 'GALPAO');
+        setGalpoes(soGalpoes);
+        setGalpaoId((atual) => atual || soGalpoes[0]?.id || '');
+      })
+      .catch(() => {});
   }, []);
+
+  const carregar = useCallback(() => {
+    if (!galpaoId) return;
+    api
+      .get<EstoqueItem[]>(`/estoque?unidadeId=${galpaoId}`)
+      .then(setItens)
+      .catch((e) => setErro(e.message));
+  }, [galpaoId]);
 
   useEffect(() => {
     carregar();
@@ -79,6 +96,7 @@ export function Estoque() {
     setMensagem(null);
     const form = new FormData();
     form.append('arquivo', arquivo);
+    form.append('unidadeId', galpaoId);
     try {
       const r = await api.post<ResultadoImportacaoEstoque>('/estoque/importar-csv', form);
       setMensagem(
@@ -155,6 +173,18 @@ export function Estoque() {
           <p className="subtitle">Controle do estoque disponível para distribuição</p>
         </div>
         <div className="page-actions">
+          <select
+            className="estoque-select"
+            value={galpaoId}
+            onChange={(e) => setGalpaoId(e.target.value)}
+            aria-label="Galpão"
+          >
+            {galpoes.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.nome}
+              </option>
+            ))}
+          </select>
           <input
             ref={inputCsv}
             type="file"
@@ -168,6 +198,7 @@ export function Estoque() {
           />
           <button
             className="btn btn-outline btn-leve"
+            disabled={!galpaoId}
             onClick={() => inputCsv.current?.click()}
           >
             <IconeUpload /> Importar CSV
@@ -203,7 +234,7 @@ export function Estoque() {
               </div>
               <div>
                 <div className="estoque-stat-valor">{stats.esgotado}</div>
-                <div className="estoque-stat-label">Esgotados</div>
+                <div className="estoque-stat-label">Estoque zero</div>
               </div>
             </div>
           </div>
@@ -236,9 +267,9 @@ export function Estoque() {
                 onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
               >
                 <option value="">Todos os status</option>
-                <option value="OK">Em estoque</option>
+                <option value="OK">Estoque coberto</option>
                 <option value="BAIXO">Estoque baixo</option>
-                <option value="ESGOTADO">Esgotado</option>
+                <option value="ESGOTADO">Estoque zero</option>
               </select>
               <select
                 className="estoque-select"
@@ -436,6 +467,7 @@ export function Estoque() {
       {modal && (
         <MovimentarEstoque
           operacao={modal.operacao}
+          galpaoId={galpaoId}
           tipoEquipamentoIdInicial={modal.tipoId}
           onFechar={() => setModal(null)}
           onSucesso={(msg) => {
@@ -451,11 +483,13 @@ export function Estoque() {
 
 function MovimentarEstoque({
   operacao,
+  galpaoId,
   tipoEquipamentoIdInicial,
   onFechar,
   onSucesso,
 }: {
   operacao: 'entrada' | 'saida';
+  galpaoId: string;
   tipoEquipamentoIdInicial?: string;
   onFechar: () => void;
   onSucesso: (mensagem: string) => void;
@@ -482,12 +516,14 @@ function MovimentarEstoque({
         await api.post('/estoque/entrada', {
           tipoEquipamentoId: form.tipoEquipamentoId,
           quantidade: Number(form.quantidade),
+          unidadeId: galpaoId,
         });
         onSucesso('Entrada registrada no estoque.');
       } else {
         await api.post('/estoque/saida', {
           tipoEquipamentoId: form.tipoEquipamentoId,
           quantidade: Number(form.quantidade),
+          unidadeId: galpaoId,
           ...(form.unidadeDestinoId ? { unidadeDestinoId: form.unidadeDestinoId } : {}),
         });
         onSucesso('Saída registrada no estoque.');
