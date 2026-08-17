@@ -260,13 +260,14 @@ export async function emitirBaixa(usuario: AuthPayload, id: string, laudo: strin
         usuarioId: usuario.sub,
       },
     });
-    // RN07 — o Sistema abre automaticamente solicitação de novo item
-    // em nome da unidade de origem do equipamento.
+    // RN07 — o Sistema abre automaticamente solicitação de substituição
+    // em nome da unidade de origem do equipamento (o item já foi baixado acima).
     const solicitacaoAutomatica = await tx.solicitacao.create({
       data: {
-        tipo: 'NOVO_ITEM',
+        tipo: 'SUBSTITUICAO',
         status: 'PENDENTE_APROVACAO',
         unidadeOrigemId: m.unidadeId,
+        equipamentoId: m.equipamentoId,
         tipoEquipamentoId: m.equipamento.tipoEquipamentoId,
         quantidade: 1,
         justificativa: `Substituição de equipamento baixado por impossibilidade de manutenção (tombamento ${m.equipamento.tombamento}). Solicitação gerada automaticamente pelo sistema.`,
@@ -295,14 +296,14 @@ export async function emitirBaixa(usuario: AuthPayload, id: string, laudo: strin
   for (const gestor of gestores) {
     await notificar(
       gestor.email,
-      'Solicitação automática de novo item',
-      `O equipamento ${resultado.equipamento.tombamento} foi baixado por impossibilidade de manutenção e uma solicitação de novo item foi aberta automaticamente para a unidade ${resultado.unidade.nome}.`,
+      'Solicitação automática de substituição',
+      `O equipamento ${resultado.equipamento.tombamento} foi baixado por impossibilidade de manutenção e uma solicitação de substituição foi aberta automaticamente para a unidade ${resultado.unidade.nome}.`,
     );
   }
   await notificar(
     resultado.unidade.emailBase,
     'Equipamento baixado',
-    `O equipamento ${resultado.equipamento.tombamento} foi baixado por impossibilidade de manutenção. Uma solicitação de novo item foi aberta automaticamente.`,
+    `O equipamento ${resultado.equipamento.tombamento} foi baixado por impossibilidade de manutenção. Uma solicitação de substituição foi aberta automaticamente.`,
   );
   return resultado;
 }

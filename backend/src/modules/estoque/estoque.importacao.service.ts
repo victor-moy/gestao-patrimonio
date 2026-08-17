@@ -17,7 +17,7 @@ interface LinhaCsv {
   quantidadeestoque: string;
 }
 
-export async function importarEstoqueCsv(usuarioId: string, conteudo: Buffer) {
+export async function importarEstoqueCsv(usuarioId: string, conteudo: Buffer, unidadeId: string) {
   let linhas: LinhaCsv[];
   try {
     linhas = parse(conteudo, {
@@ -99,13 +99,20 @@ export async function importarEstoqueCsv(usuarioId: string, conteudo: Buffer) {
         tiposCriados += 1;
       }
 
-      const estoqueAtual = await tx.estoqueGalpao.findUnique({ where: { tipoEquipamentoId: tipo.id } });
+      const estoqueAtual = await tx.estoqueGalpao.findUnique({
+        where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId: tipo.id, unidadeId } },
+      });
       const quantidadeAnterior = estoqueAtual?.quantidade ?? 0;
       const delta = quantidade - quantidadeAnterior;
 
       const estoque = await tx.estoqueGalpao.upsert({
-        where: { tipoEquipamentoId: tipo.id },
-        create: { tipoEquipamentoId: tipo.id, quantidade, ultimaEntradaEm: delta > 0 ? new Date() : null },
+        where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId: tipo.id, unidadeId } },
+        create: {
+          tipoEquipamentoId: tipo.id,
+          unidadeId,
+          quantidade,
+          ultimaEntradaEm: delta > 0 ? new Date() : null,
+        },
         update: {
           quantidade,
           ...(delta > 0 ? { ultimaEntradaEm: new Date() } : {}),
@@ -135,6 +142,7 @@ export async function importarEstoqueCsv(usuarioId: string, conteudo: Buffer) {
         acao: 'IMPORTAR_ESTOQUE_CSV',
         entidade: 'estoque_galpao',
         dadosDepois: {
+          unidadeId,
           totalLinhas: linhas.length,
           itensUnicos: porCodigo.size,
           tiposCriados,

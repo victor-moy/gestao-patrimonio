@@ -1,4 +1,4 @@
-import { EstadoConservacao, Prisma, StatusEquipamento } from '@prisma/client';
+import { EstadoConservacao, MotivoBaixa, Prisma, StatusEquipamento } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -174,4 +174,46 @@ export async function atualizar(usuarioId: string, id: string, dados: DadosAtual
     return atualizado;
   });
   return equipamento;
+}
+
+// Baixa manual (leilão, extravio, roubo...) — distinta da baixa por
+// impossibilidade de manutenção (ver manutencoes.service.emitirBaixa)
+export async function darBaixa(
+  usuarioId: string,
+  id: string,
+  dados: { motivo: MotivoBaixa; observacao?: string },
+) {
+  const equipamento = await prisma.equipamento.findUnique({ where: { id } });
+  if (!equipamento) throw new AppError('Equipamento não encontrado.', 404);
+  if (equipamento.status === 'BAIXADO') {
+    throw new AppError('Este equipamento já está baixado.', 422);
+  }
+  const atualizado = await prisma.$transaction(async (tx) => {
+    const baixado = await tx.equipamento.update({
+      where: { id },
+      data: { status: 'BAIXADO', motivoBaixa: dados.motivo },
+    });
+    await tx.movimentacao.create({
+      data: {
+        equipamentoId: id,
+        tipo: 'BAIXA',
+        descricao: `Baixa manual — motivo: ${dados.motivo}${dados.observacao ? `. ${dados.observacao}` : ''}`,
+        unidadeOrigemId: equipamento.unidadeId,
+        usuarioId,
+      },
+    });
+    await registrarAuditoria(
+      {
+        usuarioId,
+        acao: 'DAR_BAIXA_EQUIPAMENTO',
+        entidade: 'equipamento',
+        entidadeId: id,
+        dadosAntes: { status: equipamento.status },
+        dadosDepois: { status: 'BAIXADO', motivo: dados.motivo },
+      },
+      tx,
+    );
+    return baixado;
+  });
+  return atualizado;
 }

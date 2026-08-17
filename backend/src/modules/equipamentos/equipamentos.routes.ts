@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { EstadoConservacao, Perfil, StatusEquipamento } from '@prisma/client';
+import { EstadoConservacao, MotivoBaixa, Perfil, StatusEquipamento } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
@@ -62,6 +62,22 @@ equipamentosRouter.patch(
   validarBody(atualizacaoSchema),
   async (req, res) => {
     const equipamento = await service.atualizar(req.usuario!.sub, req.params.id, req.body);
+    res.json(equipamento);
+  },
+);
+
+// Baixa manual (leilão, extravio, roubo...)
+equipamentosRouter.post(
+  '/:id/baixa',
+  permitir(Perfil.GESTOR_PATRIMONIO),
+  validarBody(
+    z.object({
+      motivo: z.nativeEnum(MotivoBaixa),
+      observacao: z.string().min(2).optional(),
+    }),
+  ),
+  async (req, res) => {
+    const equipamento = await service.darBaixa(req.usuario!.sub, req.params.id, req.body);
     res.json(equipamento);
   },
 );
