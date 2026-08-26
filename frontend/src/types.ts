@@ -43,6 +43,7 @@ export interface TipoEquipamento {
   nome: string;
   descricao?: string | null;
   imagemUrl?: string | null;
+  preco?: string | null;
   categoriaId: string;
   categoria?: { nome: string };
   quantidadeEquipamentos?: number;

@@ -290,6 +290,28 @@ describe('Categorias e tipos (taxonomia e-Pública)', () => {
       .send({ codigo: 'RX-01', nome: 'Raio-X Portátil', categoriaId: UUID });
     expect(res.status).toBe(201);
   });
+
+  it('cadastra tipo de equipamento com preço de referência (feedback 21/08)', async () => {
+    prismaMock.tipoEquipamento.findUnique.mockResolvedValue(null);
+    prismaMock.tipoEquipamento.create.mockResolvedValue({ id: 'tipo-2', preco: 4500.5 } as never);
+    const res = await request(app)
+      .post('/categorias/tipos')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ codigo: 'RX-02', nome: 'Raio-X Fixo', categoriaId: UUID, preco: 4500.5 });
+    expect(res.status).toBe(201);
+    expect(prismaMock.tipoEquipamento.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ preco: 4500.5 }) }),
+    );
+  });
+
+  it('rejeita preço negativo ou zero no tipo de equipamento', async () => {
+    const res = await request(app)
+      .post('/categorias/tipos')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ codigo: 'RX-03', nome: 'Raio-X', categoriaId: UUID, preco: -10 });
+    expect(res.status).toBe(422);
+    expect(prismaMock.tipoEquipamento.create).not.toHaveBeenCalled();
+  });
 });
 
 describe('Contratos de terceirizadas', () => {
