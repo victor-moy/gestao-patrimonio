@@ -83,14 +83,25 @@ export async function buscarPorId(usuario: AuthPayload, id: string) {
 
 export interface DadosCriacao {
   tipo: TipoSolicitacao;
-  justificativa: string;
+  // Obrigatória pra todos os tipos, exceto Substituição — que carrega uma
+  // justificativa por item (feedback do cliente 25/08: cada equipamento
+  // trocado pode ter um motivo diferente de defeito).
+  justificativa?: string;
   equipamentoId?: string;
   unidadeDestinoId?: string;
   tipoEquipamentoId?: string;
   quantidade?: number;
-  // Ampliação: seleção de múltiplos itens numa única tela — vira uma
-  // Solicitacao por item internamente (feedback do cliente 17/08)
-  itens?: Array<{ tipoEquipamentoId: string; quantidade: number }>;
+  // Ampliação/Substituição: seleção de múltiplos itens numa única tela —
+  // vira uma Solicitacao por item internamente (feedback do cliente 17/08 e
+  // 25/08). Substituição usa `equipamentoId` e `justificativa` por item
+  // (equipamento existente a ser substituído e o motivo específico da troca);
+  // Ampliação não usa esses campos.
+  itens?: Array<{
+    equipamentoId?: string;
+    tipoEquipamentoId: string;
+    quantidade: number;
+    justificativa?: string;
+  }>;
   origemRecurso?: OrigemRecurso;
   entidadeExternaNome?: string;
   dataRetornoPrevista?: Date;
@@ -158,9 +169,10 @@ async function anotarDisponibilidade<
 
 // UC10/UC13/UC16 + recolha — 5 tipos: Substituição, Ampliação, Cessão de
 // Uso (externa), Empréstimo (interno, com ou sem retorno) e Recolha.
-// Retorna sempre os ids das Solicitacao criadas (array) — Ampliação pode
-// gerar mais de uma (feedback do cliente 17/08: seleção de múltiplos itens
-// numa única tela, uma Solicitacao por tipo de equipamento internamente).
+// Retorna sempre os ids das Solicitacao criadas (array) — Ampliação e
+// Substituição podem gerar mais de uma (feedback do cliente 17/08 e 25/08:
+// seleção de múltiplos itens numa única tela, uma Solicitacao por item
+// internamente).
 export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<string[]> {
   if (!usuario.unidadeId) {
     throw new AppError('Usuário não está vinculado a uma unidade.', 403);
@@ -171,6 +183,10 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     if (!dados.itens || dados.itens.length === 0) {
       throw new AppError('Selecione ao menos um item para a ampliação.', 422);
     }
+    if (!dados.justificativa?.trim()) {
+      throw new AppError('Informe a justificativa.', 422);
+    }
+    const justificativaAmpliacao = dados.justificativa;
     const criadas = await prisma.$transaction(
       dados.itens.map((item) =>
         prisma.solicitacao.create({
@@ -179,7 +195,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
             unidadeOrigemId,
             tipoEquipamentoId: item.tipoEquipamentoId,
             quantidade: item.quantidade,
-            justificativa: dados.justificativa,
+            justificativa: justificativaAmpliacao,
             origemRecurso: dados.origemRecurso ?? 'REGULAR',
             criadoPorId: usuario.sub,
           },
@@ -190,37 +206,58 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
   }
 
   if (dados.tipo === 'SUBSTITUICAO') {
-    if (!dados.equipamentoId) throw new AppError('Informe o equipamento a ser substituído.', 422);
-    if (!dados.tipoEquipamentoId || !dados.quantidade) {
-      throw new AppError('Substituição exige tipo de equipamento e quantidade do item de reposição.', 422);
+    if (!dados.itens || dados.itens.length === 0) {
+      throw new AppError('Selecione ao menos um equipamento para substituição.', 422);
+    }
+    if (dados.itens.some((item) => !item.equipamentoId)) {
+      throw new AppError('Informe o equipamento a ser substituído em cada item.', 422);
+    }
+    if (dados.itens.some((item) => !item.justificativa?.trim())) {
+      throw new AppError('Informe a justificativa de cada equipamento a substituir.', 422);
+    }
+    const idsEquipamentos = dados.itens.map((item) => item.equipamentoId!);
+    if (new Set(idsEquipamentos).size !== idsEquipamentos.length) {
+      throw new AppError('Um mesmo equipamento não pode aparecer duas vezes na mesma solicitação.', 422);
     }
     // Aceita equipamento ATIVO (pedido manual) ou já BAIXADO (RN07 — automático)
-    const equipamento = await buscarEquipamentoDaUnidade(dados.equipamentoId, unidadeOrigemId);
-    if (!['ATIVO', 'BAIXADO'].includes(equipamento.status)) {
-      throw new AppError(
-        `O equipamento está com status ${equipamento.status} e não pode ser substituído até o encerramento do ciclo atual.`,
-        422,
-      );
+    const equipamentosValidados = await Promise.all(
+      idsEquipamentos.map((id) => buscarEquipamentoDaUnidade(id, unidadeOrigemId)),
+    );
+    for (const equipamento of equipamentosValidados) {
+      if (!['ATIVO', 'BAIXADO'].includes(equipamento.status)) {
+        throw new AppError(
+          `O equipamento ${equipamento.tombamento} está com status ${equipamento.status} e não pode ser substituído até o encerramento do ciclo atual.`,
+          422,
+        );
+      }
     }
-    const criada = await prisma.solicitacao.create({
-      data: {
-        tipo: 'SUBSTITUICAO',
-        unidadeOrigemId,
-        equipamentoId: equipamento.id,
-        tipoEquipamentoId: dados.tipoEquipamentoId,
-        quantidade: dados.quantidade,
-        justificativa: dados.justificativa,
-        origemRecurso: dados.origemRecurso ?? 'REGULAR',
-        criadoPorId: usuario.sub,
-      },
-    });
-    return [criada.id];
+    const criadas = await prisma.$transaction(
+      dados.itens.map((item, i) =>
+        prisma.solicitacao.create({
+          data: {
+            tipo: 'SUBSTITUICAO',
+            unidadeOrigemId,
+            equipamentoId: equipamentosValidados[i].id,
+            tipoEquipamentoId: item.tipoEquipamentoId,
+            quantidade: item.quantidade,
+            justificativa: item.justificativa!.trim(),
+            origemRecurso: dados.origemRecurso ?? 'REGULAR',
+            criadoPorId: usuario.sub,
+          },
+        }),
+      ),
+    );
+    return criadas.map((s) => s.id);
   }
 
   // Demais tipos exigem um equipamento ATIVO do inventário da própria unidade
   if (!dados.equipamentoId) {
     throw new AppError('Informe o equipamento da solicitação.', 422);
   }
+  if (!dados.justificativa?.trim()) {
+    throw new AppError('Informe a justificativa.', 422);
+  }
+  const justificativa = dados.justificativa;
   const equipamento = await buscarEquipamentoDaUnidade(dados.equipamentoId, unidadeOrigemId);
   // RN02/FA07 — equipamento em manutenção não pode ser cedido/emprestado/baixado
   if (equipamento.status !== 'ATIVO') {
@@ -241,7 +278,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
         unidadeOrigemId,
         entidadeExternaNome: dados.entidadeExternaNome.trim(),
         equipamentoId: equipamento.id,
-        justificativa: dados.justificativa,
+        justificativa,
         criadoPorId: usuario.sub,
       },
     });
@@ -265,7 +302,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
           unidadeOrigemId,
           unidadeDestinoId: dados.unidadeDestinoId,
           equipamentoId: equipamento.id,
-          justificativa: dados.justificativa,
+          justificativa,
           dataRetornoPrevista: dados.dataRetornoPrevista ?? null,
           criadoPorId: usuario.sub,
         },
@@ -319,7 +356,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
       unidadeOrigemId,
       unidadeDestinoId: galpao.id,
       equipamentoId: equipamento.id,
-      justificativa: dados.justificativa,
+      justificativa,
       criadoPorId: usuario.sub,
     },
   });
@@ -330,12 +367,16 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
 // Substituição, o sistema decide sozinho se reserva do estoque de galpão ou
 // se fica aguardando disponibilidade — o solicitante nunca vê ata/saldo
 // (feedback do Gestor de Patrimônio: gestão de ata é assunto interno).
-// `prioridade` (1–3, opcional) é definida pelo Gestor, não pelo solicitante,
-// e usada depois pra ordenar quem atender primeiro quando chega estoque novo.
+// `prioridade` (1–3) é definida pelo Gestor, não pelo solicitante, e usada
+// depois pra ordenar quem atender primeiro quando chega estoque novo —
+// obrigatória pra Ampliação/Substituição (feedback do cliente 18/08).
 export async function aprovar(usuario: AuthPayload, id: string, prioridade?: number) {
   const solicitacao = await buscarPorId(usuario, id);
   if (solicitacao.status !== 'PENDENTE_APROVACAO') {
     throw new AppError('Somente solicitações pendentes podem ser aprovadas.', 422);
+  }
+  if (TIPOS_COM_ATA.includes(solicitacao.tipo) && !prioridade) {
+    throw new AppError('Informe a prioridade da solicitação.', 422);
   }
 
   if (TIPOS_COM_ATA.includes(solicitacao.tipo)) {
@@ -563,10 +604,12 @@ export async function concluirSolicitacao(usuario: AuthPayload, id: string) {
   return atualizada;
 }
 
-// FA03 — negação com motivo
+// FA03 — negação com motivo. Só antes da aprovação: uma vez aprovada (e
+// portanto em AGUARDANDO_DISPONIBILIDADE ou além), não pode mais ser negada
+// (feedback do cliente 18/08 — "uma vez aprovada está aprovada").
 export async function negar(usuario: AuthPayload, id: string, motivo: string) {
   const solicitacao = await buscarPorId(usuario, id);
-  if (!['PENDENTE_APROVACAO', 'AGUARDANDO_DISPONIBILIDADE'].includes(solicitacao.status)) {
+  if (solicitacao.status !== 'PENDENTE_APROVACAO') {
     throw new AppError('Somente solicitações pendentes podem ser negadas.', 422);
   }
   const atualizada = await prisma.$transaction(async (tx) => {
@@ -672,7 +715,9 @@ export async function confirmarRecebimento(
     if (solicitacao.status !== 'AGUARDANDO_ENTREGA') {
       throw new AppError('Esta solicitação não está aguardando recebimento.', 422);
     }
-    if (usuario.perfil === 'UNIDADE' && solicitacao.unidadeOrigemId !== usuario.unidadeId) {
+    // Só a Unidade solicitante confirma — nem o Gestor de Patrimônio pode
+    // fazer isso por ela (feedback do cliente 18/08).
+    if (usuario.perfil !== 'UNIDADE' || solicitacao.unidadeOrigemId !== usuario.unidadeId) {
       throw new AppError('Somente a unidade solicitante confirma o recebimento.', 403);
     }
     if (dados.ok === undefined) {

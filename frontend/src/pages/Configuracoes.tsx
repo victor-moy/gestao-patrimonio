@@ -751,17 +751,19 @@ function SecaoEquipamentos() {
           <div className="card tabela-scroll" style={{ boxShadow: "none" }}>
             <table>
               <colgroup>
-                <col style={{ width: '14%' }} />
-                <col style={{ width: '36%' }} />
-                <col style={{ width: '30%' }} />
-                <col style={{ width: '8%' }} />
                 <col style={{ width: '12%' }} />
+                <col style={{ width: '30%' }} />
+                <col style={{ width: '24%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '14%' }} />
               </colgroup>
               <thead>
                 <tr>
                   <th>Código</th>
                   <th>Tipo / Categoria</th>
                   <th>Descrição</th>
+                  <th>Preço</th>
                   <th>QTD</th>
                   <th>Ações</th>
                 </tr>
@@ -783,6 +785,7 @@ function SecaoEquipamentos() {
                       {t.categoria?.nome && <div className="celula-sub">{t.categoria.nome}</div>}
                     </td>
                     <td style={{ color: 'var(--text-secondary)' }}>{t.descricao ?? '—'}</td>
+                    <td>{formatarMoeda(t.preco)}</td>
                     <td>{t.quantidadeEquipamentos ?? 0}</td>
                     <td>
                       <div style={{ display: 'flex', gap: 4 }}>
@@ -933,6 +936,7 @@ function FormTipo({
     nome: tipo?.nome ?? '',
     categoriaId: tipo?.categoriaId ?? '',
     descricao: tipo?.descricao ?? '',
+    preco: tipo?.preco ?? '',
   };
   const [form, setForm] = useState(inicial);
   const [imagemAtual, setImagemAtual] = useState(tipo?.imagemUrl ?? null);
@@ -963,7 +967,11 @@ function FormTipo({
       onFechar();
       return;
     }
-    const payload = { ...form, descricao: form.descricao || null };
+    const payload = {
+      ...form,
+      descricao: form.descricao || null,
+      preco: form.preco === '' ? null : Number(form.preco),
+    };
     setEnviando(true);
     try {
       const salvo = tipo
@@ -1062,6 +1070,17 @@ function FormTipo({
             placeholder="Descreva o tipo de equipamento..."
             value={form.descricao}
             onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+          />
+        </div>
+        <div className="field">
+          <label>Preço de Referência (R$)</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Opcional"
+            value={form.preco}
+            onChange={(e) => setForm({ ...form, preco: e.target.value })}
           />
         </div>
         <div className="actions-row" style={{ justifyContent: 'flex-end' }}>

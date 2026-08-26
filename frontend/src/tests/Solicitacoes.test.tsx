@@ -59,10 +59,12 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
     await userEvent.click(screen.getByRole('button', { name: /ampliação/i }));
 
     // Formulário do tipo escolhido — Ampliação aceita múltiplos itens
-    // numa lista repetível (feedback do cliente 17/08)
-    await waitFor(() => expect(screen.getByText('Tipo de Equipamento 1 *')).toBeInTheDocument());
-    const selects = screen.getAllByRole('combobox');
-    await userEvent.selectOptions(selects[0], '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6');
+    // numa lista repetível (feedback do cliente 17/08). O tipo é escolhido
+    // via combobox com busca (SeletorTipoEquipamento), não um <select> nativo.
+    await waitFor(() => expect(screen.getByText('Tipo de Equipamento *')).toBeInTheDocument());
+    await userEvent.click(screen.getByText('Selecione o tipo...'));
+    await userEvent.type(screen.getByPlaceholderText('Buscar por nome ou código...'), 'Autoclave');
+    await userEvent.click(screen.getByText('Autoclave Vertical 75L'));
     await userEvent.type(
       screen.getByRole('textbox'),
       'Ampliação da capacidade de esterilização',

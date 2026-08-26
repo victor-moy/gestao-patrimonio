@@ -3,8 +3,8 @@ import { api, urlArquivo } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { Modal } from '../components/Modal';
 import { IconeBusca, IconeCaixa, IconeEntrada, IconeSaida, IconeUpload } from '../components/icons';
-import type { Categoria, EstoqueItem, Unidade } from '../types';
-import { capitalizarPalavras } from '../utils/format';
+import type { Categoria, EstoqueAguardandoItem, EstoqueItem, Unidade } from '../types';
+import { capitalizarPalavras, formatarMoeda } from '../utils/format';
 
 interface ResultadoImportacaoEstoque {
   totalLinhas: number;
@@ -56,6 +56,7 @@ function paginasVisiveis(atual: number, total: number): Array<number | '...'> {
 
 export function Estoque() {
   const [itens, setItens] = useState<EstoqueItem[]>([]);
+  const [aguardando, setAguardando] = useState<EstoqueAguardandoItem[]>([]);
   const [galpoes, setGalpoes] = useState<Unidade[]>([]);
   const [galpaoId, setGalpaoId] = useState('');
   const [busca, setBusca] = useState('');
@@ -67,6 +68,16 @@ export function Estoque() {
   const [mensagem, setMensagem] = useMensagemTemporaria();
   const [erro, setErro] = useState<string | null>(null);
   const inputCsv = useRef<HTMLInputElement>(null);
+
+  const verbaAguardando = useMemo(
+    () =>
+      aguardando.reduce((total, item) => {
+        const preco = item.tipoEquipamento.preco;
+        if (preco === null || preco === undefined) return total;
+        return total + Number(preco) * item.quantidade;
+      }, 0),
+    [aguardando],
+  );
 
   useEffect(() => {
     api
@@ -85,6 +96,9 @@ export function Estoque() {
       .get<EstoqueItem[]>(`/estoque?unidadeId=${galpaoId}`)
       .then(setItens)
       .catch((e) => setErro(e.message));
+    // Aguardando estoque não é por galpão — a solicitação ainda não tem um
+    // galpão associado, então recarrega independente do filtro selecionado
+    api.get<EstoqueAguardandoItem[]>('/estoque/aguardando').then(setAguardando).catch(() => {});
   }, [galpaoId]);
 
   useEffect(() => {
@@ -290,7 +304,10 @@ export function Estoque() {
                     <th>Produto</th>
                     <th>Código</th>
                     <th>Categoria</th>
-                    <th>Estoque</th>
+                    <th>Disponível</th>
+                    <th title="Somado entre todos os galpões — a reserva não fica presa a um galpão específico">
+                      Reservado
+                    </th>
                     <th>Status</th>
                     <th>Ações</th>
                   </tr>
@@ -338,6 +355,15 @@ export function Estoque() {
                           </span>
                         </td>
                         <td>
+                          {item.reservado > 0 ? (
+                            <span style={{ fontWeight: 700, color: 'var(--text-secondary)' }}>
+                              {item.reservado} <small>un.</small>
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          )}
+                        </td>
+                        <td>
                           <span
                             className={`badge badge-leve badge-${
                               status === 'ESGOTADO' ? 'red' : status === 'BAIXO' ? 'yellow' : 'green'
@@ -369,7 +395,7 @@ export function Estoque() {
                   })}
                   {itensDaPagina.length === 0 && (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={8}>
                         <div className="estoque-vazio">
                           <div className="estoque-vazio-icone">
                             <IconeCaixa />
@@ -463,6 +489,75 @@ export function Estoque() {
               </div>
             )}
           </div>
+
+          {aguardando.length > 0 && (
+            <div className="card" style={{ marginTop: 20 }}>
+              <div style={{ padding: '20px 20px 18px' }}>
+                <div className="section-title" style={{ margin: 0 }}>
+                  Aguardando Estoque
+                </div>
+                <p style={{ margin: '4px 0 0', fontSize: 13.5, color: 'var(--text-secondary)' }}>
+                  Itens sem estoque suficiente pra reservar agora
+                </p>
+              </div>
+              <div className="estoque-tabela-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Produto</th>
+                      <th>Código</th>
+                      <th>Categoria</th>
+                      <th>Quantidade</th>
+                      <th>Preço Ref.</th>
+                      <th>Previsão de Verba</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {aguardando.map((item) => {
+                      const cor = item.tipoEquipamento.categoria?.cor || '#6b7280';
+                      const preco = item.tipoEquipamento.preco;
+                      const subtotal = preco === null || preco === undefined ? null : Number(preco) * item.quantidade;
+                      return (
+                        <tr key={item.tipoEquipamento.id}>
+                          <td>
+                            <div className="estoque-produto-nome">
+                              {capitalizarPalavras(item.tipoEquipamento.nome)}
+                            </div>
+                          </td>
+                          <td>#{item.tipoEquipamento.codigo}</td>
+                          <td>
+                            {item.tipoEquipamento.categoria && (
+                              <span
+                                className="pill-categoria"
+                                style={{ background: `${cor}1f`, color: cor }}
+                              >
+                                {item.tipoEquipamento.categoria.nome}
+                              </span>
+                            )}
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 700, color: 'var(--yellow-text)' }}>
+                              {item.quantidade} <small>un.</small>
+                            </span>
+                          </td>
+                          <td style={{ color: 'var(--text-secondary)' }}>{formatarMoeda(preco)}</td>
+                          <td style={{ fontWeight: 600 }}>{subtotal === null ? '—' : formatarMoeda(subtotal)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={5} style={{ textAlign: 'right', fontWeight: 700 }}>
+                        Total previsto
+                      </td>
+                      <td style={{ fontWeight: 700 }}>{formatarMoeda(verbaAguardando)}</td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          )}
 
       {modal && (
         <MovimentarEstoque

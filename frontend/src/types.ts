@@ -43,6 +43,7 @@ export interface TipoEquipamento {
   nome: string;
   descricao?: string | null;
   imagemUrl?: string | null;
+  preco?: string | null;
   categoriaId: string;
   categoria?: { nome: string };
   quantidadeEquipamentos?: number;
@@ -188,10 +189,19 @@ export interface Ata {
 export interface EstoqueItem {
   id: string;
   quantidade: number;
+  // Calculado (não incrementado manualmente) — soma das solicitações
+  // Reservado/Aguardando Entrega/Aguardando Validação desse tipo, agregada
+  // entre todos os galpões (a reserva não fica presa a um galpão específico)
   reservado: number;
   ultimaEntradaEm: string | null;
   tipoEquipamento: TipoEquipamento & { categoria?: { nome: string; cor: string | null } };
   unidade: { id: string; nome: string };
+}
+
+export interface EstoqueAguardandoItem {
+  tipoEquipamento: TipoEquipamento & { categoria?: { nome: string; cor: string | null } };
+  quantidade: number;
+  solicitacoes: number;
 }
 
 export interface MovimentacaoEstoque {

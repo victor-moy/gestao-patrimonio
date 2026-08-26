@@ -114,6 +114,7 @@ const tipoSchema = z.object({
   codigo: z.string().min(1),
   nome: z.string().min(2),
   descricao: z.string().nullable().optional(),
+  preco: z.number().positive().nullable().optional(),
   categoriaId: z.string().uuid(),
 });
 

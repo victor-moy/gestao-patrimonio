@@ -50,6 +50,30 @@ estoqueRouter.post('/importar-csv', upload.single('arquivo'), async (req, res) =
   res.json(resultado);
 });
 
+// Tipos que reservam do estoque de galpão (Ampliação/Substituição sem ata) —
+// mesmo conjunto usado em solicitacoes.service.ts
+const TIPOS_COM_ATA = ['AMPLIACAO', 'SUBSTITUICAO'] as const;
+
+// Quanto de cada tipo de equipamento está comprometido com solicitações já
+// aprovadas (Reservado/Aguardando Entrega/Aguardando Validação, sem ata —
+// ou seja, veio do próprio estoque). Não é por galpão específico porque a
+// reserva não guarda qual galpão forneceu o item, só decrementa a quantidade
+// na hora — então o total só faz sentido agregado entre todos os galpões.
+async function calcularReservadoPorTipo(tipoEquipamentoIds: string[]) {
+  if (tipoEquipamentoIds.length === 0) return new Map<string, number>();
+  const grupos = await prisma.solicitacao.groupBy({
+    by: ['tipoEquipamentoId'],
+    where: {
+      tipoEquipamentoId: { in: tipoEquipamentoIds },
+      status: { in: ['RESERVADO', 'AGUARDANDO_ENTREGA', 'AGUARDANDO_VALIDACAO'] },
+      ataId: null,
+      tipo: { in: [...TIPOS_COM_ATA] },
+    },
+    _sum: { quantidade: true },
+  });
+  return new Map(grupos.map((g) => [g.tipoEquipamentoId as string, g._sum.quantidade ?? 0]));
+}
+
 estoqueRouter.get('/', async (req, res) => {
   const unidadeId = req.query.unidadeId as string | undefined;
   const itens = await prisma.estoqueGalpao.findMany({
@@ -62,7 +86,41 @@ estoqueRouter.get('/', async (req, res) => {
     },
     orderBy: { tipoEquipamento: { nome: 'asc' } },
   });
-  res.json(itens);
+  // Reaproveita o campo `reservado` do schema (existe mas nunca era escrito)
+  // — calculado por consulta, não por incremento/decremento manual, porque
+  // a reserva não guarda qual EstoqueGalpao a atendeu (ver função acima).
+  const reservadoPorTipo = await calcularReservadoPorTipo(itens.map((i) => i.tipoEquipamentoId));
+  res.json(itens.map((i) => ({ ...i, reservado: reservadoPorTipo.get(i.tipoEquipamentoId) ?? 0 })));
+});
+
+// Lista, por tipo de equipamento, tudo que está represado em
+// AGUARDANDO_DISPONIBILIDADE (sem estoque suficiente pra reservar ainda) —
+// não é por galpão, já que a solicitação ainda não tem um galpão associado.
+estoqueRouter.get('/aguardando', async (_req, res) => {
+  const grupos = await prisma.solicitacao.groupBy({
+    by: ['tipoEquipamentoId'],
+    where: {
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+      tipo: { in: [...TIPOS_COM_ATA] },
+    },
+    _sum: { quantidade: true },
+    _count: { _all: true },
+  });
+  const ids = grupos.map((g) => g.tipoEquipamentoId).filter((id): id is string => !!id);
+  const tipos = await prisma.tipoEquipamento.findMany({
+    where: { id: { in: ids } },
+    include: { categoria: { select: { nome: true, cor: true } } },
+  });
+  const tiposPorId = new Map(tipos.map((t) => [t.id, t]));
+  const situacao = grupos
+    .filter((g) => g.tipoEquipamentoId && tiposPorId.has(g.tipoEquipamentoId))
+    .map((g) => ({
+      tipoEquipamento: tiposPorId.get(g.tipoEquipamentoId as string)!,
+      quantidade: g._sum.quantidade ?? 0,
+      solicitacoes: g._count._all,
+    }))
+    .sort((a, b) => a.tipoEquipamento.nome.localeCompare(b.tipoEquipamento.nome, 'pt-BR'));
+  res.json(situacao);
 });
 
 estoqueRouter.get('/movimentacoes', async (_req, res) => {

@@ -27,18 +27,25 @@ solicitacoesRouter.get('/:id', async (req, res) => {
 
 const criarSchema = z.object({
   tipo: z.nativeEnum(TipoSolicitacao),
-  justificativa: z.string().min(5, 'informe a justificativa'),
+  // Obrigatória pra todos os tipos, exceto Substituição (que valida a
+  // justificativa por item, no service) — feedback do cliente 25/08.
+  justificativa: z.string().min(5, 'informe a justificativa').optional(),
   equipamentoId: z.string().uuid().optional(),
   unidadeDestinoId: z.string().uuid().optional(),
   tipoEquipamentoId: z.string().uuid().optional(),
   quantidade: z.number().int().positive().optional(),
-  // Ampliação: seleção de múltiplos itens numa única solicitação — o
-  // sistema cria uma Solicitacao por item internamente (feedback 17/08)
+  // Ampliação/Substituição: seleção de múltiplos itens numa única solicitação
+  // — o sistema cria uma Solicitacao por item internamente (feedback 17/08 e
+  // 25/08). Substituição usa também `equipamentoId` e `justificativa` por
+  // item (equipamento existente a ser substituído e motivo específico da
+  // troca); Ampliação não usa esses campos.
   itens: z
     .array(
       z.object({
+        equipamentoId: z.string().uuid().optional(),
         tipoEquipamentoId: z.string().uuid(),
         quantidade: z.number().int().positive(),
+        justificativa: z.string().min(5, 'informe a justificativa').optional(),
       }),
     )
     .optional(),
