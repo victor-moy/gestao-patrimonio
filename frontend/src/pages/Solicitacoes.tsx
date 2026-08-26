@@ -5,7 +5,8 @@ import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { useAuth } from '../auth/AuthContext';
 import { Badge } from '../components/Badge';
 import { Modal } from '../components/Modal';
-import type { Ata, Solicitacao } from '../types';
+import { IconeDislike, IconeLike } from '../components/icons';
+import type { Solicitacao } from '../types';
 import {
   formatarData,
   formatarMoeda,
@@ -17,6 +18,15 @@ import {
 // Ampliação/Substituição seguem o fluxo de aquisição via ata; os demais
 // tipos operam sobre um equipamento já existente no inventário da unidade.
 const TIPOS_COM_ATA = ['AMPLIACAO', 'SUBSTITUICAO'];
+
+// Aguardando Disponibilidade com estoque já disponível vira um badge próprio
+// (verde, "Disponível para Reserva") em vez do status + um badge separado
+function statusExibido(s: Solicitacao) {
+  if (s.status === 'AGUARDANDO_DISPONIBILIDADE' && s.disponivelParaReserva) {
+    return { valor: 'DISPONIVEL_PARA_RESERVA', texto: 'Disponível para Reserva' };
+  }
+  return { valor: s.status as string, texto: ROTULO_STATUS_SOLICITACAO[s.status] };
+}
 
 export function Solicitacoes() {
   const { usuario } = useAuth();
@@ -136,10 +146,7 @@ export function Solicitacoes() {
                 </div>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                <Badge valor={s.status}>{ROTULO_STATUS_SOLICITACAO[s.status]}</Badge>
-                {s.disponivelParaReserva && (
-                  <span className="badge badge-green">● Estoque disponível</span>
-                )}
+                <Badge valor={statusExibido(s).valor}>{statusExibido(s).texto}</Badge>
                 {s.prioridade && (
                   <span className="badge badge-purple">Prioridade {s.prioridade}</span>
                 )}
@@ -157,7 +164,8 @@ export function Solicitacoes() {
           solicitacao={detalhe}
           onFechar={() => setDetalheId(null)}
           onAtualizado={(msg) => {
-            setDetalheId(null);
+            // Mantém o modal aberto — dá pra seguir o fluxo (aprovar →
+            // reservar → lançar no Branet...) sem reabrir a cada passo
             setMensagem(msg);
             carregar();
           }}
@@ -180,9 +188,7 @@ function DetalheSolicitacao({
   const [erro, setErro] = useMensagemTemporaria();
   const [motivo, setMotivo] = useState('');
   const [prioridade, setPrioridade] = useState('');
-  const [atas, setAtas] = useState<Ata[]>([]);
-  const [ataId, setAtaId] = useState('');
-  const [valor, setValor] = useState('');
+  const [acaoPendente, setAcaoPendente] = useState<'aprovar' | 'negar' | null>(null);
   const [estado, setEstado] = useState('BOM');
   // Gestor: lançar no Branet (número do pedido + tombamento de cada item)
   const [numeroPedidoBranet, setNumeroPedidoBranet] = useState('');
@@ -199,16 +205,30 @@ function DetalheSolicitacao({
     () => (s.itensGerados ?? []).map((eq) => ({ equipamentoId: eq.id, tombamento: eq.tombamento })),
   );
 
+  // O modal fica aberto entre uma ação e outra (feedback 18/08 — não precisa
+  // reabrir pra cada passo do fluxo), então os formulários de ação precisam
+  // resetar sozinhos sempre que o status muda, senão ficam com lixo da etapa anterior
+  useEffect(() => {
+    setAcaoPendente(null);
+    setMotivo('');
+    setPrioridade('');
+    setNumeroPedidoBranet('');
+    setItensBranet(Array.from({ length: s.quantidade ?? 1 }, () => ({ tombamento: '', descricao: '' })));
+    setRecebimentoOk(null);
+    setObservacaoRecebimento('');
+    setTombamentosConfirmados({});
+    setAjustandoTombamento(false);
+    setItensAjuste((s.itensGerados ?? []).map((eq) => ({ equipamentoId: eq.id, tombamento: eq.tombamento })));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s.status]);
+
   const ehGP = usuario?.perfil === 'GESTOR_PATRIMONIO';
   const ehGalpao = usuario?.perfil === 'GALPAO';
   const ehOrigem = usuario?.unidadeId === s.unidadeOrigem.id || ehGP;
   const ehDestino = usuario?.unidadeId === s.unidadeDestino?.id || ehGP;
-
-  useEffect(() => {
-    if (ehGP && TIPOS_COM_ATA.includes(s.tipo)) {
-      api.get<Ata[]>('/atas').then(setAtas).catch(() => {});
-    }
-  }, [ehGP, s.tipo]);
+  // Confirmação de recebimento de Ampliação/Substituição é só da Unidade —
+  // nem o Gestor de Patrimônio pode fazer isso por ela (feedback 18/08)
+  const souUnidadeOrigem = usuario?.perfil === 'UNIDADE' && usuario.unidadeId === s.unidadeOrigem.id;
 
   async function executar(acao: () => Promise<unknown>, mensagem: string) {
     setErro(null);
@@ -254,7 +274,7 @@ function DetalheSolicitacao({
         <div className="info-box">
           <div className="info-label">Status</div>
           <div className="info-value">
-            <Badge valor={s.status}>{ROTULO_STATUS_SOLICITACAO[s.status]}</Badge>
+            <Badge valor={statusExibido(s).valor}>{statusExibido(s).texto}</Badge>
           </div>
         </div>
         {s.quantidade && (
@@ -305,48 +325,85 @@ function DetalheSolicitacao({
           se reserva do estoque ou fica aguardando disponibilidade) */}
       {ehGP && pendente && s.tipo !== 'EMPRESTIMO' && (
         <div className="actions-box">
-          <div className="actions-title">⚠️ Ações Disponíveis</div>
-          {TIPOS_COM_ATA.includes(s.tipo) && (
-            <div className="field">
-              <label>Prioridade (opcional)</label>
-              <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)}>
-                <option value="">Sem prioridade definida</option>
-                <option value="1">1 — Alta</option>
-                <option value="2">2 — Média</option>
-                <option value="3">3 — Baixa</option>
-              </select>
+          <div className="actions-title">Ações Disponíveis</div>
+
+          {acaoPendente === null && (
+            <div className="actions-row">
+              <button className="btn-link sucesso" onClick={() => setAcaoPendente('aprovar')}>
+                <IconeLike /> <span>Aprovar Solicitação</span>
+              </button>
+              <button className="btn-link perigo" onClick={() => setAcaoPendente('negar')}>
+                <IconeDislike /> <span>Negar Solicitação</span>
+              </button>
             </div>
           )}
-          <div className="field">
-            <label>Motivo (obrigatório para negar)</label>
-            <input value={motivo} onChange={(e) => setMotivo(e.target.value)} />
-          </div>
-          <div className="actions-row">
-            <button
-              className="btn btn-success"
-              onClick={() =>
-                executar(
-                  () =>
-                    api.post(`/solicitacoes/${s.id}/aprovar`, {
-                      ...(prioridade ? { prioridade: Number(prioridade) } : {}),
-                    }),
-                  'Solicitação aprovada.',
-                )
-              }
-            >
-              ✓ Aprovar Solicitação
-            </button>
-            <button
-              className="btn btn-danger"
-              onClick={() =>
-                executar(
-                  () => api.post(`/solicitacoes/${s.id}/negar`, { motivo }),
-                  'Solicitação negada.',
-                )
-              }
-            >
-              ✕ Negar Solicitação
-            </button>
+
+          <div className={`actions-expand${acaoPendente ? ' aberto' : ''}`}>
+            <div>
+              {acaoPendente === 'aprovar' && (
+                <>
+                  {TIPOS_COM_ATA.includes(s.tipo) && (
+                    <div className="field">
+                      <label>Prioridade *</label>
+                      <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)} required>
+                        <option value="" disabled>
+                          Selecione a prioridade...
+                        </option>
+                        <option value="1">1 — Alta</option>
+                        <option value="2">2 — Média</option>
+                        <option value="3">3 — Baixa</option>
+                      </select>
+                    </div>
+                  )}
+                  <div className="actions-row">
+                    <button
+                      className="btn-link sucesso"
+                      disabled={TIPOS_COM_ATA.includes(s.tipo) && !prioridade}
+                      onClick={() =>
+                        executar(
+                          () =>
+                            api.post(`/solicitacoes/${s.id}/aprovar`, {
+                              ...(prioridade ? { prioridade: Number(prioridade) } : {}),
+                            }),
+                          'Solicitação aprovada.',
+                        )
+                      }
+                    >
+                      <IconeLike /> <span>Confirmar Aprovação</span>
+                    </button>
+                    <button className="btn-link" onClick={() => setAcaoPendente(null)}>
+                      <span>Cancelar</span>
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {acaoPendente === 'negar' && (
+                <>
+                  <div className="field">
+                    <label>Motivo da negação *</label>
+                    <input value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+                  </div>
+                  <div className="actions-row">
+                    <button
+                      className="btn-link perigo"
+                      disabled={!motivo.trim()}
+                      onClick={() =>
+                        executar(
+                          () => api.post(`/solicitacoes/${s.id}/negar`, { motivo }),
+                          'Solicitação negada.',
+                        )
+                      }
+                    >
+                      <IconeDislike /> <span>Confirmar Negação</span>
+                    </button>
+                    <button className="btn-link" onClick={() => setAcaoPendente(null)}>
+                      <span>Cancelar</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -356,59 +413,10 @@ function DetalheSolicitacao({
       {ehGP && aguardandoDisponibilidade && (
         <div className="actions-box">
           <div className="actions-title">Aguardando Disponibilidade</div>
-          {s.disponivelParaReserva && (
-            <div className="badge badge-green" style={{ marginBottom: 12 }}>
-              ● Já chegou estoque suficiente — dá pra reservar agora
-            </div>
-          )}
-          <div className="field">
-            <label>Ata de registro de preços</label>
-            <select value={ataId} onChange={(e) => setAtaId(e.target.value)}>
-              <option value="">Selecione a ata...</option>
-              {atas
-                .filter((a) => a.ativo)
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.numero} — saldo {formatarMoeda(a.saldo)} — vence {formatarData(a.vencimento)}
-                  </option>
-                ))}
-            </select>
-          </div>
-          {ataId && (
-            <div className="field">
-              <label>Valor estimado da aquisição (R$)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={valor}
-                onChange={(e) => setValor(e.target.value)}
-              />
-            </div>
-          )}
-          <div className="field">
-            <label>Motivo (obrigatório para negar)</label>
-            <input value={motivo} onChange={(e) => setMotivo(e.target.value)} />
-          </div>
           <div className="actions-row">
             <button
               className="btn btn-success"
-              disabled={!ataId}
-              onClick={() =>
-                executar(
-                  () =>
-                    api.post(`/solicitacoes/${s.id}/vincular-ata`, {
-                      ataId,
-                      valorVinculado: Number(valor),
-                    }),
-                  'Solicitação em andamento.',
-                )
-              }
-            >
-              ✓ Vincular Ata
-            </button>
-            <button
-              className="btn btn-outline"
+              disabled={!s.disponivelParaReserva}
               onClick={() =>
                 executar(
                   () => api.post(`/solicitacoes/${s.id}/tentar-reservar-estoque`),
@@ -416,18 +424,7 @@ function DetalheSolicitacao({
                 )
               }
             >
-              Tentar Reservar do Estoque
-            </button>
-            <button
-              className="btn btn-danger"
-              onClick={() =>
-                executar(
-                  () => api.post(`/solicitacoes/${s.id}/negar`, { motivo }),
-                  'Solicitação negada.',
-                )
-              }
-            >
-              ✕ Negar Solicitação
+              Reservar do Estoque
             </button>
           </div>
         </div>
@@ -445,28 +442,36 @@ function DetalheSolicitacao({
             <input value={numeroPedidoBranet} onChange={(e) => setNumeroPedidoBranet(e.target.value)} />
           </div>
           {itensBranet.map((item, i) => (
-            <div key={i} className="info-grid" style={{ marginBottom: 0 }}>
-              <div className="field">
-                <label>Tombamento do item {i + 1} *</label>
-                <input
-                  value={item.tombamento}
-                  onChange={(e) => {
-                    const novos = [...itensBranet];
-                    novos[i] = { ...item, tombamento: e.target.value };
-                    setItensBranet(novos);
-                  }}
-                />
+            <div key={i} className="item-ampliacao">
+              <div className="item-ampliacao-cabecalho">
+                <span className="item-ampliacao-numero">
+                  {s.tipoEquipamento?.nome ?? 'Item'}
+                  {itensBranet.length > 1 ? ` — unidade ${i + 1} de ${itensBranet.length}` : ''}
+                </span>
               </div>
-              <div className="field">
-                <label>Descrição *</label>
-                <input
-                  value={item.descricao}
-                  onChange={(e) => {
-                    const novos = [...itensBranet];
-                    novos[i] = { ...item, descricao: e.target.value };
-                    setItensBranet(novos);
-                  }}
-                />
+              <div className="info-grid" style={{ marginBottom: 0 }}>
+                <div className="field">
+                  <label>Tombamento *</label>
+                  <input
+                    value={item.tombamento}
+                    onChange={(e) => {
+                      const novos = [...itensBranet];
+                      novos[i] = { ...item, tombamento: e.target.value };
+                      setItensBranet(novos);
+                    }}
+                  />
+                </div>
+                <div className="field">
+                  <label>Descrição *</label>
+                  <input
+                    value={item.descricao}
+                    onChange={(e) => {
+                      const novos = [...itensBranet];
+                      novos[i] = { ...item, descricao: e.target.value };
+                      setItensBranet(novos);
+                    }}
+                  />
+                </div>
               </div>
             </div>
           ))}
@@ -518,7 +523,10 @@ function DetalheSolicitacao({
             <>
               {itensAjuste.map((item, i) => (
                 <div key={item.equipamentoId} className="field">
-                  <label>Tombamento do item {i + 1} *</label>
+                  <label>
+                    Tombamento —{' '}
+                    {s.itensGerados?.find((eq) => eq.id === item.equipamentoId)?.descricao ?? `item ${i + 1}`} *
+                  </label>
                   <input
                     value={item.tombamento}
                     onChange={(e) => {
@@ -608,8 +616,10 @@ function DetalheSolicitacao({
       {/* Ampliação/Substituição: unidade solicitante confirma o recebimento
           do item (já com tombamento, lançado pelo Gestor) — OK/Não OK binário;
           se OK, confirma o tombamento de cada item pra bater com o cadastrado
-          (feedback do cliente 17/08). Não conclui sozinho, aguarda validação. */}
-      {TIPOS_COM_ATA.includes(s.tipo) && s.status === 'AGUARDANDO_ENTREGA' && ehOrigem && (
+          (feedback do cliente 17/08). Não conclui sozinho, aguarda validação.
+          Só a Unidade — nem o Gestor de Patrimônio confirma isso por ela
+          (feedback 18/08). */}
+      {TIPOS_COM_ATA.includes(s.tipo) && s.status === 'AGUARDANDO_ENTREGA' && souUnidadeOrigem && (
         <div className="actions-box">
           <div className="actions-title">Confirmar recebimento</div>
           <div className="actions-row" style={{ marginBottom: 12 }}>
@@ -639,9 +649,9 @@ function DetalheSolicitacao({
           )}
           {recebimentoOk === true && (
             <>
-              {(s.itensGerados ?? []).map((eq, i) => (
+              {(s.itensGerados ?? []).map((eq) => (
                 <div key={eq.id} className="field">
-                  <label>Confirme o nº de patrimônio do item {i + 1} *</label>
+                  <label>Confirme o nº de patrimônio — {eq.descricao} *</label>
                   <input
                     value={tombamentosConfirmados[eq.id] ?? ''}
                     onChange={(e) =>
@@ -726,23 +736,6 @@ function DetalheSolicitacao({
         </div>
       )}
 
-      {/* Anexo opcional (PDF ou imagem), disponível a qualquer momento pela unidade de origem */}
-      {!s.anexoUrl && ehOrigem && !['CONCLUIDA', 'CANCELADA', 'NEGADA', 'EXPIRADA'].includes(s.status) && (
-        <div className="actions-box">
-          <div className="actions-title">Anexar arquivo (opcional)</div>
-          <input
-            type="file"
-            accept="application/pdf,image/jpeg,image/png,image/webp"
-            onChange={(e) => {
-              const arquivo = e.target.files?.[0];
-              if (!arquivo) return;
-              const dados = new FormData();
-              dados.append('anexo', arquivo);
-              executar(() => api.post(`/solicitacoes/${s.id}/anexo`, dados), 'Anexo enviado.');
-            }}
-          />
-        </div>
-      )}
     </Modal>
   );
 }

@@ -17,6 +17,8 @@ import {
 } from '../components/icons';
 import type { Categoria, Equipamento, TipoSolicitacao as TipoSolicitacaoValor, Unidade } from '../types';
 import { ROTULO_TIPO_SOLICITACAO } from '../utils/format';
+import { SeletorTipoEquipamento } from '../components/SeletorTipoEquipamento';
+import { SeletorEquipamento } from '../components/SeletorEquipamento';
 
 const JUSTIFICATIVA_MAX = 500;
 
@@ -74,6 +76,22 @@ export function NovaSolicitacao() {
     // Ampliação: seleção de múltiplos itens numa única tela — vira uma
     // solicitação por item internamente (feedback do cliente 17/08)
     itensAmpliacao: [{ tipoEquipamentoId: '', quantidade: 1 }],
+    // Substituição: mesmo padrão de lista repetível da Ampliação, mas cada
+    // linha também escolhe o equipamento existente a ser substituído
+    // (feedback do cliente 25/08 — formulário ficou inconsistente com o de
+    // Ampliação e não permitia substituir vários equipamentos de uma vez).
+    // Justificativa e anexo são por item — cada equipamento pode ter um
+    // defeito/motivo diferente (feedback do cliente 25/08).
+    itensSubstituicao: [
+      {
+        equipamentoId: '',
+        tipoEquipamentoId: '',
+        quantidade: 1,
+        justificativa: '',
+        anexo: null as File | null,
+        anexoPreview: null as string | null,
+      },
+    ],
     justificativa: '',
     entidadeExternaNome: '',
     dataRetornoPrevista: '',
@@ -97,10 +115,9 @@ export function NovaSolicitacao() {
   }
 
   const galpoes = unidades.filter((u) => u.tipo === 'GALPAO');
-  const precisaEquipamento = tipo !== 'AMPLIACAO';
-  // Substituição continua 1 item de reposição por vez; Ampliação passa a
-  // aceitar múltiplos itens numa lista repetível (feedback do cliente 17/08)
-  const precisaItemReposicao = tipo === 'SUBSTITUICAO';
+  // Ampliação e Substituição usam listas repetíveis próprias (itens/
+  // itensSubstituicao) — só os demais tipos usam o campo único de equipamento
+  const precisaEquipamento = tipo !== 'AMPLIACAO' && tipo !== 'SUBSTITUICAO';
 
   async function aoEnviar(e: FormEvent) {
     e.preventDefault();
@@ -109,19 +126,25 @@ export function NovaSolicitacao() {
     try {
       const { ids } = await api.post<{ ids: string[] }>('/solicitacoes', {
         tipo,
-        justificativa: form.justificativa,
+        // Substituição carrega justificativa por item, não aqui (feedback do
+        // cliente 25/08) — os demais tipos continuam com uma só, global.
+        ...(tipo !== 'SUBSTITUICAO' ? { justificativa: form.justificativa } : {}),
         ...(precisaEquipamento ? { equipamentoId: form.equipamentoId } : {}),
-        ...(precisaItemReposicao
-          ? {
-              tipoEquipamentoId: form.tipoEquipamentoId,
-              quantidade: Number(form.quantidade),
-            }
-          : {}),
         ...(tipo === 'AMPLIACAO'
           ? {
               itens: form.itensAmpliacao.map((item) => ({
                 tipoEquipamentoId: item.tipoEquipamentoId,
                 quantidade: Number(item.quantidade),
+              })),
+            }
+          : {}),
+        ...(tipo === 'SUBSTITUICAO'
+          ? {
+              itens: form.itensSubstituicao.map((item) => ({
+                equipamentoId: item.equipamentoId,
+                tipoEquipamentoId: item.tipoEquipamentoId,
+                quantidade: Number(item.quantidade),
+                justificativa: item.justificativa,
               })),
             }
           : {}),
@@ -133,7 +156,18 @@ export function NovaSolicitacao() {
           ? { dataRetornoPrevista: form.dataRetornoPrevista }
           : {}),
       });
-      if (anexo) {
+      if (tipo === 'SUBSTITUICAO') {
+        // Anexo por item — cada id criado corresponde, na mesma ordem, ao
+        // item da lista que o gerou (ver solicitacoes.service.ts)
+        await Promise.all(
+          form.itensSubstituicao.map((item, i) => {
+            if (!item.anexo) return null;
+            const dados = new FormData();
+            dados.append('anexo', item.anexo);
+            return api.post(`/solicitacoes/${ids[i]}/anexo`, dados);
+          }),
+        );
+      } else if (anexo) {
         await Promise.all(
           ids.map((id) => {
             const dados = new FormData();
@@ -229,7 +263,7 @@ export function NovaSolicitacao() {
             </button>
           </div>
 
-          <div className="form-colunas">
+          <div className={`form-colunas${tipo === 'SUBSTITUICAO' ? ' form-colunas-unica' : ''}`}>
           <div className="form-coluna">
           {precisaEquipamento && (
             <div className="form-secao">
@@ -241,7 +275,7 @@ export function NovaSolicitacao() {
               </div>
               <div className="info-grid">
                 <div className="field">
-                  <label>{tipo === 'SUBSTITUICAO' ? 'Equipamento a ser substituído *' : 'Equipamento (do seu inventário) *'}</label>
+                  <label>Equipamento (do seu inventário) *</label>
                   <select
                     value={form.equipamentoId}
                     onChange={(e) => setForm({ ...form, equipamentoId: e.target.value })}
@@ -330,45 +364,174 @@ export function NovaSolicitacao() {
             </div>
           )}
 
-          {precisaItemReposicao && (
+          {tipo === 'SUBSTITUICAO' && (
             <div className="form-secao">
               <div className="form-secao-titulo">
                 <div className="form-secao-titulo-icone">
                   <IconeCaixa />
                 </div>
-                Item de Reposição
+                Equipamentos a Substituir
               </div>
-              <div className="info-grid">
-                <div className="field">
-                  <label>Tipo do Item de Reposição *</label>
-                  <select
-                    value={form.tipoEquipamentoId}
-                    onChange={(e) => setForm({ ...form, tipoEquipamentoId: e.target.value })}
-                    required
-                  >
-                    <option value="">Selecione o tipo</option>
-                    {categorias.map((c) => (
-                      <optgroup key={c.id} label={c.nome}>
-                        {c.tipos.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.nome}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+              {form.itensSubstituicao.map((item, i) => (
+                <div key={i} className="item-ampliacao">
+                  <div className="item-ampliacao-cabecalho">
+                    <span className="item-ampliacao-numero">Item {i + 1}</span>
+                    {form.itensSubstituicao.length > 1 && (
+                      <button
+                        type="button"
+                        className="item-ampliacao-remover"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            itensSubstituicao: form.itensSubstituicao.filter((_, j) => j !== i),
+                          })
+                        }
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                  <div className="field">
+                    <label>Equipamento a Substituir *</label>
+                    <SeletorEquipamento
+                      equipamentos={equipamentos}
+                      value={item.equipamentoId}
+                      idsExcluidos={form.itensSubstituicao
+                        .filter((_, j) => j !== i)
+                        .map((it) => it.equipamentoId)
+                        .filter(Boolean)}
+                      onChange={(id) => {
+                        const itens = [...form.itensSubstituicao];
+                        itens[i] = { ...item, equipamentoId: id };
+                        setForm({ ...form, itensSubstituicao: itens });
+                      }}
+                      required
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Tipo do Item de Reposição *</label>
+                    <SeletorTipoEquipamento
+                      categorias={categorias}
+                      value={item.tipoEquipamentoId}
+                      onChange={(id) => {
+                        const itens = [...form.itensSubstituicao];
+                        itens[i] = { ...item, tipoEquipamentoId: id };
+                        setForm({ ...form, itensSubstituicao: itens });
+                      }}
+                      required
+                    />
+                  </div>
+                  <div className="field item-ampliacao-quantidade">
+                    <label>Quantidade *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantidade}
+                      onChange={(e) => {
+                        const itens = [...form.itensSubstituicao];
+                        itens[i] = { ...item, quantidade: Number(e.target.value) };
+                        setForm({ ...form, itensSubstituicao: itens });
+                      }}
+                      required
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Justificativa *</label>
+                    <textarea
+                      rows={2}
+                      maxLength={JUSTIFICATIVA_MAX}
+                      placeholder="Explique o motivo da substituição deste equipamento..."
+                      value={item.justificativa}
+                      onChange={(e) => {
+                        const itens = [...form.itensSubstituicao];
+                        itens[i] = { ...item, justificativa: e.target.value };
+                        setForm({ ...form, itensSubstituicao: itens });
+                      }}
+                      required
+                    />
+                    <div className="campo-contador">
+                      {item.justificativa.length}/{JUSTIFICATIVA_MAX} caracteres
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label>Anexo</label>
+                    <input
+                      type="file"
+                      id={`anexo-substituicao-${i}`}
+                      accept="application/pdf,image/jpeg,image/png,image/webp"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const arquivo = e.target.files?.[0];
+                        if (arquivo) {
+                          const itens = [...form.itensSubstituicao];
+                          itens[i] = {
+                            ...item,
+                            anexo: arquivo,
+                            anexoPreview:
+                              arquivo.type === 'application/pdf' ? null : URL.createObjectURL(arquivo),
+                          };
+                          setForm({ ...form, itensSubstituicao: itens });
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                    {item.anexo ? (
+                      <div className="foto-preview-grande">
+                        {item.anexoPreview ? (
+                          <img src={item.anexoPreview} alt="" />
+                        ) : (
+                          <div className="foto-dropzone-texto" style={{ padding: '20px 0' }}>
+                            <div className="foto-dropzone-titulo">📄 {item.anexo.name}</div>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="foto-preview-remover"
+                          aria-label="Remover anexo"
+                          onClick={() => {
+                            const itens = [...form.itensSubstituicao];
+                            itens[i] = { ...item, anexo: null, anexoPreview: null };
+                            setForm({ ...form, itensSubstituicao: itens });
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <label htmlFor={`anexo-substituicao-${i}`} className="foto-dropzone">
+                        <IconeCaixa />
+                        <div className="foto-dropzone-texto">
+                          <div className="foto-dropzone-titulo">Selecionar anexo</div>
+                          <div className="foto-dropzone-sub">PDF, PNG, JPG ou WebP até 5MB</div>
+                        </div>
+                      </label>
+                    )}
+                  </div>
                 </div>
-                <div className="field">
-                  <label>Quantidade *</label>
-                  <input
-                    type="number"
-                    min="1"
-                    value={form.quantidade}
-                    onChange={(e) => setForm({ ...form, quantidade: Number(e.target.value) })}
-                    required
-                  />
-                </div>
-              </div>
+              ))}
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ marginTop: 12 }}
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    itensSubstituicao: [
+                      ...form.itensSubstituicao,
+                      {
+                        equipamentoId: '',
+                        tipoEquipamentoId: '',
+                        quantidade: 1,
+                        justificativa: '',
+                        anexo: null,
+                        anexoPreview: null,
+                      },
+                    ],
+                  })
+                }
+              >
+                + Adicionar item
+              </button>
             </div>
           )}
 
@@ -381,31 +544,42 @@ export function NovaSolicitacao() {
                 Itens Solicitados
               </div>
               {form.itensAmpliacao.map((item, i) => (
-                <div key={i} className="info-grid" style={{ marginBottom: 0 }}>
+                <div key={i} className="item-ampliacao">
+                  <div className="item-ampliacao-cabecalho">
+                    <span className="item-ampliacao-numero">Item {i + 1}</span>
+                    {form.itensAmpliacao.length > 1 && (
+                      <button
+                        type="button"
+                        className="item-ampliacao-remover"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            itensAmpliacao: form.itensAmpliacao.filter((_, j) => j !== i),
+                          })
+                        }
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
                   <div className="field">
-                    <label>Tipo de Equipamento {i + 1} *</label>
-                    <select
+                    <label>Tipo de Equipamento *</label>
+                    <SeletorTipoEquipamento
+                      categorias={categorias}
                       value={item.tipoEquipamentoId}
-                      onChange={(e) => {
+                      idsExcluidos={form.itensAmpliacao
+                        .filter((_, j) => j !== i)
+                        .map((it) => it.tipoEquipamentoId)
+                        .filter(Boolean)}
+                      onChange={(id) => {
                         const itens = [...form.itensAmpliacao];
-                        itens[i] = { ...item, tipoEquipamentoId: e.target.value };
+                        itens[i] = { ...item, tipoEquipamentoId: id };
                         setForm({ ...form, itensAmpliacao: itens });
                       }}
                       required
-                    >
-                      <option value="">Selecione o tipo</option>
-                      {categorias.map((c) => (
-                        <optgroup key={c.id} label={c.nome}>
-                          {c.tipos.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.nome}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
+                    />
                   </div>
-                  <div className="field">
+                  <div className="field item-ampliacao-quantidade">
                     <label>Quantidade *</label>
                     <input
                       type="number"
@@ -419,20 +593,6 @@ export function NovaSolicitacao() {
                       required
                     />
                   </div>
-                  {form.itensAmpliacao.length > 1 && (
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          itensAmpliacao: form.itensAmpliacao.filter((_, j) => j !== i),
-                        })
-                      }
-                    >
-                      Remover item
-                    </button>
-                  )}
                 </div>
               ))}
               <button
@@ -452,6 +612,7 @@ export function NovaSolicitacao() {
           )}
           </div>
 
+          {tipo !== 'SUBSTITUICAO' && (
           <div className="form-coluna">
           <div className="form-secao">
             <div className="form-secao-titulo">
@@ -475,7 +636,7 @@ export function NovaSolicitacao() {
               </div>
             </div>
             <div className="field">
-              <label>Anexo (comprovante de autorização)</label>
+              <label>Anexo</label>
               <input
                 ref={inputAnexo}
                 type="file"
@@ -523,6 +684,7 @@ export function NovaSolicitacao() {
             </div>
           </div>
           </div>
+          )}
           </div>
 
           <div className="actions-row" style={{ justifyContent: 'flex-end' }}>

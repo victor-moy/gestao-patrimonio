@@ -74,17 +74,18 @@ export const ROTULO_STATUS_MANUTENCAO: Record<string, string> = {
   BAIXADO: 'Baixado',
 };
 
+// APROVADA, APROVADA_AGUARDANDO_ATA e CANCELADA ficaram no enum do banco só
+// por compatibilidade (evitar migration destrutiva) — nenhum fluxo atual
+// atribui esses status a uma solicitação, então saíram daqui pra não aparecer
+// como opção morta no filtro (feedback 20/08).
 export const ROTULO_STATUS_SOLICITACAO: Record<string, string> = {
   PENDENTE_APROVACAO: 'Pendente Aprovação',
   NEGADA: 'Negada',
-  APROVADA: 'Aprovada',
-  APROVADA_AGUARDANDO_ATA: 'Aprovada — Aguardando Ata',
   AGUARDANDO_SAIDA: 'Aguardando Saída',
   AGUARDANDO_RECEBIMENTO: 'Aguardando Recebimento',
   AGUARDANDO_RETORNO: 'Aguardando Retorno',
   AGUARDANDO_ENTREGA: 'Aguardando Entrega',
   CONCLUIDA: 'Concluída',
-  CANCELADA: 'Cancelada',
   EXPIRADA: 'Expirada (SLA)',
   RESERVADO: 'Reservado',
   AGUARDANDO_DISPONIBILIDADE: 'Aguardando Disponibilidade',

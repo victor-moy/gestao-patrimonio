@@ -271,13 +271,28 @@ label {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: none;
+  gap: 7px;
+  border: 1px solid transparent;
   border-radius: 8px;
-  padding: 11px 18px;
+  padding: 10px 16px;
   font-size: 14px;
   font-weight: 600;
-  transition: background 0.15s;
+  letter-spacing: -0.1px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease,
+    transform 0.1s ease, color 0.15s ease, filter 0.15s ease;
+}
+
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
 }
 
 .btn-primary {
@@ -289,11 +304,6 @@ label {
   background: var(--primary-dark);
 }
 
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 .btn-block {
   width: 100%;
   text-transform: uppercase;
@@ -302,22 +312,33 @@ label {
 
 .btn-outline {
   background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text);
+  border-color: var(--border);
+  color: var(--text-secondary);
+  box-shadow: none;
 }
 
 .btn-outline:hover {
   background: var(--gray-bg);
+  border-color: var(--text-muted);
+  color: var(--text);
 }
 
 .btn-success {
-  background: var(--green);
+  background: var(--green-text);
   color: #fff;
 }
 
+.btn-success:hover {
+  filter: brightness(0.88);
+}
+
 .btn-danger {
-  background: #dc2626;
+  background: var(--red-text);
   color: #fff;
+}
+
+.btn-danger:hover {
+  filter: brightness(0.88);
 }
 
 .btn-sm {
@@ -327,6 +348,52 @@ label {
 
 .btn-leve {
   font-weight: 400;
+}
+
+/* Botão-texto sublinhado — usado só onde um botão "cheio" pesa demais
+   (ex: Aprovar/Negar/Cancelar de uma solicitação pendente) */
+.btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 6px 2px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* O sublinhado fica só no texto (não sob o ícone) — text-decoration não
+   atravessa a fronteira de um flex item, então precisa ir no <span> */
+.btn-link span {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: currentColor;
+}
+
+.btn-link svg {
+  flex-shrink: 0;
+}
+
+.btn-link:hover {
+  opacity: 0.7;
+}
+
+.btn-link:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-link.sucesso {
+  color: var(--green-text);
+}
+
+.btn-link.perigo {
+  color: var(--red-text);
 }
 
 .link {
@@ -1361,8 +1428,8 @@ tr.clickable:hover {
 }
 
 .actions-box {
-  border: 1px solid #fde68a;
-  background: #fffbeb;
+  border: 1px solid var(--border);
+  background: var(--gray-bg);
   border-radius: 10px;
   padding: 16px;
   margin-top: 18px;
@@ -1378,6 +1445,22 @@ tr.clickable:hover {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+/* Expande suavemente (em vez de saltar) quando um sub-formulário de ação
+   aparece — grid-template-rows 0fr→1fr anima mesmo com altura automática */
+.actions-expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s ease;
+}
+
+.actions-expand.aberto {
+  grid-template-rows: 1fr;
+}
+
+.actions-expand > div {
+  overflow: hidden;
 }
 
 /* ---------- Histórico ---------- */
@@ -2221,6 +2304,17 @@ tr.clickable:hover {
   padding-left: 32px;
 }
 
+/* Substituição não usa a segunda coluna (justificativa/anexo viraram por
+   item, dentro de cada card da lista) — ocupa a largura toda */
+.form-colunas-unica {
+  grid-template-columns: 1fr;
+}
+
+.form-colunas-unica .form-coluna:first-child {
+  padding-right: 0;
+  border-right: none;
+}
+
 @media (max-width: 960px) {
   .form-colunas {
     grid-template-columns: 1fr;
@@ -2436,4 +2530,198 @@ tr.clickable:hover {
    afetar rótulos de outras telas do sistema */
 .form-minimalista label {
   font-weight: 500;
+}
+
+/* ---------- Seletor de Tipo de Equipamento (combobox com busca) ---------- */
+.seletor-tipo {
+  position: relative;
+}
+
+.seletor-tipo-shadow {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  height: 1px;
+}
+
+.seletor-tipo-gatilho {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-family: inherit;
+  font-size: 14.5px;
+  padding: 13px 16px;
+  min-height: 48px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+}
+
+.seletor-tipo-gatilho:hover {
+  border-color: var(--text-muted);
+}
+
+.seletor-tipo-gatilho[aria-expanded='true'] {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.seletor-tipo-gatilho svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.seletor-tipo-placeholder {
+  color: var(--text-muted);
+}
+
+.seletor-tipo-painel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: max(100%, 420px);
+  z-index: 40;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.16);
+  overflow: hidden;
+}
+
+.seletor-tipo-busca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.seletor-tipo-busca svg {
+  width: 18px;
+  height: 18px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.seletor-tipo-busca input {
+  border: none;
+  padding: 3px 0;
+  font-size: 14.5px;
+}
+
+.seletor-tipo-busca input:focus {
+  outline: none;
+}
+
+.seletor-tipo-lista {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.seletor-tipo-grupo-titulo {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 12px 12px 6px;
+}
+
+.seletor-tipo-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  font-family: inherit;
+  font-size: 14.5px;
+  text-align: left;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--text);
+}
+
+.seletor-tipo-item:hover,
+.seletor-tipo-item.ativo {
+  background: var(--gray-bg);
+}
+
+.seletor-tipo-item.selecionado {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  font-weight: 600;
+}
+
+.seletor-tipo-codigo {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.seletor-tipo-item.selecionado .seletor-tipo-codigo {
+  color: var(--blue-text);
+  opacity: 0.75;
+}
+
+.seletor-tipo-vazio {
+  padding: 24px 14px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14.5px;
+}
+
+/* ---------- Itens da Ampliação (card por item, tipo ocupa a linha toda) ---------- */
+.item-ampliacao {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 14px 16px 16px;
+  margin-bottom: 12px;
+}
+
+.item-ampliacao-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.item-ampliacao-numero {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.item-ampliacao-remover {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--red-text);
+  background: none;
+  border: none;
+  padding: 2px 4px;
+}
+
+.item-ampliacao-remover:hover {
+  text-decoration: underline;
+}
+
+.item-ampliacao .field:last-child {
+  margin-bottom: 0;
+}
+
+.item-ampliacao-quantidade {
+  max-width: 140px;
 }

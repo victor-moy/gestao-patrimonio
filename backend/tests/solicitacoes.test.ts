@@ -272,13 +272,18 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
         tipo: 'SUBSTITUICAO',
-        equipamentoId: UUID,
-        tipoEquipamentoId: UUID2,
-        quantidade: 1,
+        itens: [
+          {
+            equipamentoId: EQUIP_UUID,
+            tipoEquipamentoId: UUID2,
+            quantidade: 1,
+            justificativa: 'Equipamento com defeito irreparável',
+          },
+        ],
         origemRecurso: 'REGULAR',
-        justificativa: 'Equipamento com defeito irreparável',
       });
     expect(res.status).toBe(201);
+    expect(res.body.ids).toEqual(['sol-1']);
   });
 
   it('substituição aceita equipamento já baixado (fluxo automático RN07)', async () => {
@@ -297,13 +302,99 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
         tipo: 'SUBSTITUICAO',
-        equipamentoId: UUID,
-        tipoEquipamentoId: UUID2,
-        quantidade: 1,
+        itens: [
+          {
+            equipamentoId: EQUIP_UUID,
+            tipoEquipamentoId: UUID2,
+            quantidade: 1,
+            justificativa: 'Equipamento já baixado por manutenção',
+          },
+        ],
         origemRecurso: 'REGULAR',
-        justificativa: 'Equipamento já baixado por manutenção',
       });
     expect(res.status).toBe(201);
+  });
+
+  it('cria substituição com múltiplos equipamentos: uma Solicitacao por item (feedback do cliente 25/08)', async () => {
+    prismaMock.equipamento.findUnique
+      .mockResolvedValueOnce({ ...equipamentoAtivo, id: 'eq-1' } as never)
+      .mockResolvedValueOnce({ ...equipamentoAtivo, id: 'eq-2' } as never);
+    prismaMock.solicitacao.create
+      .mockResolvedValueOnce({ ...solicitacaoBase, id: 'sol-a', tipo: 'SUBSTITUICAO' } as never)
+      .mockResolvedValueOnce({ ...solicitacaoBase, id: 'sol-b', tipo: 'SUBSTITUICAO' } as never);
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'SUBSTITUICAO',
+        itens: [
+          {
+            equipamentoId: UUID,
+            tipoEquipamentoId: UUID2,
+            quantidade: 1,
+            justificativa: 'Primeiro equipamento com defeito irreparável',
+          },
+          {
+            equipamentoId: EQUIP_UUID,
+            tipoEquipamentoId: UUID2,
+            quantidade: 2,
+            justificativa: 'Segundo equipamento com defeito irreparável',
+          },
+        ],
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.ids).toEqual(['sol-a', 'sol-b']);
+    expect(prismaMock.solicitacao.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('substituição sem itens selecionados é rejeitada', async () => {
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({ tipo: 'SUBSTITUICAO', itens: [], justificativa: 'Substituição sem itens' });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+  });
+
+  it('substituição rejeita item sem equipamento a substituir', async () => {
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'SUBSTITUICAO',
+        itens: [{ tipoEquipamentoId: UUID2, quantidade: 1 }],
+        justificativa: 'Substituição sem equipamento informado',
+      });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+  });
+
+  it('substituição rejeita item sem justificativa própria (feedback do cliente 25/08)', async () => {
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'SUBSTITUICAO',
+        itens: [{ equipamentoId: UUID, tipoEquipamentoId: UUID2, quantidade: 1 }],
+      });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+  });
+
+  it('substituição rejeita o mesmo equipamento repetido na mesma solicitação', async () => {
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'SUBSTITUICAO',
+        itens: [
+          { equipamentoId: UUID, tipoEquipamentoId: UUID2, quantidade: 1 },
+          { equipamentoId: UUID, tipoEquipamentoId: UUID2, quantidade: 1 },
+        ],
+        justificativa: 'Mesmo equipamento duas vezes',
+      });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
 
   it('recolha exige unidade de destino do tipo galpão', async () => {
@@ -373,6 +464,19 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     expect(prismaMock.notificacao.create).toHaveBeenCalled();
   });
 
+  it('bloqueia negar depois de aprovada, mesmo aguardando disponibilidade (feedback 18/08: uma vez aprovada está aprovada)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...solicitacaoBase,
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/negar')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ motivo: 'Mudança de plano' });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
+  });
+
   it('aprova ampliação sem estoque: AGUARDANDO_DISPONIBILIDADE (sem expor ata ao solicitante)', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue(ampliacaoPendente as never);
     prismaMock.estoqueGalpao.findMany.mockResolvedValue([] as never);
@@ -383,10 +487,21 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
       .set(auth('GESTOR_PATRIMONIO'))
-      .send();
+      .send({ prioridade: 2 });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('AGUARDANDO_DISPONIBILIDADE');
     expect(prismaMock.estoqueGalpao.update).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia aprovar ampliação/substituição sem prioridade (feedback 18/08)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(ampliacaoPendente as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/aprovar')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(422);
+    expect(res.body.mensagem).toContain('prioridade');
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
   });
 
   it('aprova ampliação com estoque suficiente: RESERVADO direto, decrementando o galpão com mais saldo', async () => {
@@ -403,7 +518,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
       .set(auth('GESTOR_PATRIMONIO'))
-      .send();
+      .send({ prioridade: 3 });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('RESERVADO');
     expect(prismaMock.estoqueGalpao.update).toHaveBeenCalledWith(
@@ -890,6 +1005,16 @@ describe('Solicitações — confirmação de recebimento OK/Não OK (feedback 1
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({ ok: false });
     expect(res.status).toBe(422);
+  });
+
+  it('bloqueia o Gestor de Patrimônio de confirmar recebimento — só a Unidade (feedback 18/08)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(aguardandoEntrega as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/confirmar-recebimento')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ ok: true, itens: [{ equipamentoId: EQUIP_UUID, tombamentoConfirmado: '20001/2026' }] });
+    expect(res.status).toBe(403);
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
   });
 
   it('Não OK com observação: vira AGUARDANDO_VALIDACAO com o motivo registrado', async () => {

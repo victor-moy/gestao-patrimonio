@@ -22,15 +22,14 @@ const CORES: Record<string, string> = {
   AGUARDANDO_SAIDA: 'yellow',
   AGUARDANDO_RECEBIMENTO: 'yellow',
   AGUARDANDO_ENTREGA: 'yellow',
-  APROVADA: 'green',
-  APROVADA_AGUARDANDO_ATA: 'blue',
   CONCLUIDA: 'green',
   NEGADA: 'red',
-  CANCELADA: 'gray',
   EXPIRADA: 'gray',
   RESERVADO: 'blue',
   AGUARDANDO_DISPONIBILIDADE: 'yellow',
   AGUARDANDO_VALIDACAO: 'yellow',
+  // Pseudo-status: Aguardando Disponibilidade com estoque já disponível
+  DISPONIVEL_PARA_RESERVA: 'green',
   // Tipos de solicitação
   SUBSTITUICAO: 'blue',
   AMPLIACAO: 'blue',
