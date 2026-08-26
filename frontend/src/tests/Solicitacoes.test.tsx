@@ -19,7 +19,7 @@ const me = {
 };
 
 describe('Solicitações (UC10/UC13/UC16)', () => {
-  it('unidade cria solicitação de novo item', async () => {
+  it('unidade cria solicitação de ampliação pelo catálogo de tipos', async () => {
     localStorage.setItem('sgp_token', 'token-teste');
     const chamadas = mockFetch({
       ...me,
@@ -27,7 +27,7 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
         init?.method === 'POST'
           ? {
               status: 201,
-              body: { id: 'nova' },
+              body: { ids: ['nova'] },
             }
           : { body: [] },
       '/equipamentos': { body: [] },
@@ -52,16 +52,22 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: /nova solicitação/i }));
 
-    await waitFor(() => expect(screen.getByText('Tipo de Solicitação *')).toBeInTheDocument());
-    const modal = within(screen.getByRole('dialog'));
-    // selects do modal: [0] tipo de solicitação, [1] tipo de equipamento, [2] origem do recurso
-    const selects = modal.getAllByRole('combobox');
-    await userEvent.selectOptions(selects[1], '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6');
+    // Catálogo de tipos (página dedicada, não mais um modal)
+    await waitFor(() =>
+      expect(screen.getByText('Selecione o tipo de solicitação')).toBeInTheDocument(),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /ampliação/i }));
+
+    // Formulário do tipo escolhido — Ampliação aceita múltiplos itens
+    // numa lista repetível (feedback do cliente 17/08)
+    await waitFor(() => expect(screen.getByText('Tipo de Equipamento 1 *')).toBeInTheDocument());
+    const selects = screen.getAllByRole('combobox');
+    await userEvent.selectOptions(selects[0], '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6');
     await userEvent.type(
-      modal.getByRole('textbox'),
+      screen.getByRole('textbox'),
       'Ampliação da capacidade de esterilização',
     );
-    await userEvent.click(modal.getByRole('button', { name: /enviar solicitação/i }));
+    await userEvent.click(screen.getByRole('button', { name: /enviar solicitação/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Solicitação registrada.')).toBeInTheDocument();
@@ -71,9 +77,11 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
     );
     expect(post).toBeDefined();
     const corpo = JSON.parse(String(post!.init!.body));
-    expect(corpo.tipo).toBe('NOVO_ITEM');
-    expect(corpo.quantidade).toBe(1);
-    expect(corpo.origemRecurso).toBe('REGULAR');
+    expect(corpo.tipo).toBe('AMPLIACAO');
+    expect(corpo.itens).toEqual([
+      { tipoEquipamentoId: '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6', quantidade: 1 },
+    ]);
+    expect(corpo.origemRecurso).toBeUndefined();
   });
 
   it('lista solicitações com tipo e status', async () => {
@@ -90,12 +98,14 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
             motivoNegacao: null,
             quantidade: null,
             origemRecurso: null,
+            anexoUrl: null,
+            entidadeExternaNome: 'Hospital Regional',
             dataRetornoPrevista: null,
             automatica: false,
             criadoEm: '2026-05-02T10:00:00.000Z',
             valorVinculado: null,
             unidadeOrigem: { id: 'u1', nome: 'UBS Sul' },
-            unidadeDestino: { id: 'u2', nome: 'UBS Centro' },
+            unidadeDestino: null,
             equipamento: { id: 'e1', tombamento: '12348/2023', descricao: 'Autoclave Vertical 21L' },
             tipoEquipamento: null,
             ata: null,

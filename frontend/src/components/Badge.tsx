@@ -12,6 +12,7 @@ const CORES: Record<string, string> = {
   EM_MANUTENCAO: 'yellow',
   EMPRESTADO: 'purple',
   BAIXADO: 'red',
+  CEDIDO: 'purple',
   // Status de manutenção/solicitação
   PENDENTE_APROVACAO: 'yellow',
   AGUARDANDO_ORCAMENTO: 'blue',
@@ -26,8 +27,13 @@ const CORES: Record<string, string> = {
   CONCLUIDA: 'green',
   NEGADA: 'red',
   CANCELADA: 'gray',
+  EXPIRADA: 'gray',
+  RESERVADO: 'blue',
+  AGUARDANDO_DISPONIBILIDADE: 'yellow',
+  AGUARDANDO_VALIDACAO: 'yellow',
   // Tipos de solicitação
-  NOVO_ITEM: 'blue',
+  SUBSTITUICAO: 'blue',
+  AMPLIACAO: 'blue',
   CESSAO_USO: 'purple',
   EMPRESTIMO: 'blue',
   RECOLHA: 'yellow',

@@ -76,18 +76,24 @@ describe('Atas (UC19/UC20, RF33-RF35)', () => {
 });
 
 describe('Estoque do galpão (RF31/RF32)', () => {
-  it('registra entrada no estoque interno', async () => {
+  it('registra entrada no estoque do galpão do usuário logado', async () => {
     prismaMock.tipoEquipamento.findUnique.mockResolvedValue({ id: UUID } as never);
+    prismaMock.unidade.findUnique.mockResolvedValue({ id: 'galpao-1', tipo: 'GALPAO' } as never);
     prismaMock.estoqueGalpao.upsert.mockResolvedValue({
       id: 'est-1',
-      quantidadeInterna: 10,
+      quantidade: 10,
       tipoEquipamento: {},
     } as never);
     const res = await request(app)
       .post('/estoque/entrada')
       .set(auth('GALPAO', { unidadeId: 'galpao-1' }))
-      .send({ tipoEquipamentoId: UUID, quantidade: 2, destino: 'INTERNO' });
+      .send({ tipoEquipamentoId: UUID, quantidade: 2 });
     expect(res.status).toBe(200);
+    expect(prismaMock.estoqueGalpao.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId: UUID, unidadeId: 'galpao-1' } },
+      }),
+    );
     expect(prismaMock.logAuditoria.create).toHaveBeenCalled();
   });
 

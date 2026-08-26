@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { api, urlArquivo } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
 import { useAuth } from '../auth/AuthContext';
@@ -141,7 +141,7 @@ function DetalheManutencao({
   const { usuario } = useAuth();
   const [erro, setErro] = useMensagemTemporaria();
   const [motivo, setMotivo] = useState('');
-  const [laudo, setLaudo] = useState('');
+  const [laudo, setLaudo] = useState<File | null>(null);
   const [orcamento, setOrcamento] = useState('');
   const [custoFinal, setCustoFinal] = useState('');
   const [estadoPos, setEstadoPos] = useState('BOM');
@@ -212,7 +212,11 @@ function DetalheManutencao({
       {manutencao.laudoBaixa && (
         <>
           <div className="section-title">Laudo de Baixa</div>
-          <div className="error-banner">{manutencao.laudoBaixa}</div>
+          <div className="error-banner">
+            <a href={urlArquivo(manutencao.laudoBaixa)} target="_blank" rel="noreferrer">
+              Ver laudo em PDF
+            </a>
+          </div>
         </>
       )}
 
@@ -298,32 +302,32 @@ function DetalheManutencao({
         <div className="actions-box">
           <div className="actions-title">Validar orçamento ({formatarMoeda(manutencao.orcamentoValor)})</div>
           <div className="field">
-            <label>Laudo de baixa (obrigatório para rejeitar)</label>
-            <textarea rows={2} value={laudo} onChange={(e) => setLaudo(e.target.value)} />
+            <label>Laudo de baixa em PDF (obrigatório para rejeitar)</label>
+            <input type="file" accept="application/pdf" onChange={(e) => setLaudo(e.target.files?.[0] ?? null)} />
           </div>
           <div className="actions-row">
             <button
               className="btn btn-success"
               onClick={() =>
-                executar(
-                  () => api.post(`/manutencoes/${manutencao.id}/validar-orcamento`, { aprovado: true }),
-                  'Orçamento aprovado — manutenção em execução.',
-                )
+                executar(async () => {
+                  const dados = new FormData();
+                  dados.append('aprovado', 'true');
+                  await api.post(`/manutencoes/${manutencao.id}/validar-orcamento`, dados);
+                }, 'Orçamento aprovado — manutenção em execução.')
               }
             >
               ✓ Aprovar Orçamento
             </button>
             <button
               className="btn btn-danger"
+              disabled={!laudo}
               onClick={() =>
-                executar(
-                  () =>
-                    api.post(`/manutencoes/${manutencao.id}/validar-orcamento`, {
-                      aprovado: false,
-                      laudoBaixa: laudo,
-                    }),
-                  'Orçamento rejeitado — laudo de baixa emitido e solicitação de novo item aberta automaticamente.',
-                )
+                executar(async () => {
+                  const dados = new FormData();
+                  dados.append('aprovado', 'false');
+                  if (laudo) dados.append('laudo', laudo);
+                  await api.post(`/manutencoes/${manutencao.id}/validar-orcamento`, dados);
+                }, 'Orçamento rejeitado — laudo de baixa emitido e solicitação de substituição aberta automaticamente.')
               }
             >
               ✕ Rejeitar e Emitir Baixa
@@ -363,11 +367,13 @@ function DetalheManutencao({
             </button>
             <button
               className="btn btn-danger"
+              disabled={!laudo}
               onClick={() =>
-                executar(
-                  () => api.post(`/manutencoes/${manutencao.id}/baixa`, { laudo }),
-                  'Laudo de baixa emitido.',
-                )
+                executar(async () => {
+                  const dados = new FormData();
+                  if (laudo) dados.append('laudo', laudo);
+                  await api.post(`/manutencoes/${manutencao.id}/baixa`, dados);
+                }, 'Laudo de baixa emitido.')
               }
             >
               Emitir Laudo de Baixa

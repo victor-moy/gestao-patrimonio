@@ -1,11 +1,11 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { api } from '../api/client';
+import { useCallback, useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { api, urlArquivo } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
-import { semAlteracoes } from '../utils/form';
 import { useAuth } from '../auth/AuthContext';
 import { Badge } from '../components/Badge';
 import { Modal } from '../components/Modal';
-import type { Ata, Categoria, Equipamento, Solicitacao, Unidade } from '../types';
+import type { Ata, Solicitacao } from '../types';
 import {
   formatarData,
   formatarMoeda,
@@ -14,14 +14,19 @@ import {
   ROTULO_TIPO_SOLICITACAO,
 } from '../utils/format';
 
+// Ampliação/Substituição seguem o fluxo de aquisição via ata; os demais
+// tipos operam sobre um equipamento já existente no inventário da unidade.
+const TIPOS_COM_ATA = ['AMPLIACAO', 'SUBSTITUICAO'];
+
 export function Solicitacoes() {
   const { usuario } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
   const [busca, setBusca] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [detalheId, setDetalheId] = useState<string | null>(null);
-  const [novaAberta, setNovaAberta] = useState(false);
   const [mensagem, setMensagem] = useMensagemTemporaria();
   const [erro, setErro] = useState<string | null>(null);
 
@@ -40,6 +45,16 @@ export function Solicitacoes() {
     carregar();
   }, [carregar]);
 
+  // Mensagem de sucesso vinda da navegação de volta da tela de Nova Solicitação
+  useEffect(() => {
+    const state = location.state as { mensagem?: string } | null;
+    if (state?.mensagem) {
+      setMensagem(state.mensagem);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
   const detalhe = solicitacoes.find((s) => s.id === detalheId) ?? null;
 
   return (
@@ -53,7 +68,7 @@ export function Solicitacoes() {
           </p>
         </div>
         {usuario?.perfil === 'UNIDADE' && (
-          <button className="btn btn-primary" onClick={() => setNovaAberta(true)}>
+          <button className="btn btn-primary" onClick={() => navigate('/solicitacoes/nova')}>
             + Nova Solicitação
           </button>
         )}
@@ -105,6 +120,7 @@ export function Solicitacoes() {
                 <div className="request-sub">
                   Origem: {s.unidadeOrigem.nome}
                   {s.unidadeDestino && <> ⇆ Destino: {s.unidadeDestino.nome}</>}
+                  {s.entidadeExternaNome && <> ⇆ Destino: {s.entidadeExternaNome} (externo)</>}
                   {s.quantidade && <> · Qtd: {s.quantidade}</>}
                 </div>
                 <div className="request-desc">{s.justificativa}</div>
@@ -119,8 +135,14 @@ export function Solicitacoes() {
                   {s.ata && <span>Ata: {s.ata.numero}</span>}
                 </div>
               </div>
-              <div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
                 <Badge valor={s.status}>{ROTULO_STATUS_SOLICITACAO[s.status]}</Badge>
+                {s.disponivelParaReserva && (
+                  <span className="badge badge-green">● Estoque disponível</span>
+                )}
+                {s.prioridade && (
+                  <span className="badge badge-purple">Prioridade {s.prioridade}</span>
+                )}
               </div>
             </div>
           ))}
@@ -141,16 +163,6 @@ export function Solicitacoes() {
           }}
         />
       )}
-      {novaAberta && (
-        <NovaSolicitacao
-          onFechar={() => setNovaAberta(false)}
-          onSucesso={() => {
-            setNovaAberta(false);
-            setMensagem('Solicitação registrada.');
-            carregar();
-          }}
-        />
-      )}
     </>
   );
 }
@@ -167,13 +179,25 @@ function DetalheSolicitacao({
   const { usuario } = useAuth();
   const [erro, setErro] = useMensagemTemporaria();
   const [motivo, setMotivo] = useState('');
+  const [prioridade, setPrioridade] = useState('');
   const [atas, setAtas] = useState<Ata[]>([]);
   const [ataId, setAtaId] = useState('');
   const [valor, setValor] = useState('');
   const [estado, setEstado] = useState('BOM');
-  const [itens, setItens] = useState([
-    { tombamento: '', descricao: '', estadoConservacao: 'BOM' },
-  ]);
+  // Gestor: lançar no Branet (número do pedido + tombamento de cada item)
+  const [numeroPedidoBranet, setNumeroPedidoBranet] = useState('');
+  const [itensBranet, setItensBranet] = useState(
+    Array.from({ length: s.quantidade ?? 1 }, () => ({ tombamento: '', descricao: '' })),
+  );
+  // Unidade: confirmar recebimento (OK/Não OK + tombamento de cada item)
+  const [recebimentoOk, setRecebimentoOk] = useState<boolean | null>(null);
+  const [observacaoRecebimento, setObservacaoRecebimento] = useState('');
+  const [tombamentosConfirmados, setTombamentosConfirmados] = useState<Record<string, string>>({});
+  // Gestor: ajustar tombamento (corrigir divergência antes de concluir)
+  const [ajustandoTombamento, setAjustandoTombamento] = useState(false);
+  const [itensAjuste, setItensAjuste] = useState(
+    () => (s.itensGerados ?? []).map((eq) => ({ equipamentoId: eq.id, tombamento: eq.tombamento })),
+  );
 
   const ehGP = usuario?.perfil === 'GESTOR_PATRIMONIO';
   const ehGalpao = usuario?.perfil === 'GALPAO';
@@ -181,7 +205,7 @@ function DetalheSolicitacao({
   const ehDestino = usuario?.unidadeId === s.unidadeDestino?.id || ehGP;
 
   useEffect(() => {
-    if (ehGP && s.tipo === 'NOVO_ITEM') {
+    if (ehGP && TIPOS_COM_ATA.includes(s.tipo)) {
       api.get<Ata[]>('/atas').then(setAtas).catch(() => {});
     }
   }, [ehGP, s.tipo]);
@@ -197,7 +221,7 @@ function DetalheSolicitacao({
   }
 
   const pendente = s.status === 'PENDENTE_APROVACAO';
-  const aguardandoAta = s.status === 'APROVADA_AGUARDANDO_ATA';
+  const aguardandoDisponibilidade = s.status === 'AGUARDANDO_DISPONIBILIDADE';
 
   return (
     <Modal
@@ -221,6 +245,12 @@ function DetalheSolicitacao({
             <div className="info-value">{s.unidadeDestino.nome}</div>
           </div>
         )}
+        {s.entidadeExternaNome && (
+          <div className="info-box">
+            <div className="info-label">Entidade Externa</div>
+            <div className="info-value">{s.entidadeExternaNome}</div>
+          </div>
+        )}
         <div className="info-box">
           <div className="info-label">Status</div>
           <div className="info-value">
@@ -239,7 +269,7 @@ function DetalheSolicitacao({
             <div className="info-value">{formatarData(s.dataRetornoPrevista)}</div>
           </div>
         )}
-        {s.ata && (
+        {s.ata && ehGP && (
           <div className="info-box">
             <div className="info-label">Ata Vinculada</div>
             <div className="info-value">
@@ -252,6 +282,18 @@ function DetalheSolicitacao({
       <div className="info-box" style={{ marginBottom: 14 }}>
         {s.justificativa}
       </div>
+      {s.anexoUrl && (
+        <>
+          <div className="section-title">Anexo</div>
+          <a href={urlArquivo(s.anexoUrl)} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: 14 }}>
+            {s.anexoUrl.endsWith('.pdf') ? (
+              <span className="badge badge-gray">📄 Ver anexo (PDF)</span>
+            ) : (
+              <img src={urlArquivo(s.anexoUrl)} alt="Anexo da solicitação" style={{ maxWidth: 240, borderRadius: 8 }} />
+            )}
+          </a>
+        </>
+      )}
       {s.motivoNegacao && (
         <>
           <div className="section-title">Motivo da Negação</div>
@@ -259,85 +301,256 @@ function DetalheSolicitacao({
         </>
       )}
 
-      {/* GP: aprovar/negar */}
-      {ehGP && (pendente || aguardandoAta) && s.tipo !== 'EMPRESTIMO' && (
+      {/* GP: aprovar/negar — sem escolher ata aqui (o sistema decide sozinho
+          se reserva do estoque ou fica aguardando disponibilidade) */}
+      {ehGP && pendente && s.tipo !== 'EMPRESTIMO' && (
         <div className="actions-box">
           <div className="actions-title">⚠️ Ações Disponíveis</div>
-          {s.tipo === 'NOVO_ITEM' && (
-            <>
-              <div className="field">
-                <label>Ata de registro de preços</label>
-                <select value={ataId} onChange={(e) => setAtaId(e.target.value)}>
-                  <option value="">
-                    {aguardandoAta ? 'Selecione a ata...' : 'Sem ata disponível (aprovar aguardando ata)'}
-                  </option>
-                  {atas
-                    .filter((a) => a.ativo)
-                    .map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.numero} — saldo {formatarMoeda(a.saldo)} — vence {formatarData(a.vencimento)}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              {ataId && (
-                <div className="field">
-                  <label>Valor estimado da aquisição (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={valor}
-                    onChange={(e) => setValor(e.target.value)}
-                  />
-                </div>
-              )}
-            </>
-          )}
-          {pendente && (
+          {TIPOS_COM_ATA.includes(s.tipo) && (
             <div className="field">
-              <label>Motivo (obrigatório para negar)</label>
-              <input value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+              <label>Prioridade (opcional)</label>
+              <select value={prioridade} onChange={(e) => setPrioridade(e.target.value)}>
+                <option value="">Sem prioridade definida</option>
+                <option value="1">1 — Alta</option>
+                <option value="2">2 — Média</option>
+                <option value="3">3 — Baixa</option>
+              </select>
             </div>
           )}
+          <div className="field">
+            <label>Motivo (obrigatório para negar)</label>
+            <input value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+          </div>
           <div className="actions-row">
             <button
               className="btn btn-success"
               onClick={() =>
                 executar(
                   () =>
-                    aguardandoAta
-                      ? api.post(`/solicitacoes/${s.id}/vincular-ata`, {
-                          ataId,
-                          valorVinculado: Number(valor),
-                        })
-                      : api.post(`/solicitacoes/${s.id}/aprovar`, {
-                          ...(ataId ? { ataId, valorVinculado: Number(valor) } : {}),
-                        }),
+                    api.post(`/solicitacoes/${s.id}/aprovar`, {
+                      ...(prioridade ? { prioridade: Number(prioridade) } : {}),
+                    }),
                   'Solicitação aprovada.',
                 )
               }
             >
-              ✓ Aprovar {aguardandoAta ? 'e Vincular Ata' : 'Solicitação'}
+              ✓ Aprovar Solicitação
             </button>
-            {pendente && (
-              <button
-                className="btn btn-danger"
-                onClick={() =>
-                  executar(
-                    () => api.post(`/solicitacoes/${s.id}/negar`, { motivo }),
-                    'Solicitação negada.',
-                  )
-                }
-              >
-                ✕ Negar Solicitação
-              </button>
-            )}
+            <button
+              className="btn btn-danger"
+              onClick={() =>
+                executar(
+                  () => api.post(`/solicitacoes/${s.id}/negar`, { motivo }),
+                  'Solicitação negada.',
+                )
+              }
+            >
+              ✕ Negar Solicitação
+            </button>
           </div>
         </div>
       )}
 
-      {/* Cessão: origem confirma saída */}
+      {/* GP: aguardando disponibilidade — vincular ata (compra) ou tentar
+          reservar do estoque de novo (ex: chegou estoque novo) */}
+      {ehGP && aguardandoDisponibilidade && (
+        <div className="actions-box">
+          <div className="actions-title">Aguardando Disponibilidade</div>
+          {s.disponivelParaReserva && (
+            <div className="badge badge-green" style={{ marginBottom: 12 }}>
+              ● Já chegou estoque suficiente — dá pra reservar agora
+            </div>
+          )}
+          <div className="field">
+            <label>Ata de registro de preços</label>
+            <select value={ataId} onChange={(e) => setAtaId(e.target.value)}>
+              <option value="">Selecione a ata...</option>
+              {atas
+                .filter((a) => a.ativo)
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.numero} — saldo {formatarMoeda(a.saldo)} — vence {formatarData(a.vencimento)}
+                  </option>
+                ))}
+            </select>
+          </div>
+          {ataId && (
+            <div className="field">
+              <label>Valor estimado da aquisição (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+              />
+            </div>
+          )}
+          <div className="field">
+            <label>Motivo (obrigatório para negar)</label>
+            <input value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+          </div>
+          <div className="actions-row">
+            <button
+              className="btn btn-success"
+              disabled={!ataId}
+              onClick={() =>
+                executar(
+                  () =>
+                    api.post(`/solicitacoes/${s.id}/vincular-ata`, {
+                      ataId,
+                      valorVinculado: Number(valor),
+                    }),
+                  'Solicitação em andamento.',
+                )
+              }
+            >
+              ✓ Vincular Ata
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() =>
+                executar(
+                  () => api.post(`/solicitacoes/${s.id}/tentar-reservar-estoque`),
+                  'Solicitação em andamento.',
+                )
+              }
+            >
+              Tentar Reservar do Estoque
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={() =>
+                executar(
+                  () => api.post(`/solicitacoes/${s.id}/negar`, { motivo }),
+                  'Solicitação negada.',
+                )
+              }
+            >
+              ✕ Negar Solicitação
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* GP: reservado — informa o número do pedido Branet e o tombamento de
+          cada item; isso já cadastra os equipamentos e avança pra Aguardando
+          Entrega (feedback do cliente 17/08: quem lida com o tombamento
+          agora é o Gestor, não mais o Galpão depois) */}
+      {ehGP && s.status === 'RESERVADO' && (
+        <div className="actions-box">
+          <div className="actions-title">Lançar no Branet</div>
+          <div className="field">
+            <label>Número do Pedido (Branet) *</label>
+            <input value={numeroPedidoBranet} onChange={(e) => setNumeroPedidoBranet(e.target.value)} />
+          </div>
+          {itensBranet.map((item, i) => (
+            <div key={i} className="info-grid" style={{ marginBottom: 0 }}>
+              <div className="field">
+                <label>Tombamento do item {i + 1} *</label>
+                <input
+                  value={item.tombamento}
+                  onChange={(e) => {
+                    const novos = [...itensBranet];
+                    novos[i] = { ...item, tombamento: e.target.value };
+                    setItensBranet(novos);
+                  }}
+                />
+              </div>
+              <div className="field">
+                <label>Descrição *</label>
+                <input
+                  value={item.descricao}
+                  onChange={(e) => {
+                    const novos = [...itensBranet];
+                    novos[i] = { ...item, descricao: e.target.value };
+                    setItensBranet(novos);
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+          <div className="actions-row">
+            <button
+              className="btn btn-success"
+              disabled={!numeroPedidoBranet || itensBranet.some((i) => !i.tombamento || !i.descricao)}
+              onClick={() =>
+                executar(
+                  () =>
+                    api.post(`/solicitacoes/${s.id}/lancar-branet`, {
+                      numeroPedidoBranet,
+                      itens: itensBranet,
+                    }),
+                  'Pedido lançado no Branet e tombamento cadastrado.',
+                )
+              }
+            >
+              ✓ Lançar no Branet
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* GP: validação final, depois que a unidade já confirmou o recebimento */}
+      {ehGP && s.status === 'AGUARDANDO_VALIDACAO' && (
+        <div className="actions-box">
+          <div className="actions-title">Aguardando validação final</div>
+          {s.recebimentoOk === false && (
+            <div className="error-banner" style={{ marginBottom: 12 }}>
+              ⚠️ {s.observacaoRecebimento}
+            </div>
+          )}
+          {!ajustandoTombamento ? (
+            <div className="actions-row">
+              <button className="btn btn-success" onClick={() => executar(
+                () => api.post(`/solicitacoes/${s.id}/concluir`),
+                'Solicitação concluída.',
+              )}>
+                ✓ Concluir Solicitação
+              </button>
+              {(s.itensGerados?.length ?? 0) > 0 && (
+                <button className="btn btn-outline" onClick={() => setAjustandoTombamento(true)}>
+                  Ajustar tombamento
+                </button>
+              )}
+            </div>
+          ) : (
+            <>
+              {itensAjuste.map((item, i) => (
+                <div key={item.equipamentoId} className="field">
+                  <label>Tombamento do item {i + 1} *</label>
+                  <input
+                    value={item.tombamento}
+                    onChange={(e) => {
+                      const novos = [...itensAjuste];
+                      novos[i] = { ...item, tombamento: e.target.value };
+                      setItensAjuste(novos);
+                    }}
+                  />
+                </div>
+              ))}
+              <div className="actions-row">
+                <button
+                  className="btn btn-success"
+                  onClick={() =>
+                    executar(
+                      () => api.patch(`/solicitacoes/${s.id}/ajustar-tombamento`, { itens: itensAjuste }),
+                      'Tombamento ajustado.',
+                    )
+                  }
+                >
+                  ✓ Salvar Ajuste
+                </button>
+                <button className="btn btn-outline" onClick={() => setAjustandoTombamento(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Cessão externa: origem confirma saída (já conclui a solicitação) */}
       {s.tipo === 'CESSAO_USO' && s.status === 'AGUARDANDO_SAIDA' && ehOrigem && (
         <div className="actions-box">
           <div className="actions-title">Confirmar saída do equipamento</div>
@@ -347,7 +560,7 @@ function DetalheSolicitacao({
               onClick={() =>
                 executar(
                   () => api.post(`/solicitacoes/${s.id}/confirmar-saida`),
-                  'Saída confirmada — aguardando recebimento pelo destino.',
+                  'Saída confirmada — cessão concluída.',
                 )
               }
             >
@@ -357,8 +570,8 @@ function DetalheSolicitacao({
         </div>
       )}
 
-      {/* Destino confirma recebimento (cessão/empréstimo) */}
-      {s.status === 'AGUARDANDO_RECEBIMENTO' && ehDestino && (
+      {/* Empréstimo: destino confirma recebimento e avalia o estado */}
+      {s.tipo === 'EMPRESTIMO' && s.status === 'AGUARDANDO_RECEBIMENTO' && ehDestino && (
         <div className="actions-box">
           <div className="actions-title">Confirmar recebimento e avaliar o estado</div>
           <div className="field">
@@ -380,7 +593,9 @@ function DetalheSolicitacao({
                     api.post(`/solicitacoes/${s.id}/confirmar-recebimento`, {
                       estadoRecebimento: estado,
                     }),
-                  'Recebimento confirmado.',
+                  s.dataRetornoPrevista
+                    ? 'Recebimento confirmado.'
+                    : 'Recebimento confirmado — transferência concluída.',
                 )
               }
             >
@@ -390,80 +605,102 @@ function DetalheSolicitacao({
         </div>
       )}
 
-      {/* Empréstimo: origem confirma retorno */}
-      {s.tipo === 'EMPRESTIMO' &&
-        ['AGUARDANDO_RETORNO', 'AGUARDANDO_RECEBIMENTO'].includes(s.status) &&
-        ehOrigem && (
-          <div className="actions-box">
-            <div className="actions-title">Encerrar empréstimo</div>
-            <div className="actions-row">
-              <button
-                className="btn btn-primary"
-                onClick={() =>
-                  executar(
-                    () => api.post(`/solicitacoes/${s.id}/confirmar-retorno`),
-                    'Empréstimo encerrado — equipamento devolvido.',
-                  )
-                }
-              >
-                ✓ Confirmar Retorno do Equipamento
-              </button>
-            </div>
-          </div>
-        )}
-
-      {/* Galpão: registrar entrada de novo item */}
-      {ehGalpao && s.tipo === 'NOVO_ITEM' && s.status === 'APROVADA' && (
+      {/* Ampliação/Substituição: unidade solicitante confirma o recebimento
+          do item (já com tombamento, lançado pelo Gestor) — OK/Não OK binário;
+          se OK, confirma o tombamento de cada item pra bater com o cadastrado
+          (feedback do cliente 17/08). Não conclui sozinho, aguarda validação. */}
+      {TIPOS_COM_ATA.includes(s.tipo) && s.status === 'AGUARDANDO_ENTREGA' && ehOrigem && (
         <div className="actions-box">
-          <div className="actions-title">Registrar entrada física e tombamento</div>
-          {itens.map((item, i) => (
-            <div key={i} className="info-grid" style={{ marginBottom: 0 }}>
-              <div className="field">
-                <label>Tombamento do item {i + 1} *</label>
-                <input
-                  value={item.tombamento}
-                  onChange={(e) => {
-                    const novos = [...itens];
-                    novos[i] = { ...item, tombamento: e.target.value };
-                    setItens(novos);
-                  }}
-                />
-              </div>
-              <div className="field">
-                <label>Descrição *</label>
-                <input
-                  value={item.descricao}
-                  onChange={(e) => {
-                    const novos = [...itens];
-                    novos[i] = { ...item, descricao: e.target.value };
-                    setItens(novos);
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-          {(s.quantidade ?? 1) > itens.length && (
+          <div className="actions-title">Confirmar recebimento</div>
+          <div className="actions-row" style={{ marginBottom: 12 }}>
             <button
-              className="btn btn-outline btn-sm"
-              style={{ marginBottom: 12 }}
-              onClick={() =>
-                setItens([...itens, { tombamento: '', descricao: '', estadoConservacao: 'BOM' }])
-              }
+              className={`btn ${recebimentoOk === true ? 'btn-success' : 'btn-outline'}`}
+              onClick={() => setRecebimentoOk(true)}
+              type="button"
             >
-              + Adicionar item
+              ✓ OK
             </button>
+            <button
+              className={`btn ${recebimentoOk === false ? 'btn-danger' : 'btn-outline'}`}
+              onClick={() => setRecebimentoOk(false)}
+              type="button"
+            >
+              ✕ Não OK
+            </button>
+          </div>
+          {recebimentoOk === false && (
+            <div className="field">
+              <label>O que não está OK? *</label>
+              <input
+                value={observacaoRecebimento}
+                onChange={(e) => setObservacaoRecebimento(e.target.value)}
+              />
+            </div>
+          )}
+          {recebimentoOk === true && (
+            <>
+              {(s.itensGerados ?? []).map((eq, i) => (
+                <div key={eq.id} className="field">
+                  <label>Confirme o nº de patrimônio do item {i + 1} *</label>
+                  <input
+                    value={tombamentosConfirmados[eq.id] ?? ''}
+                    onChange={(e) =>
+                      setTombamentosConfirmados({ ...tombamentosConfirmados, [eq.id]: e.target.value })
+                    }
+                  />
+                </div>
+              ))}
+            </>
           )}
           <div className="actions-row">
             <button
               className="btn btn-success"
+              disabled={
+                recebimentoOk === null ||
+                (recebimentoOk === false && !observacaoRecebimento.trim()) ||
+                (recebimentoOk === true &&
+                  (s.itensGerados ?? []).some((eq) => !tombamentosConfirmados[eq.id]?.trim()))
+              }
               onClick={() =>
                 executar(
-                  () => api.post(`/solicitacoes/${s.id}/registrar-entrada`, { itens }),
-                  'Entrada registrada e equipamentos cadastrados.',
+                  () =>
+                    api.post(`/solicitacoes/${s.id}/confirmar-recebimento`, {
+                      ok: recebimentoOk,
+                      ...(recebimentoOk === false ? { observacao: observacaoRecebimento } : {}),
+                      ...(recebimentoOk === true
+                        ? {
+                            itens: (s.itensGerados ?? []).map((eq) => ({
+                              equipamentoId: eq.id,
+                              tombamentoConfirmado: tombamentosConfirmados[eq.id],
+                            })),
+                          }
+                        : {}),
+                    }),
+                  'Recebimento confirmado — aguardando validação do Patrimônio.',
                 )
               }
             >
-              ✓ Registrar Entrada
+              ✓ Confirmar Recebimento
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Empréstimo temporário: origem confirma retorno */}
+      {s.tipo === 'EMPRESTIMO' && s.status === 'AGUARDANDO_RETORNO' && ehOrigem && (
+        <div className="actions-box">
+          <div className="actions-title">Encerrar empréstimo</div>
+          <div className="actions-row">
+            <button
+              className="btn btn-primary"
+              onClick={() =>
+                executar(
+                  () => api.post(`/solicitacoes/${s.id}/confirmar-retorno`),
+                  'Empréstimo encerrado — equipamento devolvido.',
+                )
+              }
+            >
+              ✓ Confirmar Retorno do Equipamento
             </button>
           </div>
         </div>
@@ -488,191 +725,24 @@ function DetalheSolicitacao({
           </div>
         </div>
       )}
-    </Modal>
-  );
-}
 
-function NovaSolicitacao({
-  onFechar,
-  onSucesso,
-}: {
-  onFechar: () => void;
-  onSucesso: () => void;
-}) {
-  const [tipo, setTipo] = useState('NOVO_ITEM');
-  const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
-  const [unidades, setUnidades] = useState<Unidade[]>([]);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [erro, setErro] = useMensagemTemporaria();
-  const inicial = {
-    equipamentoId: '',
-    unidadeDestinoId: '',
-    tipoEquipamentoId: '',
-    quantidade: 1,
-    justificativa: '',
-    origemRecurso: 'REGULAR',
-    dataRetornoPrevista: '',
-  };
-  const [form, setForm] = useState(inicial);
-
-  useEffect(() => {
-    api.get<Equipamento[]>('/equipamentos?status=ATIVO').then(setEquipamentos).catch(() => {});
-    api.get<Unidade[]>('/unidades').then(setUnidades).catch(() => {});
-    api.get<Categoria[]>('/categorias').then(setCategorias).catch(() => {});
-  }, []);
-
-  async function aoEnviar(e: FormEvent) {
-    e.preventDefault();
-    setErro(null);
-    try {
-      await api.post('/solicitacoes', {
-        tipo,
-        justificativa: form.justificativa,
-        ...(tipo === 'NOVO_ITEM'
-          ? {
-              tipoEquipamentoId: form.tipoEquipamentoId,
-              quantidade: Number(form.quantidade),
-              origemRecurso: form.origemRecurso,
-            }
-          : { equipamentoId: form.equipamentoId }),
-        ...(tipo === 'CESSAO_USO' || tipo === 'EMPRESTIMO'
-          ? { unidadeDestinoId: form.unidadeDestinoId }
-          : {}),
-        ...(tipo === 'EMPRESTIMO' ? { dataRetornoPrevista: form.dataRetornoPrevista } : {}),
-      });
-      onSucesso();
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Erro');
-    }
-  }
-
-  return (
-    <Modal titulo="Nova Solicitação" onFechar={onFechar}>
-      <form onSubmit={aoEnviar}>
-        {erro && <div className="error-banner toast-erro">{erro}</div>}
-        <div className="field">
-          <label>Tipo de Solicitação *</label>
-          <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
-            {Object.entries(ROTULO_TIPO_SOLICITACAO).map(([v, r]) => (
-              <option key={v} value={v}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {tipo === 'NOVO_ITEM' ? (
-          <div className="info-grid">
-            <div className="field">
-              <label>Tipo de Equipamento *</label>
-              <select
-                value={form.tipoEquipamentoId}
-                onChange={(e) => setForm({ ...form, tipoEquipamentoId: e.target.value })}
-                required
-              >
-                <option value="">Selecione...</option>
-                {categorias.map((c) => (
-                  <optgroup key={c.id} label={c.nome}>
-                    {c.tipos.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.nome}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label>Quantidade *</label>
-              <input
-                type="number"
-                min="1"
-                value={form.quantidade}
-                onChange={(e) => setForm({ ...form, quantidade: Number(e.target.value) })}
-                required
-              />
-            </div>
-            <div className="field">
-              <label>Origem do Recurso *</label>
-              <select
-                value={form.origemRecurso}
-                onChange={(e) => setForm({ ...form, origemRecurso: e.target.value })}
-              >
-                <option value="REGULAR">Regular</option>
-                <option value="EMENDA_PARLAMENTAR">Emenda Parlamentar</option>
-              </select>
-            </div>
-          </div>
-        ) : (
-          <div className="info-grid">
-            <div className="field">
-              <label>Equipamento (do seu inventário) *</label>
-              <select
-                value={form.equipamentoId}
-                onChange={(e) => setForm({ ...form, equipamentoId: e.target.value })}
-                required
-              >
-                <option value="">Selecione...</option>
-                {equipamentos.map((eq) => (
-                  <option key={eq.id} value={eq.id}>
-                    {eq.tombamento} — {eq.tipoEquipamento.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {(tipo === 'CESSAO_USO' || tipo === 'EMPRESTIMO') && (
-              <div className="field">
-                <label>Unidade de Destino *</label>
-                <select
-                  value={form.unidadeDestinoId}
-                  onChange={(e) => setForm({ ...form, unidadeDestinoId: e.target.value })}
-                  required
-                >
-                  <option value="">Selecione...</option>
-                  {unidades.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {tipo === 'EMPRESTIMO' && (
-              <div className="field">
-                <label>Data Prevista de Retorno *</label>
-                <input
-                  type="date"
-                  value={form.dataRetornoPrevista}
-                  onChange={(e) => setForm({ ...form, dataRetornoPrevista: e.target.value })}
-                  required
-                />
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="field">
-          <label>Justificativa *</label>
-          <textarea
-            rows={3}
-            value={form.justificativa}
-            onChange={(e) => setForm({ ...form, justificativa: e.target.value })}
-            required
+      {/* Anexo opcional (PDF ou imagem), disponível a qualquer momento pela unidade de origem */}
+      {!s.anexoUrl && ehOrigem && !['CONCLUIDA', 'CANCELADA', 'NEGADA', 'EXPIRADA'].includes(s.status) && (
+        <div className="actions-box">
+          <div className="actions-title">Anexar arquivo (opcional)</div>
+          <input
+            type="file"
+            accept="application/pdf,image/jpeg,image/png,image/webp"
+            onChange={(e) => {
+              const arquivo = e.target.files?.[0];
+              if (!arquivo) return;
+              const dados = new FormData();
+              dados.append('anexo', arquivo);
+              executar(() => api.post(`/solicitacoes/${s.id}/anexo`, dados), 'Anexo enviado.');
+            }}
           />
         </div>
-        <div className="actions-row" style={{ justifyContent: 'flex-end' }}>
-          <button type="button" className="btn btn-outline" onClick={onFechar}>
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={semAlteracoes(inicial, form)}
-          >
-            Enviar Solicitação
-          </button>
-        </div>
-      </form>
+      )}
     </Modal>
   );
 }

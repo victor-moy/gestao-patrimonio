@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Request, Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
 import { Perfil } from '@prisma/client';
@@ -19,22 +19,46 @@ const upload = multer({
 
 estoqueRouter.use(autenticar, permitir(Perfil.GALPAO, Perfil.GESTOR_PATRIMONIO));
 
+// Resolve o galpão-alvo da operação: explícito no corpo (usado pelo Gestor de
+// Patrimônio, que não pertence a um galpão específico) ou a própria unidade
+// do usuário GALPAO logado.
+function resolverGalpaoId(req: Request): string {
+  const unidadeId = (req.body?.unidadeId as string | undefined) ?? req.usuario!.unidadeId ?? undefined;
+  if (!unidadeId) {
+    throw new AppError('Informe o galpão (unidadeId) da operação.', 422);
+  }
+  return unidadeId;
+}
+
+async function validarGalpao(unidadeId: string) {
+  const galpao = await prisma.unidade.findUnique({ where: { id: unidadeId } });
+  if (!galpao || galpao.tipo !== 'GALPAO') {
+    throw new AppError('unidadeId deve ser uma unidade do tipo galpão.', 422);
+  }
+  return galpao;
+}
+
 // Importação do relatório de estoque consolidado (Branet) — cria/atualiza
-// tipos de equipamento e saldo de estoque em lote
+// tipos de equipamento e saldo de estoque em lote, para um galpão específico
 estoqueRouter.post('/importar-csv', upload.single('arquivo'), async (req, res) => {
   if (!req.file) {
     throw new AppError('Envie o arquivo CSV no campo "arquivo".', 422);
   }
-  const resultado = await importarEstoqueCsv(req.usuario!.sub, req.file.buffer);
+  const unidadeId = resolverGalpaoId(req);
+  await validarGalpao(unidadeId);
+  const resultado = await importarEstoqueCsv(req.usuario!.sub, req.file.buffer, unidadeId);
   res.json(resultado);
 });
 
-estoqueRouter.get('/', async (_req, res) => {
+estoqueRouter.get('/', async (req, res) => {
+  const unidadeId = req.query.unidadeId as string | undefined;
   const itens = await prisma.estoqueGalpao.findMany({
+    where: unidadeId ? { unidadeId } : undefined,
     include: {
       tipoEquipamento: {
         include: { categoria: { select: { nome: true, cor: true } } },
       },
+      unidade: { select: { id: true, nome: true } },
     },
     orderBy: { tipoEquipamento: { nome: 'asc' } },
   });
@@ -73,16 +97,19 @@ estoqueRouter.patch('/movimentacoes/:id', async (req, res) => {
 const entradaSchema = z.object({
   tipoEquipamentoId: z.string().uuid(),
   quantidade: z.number().int().positive(),
+  unidadeId: z.string().uuid().optional(),
 });
 
 estoqueRouter.post('/entrada', validarBody(entradaSchema), async (req, res) => {
   const { tipoEquipamentoId, quantidade } = req.body;
+  const unidadeId = resolverGalpaoId(req);
+  await validarGalpao(unidadeId);
   const tipo = await prisma.tipoEquipamento.findUnique({ where: { id: tipoEquipamentoId } });
   if (!tipo) throw new AppError('Tipo de equipamento não encontrado.', 404);
   const item = await prisma.$transaction(async (tx) => {
     const estoque = await tx.estoqueGalpao.upsert({
-      where: { tipoEquipamentoId },
-      create: { tipoEquipamentoId, quantidade, ultimaEntradaEm: new Date() },
+      where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId, unidadeId } },
+      create: { tipoEquipamentoId, unidadeId, quantidade, ultimaEntradaEm: new Date() },
       update: { quantidade: { increment: quantidade }, ultimaEntradaEm: new Date() },
     });
     await tx.movimentacaoEstoque.create({
@@ -100,7 +127,7 @@ estoqueRouter.post('/entrada', validarBody(entradaSchema), async (req, res) => {
     acao: 'ENTRADA_ESTOQUE',
     entidade: 'estoque_galpao',
     entidadeId: item.id,
-    dadosDepois: { tipoEquipamentoId, quantidade },
+    dadosDepois: { tipoEquipamentoId, unidadeId, quantidade },
   });
   res.json(item);
 });
@@ -109,21 +136,23 @@ const saidaSchema = z.object({
   tipoEquipamentoId: z.string().uuid(),
   quantidade: z.number().int().positive(),
   unidadeDestinoId: z.string().uuid(),
+  unidadeId: z.string().uuid().optional(),
 });
 
 estoqueRouter.post('/saida', validarBody(saidaSchema), async (req, res) => {
   const { tipoEquipamentoId, quantidade, unidadeDestinoId } = req.body;
+  const unidadeId = resolverGalpaoId(req);
   const item = await prisma.estoqueGalpao.findUnique({
-    where: { tipoEquipamentoId },
+    where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId, unidadeId } },
     include: { tipoEquipamento: true },
   });
-  if (!item) throw new AppError('Item não encontrado no estoque.', 404);
+  if (!item) throw new AppError('Item não encontrado no estoque deste galpão.', 404);
   if (item.quantidade < quantidade) {
     throw new AppError(`Quantidade indisponível no estoque (disponível: ${item.quantidade}).`, 422);
   }
   const atualizado = await prisma.$transaction(async (tx) => {
     const estoque = await tx.estoqueGalpao.update({
-      where: { tipoEquipamentoId },
+      where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId, unidadeId } },
       data: { quantidade: { decrement: quantidade } },
     });
     await tx.movimentacaoEstoque.create({
@@ -142,7 +171,7 @@ estoqueRouter.post('/saida', validarBody(saidaSchema), async (req, res) => {
     acao: 'SAIDA_ESTOQUE',
     entidade: 'estoque_galpao',
     entidadeId: item.id,
-    dadosDepois: { tipoEquipamentoId, quantidade, unidadeDestinoId: unidadeDestinoId ?? null },
+    dadosDepois: { tipoEquipamentoId, unidadeId, quantidade, unidadeDestinoId: unidadeDestinoId ?? null },
   });
   res.json(atualizado);
 });

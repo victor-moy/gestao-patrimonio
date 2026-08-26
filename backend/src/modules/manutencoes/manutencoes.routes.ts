@@ -4,6 +4,8 @@ import { EstadoConservacao, Perfil } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
+import { AppError } from '../../errors/AppError';
+import { uploadLaudoPdf } from '../../lib/uploads';
 import * as service from './manutencoes.service';
 
 export const manutencoesRouter = Router();
@@ -73,26 +75,36 @@ manutencoesRouter.post(
   },
 );
 
+// Aceita boolean (JSON) ou 'true'/'false' (campo de texto vindo de multipart/form-data)
+const booleanFlexivel = z.union([z.boolean(), z.enum(['true', 'false'])]).transform((v) => v === true || v === 'true');
+
+// Laudo de baixa (RF16) é um upload de PDF — só é exigido quando aprovado=false
 manutencoesRouter.post(
   '/:id/validar-orcamento',
   permitir(Perfil.GESTOR_MANUTENCAO),
-  validarBody(
-    z.object({
-      aprovado: z.boolean(),
-      laudoBaixa: z.string().min(5).optional(),
-    }),
-  ),
+  uploadLaudoPdf.single('laudo'),
+  validarBody(z.object({ aprovado: booleanFlexivel })),
   async (req, res) => {
-    res.json(await service.validarOrcamento(req.usuario!, req.params.id, req.body));
+    const laudoUrl = req.file ? `/uploads/laudos/${req.file.filename}` : undefined;
+    res.json(
+      await service.validarOrcamento(req.usuario!, req.params.id, {
+        aprovado: req.body.aprovado,
+        laudoBaixa: laudoUrl,
+      }),
+    );
   },
 );
 
 manutencoesRouter.post(
   '/:id/baixa',
   permitir(Perfil.GESTOR_MANUTENCAO),
-  validarBody(z.object({ laudo: z.string().min(5, 'informe o laudo técnico da baixa') })),
+  uploadLaudoPdf.single('laudo'),
   async (req, res) => {
-    res.json(await service.emitirBaixa(req.usuario!, req.params.id, req.body.laudo));
+    if (!req.file) {
+      throw new AppError('Envie o laudo técnico da baixa em PDF no campo "laudo".', 422);
+    }
+    const laudoUrl = `/uploads/laudos/${req.file.filename}`;
+    res.json(await service.emitirBaixa(req.usuario!, req.params.id, laudoUrl));
   },
 );
 

@@ -8,6 +8,7 @@ const app = criarApp();
 
 const UUID = '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6';
 const UUID2 = '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b7';
+const EQUIP_UUID = '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b8';
 
 const equipamentoAtivo = {
   id: 'eq-1',
@@ -22,7 +23,8 @@ const solicitacaoBase = {
   tipo: 'CESSAO_USO',
   status: 'PENDENTE_APROVACAO',
   unidadeOrigemId: 'unidade-1',
-  unidadeDestinoId: 'unidade-2',
+  unidadeDestinoId: null,
+  entidadeExternaNome: 'Hospital Regional (outro município)',
   equipamentoId: 'eq-1',
   tipoEquipamentoId: null,
   quantidade: null,
@@ -31,30 +33,37 @@ const solicitacaoBase = {
   ataId: null,
   valorVinculado: null,
   motivoNegacao: null,
+  anexoUrl: null,
   dataRetornoPrevista: null,
   estadoRecebimento: null,
+  numeroPedidoBranet: null,
+  prioridade: null,
+  recebimentoOk: null,
+  observacaoRecebimento: null,
   automatica: false,
   criadoPorId: 'user-2',
   decididoPorId: null,
   criadoEm: new Date(),
   atualizadoEm: new Date(),
   unidadeOrigem: { id: 'unidade-1', nome: 'UBS Sul', emailBase: 'sul@jlle.gov' },
-  unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
+  unidadeDestino: null,
   equipamento: {
     id: 'eq-1',
     tombamento: '12348/2023',
     descricao: 'Autoclave 21L',
     status: 'ATIVO',
     emendaParlamentar: false,
+    tipoEquipamentoId: 'tipo-1',
   },
   tipoEquipamento: null,
   ata: null,
   criadoPor: { nome: 'Carlos' },
   decididoPor: null,
+  itensGerados: [] as Array<{ id: string; tombamento: string; descricao: string }>,
 };
 
 describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
-  it('cria cessão de uso para equipamento próprio', async () => {
+  it('cria cessão de uso externa para equipamento próprio', async () => {
     prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
     prismaMock.solicitacao.create.mockResolvedValue(solicitacaoBase as never);
     const res = await request(app)
@@ -63,10 +72,25 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .send({
         tipo: 'CESSAO_USO',
         equipamentoId: UUID,
-        unidadeDestinoId: UUID2,
+        entidadeExternaNome: 'Hospital Regional (outro município)',
         justificativa: 'Necessidade urgente de equipamento adicional',
       });
     expect(res.status).toBe(201);
+    expect(res.body.ids).toEqual(['sol-1']);
+  });
+
+  it('cessão de uso exige o nome da entidade externa', async () => {
+    prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'CESSAO_USO',
+        equipamentoId: UUID,
+        justificativa: 'Necessidade urgente de equipamento adicional',
+      });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
 
   it('bloqueia cessão de equipamento em manutenção (RN02)', async () => {
@@ -80,7 +104,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .send({
         tipo: 'CESSAO_USO',
         equipamentoId: UUID,
-        unidadeDestinoId: UUID2,
+        entidadeExternaNome: 'Hospital Regional',
         justificativa: 'Justificativa qualquer',
       });
     expect(res.status).toBe(422);
@@ -98,7 +122,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .send({
         tipo: 'CESSAO_USO',
         equipamentoId: UUID,
-        unidadeDestinoId: UUID2,
+        entidadeExternaNome: 'Hospital Regional',
         justificativa: 'Justificativa qualquer',
       });
     expect(res.status).toBe(403);
@@ -110,6 +134,8 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       ...solicitacaoBase,
       tipo: 'EMPRESTIMO',
       status: 'AGUARDANDO_RECEBIMENTO',
+      unidadeDestinoId: 'unidade-2',
+      unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
       dataRetornoPrevista: new Date('2026-08-01'),
     } as never);
     const res = await request(app)
@@ -123,7 +149,6 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
         justificativa: 'Empréstimo durante manutenção do nosso equipamento',
       });
     expect(res.status).toBe(201);
-    expect(res.body.status).toBe('AGUARDANDO_RECEBIMENTO');
     // RN06 — tombamento permanece na origem; destino é detentor temporário
     expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -132,8 +157,16 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     );
   });
 
-  it('empréstimo exige data prevista de retorno (RF24)', async () => {
+  it('empréstimo sem data de retorno é aceito como transferência permanente', async () => {
     prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
+    prismaMock.solicitacao.create.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'EMPRESTIMO',
+      status: 'AGUARDANDO_RECEBIMENTO',
+      unidadeDestinoId: 'unidade-2',
+      unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
+      dataRetornoPrevista: null,
+    } as never);
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
@@ -141,16 +174,18 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
         tipo: 'EMPRESTIMO',
         equipamentoId: UUID,
         unidadeDestinoId: UUID2,
-        justificativa: 'Sem data de retorno',
+        justificativa: 'Transferência definitiva do equipamento',
       });
-    expect(res.status).toBe(422);
+    expect(res.status).toBe(201);
   });
 
-  it('cria solicitação de novo item com origem do recurso (RF28)', async () => {
+  it('cria solicitação de ampliação com um item selecionado (RF28)', async () => {
     prismaMock.solicitacao.create.mockResolvedValue({
       ...solicitacaoBase,
-      tipo: 'NOVO_ITEM',
+      tipo: 'AMPLIACAO',
       equipamentoId: null,
+      equipamento: null,
+      entidadeExternaNome: null,
       tipoEquipamentoId: 'tipo-1',
       quantidade: 2,
     } as never);
@@ -158,24 +193,165 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'NOVO_ITEM',
-        tipoEquipamentoId: UUID,
-        quantidade: 2,
+        tipo: 'AMPLIACAO',
+        itens: [{ tipoEquipamentoId: UUID, quantidade: 2 }],
         origemRecurso: 'EMENDA_PARLAMENTAR',
         justificativa: 'Ampliação da capacidade de atendimento',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.ids).toEqual(['sol-1']);
+  });
+
+  it('cria ampliação com múltiplos itens: uma Solicitacao por item (feedback do cliente 17/08)', async () => {
+    prismaMock.solicitacao.create
+      .mockResolvedValueOnce({ ...solicitacaoBase, id: 'sol-a', tipo: 'AMPLIACAO' } as never)
+      .mockResolvedValueOnce({ ...solicitacaoBase, id: 'sol-b', tipo: 'AMPLIACAO' } as never);
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'AMPLIACAO',
+        itens: [
+          { tipoEquipamentoId: UUID, quantidade: 1 },
+          { tipoEquipamentoId: UUID2, quantidade: 3 },
+        ],
+        justificativa: 'Ampliação da capacidade de atendimento',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.ids).toEqual(['sol-a', 'sol-b']);
+    expect(prismaMock.solicitacao.create).toHaveBeenCalledTimes(2);
+  });
+
+  it('ampliação sem itens selecionados é rejeitada', async () => {
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({ tipo: 'AMPLIACAO', itens: [], justificativa: 'Ampliação sem itens' });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+  });
+
+  it('cria ampliação sem origem do recurso: assume REGULAR por padrão (campo tirado do formulário)', async () => {
+    prismaMock.solicitacao.create.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'AMPLIACAO',
+      equipamentoId: null,
+      equipamento: null,
+      entidadeExternaNome: null,
+      tipoEquipamentoId: 'tipo-1',
+      quantidade: 2,
+      origemRecurso: 'REGULAR',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'AMPLIACAO',
+        itens: [{ tipoEquipamentoId: UUID, quantidade: 2 }],
+        justificativa: 'Ampliação da capacidade de atendimento',
+      });
+    expect(res.status).toBe(201);
+    expect(prismaMock.solicitacao.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ origemRecurso: 'REGULAR' }),
+      }),
+    );
+  });
+
+  it('cria solicitação de substituição com equipamento a trocar e item de reposição', async () => {
+    prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
+    prismaMock.solicitacao.create.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'SUBSTITUICAO',
+      entidadeExternaNome: null,
+      tipoEquipamentoId: 'tipo-1',
+      quantidade: 1,
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'SUBSTITUICAO',
+        equipamentoId: UUID,
+        tipoEquipamentoId: UUID2,
+        quantidade: 1,
+        origemRecurso: 'REGULAR',
+        justificativa: 'Equipamento com defeito irreparável',
+      });
+    expect(res.status).toBe(201);
+  });
+
+  it('substituição aceita equipamento já baixado (fluxo automático RN07)', async () => {
+    prismaMock.equipamento.findUnique.mockResolvedValue({
+      ...equipamentoAtivo,
+      status: 'BAIXADO',
+    } as never);
+    prismaMock.solicitacao.create.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'SUBSTITUICAO',
+      tipoEquipamentoId: 'tipo-1',
+      quantidade: 1,
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'SUBSTITUICAO',
+        equipamentoId: UUID,
+        tipoEquipamentoId: UUID2,
+        quantidade: 1,
+        origemRecurso: 'REGULAR',
+        justificativa: 'Equipamento já baixado por manutenção',
+      });
+    expect(res.status).toBe(201);
+  });
+
+  it('recolha exige unidade de destino do tipo galpão', async () => {
+    prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
+    prismaMock.unidade.findUnique.mockResolvedValue({ id: 'unidade-2', tipo: 'UBSF' } as never);
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'RECOLHA',
+        equipamentoId: UUID,
+        unidadeDestinoId: UUID2,
+        justificativa: 'Equipamento sem uso',
+      });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+  });
+
+  it('cria recolha para um galpão válido', async () => {
+    prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
+    prismaMock.unidade.findUnique.mockResolvedValue({ id: 'galpao-1', tipo: 'GALPAO' } as never);
+    prismaMock.solicitacao.create.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'RECOLHA',
+      unidadeDestinoId: 'galpao-1',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'RECOLHA',
+        equipamentoId: UUID,
+        unidadeDestinoId: UUID2,
+        justificativa: 'Equipamento sem uso',
       });
     expect(res.status).toBe(201);
   });
 });
 
 describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)', () => {
-  const novoItemPendente = {
+  const ampliacaoPendente = {
     ...solicitacaoBase,
-    tipo: 'NOVO_ITEM',
+    tipo: 'AMPLIACAO',
     equipamentoId: null,
     equipamento: null,
     unidadeDestinoId: null,
     unidadeDestino: null,
+    entidadeExternaNome: null,
     tipoEquipamentoId: 'tipo-1',
     tipoEquipamento: { id: 'tipo-1', nome: 'Autoclave', codigo: 'AUT' },
     quantidade: 1,
@@ -197,22 +373,71 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     expect(prismaMock.notificacao.create).toHaveBeenCalled();
   });
 
-  it('aprova novo item sem ata: APROVADA_AGUARDANDO_ATA (FA04)', async () => {
-    prismaMock.solicitacao.findUnique.mockResolvedValue(novoItemPendente as never);
+  it('aprova ampliação sem estoque: AGUARDANDO_DISPONIBILIDADE (sem expor ata ao solicitante)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(ampliacaoPendente as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([] as never);
     prismaMock.solicitacao.update.mockResolvedValue({
-      ...novoItemPendente,
-      status: 'APROVADA_AGUARDANDO_ATA',
+      ...ampliacaoPendente,
+      status: 'AGUARDANDO_DISPONIBILIDADE',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
       .set(auth('GESTOR_PATRIMONIO'))
-      .send({});
+      .send();
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('APROVADA_AGUARDANDO_ATA');
+    expect(res.body.status).toBe('AGUARDANDO_DISPONIBILIDADE');
+    expect(prismaMock.estoqueGalpao.update).not.toHaveBeenCalled();
+  });
+
+  it('aprova ampliação com estoque suficiente: RESERVADO direto, decrementando o galpão com mais saldo', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(ampliacaoPendente as never);
+    // Já na ordem que o orderBy: { quantidade: 'desc' } devolveria de verdade
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([
+      { id: 'est-2', unidadeId: 'galpao-2', quantidade: 5 },
+      { id: 'est-1', unidadeId: 'galpao-1', quantidade: 2 },
+    ] as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...ampliacaoPendente,
+      status: 'RESERVADO',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/aprovar')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('RESERVADO');
+    expect(prismaMock.estoqueGalpao.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'est-2' },
+        data: { quantidade: { decrement: 1 } },
+      }),
+    );
+  });
+
+  it('aprova com prioridade definida pelo Gestor (feedback 17/08)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(ampliacaoPendente as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([] as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...ampliacaoPendente,
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+      prioridade: 1,
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/aprovar')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ prioridade: 1 });
+    expect(res.status).toBe(200);
+    expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ prioridade: 1 }) }),
+    );
   });
 
   it('bloqueia vínculo com ata vencida (RN08)', async () => {
-    prismaMock.solicitacao.findUnique.mockResolvedValue(novoItemPendente as never);
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...ampliacaoPendente,
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+    } as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([]);
     prismaMock.ata.findUnique.mockResolvedValue({
       id: 'ata-1',
       numero: '045/2025',
@@ -230,7 +455,11 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
   });
 
   it('bloqueia aprovação acima do saldo da ata (RN09)', async () => {
-    prismaMock.solicitacao.findUnique.mockResolvedValue(novoItemPendente as never);
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...ampliacaoPendente,
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+    } as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([]);
     prismaMock.ata.findUnique.mockResolvedValue({
       id: 'ata-1',
       numero: '045/2025',
@@ -247,8 +476,12 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     expect(res.body.mensagem).toContain('Saldo insuficiente');
   });
 
-  it('vincula ata válida com saldo e aprova (UC17/RF29)', async () => {
-    prismaMock.solicitacao.findUnique.mockResolvedValue(novoItemPendente as never);
+  it('vincula ata válida com saldo: vira RESERVADO sem tocar o estoque (UC17/RF29)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...ampliacaoPendente,
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+    } as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([]);
     prismaMock.ata.findUnique.mockResolvedValue({
       id: 'ata-1',
       numero: '045/2025',
@@ -258,38 +491,71 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
       ativo: true,
     } as never);
     prismaMock.solicitacao.update.mockResolvedValue({
-      ...novoItemPendente,
-      status: 'APROVADA',
+      ...ampliacaoPendente,
+      status: 'RESERVADO',
       ata: { id: 'ata-1', numero: '045/2025' },
     } as never);
     const res = await request(app)
-      .post('/solicitacoes/sol-1/aprovar')
+      .post('/solicitacoes/sol-1/vincular-ata')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({ ataId: UUID, valorVinculado: 5000 });
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('APROVADA');
+    expect(res.body.status).toBe('RESERVADO');
+    expect(prismaMock.estoqueGalpao.update).not.toHaveBeenCalled();
+  });
+
+  it('tenta reservar do estoque de novo quando ainda não há disponibilidade', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...ampliacaoPendente,
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+    } as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([] as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/tentar-reservar-estoque')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(422);
+    expect(res.body.mensagem).toContain('estoque suficiente');
+  });
+
+  it('tenta reservar do estoque de novo e consegue: vira RESERVADO', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...ampliacaoPendente,
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+    } as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([
+      { id: 'est-1', unidadeId: 'galpao-1', quantidade: 3 },
+    ] as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...ampliacaoPendente,
+      status: 'RESERVADO',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/tentar-reservar-estoque')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('RESERVADO');
   });
 });
 
-describe('Solicitações — cessão, empréstimo e entrada (UC12, UC14, UC15, UC18)', () => {
-  it('destino confirma recebimento da cessão: tombamento atualizado (RF23)', async () => {
+describe('Solicitações — cessão externa, empréstimo e recolha (UC12, UC14, UC15, UC18)', () => {
+  it('origem confirma saída da cessão externa: equipamento fica CEDIDO e a solicitação conclui (RF22)', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue({
       ...solicitacaoBase,
-      status: 'AGUARDANDO_RECEBIMENTO',
+      status: 'AGUARDANDO_SAIDA',
     } as never);
     prismaMock.solicitacao.update.mockResolvedValue({
       ...solicitacaoBase,
       status: 'CONCLUIDA',
     } as never);
     const res = await request(app)
-      .post('/solicitacoes/sol-1/confirmar-recebimento')
-      .set(auth('UNIDADE', { unidadeId: 'unidade-2' }))
-      .send({ estadoRecebimento: 'BOM' });
+      .post('/solicitacoes/sol-1/confirmar-saida')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send();
     expect(res.status).toBe(200);
     expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ unidadeId: 'unidade-2' }),
-      }),
+      expect.objectContaining({ data: { status: 'CEDIDO' } }),
     );
   });
 
@@ -298,6 +564,8 @@ describe('Solicitações — cessão, empréstimo e entrada (UC12, UC14, UC15, U
       ...solicitacaoBase,
       tipo: 'EMPRESTIMO',
       status: 'AGUARDANDO_RECEBIMENTO',
+      unidadeDestinoId: 'unidade-2',
+      unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/confirmar-recebimento')
@@ -306,7 +574,58 @@ describe('Solicitações — cessão, empréstimo e entrada (UC12, UC14, UC15, U
     expect(res.status).toBe(422);
   });
 
-  it('origem confirma retorno do empréstimo: equipamento volta a ATIVO (RF27)', async () => {
+  it('empréstimo temporário: recebimento com data prevista aguarda retorno (RF26)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'EMPRESTIMO',
+      status: 'AGUARDANDO_RECEBIMENTO',
+      unidadeDestinoId: 'unidade-2',
+      unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
+      dataRetornoPrevista: new Date('2026-08-01'),
+    } as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'EMPRESTIMO',
+      status: 'AGUARDANDO_RETORNO',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/confirmar-recebimento')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-2' }))
+      .send({ estadoRecebimento: 'BOM' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('AGUARDANDO_RETORNO');
+    expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
+  });
+
+  it('empréstimo permanente: recebimento sem data prevista transfere o tombamento (RF23)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'EMPRESTIMO',
+      status: 'AGUARDANDO_RECEBIMENTO',
+      unidadeDestinoId: 'unidade-2',
+      unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
+      dataRetornoPrevista: null,
+    } as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'EMPRESTIMO',
+      status: 'CONCLUIDA',
+      unidadeDestinoId: 'unidade-2',
+      unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/confirmar-recebimento')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-2' }))
+      .send({ estadoRecebimento: 'BOM' });
+    expect(res.status).toBe(200);
+    expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ unidadeId: 'unidade-2', unidadeTemporariaId: null, status: 'ATIVO' }),
+      }),
+    );
+  });
+
+  it('origem confirma retorno do empréstimo temporário: equipamento volta a ATIVO (RF27)', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue({
       ...solicitacaoBase,
       tipo: 'EMPRESTIMO',
@@ -330,64 +649,26 @@ describe('Solicitações — cessão, empréstimo e entrada (UC12, UC14, UC15, U
     );
   });
 
-  it('galpão registra entrada do novo item e o saldo da ata é debitado no recebimento', async () => {
+  it('galpão confirma recolha usando o galpão escolhido na criação', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue({
       ...solicitacaoBase,
-      tipo: 'NOVO_ITEM',
-      status: 'APROVADA',
-      equipamentoId: null,
-      equipamento: null,
-      tipoEquipamentoId: 'tipo-1',
-      ataId: 'ata-1',
-      valorVinculado: new Prisma.Decimal(5000),
-    } as never);
-    prismaMock.equipamento.findMany.mockResolvedValue([] as never);
-    prismaMock.equipamento.create.mockResolvedValue({ id: 'eq-novo', unidadeId: 'unidade-1' } as never);
-    prismaMock.ata.findUnique.mockResolvedValue({
-      id: 'ata-1',
-      saldo: new Prisma.Decimal(100000),
+      tipo: 'RECOLHA',
+      status: 'AGUARDANDO_ENTREGA',
+      unidadeDestinoId: 'galpao-1',
     } as never);
     prismaMock.solicitacao.update.mockResolvedValue({
       ...solicitacaoBase,
-      tipo: 'NOVO_ITEM',
+      tipo: 'RECOLHA',
       status: 'CONCLUIDA',
     } as never);
     const res = await request(app)
-      .post('/solicitacoes/sol-1/registrar-entrada')
+      .post('/solicitacoes/sol-1/confirmar-recolha')
       .set(auth('GALPAO', { unidadeId: 'galpao-1' }))
-      .send({
-        itens: [
-          { tombamento: '20001/2026', descricao: 'Autoclave nova', estadoConservacao: 'OTIMO' },
-        ],
-      });
+      .send();
     expect(res.status).toBe(200);
-    expect(prismaMock.equipamento.create).toHaveBeenCalled();
-    // Consumo do saldo no recebimento (feedback 12/05/2026)
-    expect(prismaMock.ata.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { saldo: 95000 } }),
+    expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { unidadeId: 'galpao-1' } }),
     );
-    expect(prismaMock.estoqueGalpao.upsert).toHaveBeenCalled();
-  });
-
-  it('galpão não registra entrada com tombamento duplicado (RN01)', async () => {
-    prismaMock.solicitacao.findUnique.mockResolvedValue({
-      ...solicitacaoBase,
-      tipo: 'NOVO_ITEM',
-      status: 'APROVADA',
-      equipamentoId: null,
-      equipamento: null,
-      tipoEquipamentoId: 'tipo-1',
-    } as never);
-    prismaMock.equipamento.findMany.mockResolvedValue([{ tombamento: '20001/2026' }] as never);
-    const res = await request(app)
-      .post('/solicitacoes/sol-1/registrar-entrada')
-      .set(auth('GALPAO', { unidadeId: 'galpao-1' }))
-      .send({
-        itens: [
-          { tombamento: '20001/2026', descricao: 'Autoclave', estadoConservacao: 'OTIMO' },
-        ],
-      });
-    expect(res.status).toBe(409);
   });
 
   it('unidade não vê solicitação de outras unidades', async () => {
@@ -396,5 +677,409 @@ describe('Solicitações — cessão, empréstimo e entrada (UC12, UC14, UC15, U
       .get('/solicitacoes/sol-1')
       .set(auth('UNIDADE', { unidadeId: 'unidade-999' }));
     expect(res.status).toBe(403);
+  });
+});
+
+describe('Solicitações — Gestor lança no Branet (tombamento + nº do pedido, feedback 17/08)', () => {
+  const ampliacaoReservada = {
+    ...solicitacaoBase,
+    tipo: 'AMPLIACAO',
+    status: 'RESERVADO',
+    equipamentoId: null,
+    equipamento: null,
+    tipoEquipamentoId: 'tipo-1',
+    quantidade: 1,
+  };
+
+  it('lança no Branet: cadastra o tombamento e vira AGUARDANDO_ENTREGA', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(ampliacaoReservada as never);
+    prismaMock.equipamento.findMany.mockResolvedValue([] as never);
+    prismaMock.equipamento.create.mockResolvedValue({ id: 'eq-novo', unidadeId: 'unidade-1' } as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...ampliacaoReservada,
+      status: 'AGUARDANDO_ENTREGA',
+      numeroPedidoBranet: 'PED-123',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/lancar-branet')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({
+        numeroPedidoBranet: 'PED-123',
+        itens: [{ tombamento: '20001/2026', descricao: 'Autoclave nova' }],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('AGUARDANDO_ENTREGA');
+    expect(prismaMock.equipamento.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ tombamento: '20001/2026', criadoPorSolicitacaoId: 'sol-1' }),
+      }),
+    );
+    expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          status: 'AGUARDANDO_ENTREGA',
+          numeroPedidoBranet: 'PED-123',
+          pedidoEntregaRegistradoEm: expect.any(Date),
+        },
+      }),
+    );
+  });
+
+  it('lança no Branet e debita o saldo da ata (item comprado, sem tocar o estoque)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...ampliacaoReservada,
+      ataId: 'ata-1',
+      valorVinculado: new Prisma.Decimal(5000),
+    } as never);
+    prismaMock.equipamento.findMany.mockResolvedValue([] as never);
+    prismaMock.equipamento.create.mockResolvedValue({ id: 'eq-novo', unidadeId: 'unidade-1' } as never);
+    prismaMock.ata.findUnique.mockResolvedValue({ id: 'ata-1', saldo: new Prisma.Decimal(100000) } as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...ampliacaoReservada,
+      status: 'AGUARDANDO_ENTREGA',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/lancar-branet')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({
+        numeroPedidoBranet: 'PED-124',
+        itens: [{ tombamento: '20005/2026', descricao: 'Autoclave nova' }],
+      });
+    expect(res.status).toBe(200);
+    expect(prismaMock.ata.update).toHaveBeenCalledWith(expect.objectContaining({ data: { saldo: 95000 } }));
+    expect(prismaMock.estoqueGalpao.upsert).not.toHaveBeenCalled();
+  });
+
+  it('substituição: lança no Branet e baixa o equipamento antigo', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...ampliacaoReservada,
+      tipo: 'SUBSTITUICAO',
+      equipamentoId: 'eq-1',
+      equipamento: { ...solicitacaoBase.equipamento, status: 'ATIVO' },
+    } as never);
+    prismaMock.equipamento.findMany.mockResolvedValue([] as never);
+    prismaMock.equipamento.create.mockResolvedValue({ id: 'eq-novo', unidadeId: 'unidade-1' } as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...ampliacaoReservada,
+      tipo: 'SUBSTITUICAO',
+      status: 'AGUARDANDO_ENTREGA',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/lancar-branet')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({
+        numeroPedidoBranet: 'PED-125',
+        itens: [{ tombamento: '20002/2026', descricao: 'Autoclave nova' }],
+      });
+    expect(res.status).toBe(200);
+    expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'eq-1' },
+        data: { status: 'BAIXADO', motivoBaixa: 'SUBSTITUICAO' },
+      }),
+    );
+  });
+
+  it('bloqueia tombamento já cadastrado em outro equipamento (RN01)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(ampliacaoReservada as never);
+    prismaMock.equipamento.findMany.mockResolvedValue([{ tombamento: '20001/2026' }] as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/lancar-branet')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({
+        numeroPedidoBranet: 'PED-126',
+        itens: [{ tombamento: '20001/2026', descricao: 'Autoclave' }],
+      });
+    expect(res.status).toBe(409);
+  });
+
+  it('exige o tombamento de todos os itens da quantidade solicitada', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({ ...ampliacaoReservada, quantidade: 2 } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/lancar-branet')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({
+        numeroPedidoBranet: 'PED-127',
+        itens: [{ tombamento: '20001/2026', descricao: 'Autoclave' }],
+      });
+    expect(res.status).toBe(422);
+  });
+
+  it('bloqueia lançar no Branet fora do status Reservado', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...ampliacaoReservada,
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+    } as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([]);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/lancar-branet')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({
+        numeroPedidoBranet: 'PED-128',
+        itens: [{ tombamento: '20001/2026', descricao: 'Autoclave' }],
+      });
+    expect(res.status).toBe(422);
+  });
+
+  it('bloqueia o Galpão de lançar no Branet (só o Gestor de Patrimônio)', async () => {
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/lancar-branet')
+      .set(auth('GALPAO', { unidadeId: 'galpao-1' }))
+      .send({ numeroPedidoBranet: 'PED-129', itens: [{ tombamento: '1', descricao: 'x' }] });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('Solicitações — confirmação de recebimento OK/Não OK (feedback 17/08)', () => {
+  const aguardandoEntrega = {
+    ...solicitacaoBase,
+    tipo: 'AMPLIACAO',
+    status: 'AGUARDANDO_ENTREGA',
+    equipamentoId: null,
+    equipamento: null,
+    tipoEquipamentoId: 'tipo-1',
+    quantidade: 1,
+    itensGerados: [{ id: EQUIP_UUID, tombamento: '20001/2026', descricao: 'Autoclave nova' }],
+  };
+
+  it('OK com tombamento batendo: vira AGUARDANDO_VALIDACAO sem anomalia', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(aguardandoEntrega as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...aguardandoEntrega,
+      status: 'AGUARDANDO_VALIDACAO',
+      recebimentoOk: true,
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/confirmar-recebimento')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({ ok: true, itens: [{ equipamentoId: EQUIP_UUID, tombamentoConfirmado: '20001/2026' }] });
+    expect(res.status).toBe(200);
+    expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { status: 'AGUARDANDO_VALIDACAO', recebimentoOk: true, observacaoRecebimento: null },
+      }),
+    );
+  });
+
+  it('OK com tombamento divergente: vira anomalia automaticamente', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(aguardandoEntrega as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...aguardandoEntrega,
+      status: 'AGUARDANDO_VALIDACAO',
+      recebimentoOk: false,
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/confirmar-recebimento')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({ ok: true, itens: [{ equipamentoId: EQUIP_UUID, tombamentoConfirmado: '99999/2026' }] });
+    expect(res.status).toBe(200);
+    expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          recebimentoOk: false,
+          observacaoRecebimento: expect.stringContaining('Divergência de patrimônio'),
+        }),
+      }),
+    );
+  });
+
+  it('Não OK exige observação', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(aguardandoEntrega as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/confirmar-recebimento')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({ ok: false });
+    expect(res.status).toBe(422);
+  });
+
+  it('Não OK com observação: vira AGUARDANDO_VALIDACAO com o motivo registrado', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(aguardandoEntrega as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...aguardandoEntrega,
+      status: 'AGUARDANDO_VALIDACAO',
+      recebimentoOk: false,
+      observacaoRecebimento: 'Item chegou danificado',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/confirmar-recebimento')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({ ok: false, observacao: 'Item chegou danificado' });
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('AGUARDANDO_VALIDACAO');
+  });
+});
+
+describe('Solicitações — validação final, ajuste de tombamento e conclusão', () => {
+  const aguardandoValidacao = {
+    ...solicitacaoBase,
+    tipo: 'AMPLIACAO',
+    status: 'AGUARDANDO_VALIDACAO',
+    equipamentoId: null,
+    equipamento: null,
+    tipoEquipamentoId: 'tipo-1',
+    itensGerados: [{ id: EQUIP_UUID, tombamento: '99999/2026', descricao: 'Autoclave nova' }],
+  };
+
+  it('Patrimônio conclui a solicitação depois que a unidade confirmou', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(aguardandoValidacao as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...aguardandoValidacao,
+      status: 'CONCLUIDA',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/concluir')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('CONCLUIDA');
+  });
+
+  it('não deixa concluir antes da unidade confirmar', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...aguardandoValidacao,
+      status: 'AGUARDANDO_ENTREGA',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/concluir')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(422);
+  });
+
+  it('Gestor ajusta o tombamento divergente antes de concluir (exceção estreita à RN01)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(aguardandoValidacao as never);
+    prismaMock.equipamento.findMany.mockResolvedValue([] as never);
+    prismaMock.solicitacao.update.mockResolvedValue(aguardandoValidacao as never);
+    const res = await request(app)
+      .patch('/solicitacoes/sol-1/ajustar-tombamento')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ itens: [{ equipamentoId: EQUIP_UUID, tombamento: '20001/2026' }] });
+    expect(res.status).toBe(200);
+    expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: EQUIP_UUID },
+        data: expect.objectContaining({ tombamento: '20001/2026' }),
+      }),
+    );
+  });
+
+  it('bloqueia ajustar tombamento fora de Aguardando Validação', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...aguardandoValidacao,
+      status: 'AGUARDANDO_ENTREGA',
+    } as never);
+    const res = await request(app)
+      .patch('/solicitacoes/sol-1/ajustar-tombamento')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ itens: [{ equipamentoId: EQUIP_UUID, tombamento: '20001/2026' }] });
+    expect(res.status).toBe(422);
+  });
+
+  it('bloqueia ajustar tombamento de equipamento que não pertence à solicitação', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(aguardandoValidacao as never);
+    const res = await request(app)
+      .patch('/solicitacoes/sol-1/ajustar-tombamento')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ itens: [{ equipamentoId: 'eq-de-outra-solicitacao', tombamento: '20001/2026' }] });
+    expect(res.status).toBe(422);
+  });
+});
+
+describe('Solicitações — sinalização de disponibilidade (card avisa quando já dá pra reservar)', () => {
+  const ampliacaoAguardando = {
+    ...solicitacaoBase,
+    id: 'sol-2',
+    tipo: 'AMPLIACAO',
+    equipamentoId: null,
+    equipamento: null,
+    status: 'AGUARDANDO_DISPONIBILIDADE',
+    tipoEquipamentoId: 'tipo-1',
+    tipoEquipamento: { id: 'tipo-1', nome: 'Autoclave', codigo: 'AUT' },
+    quantidade: 3,
+  };
+
+  it('GET /solicitacoes/:id sinaliza disponivelParaReserva quando já chegou estoque suficiente', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(ampliacaoAguardando as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([
+      { id: 'est-1', unidadeId: 'galpao-1', tipoEquipamentoId: 'tipo-1', quantidade: 5 },
+    ] as never);
+    const res = await request(app)
+      .get('/solicitacoes/sol-2')
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body.disponivelParaReserva).toBe(true);
+  });
+
+  it('GET /solicitacoes/:id não sinaliza quando o estoque de nenhum galpão sozinho basta', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(ampliacaoAguardando as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([
+      { id: 'est-1', unidadeId: 'galpao-1', tipoEquipamentoId: 'tipo-1', quantidade: 2 },
+    ] as never);
+    const res = await request(app)
+      .get('/solicitacoes/sol-2')
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body.disponivelParaReserva).toBe(false);
+  });
+
+  it('GET /solicitacoes marca disponivelParaReserva só nos itens aguardando disponibilidade', async () => {
+    prismaMock.solicitacao.findMany.mockResolvedValue([
+      ampliacaoAguardando,
+      { ...solicitacaoBase, id: 'sol-3', status: 'PENDENTE_APROVACAO' },
+    ] as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([
+      { id: 'est-1', unidadeId: 'galpao-1', tipoEquipamentoId: 'tipo-1', quantidade: 10 },
+    ] as never);
+    const res = await request(app).get('/solicitacoes').set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    const [aguardando, pendente] = res.body;
+    expect(aguardando.disponivelParaReserva).toBe(true);
+    expect(pendente.disponivelParaReserva).toBe(false);
+  });
+
+  it('ordena Aguardando Disponibilidade por prioridade + antiguidade (feedback 17/08)', async () => {
+    prismaMock.solicitacao.findMany.mockResolvedValue([] as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([] as never);
+    await request(app)
+      .get('/solicitacoes?status=AGUARDANDO_DISPONIBILIDADE')
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ prioridade: { sort: 'asc', nulls: 'last' } }, { criadoEm: 'asc' }],
+      }),
+    );
+  });
+
+  it('mantém mais recente primeiro nos demais filtros', async () => {
+    prismaMock.solicitacao.findMany.mockResolvedValue([] as never);
+    await request(app).get('/solicitacoes').set(auth('GESTOR_PATRIMONIO'));
+    expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: [{ criadoEm: 'desc' }] }),
+    );
+  });
+});
+
+describe('Solicitações — anexo (PDF ou imagem, feedback 17/08)', () => {
+  it('unidade de origem anexa um arquivo à própria solicitação', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(solicitacaoBase as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...solicitacaoBase,
+      anexoUrl: '/uploads/solicitacoes/anexo.pdf',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/anexo')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .attach('anexo', Buffer.from('%PDF-1.4 fake'), { filename: 'comprovante.pdf', contentType: 'application/pdf' });
+    expect(res.status).toBe(200);
+    expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ anexoUrl: expect.stringContaining('/uploads/solicitacoes/') }) }),
+    );
+  });
+
+  it('exige o arquivo no campo anexo', async () => {
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/anexo')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }));
+    expect(res.status).toBe(422);
   });
 });

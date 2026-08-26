@@ -221,3 +221,63 @@ export const IconeCaixa = () => (
     <path d="M12 22V12" />
   </Icone>
 );
+
+// Catálogo de tipos de Solicitação
+export const IconeSubstituicao = () => (
+  <Icone>
+    <path d="M21 2v6h-6" />
+    <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
+    <path d="M3 22v-6h6" />
+    <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
+  </Icone>
+);
+
+export const IconeAmpliacao = () => (
+  <Icone>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M12 8v8" />
+    <path d="M8 12h8" />
+  </Icone>
+);
+
+export const IconeCessaoExterna = () => (
+  <Icone>
+    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+    <path d="M15 3h6v6" />
+    <path d="M10 14L21 3" />
+  </Icone>
+);
+
+export const IconeEmprestimo = () => (
+  <Icone>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </Icone>
+);
+
+export const IconeRecolha = () => (
+  <Icone>
+    <path d="M10 17h4V5H2v12h3" />
+    <path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1" />
+    <circle cx="7.5" cy="17.5" r="2.5" />
+    <circle cx="17.5" cy="17.5" r="2.5" />
+  </Icone>
+);
+
+export const IconeDetalhes = () => (
+  <Icone>
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <rect x="8" y="2" width="8" height="4" rx="1" />
+    <path d="M9 12h6" />
+    <path d="M9 16h6" />
+  </Icone>
+);
+
+export const IconeEnviar = () => (
+  <Icone width="16" height="16">
+    <path d="M22 2 11 13" />
+    <path d="M22 2 15 22l-4-9-9-4 20-7z" />
+  </Icone>
+);

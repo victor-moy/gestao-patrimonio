@@ -7,6 +7,7 @@ import { Inicio } from './pages/Inicio';
 import { Inventario } from './pages/Inventario';
 import { Manutencoes } from './pages/Manutencoes';
 import { Solicitacoes } from './pages/Solicitacoes';
+import { NovaSolicitacao } from './pages/NovaSolicitacao';
 import { Estoque } from './pages/Estoque';
 import { Relatorios } from './pages/Relatorios';
 import { Configuracoes } from './pages/Configuracoes';
@@ -36,6 +37,7 @@ function RotasProtegidas() {
           <Route path="/inventario" element={<Inventario />} />
           <Route path="/manutencoes" element={<Manutencoes />} />
           <Route path="/solicitacoes" element={<Solicitacoes />} />
+          <Route path="/solicitacoes/nova" element={<NovaSolicitacao />} />
           <Route path="/estoque" element={<Estoque />} />
           <Route path="/relatorios" element={<Relatorios />} />
           <Route path="/configuracoes" element={<Inicio />} />

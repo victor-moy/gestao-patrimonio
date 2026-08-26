@@ -122,7 +122,7 @@ describe('Usuários (RF02)', () => {
     const res = await request(app)
       .post('/unidades')
       .set(auth('GESTOR_PATRIMONIO'))
-      .send({ nome: 'UBS Oeste', tipo: 'UBS', responsavelId: UUID });
+      .send({ nome: 'UBS Oeste', tipo: 'UBSF', responsavelId: UUID });
     expect(res.status).toBe(422);
     expect(res.body.mensagem).toContain('já é responsável pela unidade UBS Norte');
     expect(prismaMock.unidade.create).not.toHaveBeenCalled();
@@ -149,7 +149,7 @@ describe('Unidades (RNF12)', () => {
     const res = await request(app)
       .post('/unidades')
       .set(auth('GESTOR_PATRIMONIO'))
-      .send({ nome: 'UBS Leste', tipo: 'UBS', emailBase: 'leste@joinville.sc.gov.br' });
+      .send({ nome: 'UBS Leste', tipo: 'UBSF', emailBase: 'leste@joinville.sc.gov.br' });
     expect(res.status).toBe(201);
   });
 
@@ -163,13 +163,13 @@ describe('Unidades (RNF12)', () => {
     prismaMock.unidade.create.mockResolvedValue({
       id: 'nova-unidade',
       nome: 'UBS Leste',
-      tipo: 'UBS',
+      tipo: 'UBSF',
       responsavelId: UUID,
     } as never);
     const res = await request(app)
       .post('/unidades')
       .set(auth('GESTOR_PATRIMONIO'))
-      .send({ nome: 'UBS Leste', tipo: 'UBS', responsavelId: UUID });
+      .send({ nome: 'UBS Leste', tipo: 'UBSF', responsavelId: UUID });
     expect(res.status).toBe(201);
     // o usuário selecionado passa a pertencer à unidade criada
     expect(prismaMock.usuario.update).toHaveBeenCalledWith({
@@ -185,7 +185,7 @@ describe('Unidades (RNF12)', () => {
     const res = await request(app)
       .post('/unidades')
       .set(auth('GESTOR_PATRIMONIO'))
-      .send({ nome: 'UBS Leste', tipo: 'UBS', responsavelId: UUID });
+      .send({ nome: 'UBS Leste', tipo: 'UBSF', responsavelId: UUID });
     expect(res.status).toBe(422);
     expect(prismaMock.unidade.create).not.toHaveBeenCalled();
   });
@@ -240,7 +240,7 @@ describe('Unidades (RNF12)', () => {
     const res = await request(app)
       .post('/unidades')
       .set(auth('GESTOR_PATRIMONIO'))
-      .send({ nome: 'UBS Leste', tipo: 'UBS' });
+      .send({ nome: 'UBS Leste', tipo: 'UBSF' });
     expect(res.status).toBe(409);
   });
 
@@ -386,7 +386,7 @@ describe('Exclusões e edições das Configurações do Sistema', () => {
     prismaMock.unidade.findUnique.mockResolvedValue({
       id: 'u-1',
       nome: 'UBS Nova',
-      tipo: 'UBS',
+      tipo: 'UBSF',
       _count: { equipamentos: 0, usuarios: 0, solicitacoesOrigem: 0, manutencoes: 0 },
     } as never);
     const res = await request(app).delete('/unidades/u-1').set(auth('GESTOR_PATRIMONIO'));
@@ -540,11 +540,10 @@ describe('Fluxos complementares de solicitação (UC11/UC12, recolha)', () => {
       ...cessaoAprovada,
       tipo: 'RECOLHA',
       status: 'AGUARDANDO_ENTREGA',
-      unidadeDestinoId: null,
-      unidadeDestino: null,
+      unidadeDestinoId: 'galpao-1',
+      unidadeDestino: { id: 'galpao-1', nome: 'Galpão CIAD/Branet' },
     };
     prismaMock.solicitacao.findUnique.mockResolvedValue(recolha as never);
-    prismaMock.unidade.findFirst.mockResolvedValue({ id: 'galpao-1', tipo: 'GALPAO' } as never);
     prismaMock.solicitacao.update.mockResolvedValue({ ...recolha, status: 'CONCLUIDA' } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/confirmar-recolha')

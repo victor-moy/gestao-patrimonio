@@ -40,6 +40,27 @@ export const ROTULO_STATUS_EQUIPAMENTO: Record<string, string> = {
   EM_MANUTENCAO: 'Em Manutenção',
   EMPRESTADO: 'Emprestado',
   BAIXADO: 'Baixado',
+  CEDIDO: 'Cedido (externo)',
+};
+
+export const ROTULO_MOTIVO_BAIXA: Record<string, string> = {
+  LEILAO: 'Leilão',
+  EXTRAVIO: 'Extravio',
+  ROUBO: 'Roubo',
+  SUBSTITUICAO: 'Substituição',
+  OUTRO: 'Outro',
+};
+
+export const ROTULO_TIPO_UNIDADE: Record<string, string> = {
+  UBSF: 'UBSF',
+  UPA: 'UPA',
+  PA: 'PA',
+  FARMACIA: 'Farmácia',
+  SERVICO_ESPECIAL: 'Serviço Especial',
+  SERVICO_VIGILANCIA: 'Serviço de Vigilância',
+  UNIDADE_ADMINISTRATIVA: 'Unidade Administrativa',
+  GALPAO: 'Galpão',
+  OUTRO: 'Outro',
 };
 
 export const ROTULO_STATUS_MANUTENCAO: Record<string, string> = {
@@ -64,10 +85,15 @@ export const ROTULO_STATUS_SOLICITACAO: Record<string, string> = {
   AGUARDANDO_ENTREGA: 'Aguardando Entrega',
   CONCLUIDA: 'Concluída',
   CANCELADA: 'Cancelada',
+  EXPIRADA: 'Expirada (SLA)',
+  RESERVADO: 'Reservado',
+  AGUARDANDO_DISPONIBILIDADE: 'Aguardando Disponibilidade',
+  AGUARDANDO_VALIDACAO: 'Aguardando Validação',
 };
 
 export const ROTULO_TIPO_SOLICITACAO: Record<string, string> = {
-  NOVO_ITEM: 'Novo Item',
+  SUBSTITUICAO: 'Substituição',
+  AMPLIACAO: 'Ampliação',
   CESSAO_USO: 'Cessão de Uso',
   EMPRESTIMO: 'Empréstimo',
   RECOLHA: 'Recolha',

@@ -1,7 +1,8 @@
 export type Perfil = 'GESTOR_PATRIMONIO' | 'GESTOR_MANUTENCAO' | 'UNIDADE' | 'GALPAO';
 
 export type EstadoConservacao = 'OTIMO' | 'BOM' | 'REGULAR' | 'RUIM' | 'PESSIMO';
-export type StatusEquipamento = 'ATIVO' | 'EM_MANUTENCAO' | 'EMPRESTADO' | 'BAIXADO';
+export type StatusEquipamento = 'ATIVO' | 'EM_MANUTENCAO' | 'EMPRESTADO' | 'BAIXADO' | 'CEDIDO';
+export type MotivoBaixa = 'LEILAO' | 'EXTRAVIO' | 'ROUBO' | 'SUBSTITUICAO' | 'OUTRO';
 
 export interface Usuario {
   id: string;
@@ -14,10 +15,21 @@ export interface Usuario {
   ativo?: boolean;
 }
 
+export type TipoUnidade =
+  | 'UBSF'
+  | 'UPA'
+  | 'PA'
+  | 'FARMACIA'
+  | 'SERVICO_ESPECIAL'
+  | 'SERVICO_VIGILANCIA'
+  | 'UNIDADE_ADMINISTRATIVA'
+  | 'GALPAO'
+  | 'OUTRO';
+
 export interface Unidade {
   id: string;
   nome: string;
-  tipo: 'UBS' | 'UME' | 'CAC' | 'GALPAO' | 'OUTRO';
+  tipo: TipoUnidade;
   endereco?: string | null;
   emailBase?: string | null;
   responsavelId?: string | null;
@@ -60,6 +72,7 @@ export interface Equipamento {
   descricao: string;
   estadoConservacao: EstadoConservacao;
   status: StatusEquipamento;
+  motivoBaixa?: MotivoBaixa | null;
   emendaParlamentar: boolean;
   dataAquisicao: string | null;
   observacoes: string | null;
@@ -113,7 +126,7 @@ export interface Manutencao {
   contrato?: { id: string; empresa: string } | null;
 }
 
-export type TipoSolicitacao = 'NOVO_ITEM' | 'CESSAO_USO' | 'EMPRESTIMO' | 'RECOLHA';
+export type TipoSolicitacao = 'SUBSTITUICAO' | 'AMPLIACAO' | 'CESSAO_USO' | 'EMPRESTIMO' | 'RECOLHA';
 
 export type StatusSolicitacao =
   | 'PENDENTE_APROVACAO'
@@ -125,7 +138,11 @@ export type StatusSolicitacao =
   | 'AGUARDANDO_RETORNO'
   | 'AGUARDANDO_ENTREGA'
   | 'CONCLUIDA'
-  | 'CANCELADA';
+  | 'CANCELADA'
+  | 'EXPIRADA'
+  | 'RESERVADO'
+  | 'AGUARDANDO_DISPONIBILIDADE'
+  | 'AGUARDANDO_VALIDACAO';
 
 export interface Solicitacao {
   id: string;
@@ -135,16 +152,25 @@ export interface Solicitacao {
   motivoNegacao: string | null;
   quantidade: number | null;
   origemRecurso: 'REGULAR' | 'EMENDA_PARLAMENTAR' | null;
+  anexoUrl?: string | null;
+  entidadeExternaNome?: string | null;
   dataRetornoPrevista: string | null;
   automatica: boolean;
   criadoEm: string;
   valorVinculado: string | null;
   unidadeOrigem: { id: string; nome: string };
-  unidadeDestino?: { id: string; nome: string } | null;
+  unidadeDestino?: { id: string; nome: string; tipo?: TipoUnidade } | null;
   equipamento?: { id: string; tombamento: string; descricao: string } | null;
   tipoEquipamento?: { id: string; nome: string; codigo: string } | null;
   ata?: { id: string; numero: string } | null;
   criadoPor?: { nome: string } | null;
+  disponivelParaReserva?: boolean;
+  numeroPedidoBranet?: string | null;
+  pedidoEntregaRegistradoEm?: string | null;
+  prioridade?: number | null;
+  recebimentoOk?: boolean | null;
+  observacaoRecebimento?: string | null;
+  itensGerados?: Array<{ id: string; tombamento: string; descricao: string }>;
 }
 
 export interface Ata {
@@ -165,6 +191,7 @@ export interface EstoqueItem {
   reservado: number;
   ultimaEntradaEm: string | null;
   tipoEquipamento: TipoEquipamento & { categoria?: { nome: string; cor: string | null } };
+  unidade: { id: string; nome: string };
 }
 
 export interface MovimentacaoEstoque {
