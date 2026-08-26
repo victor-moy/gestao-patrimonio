@@ -62,7 +62,6 @@ export function Solicitacoes() {
       setMensagem(state.mensagem);
       navigate(location.pathname, { replace: true, state: {} });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
 
   const detalhe = solicitacoes.find((s) => s.id === detalheId) ?? null;
@@ -219,7 +218,6 @@ function DetalheSolicitacao({
     setTombamentosConfirmados({});
     setAjustandoTombamento(false);
     setItensAjuste((s.itensGerados ?? []).map((eq) => ({ equipamentoId: eq.id, tombamento: eq.tombamento })));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [s.status]);
 
   const ehGP = usuario?.perfil === 'GESTOR_PATRIMONIO';

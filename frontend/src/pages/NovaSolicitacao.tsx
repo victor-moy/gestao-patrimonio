@@ -22,10 +22,6 @@ import { SeletorEquipamento } from '../components/SeletorEquipamento';
 
 const JUSTIFICATIVA_MAX = 500;
 
-// Ampliação/Substituição seguem o fluxo de aquisição via ata; os demais
-// tipos operam sobre um equipamento já existente no inventário da unidade.
-const TIPOS_COM_ATA = ['AMPLIACAO', 'SUBSTITUICAO'];
-
 // Catálogo de tipos — estilo "central de serviços" (referência: central de
 // serviços da Prefeitura de Joinville, feedback do cliente).
 const CATALOGO_TIPOS: Array<{
