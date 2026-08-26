@@ -128,6 +128,35 @@ describe('Estoque do galpão (RF31/RF32)', () => {
       expect.objectContaining({ data: { atualizadoNoBranet: true } }),
     );
   });
+
+  it('lista o estoque com o total em reserva por tipo, agregado entre galpões (feedback 20/08)', async () => {
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([
+      { id: 'est-1', tipoEquipamentoId: UUID, unidadeId: 'galpao-1', quantidade: 5, tipoEquipamento: {}, unidade: {} },
+    ] as never);
+    (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([
+      { tipoEquipamentoId: UUID, _sum: { quantidade: 3 } },
+    ]);
+    const res = await request(app)
+      .get('/estoque?unidadeId=galpao-1')
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body[0]).toMatchObject({ quantidade: 5, reservado: 3 });
+  });
+
+  it('lista o que está aguardando estoque, agregado por tipo (feedback 20/08)', async () => {
+    (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([
+      { tipoEquipamentoId: UUID, _sum: { quantidade: 7 }, _count: { _all: 2 } },
+    ]);
+    prismaMock.tipoEquipamento.findMany.mockResolvedValue([
+      { id: UUID, nome: 'Autoclave Vertical 75L', codigo: 'AUT-75', categoria: { nome: 'Esterilização', cor: '#000' } },
+    ] as never);
+    const res = await request(app).get('/estoque/aguardando').set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      expect.objectContaining({ quantidade: 7, solicitacoes: 2 }),
+    ]);
+    expect(res.body[0].tipoEquipamento.nome).toBe('Autoclave Vertical 75L');
+  });
 });
 
 describe('Dashboard (UC21, RF36/RF37)', () => {

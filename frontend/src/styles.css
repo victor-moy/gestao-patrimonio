@@ -881,6 +881,14 @@ tr.clickable:hover {
   font-size: 13.5px;
 }
 
+.estoque-tabela-scroll tfoot td {
+  position: sticky;
+  bottom: 0;
+  background: var(--gray-bg);
+  font-size: 13.5px;
+  border-top: 1px solid var(--border);
+}
+
 .estoque-tabela-scroll .celula-sub {
   font-size: 12.5px;
 }
