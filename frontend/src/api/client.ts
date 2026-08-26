@@ -20,6 +20,20 @@ export function getToken() {
   return token;
 }
 
+// Guarda o token do usuário "mestre" enquanto ele está impersonando outra
+// conta, pra dar pra voltar depois sem precisar logar de novo.
+export function setTokenMestre(tokenMestre: string) {
+  storage()?.setItem('sgp_token_mestre', tokenMestre);
+}
+
+export function getTokenMestre() {
+  return storage()?.getItem('sgp_token_mestre') ?? null;
+}
+
+export function limparTokenMestre() {
+  storage()?.removeItem('sgp_token_mestre');
+}
+
 export function setOnUnauthorized(handler: () => void) {
   onUnauthorized = handler;
 }
