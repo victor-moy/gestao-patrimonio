@@ -557,24 +557,22 @@ describe('Fluxos complementares de solicitação (UC11/UC12, recolha)', () => {
     expect(res.status).toBe(403);
   });
 
-  it('recolha aprovada é concluída pelo galpão', async () => {
+  it('recolha aprovada, já lançada no Branet, é confirmada pela unidade de origem (feedback 26/08)', async () => {
     const recolha = {
       ...cessaoAprovada,
       tipo: 'RECOLHA',
       status: 'AGUARDANDO_ENTREGA',
       unidadeDestinoId: 'galpao-1',
       unidadeDestino: { id: 'galpao-1', nome: 'Galpão CIAD/Branet' },
+      pedidoEntregaRegistradoEm: new Date(),
     };
     prismaMock.solicitacao.findUnique.mockResolvedValue(recolha as never);
-    prismaMock.solicitacao.update.mockResolvedValue({ ...recolha, status: 'CONCLUIDA' } as never);
+    prismaMock.solicitacao.update.mockResolvedValue({ ...recolha, status: 'AGUARDANDO_VALIDACAO' } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/confirmar-recolha')
-      .set(auth('GALPAO', { unidadeId: 'galpao-1' }));
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }));
     expect(res.status).toBe(200);
-    expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { unidadeId: 'galpao-1' } }),
-    );
-    expect(prismaMock.movimentacao.create).toHaveBeenCalled();
+    expect(res.body.status).toBe('AGUARDANDO_VALIDACAO');
   });
 
   it('lista solicitações filtrando por unidade do usuário', async () => {

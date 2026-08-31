@@ -2315,6 +2315,12 @@ tr.clickable:hover {
   border-right: none;
 }
 
+/* Único filho do grid — bate simultaneamente com :first-child e :last-child,
+   então também precisa zerar o padding-left que este último aplicaria */
+.form-colunas-unica .form-coluna:last-child {
+  padding-left: 0;
+}
+
 @media (max-width: 960px) {
   .form-colunas {
     grid-template-columns: 1fr;

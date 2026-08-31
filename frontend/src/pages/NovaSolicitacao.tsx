@@ -33,7 +33,7 @@ const CATALOGO_TIPOS: Array<{
   { tipo: 'AMPLIACAO', Icone: IconeAmpliacao, descricao: 'Adquirir um item novo, sem remover outro' },
   { tipo: 'CESSAO_USO', Icone: IconeCessaoExterna, descricao: 'Ceder um equipamento a uma entidade externa' },
   { tipo: 'EMPRESTIMO', Icone: IconeEmprestimo, descricao: 'Movimentar um equipamento entre unidades da SES' },
-  { tipo: 'RECOLHA', Icone: IconeRecolha, descricao: 'Enviar um equipamento para o galpão' },
+  { tipo: 'RECOLHA', Icone: IconeRecolha, descricao: 'Processo para recolha de itens na unidade' },
 ];
 
 // Ilustração decorativa (prancheta + cruz) no canto do cabeçalho — puramente estética
@@ -88,6 +88,10 @@ export function NovaSolicitacao() {
         anexoPreview: null as string | null,
       },
     ],
+    // Recolha: lista repetível de equipamentos existentes a recolher — sem
+    // escolher o galpão de destino, que agora é o Gestor quem define ao
+    // aprovar (feedback do cliente 26/08).
+    itensRecolha: [{ equipamentoId: '' }],
     justificativa: '',
     entidadeExternaNome: '',
     dataRetornoPrevista: '',
@@ -110,10 +114,10 @@ export function NovaSolicitacao() {
     }
   }
 
-  const galpoes = unidades.filter((u) => u.tipo === 'GALPAO');
-  // Ampliação e Substituição usam listas repetíveis próprias (itens/
-  // itensSubstituicao) — só os demais tipos usam o campo único de equipamento
-  const precisaEquipamento = tipo !== 'AMPLIACAO' && tipo !== 'SUBSTITUICAO';
+  // Ampliação, Substituição e Recolha usam listas repetíveis próprias
+  // (itensAmpliacao/itensSubstituicao/itensRecolha) — só os demais tipos
+  // usam o campo único de equipamento
+  const precisaEquipamento = tipo !== 'AMPLIACAO' && tipo !== 'SUBSTITUICAO' && tipo !== 'RECOLHA';
 
   async function aoEnviar(e: FormEvent) {
     e.preventDefault();
@@ -144,10 +148,15 @@ export function NovaSolicitacao() {
               })),
             }
           : {}),
-        ...(tipo === 'CESSAO_USO' ? { entidadeExternaNome: form.entidadeExternaNome } : {}),
-        ...(tipo === 'EMPRESTIMO' || tipo === 'RECOLHA'
-          ? { unidadeDestinoId: form.unidadeDestinoId }
+        ...(tipo === 'RECOLHA'
+          ? {
+              itens: form.itensRecolha.map((item) => ({
+                equipamentoId: item.equipamentoId,
+              })),
+            }
           : {}),
+        ...(tipo === 'CESSAO_USO' ? { entidadeExternaNome: form.entidadeExternaNome } : {}),
+        ...(tipo === 'EMPRESTIMO' ? { unidadeDestinoId: form.unidadeDestinoId } : {}),
         ...(tipo === 'EMPRESTIMO' && !semRetorno
           ? { dataRetornoPrevista: form.dataRetornoPrevista }
           : {}),
@@ -313,23 +322,6 @@ export function NovaSolicitacao() {
                     </select>
                   </div>
                 )}
-                {tipo === 'RECOLHA' && (
-                  <div className="field">
-                    <label>Galpão de Destino *</label>
-                    <select
-                      value={form.unidadeDestinoId}
-                      onChange={(e) => setForm({ ...form, unidadeDestinoId: e.target.value })}
-                      required
-                    >
-                      <option value="">Selecione o galpão</option>
-                      {galpoes.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
               </div>
               {tipo === 'EMPRESTIMO' && (
                 <>
@@ -362,12 +354,6 @@ export function NovaSolicitacao() {
 
           {tipo === 'SUBSTITUICAO' && (
             <div className="form-secao">
-              <div className="form-secao-titulo">
-                <div className="form-secao-titulo-icone">
-                  <IconeCaixa />
-                </div>
-                Equipamentos a Substituir
-              </div>
               {form.itensSubstituicao.map((item, i) => (
                 <div key={i} className="item-ampliacao">
                   <div className="item-ampliacao-cabecalho">
@@ -388,7 +374,7 @@ export function NovaSolicitacao() {
                     )}
                   </div>
                   <div className="field">
-                    <label>Equipamento a Substituir *</label>
+                    <label>Item a Substituir *</label>
                     <SeletorEquipamento
                       equipamentos={equipamentos}
                       value={item.equipamentoId}
@@ -405,27 +391,13 @@ export function NovaSolicitacao() {
                     />
                   </div>
                   <div className="field">
-                    <label>Tipo do Item de Reposição *</label>
+                    <label>Item para Reposição *</label>
                     <SeletorTipoEquipamento
                       categorias={categorias}
                       value={item.tipoEquipamentoId}
                       onChange={(id) => {
                         const itens = [...form.itensSubstituicao];
                         itens[i] = { ...item, tipoEquipamentoId: id };
-                        setForm({ ...form, itensSubstituicao: itens });
-                      }}
-                      required
-                    />
-                  </div>
-                  <div className="field item-ampliacao-quantidade">
-                    <label>Quantidade *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.quantidade}
-                      onChange={(e) => {
-                        const itens = [...form.itensSubstituicao];
-                        itens[i] = { ...item, quantidade: Number(e.target.value) };
                         setForm({ ...form, itensSubstituicao: itens });
                       }}
                       required
@@ -599,6 +571,68 @@ export function NovaSolicitacao() {
                   setForm({
                     ...form,
                     itensAmpliacao: [...form.itensAmpliacao, { tipoEquipamentoId: '', quantidade: 1 }],
+                  })
+                }
+              >
+                + Adicionar item
+              </button>
+            </div>
+          )}
+
+          {tipo === 'RECOLHA' && (
+            <div className="form-secao">
+              <div className="form-secao-titulo">
+                <div className="form-secao-titulo-icone">
+                  <IconeCaixa />
+                </div>
+                Itens a Recolher
+              </div>
+              {form.itensRecolha.map((item, i) => (
+                <div key={i} className="item-ampliacao">
+                  <div className="item-ampliacao-cabecalho">
+                    <span className="item-ampliacao-numero">Item {i + 1}</span>
+                    {form.itensRecolha.length > 1 && (
+                      <button
+                        type="button"
+                        className="item-ampliacao-remover"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            itensRecolha: form.itensRecolha.filter((_, j) => j !== i),
+                          })
+                        }
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                  <div className="field">
+                    <label>Item *</label>
+                    <SeletorEquipamento
+                      equipamentos={equipamentos}
+                      value={item.equipamentoId}
+                      idsExcluidos={form.itensRecolha
+                        .filter((_, j) => j !== i)
+                        .map((it) => it.equipamentoId)
+                        .filter(Boolean)}
+                      onChange={(id) => {
+                        const itens = [...form.itensRecolha];
+                        itens[i] = { ...item, equipamentoId: id };
+                        setForm({ ...form, itensRecolha: itens });
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ marginTop: 12 }}
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    itensRecolha: [...form.itensRecolha, { equipamentoId: '' }],
                   })
                 }
               >

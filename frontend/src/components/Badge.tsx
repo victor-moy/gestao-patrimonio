@@ -30,6 +30,9 @@ const CORES: Record<string, string> = {
   AGUARDANDO_VALIDACAO: 'yellow',
   // Pseudo-status: Aguardando Disponibilidade com estoque já disponível
   DISPONIVEL_PARA_RESERVA: 'green',
+  // Pseudo-status: etapas da Recolha (feedback do cliente 26/08)
+  AGUARDANDO_RECOLHA_PATRIMONIO: 'yellow',
+  AGUARDANDO_RECOLHA_BRANET: 'blue',
   // Tipos de solicitação
   SUBSTITUICAO: 'blue',
   AMPLIACAO: 'blue',

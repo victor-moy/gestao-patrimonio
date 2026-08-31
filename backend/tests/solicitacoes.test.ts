@@ -397,40 +397,51 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
 
-  it('recolha exige unidade de destino do tipo galpão', async () => {
-    prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
-    prismaMock.unidade.findUnique.mockResolvedValue({ id: 'unidade-2', tipo: 'UBSF' } as never);
+  it('recolha exige ao menos um equipamento (feedback do cliente 26/08 — sem destino na criação)', async () => {
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
-      .send({
-        tipo: 'RECOLHA',
-        equipamentoId: UUID,
-        unidadeDestinoId: UUID2,
-        justificativa: 'Equipamento sem uso',
-      });
+      .send({ tipo: 'RECOLHA', itens: [], justificativa: 'Recolha sem itens' });
     expect(res.status).toBe(422);
     expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
 
-  it('cria recolha para um galpão válido', async () => {
-    prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
-    prismaMock.unidade.findUnique.mockResolvedValue({ id: 'galpao-1', tipo: 'GALPAO' } as never);
-    prismaMock.solicitacao.create.mockResolvedValue({
-      ...solicitacaoBase,
-      tipo: 'RECOLHA',
-      unidadeDestinoId: 'galpao-1',
-    } as never);
+  it('cria recolha com múltiplos equipamentos: uma Solicitacao por item, sem escolher destino (feedback do cliente 26/08)', async () => {
+    prismaMock.equipamento.findUnique
+      .mockResolvedValueOnce({ ...equipamentoAtivo, id: 'eq-1' } as never)
+      .mockResolvedValueOnce({ ...equipamentoAtivo, id: 'eq-2' } as never);
+    prismaMock.solicitacao.create
+      .mockResolvedValueOnce({ ...solicitacaoBase, id: 'sol-a', tipo: 'RECOLHA' } as never)
+      .mockResolvedValueOnce({ ...solicitacaoBase, id: 'sol-b', tipo: 'RECOLHA' } as never);
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
         tipo: 'RECOLHA',
-        equipamentoId: UUID,
-        unidadeDestinoId: UUID2,
-        justificativa: 'Equipamento sem uso',
+        itens: [{ equipamentoId: UUID }, { equipamentoId: EQUIP_UUID }],
+        justificativa: 'Equipamentos sem uso',
       });
     expect(res.status).toBe(201);
+    expect(res.body.ids).toEqual(['sol-a', 'sol-b']);
+    expect(prismaMock.solicitacao.create).toHaveBeenCalledTimes(2);
+    expect(prismaMock.solicitacao.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ unidadeDestinoId: expect.anything() }),
+      }),
+    );
+  });
+
+  it('recolha rejeita o mesmo equipamento repetido na mesma solicitação', async () => {
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'RECOLHA',
+        itens: [{ equipamentoId: UUID }, { equipamentoId: UUID }],
+        justificativa: 'Equipamento sem uso',
+      });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
 });
 
@@ -545,6 +556,72 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ prioridade: 1 }) }),
     );
+  });
+
+  it('aprova recolha marcando aguardando Patrimônio: vai pro galpão padrão sem lançamento no Branet ainda (feedback 27/08)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'RECOLHA',
+      status: 'PENDENTE_APROVACAO',
+    } as never);
+    prismaMock.unidade.findFirst.mockResolvedValue({ id: 'galpao-1', tipo: 'GALPAO', nome: 'Galpão CIAD/Branet' } as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'RECOLHA',
+      status: 'AGUARDANDO_ENTREGA',
+      unidadeDestinoId: 'galpao-1',
+      pedidoEntregaRegistradoEm: null,
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/aprovar')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ etapaRecolha: 'PATRIMONIO' });
+    expect(res.status).toBe(200);
+    expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ unidadeDestinoId: 'galpao-1', pedidoEntregaRegistradoEm: null }),
+      }),
+    );
+  });
+
+  it('aprova recolha marcando direto aguardando Branet, pulando a etapa Patrimônio (feedback 27/08)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'RECOLHA',
+      status: 'PENDENTE_APROVACAO',
+    } as never);
+    prismaMock.unidade.findFirst.mockResolvedValue({ id: 'galpao-1', tipo: 'GALPAO', nome: 'Galpão CIAD/Branet' } as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'RECOLHA',
+      status: 'AGUARDANDO_ENTREGA',
+      unidadeDestinoId: 'galpao-1',
+      pedidoEntregaRegistradoEm: new Date(),
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/aprovar')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ etapaRecolha: 'BRANET' });
+    expect(res.status).toBe(200);
+    expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ unidadeDestinoId: 'galpao-1', pedidoEntregaRegistradoEm: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it('bloqueia aprovar recolha sem informar a etapa (Patrimônio ou Branet)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'RECOLHA',
+      status: 'PENDENTE_APROVACAO',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/aprovar')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({});
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
   });
 
   it('bloqueia vínculo com ata vencida (RN08)', async () => {
@@ -764,25 +841,50 @@ describe('Solicitações — cessão externa, empréstimo e recolha (UC12, UC14,
     );
   });
 
-  it('galpão confirma recolha usando o galpão escolhido na criação', async () => {
+  it('unidade confirma a recolha aprovada como Aguardando Branet: vira Aguardando Validação (feedback 26/08)', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue({
       ...solicitacaoBase,
       tipo: 'RECOLHA',
       status: 'AGUARDANDO_ENTREGA',
       unidadeDestinoId: 'galpao-1',
+      pedidoEntregaRegistradoEm: new Date(),
     } as never);
     prismaMock.solicitacao.update.mockResolvedValue({
       ...solicitacaoBase,
       tipo: 'RECOLHA',
-      status: 'CONCLUIDA',
+      status: 'AGUARDANDO_VALIDACAO',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/confirmar-recolha')
-      .set(auth('GALPAO', { unidadeId: 'galpao-1' }))
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send();
     expect(res.status).toBe(200);
-    expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { unidadeId: 'galpao-1' } }),
+    expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'AGUARDANDO_VALIDACAO' } }),
+    );
+    expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
+  });
+
+  it('unidade confirma a recolha mesmo aprovada como Aguardando Patrimônio — a etapa não é um pré-requisito (feedback 27/08)', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'RECOLHA',
+      status: 'AGUARDANDO_ENTREGA',
+      unidadeDestinoId: 'galpao-1',
+      pedidoEntregaRegistradoEm: null,
+    } as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'RECOLHA',
+      status: 'AGUARDANDO_VALIDACAO',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/confirmar-recolha')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send();
+    expect(res.status).toBe(200);
+    expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'AGUARDANDO_VALIDACAO' } }),
     );
   });
 
@@ -1069,6 +1171,34 @@ describe('Solicitações — validação final, ajuste de tombamento e conclusã
       .set(auth('GESTOR_PATRIMONIO'))
       .send();
     expect(res.status).toBe(422);
+  });
+
+  it('Patrimônio conclui a recolha: move o equipamento pro galpão e registra a movimentação (feedback 26/08)', async () => {
+    const recolhaAguardandoValidacao = {
+      ...solicitacaoBase,
+      tipo: 'RECOLHA',
+      status: 'AGUARDANDO_VALIDACAO',
+      equipamentoId: 'eq-1',
+      unidadeDestinoId: 'galpao-1',
+      itensGerados: [],
+    };
+    prismaMock.solicitacao.findUnique.mockResolvedValue(recolhaAguardandoValidacao as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...recolhaAguardandoValidacao,
+      status: 'CONCLUIDA',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/concluir')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('CONCLUIDA');
+    expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'eq-1' }, data: { unidadeId: 'galpao-1' } }),
+    );
+    expect(prismaMock.movimentacao.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ tipo: 'RECOLHA', unidadeDestinoId: 'galpao-1' }) }),
+    );
   });
 
   it('Gestor ajusta o tombamento divergente antes de concluir (exceção estreita à RN01)', async () => {

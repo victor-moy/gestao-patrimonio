@@ -161,7 +161,12 @@ export interface Solicitacao {
   valorVinculado: string | null;
   unidadeOrigem: { id: string; nome: string };
   unidadeDestino?: { id: string; nome: string; tipo?: TipoUnidade } | null;
-  equipamento?: { id: string; tombamento: string; descricao: string } | null;
+  equipamento?: {
+    id: string;
+    tombamento: string;
+    descricao: string;
+    tipoEquipamento?: { nome: string };
+  } | null;
   tipoEquipamento?: { id: string; nome: string; codigo: string } | null;
   ata?: { id: string; numero: string } | null;
   criadoPor?: { nome: string } | null;

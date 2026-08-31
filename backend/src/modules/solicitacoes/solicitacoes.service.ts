@@ -9,7 +9,15 @@ const includePadrao = {
   unidadeOrigem: { select: { id: true, nome: true, emailBase: true } },
   unidadeDestino: { select: { id: true, nome: true, emailBase: true, tipo: true } },
   equipamento: {
-    select: { id: true, tombamento: true, descricao: true, status: true, emendaParlamentar: true, tipoEquipamentoId: true },
+    select: {
+      id: true,
+      tombamento: true,
+      descricao: true,
+      status: true,
+      emendaParlamentar: true,
+      tipoEquipamentoId: true,
+      tipoEquipamento: { select: { nome: true } },
+    },
   },
   tipoEquipamento: { select: { id: true, nome: true, codigo: true } },
   ata: { select: { id: true, numero: true, saldo: true, vencimento: true } },
@@ -91,20 +99,36 @@ export interface DadosCriacao {
   unidadeDestinoId?: string;
   tipoEquipamentoId?: string;
   quantidade?: number;
-  // Ampliação/Substituição: seleção de múltiplos itens numa única tela —
-  // vira uma Solicitacao por item internamente (feedback do cliente 17/08 e
-  // 25/08). Substituição usa `equipamentoId` e `justificativa` por item
-  // (equipamento existente a ser substituído e o motivo específico da troca);
-  // Ampliação não usa esses campos.
+  // Ampliação/Substituição/Recolha: seleção de múltiplos itens numa única
+  // tela — vira uma Solicitacao por item internamente (feedback do cliente
+  // 17/08, 25/08 e 26/08). Substituição usa `equipamentoId` e `justificativa`
+  // por item; Recolha usa só `equipamentoId` (a unidade escolhe os
+  // equipamentos existentes a recolher, sem tipo/quantidade/destino — quem
+  // define o galpão é o Gestor, ao aprovar); Ampliação usa só
+  // `tipoEquipamentoId`/`quantidade`.
   itens?: Array<{
     equipamentoId?: string;
-    tipoEquipamentoId: string;
-    quantidade: number;
+    tipoEquipamentoId?: string;
+    quantidade?: number;
     justificativa?: string;
   }>;
   origemRecurso?: OrigemRecurso;
   entidadeExternaNome?: string;
   dataRetornoPrevista?: Date;
+}
+
+// Recolha não pede mais pro Gestor escolher o galpão — vai sempre pro único
+// galpão padrão do fluxo Branet (feedback do cliente 27/08: o que importa
+// pro Gestor é a etapa administrativa — Patrimônio ou Branet —, não pra qual
+// dos galpões operacionais o item vai fisicamente).
+async function buscarGalpaoPadraoRecolha() {
+  const galpao = await prisma.unidade.findFirst({
+    where: { nome: 'Galpão CIAD/Branet', tipo: 'GALPAO' },
+  });
+  if (!galpao) {
+    throw new AppError('Galpão padrão de recolha (Galpão CIAD/Branet) não está cadastrado.', 500);
+  }
+  return galpao;
 }
 
 async function buscarEquipamentoDaUnidade(equipamentoId: string, unidadeOrigemId: string) {
@@ -183,6 +207,9 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     if (!dados.itens || dados.itens.length === 0) {
       throw new AppError('Selecione ao menos um item para a ampliação.', 422);
     }
+    if (dados.itens.some((item) => !item.tipoEquipamentoId || !item.quantidade)) {
+      throw new AppError('Informe o tipo de equipamento e a quantidade de cada item.', 422);
+    }
     if (!dados.justificativa?.trim()) {
       throw new AppError('Informe a justificativa.', 422);
     }
@@ -193,8 +220,8 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
           data: {
             tipo: 'AMPLIACAO',
             unidadeOrigemId,
-            tipoEquipamentoId: item.tipoEquipamentoId,
-            quantidade: item.quantidade,
+            tipoEquipamentoId: item.tipoEquipamentoId!,
+            quantidade: item.quantidade!,
             justificativa: justificativaAmpliacao,
             origemRecurso: dados.origemRecurso ?? 'REGULAR',
             criadoPorId: usuario.sub,
@@ -214,6 +241,9 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     }
     if (dados.itens.some((item) => !item.justificativa?.trim())) {
       throw new AppError('Informe a justificativa de cada equipamento a substituir.', 422);
+    }
+    if (dados.itens.some((item) => !item.tipoEquipamentoId || !item.quantidade)) {
+      throw new AppError('Informe o item de reposição e a quantidade de cada equipamento.', 422);
     }
     const idsEquipamentos = dados.itens.map((item) => item.equipamentoId!);
     if (new Set(idsEquipamentos).size !== idsEquipamentos.length) {
@@ -238,8 +268,8 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
             tipo: 'SUBSTITUICAO',
             unidadeOrigemId,
             equipamentoId: equipamentosValidados[i].id,
-            tipoEquipamentoId: item.tipoEquipamentoId,
-            quantidade: item.quantidade,
+            tipoEquipamentoId: item.tipoEquipamentoId!,
+            quantidade: item.quantidade!,
             justificativa: item.justificativa!.trim(),
             origemRecurso: dados.origemRecurso ?? 'REGULAR',
             criadoPorId: usuario.sub,
@@ -248,6 +278,52 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
       ),
     );
     return criadas.map((s) => s.id);
+  }
+
+  // RECOLHA — a unidade escolhe os equipamentos existentes a recolher (sem
+  // destino): o galpão fica a critério do Gestor de Patrimônio, definido só
+  // na aprovação — centraliza essa decisão em vez da unidade escolher
+  // (feedback do cliente 26/08).
+  if (dados.tipo === 'RECOLHA') {
+    if (!dados.itens || dados.itens.length === 0) {
+      throw new AppError('Selecione ao menos um equipamento para recolha.', 422);
+    }
+    if (dados.itens.some((item) => !item.equipamentoId)) {
+      throw new AppError('Informe o equipamento em cada item.', 422);
+    }
+    if (!dados.justificativa?.trim()) {
+      throw new AppError('Informe a justificativa.', 422);
+    }
+    const justificativaRecolha = dados.justificativa;
+    const idsEquipamentosRecolha = dados.itens.map((item) => item.equipamentoId!);
+    if (new Set(idsEquipamentosRecolha).size !== idsEquipamentosRecolha.length) {
+      throw new AppError('Um mesmo equipamento não pode aparecer duas vezes na mesma solicitação.', 422);
+    }
+    const equipamentosRecolha = await Promise.all(
+      idsEquipamentosRecolha.map((id) => buscarEquipamentoDaUnidade(id, unidadeOrigemId)),
+    );
+    for (const equipamento of equipamentosRecolha) {
+      if (equipamento.status !== 'ATIVO') {
+        throw new AppError(
+          `O equipamento ${equipamento.tombamento} está com status ${equipamento.status} e não pode ser recolhido até o encerramento do ciclo atual.`,
+          422,
+        );
+      }
+    }
+    const criadasRecolha = await prisma.$transaction(
+      equipamentosRecolha.map((equipamento) =>
+        prisma.solicitacao.create({
+          data: {
+            tipo: 'RECOLHA',
+            unidadeOrigemId,
+            equipamentoId: equipamento.id,
+            justificativa: justificativaRecolha,
+            criadoPorId: usuario.sub,
+          },
+        }),
+      ),
+    );
+    return criadasRecolha.map((s) => s.id);
   }
 
   // Demais tipos exigem um equipamento ATIVO do inventário da própria unidade
@@ -344,23 +420,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     return [solicitacao.id];
   }
 
-  // RECOLHA — a unidade escolhe o galpão que deve recolher o equipamento
-  if (!dados.unidadeDestinoId) throw new AppError('Informe o galpão de destino da recolha.', 422);
-  const galpao = await prisma.unidade.findUnique({ where: { id: dados.unidadeDestinoId } });
-  if (!galpao || galpao.tipo !== 'GALPAO') {
-    throw new AppError('O destino da recolha deve ser uma unidade do tipo galpão.', 422);
-  }
-  const criada = await prisma.solicitacao.create({
-    data: {
-      tipo: 'RECOLHA',
-      unidadeOrigemId,
-      unidadeDestinoId: galpao.id,
-      equipamentoId: equipamento.id,
-      justificativa,
-      criadoPorId: usuario.sub,
-    },
-  });
-  return [criada.id];
+  throw new AppError('Tipo de solicitação inválido.', 422);
 }
 
 // UC11/UC17/RN04 — aprovação pelo Gestor de Patrimônio. Para Ampliação e
@@ -370,7 +430,12 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
 // `prioridade` (1–3) é definida pelo Gestor, não pelo solicitante, e usada
 // depois pra ordenar quem atender primeiro quando chega estoque novo —
 // obrigatória pra Ampliação/Substituição (feedback do cliente 18/08).
-export async function aprovar(usuario: AuthPayload, id: string, prioridade?: number) {
+export async function aprovar(
+  usuario: AuthPayload,
+  id: string,
+  prioridade?: number,
+  etapaRecolha?: 'PATRIMONIO' | 'BRANET',
+) {
   const solicitacao = await buscarPorId(usuario, id);
   if (solicitacao.status !== 'PENDENTE_APROVACAO') {
     throw new AppError('Somente solicitações pendentes podem ser aprovadas.', 422);
@@ -440,10 +505,23 @@ export async function aprovar(usuario: AuthPayload, id: string, prioridade?: num
   }
 
   if (solicitacao.tipo === 'RECOLHA') {
+    // Ao aprovar, o Gestor escolhe direto em qual das duas etapas a recolha
+    // já está — pode ir direto pra "Branet", pulando "Patrimônio" — em vez
+    // de escolher um galpão (feedback do cliente 27/08).
+    if (etapaRecolha !== 'PATRIMONIO' && etapaRecolha !== 'BRANET') {
+      throw new AppError('Informe se a recolha está aguardando o Patrimônio ou já foi lançada no Branet.', 422);
+    }
+    const galpao = await buscarGalpaoPadraoRecolha();
+    const pedidoEntregaRegistradoEm = etapaRecolha === 'BRANET' ? new Date() : null;
     const atualizada = await prisma.$transaction(async (tx) => {
       const s = await tx.solicitacao.update({
         where: { id },
-        data: { status: 'AGUARDANDO_ENTREGA', decididoPorId: usuario.sub },
+        data: {
+          status: 'AGUARDANDO_ENTREGA',
+          decididoPorId: usuario.sub,
+          unidadeDestinoId: galpao.id,
+          pedidoEntregaRegistradoEm,
+        },
         include: includePadrao,
       });
       await registrarAuditoria(
@@ -452,7 +530,7 @@ export async function aprovar(usuario: AuthPayload, id: string, prioridade?: num
           acao: 'APROVAR_RECOLHA',
           entidade: 'solicitacao',
           entidadeId: id,
-          dadosDepois: { status: s.status },
+          dadosDepois: { status: s.status, etapaRecolha },
         },
         tx,
       );
@@ -461,7 +539,7 @@ export async function aprovar(usuario: AuthPayload, id: string, prioridade?: num
     await notificar(
       atualizada.unidadeOrigem.emailBase,
       'Recolha aprovada',
-      `A recolha do equipamento ${atualizada.equipamento?.tombamento} foi aprovada. O galpão confirmará o recebimento.`,
+      `A recolha do equipamento ${atualizada.equipamento?.tombamento} foi aprovada. Aguarde o Patrimônio providenciar a busca.`,
     );
     return atualizada;
   }
@@ -580,10 +658,30 @@ export async function tentarReservarEstoque(usuario: AuthPayload, id: string) {
 // confirmou o recebimento (feedback do cliente: não fecha sozinho).
 export async function concluirSolicitacao(usuario: AuthPayload, id: string) {
   const solicitacao = await buscarPorId(usuario, id);
-  if (!TIPOS_COM_ATA.includes(solicitacao.tipo) || solicitacao.status !== 'AGUARDANDO_VALIDACAO') {
+  const tiposComValidacaoFinal = [...TIPOS_COM_ATA, 'RECOLHA'];
+  if (!tiposComValidacaoFinal.includes(solicitacao.tipo) || solicitacao.status !== 'AGUARDANDO_VALIDACAO') {
     throw new AppError('Esta solicitação não está aguardando validação do Patrimônio.', 422);
   }
   const atualizada = await prisma.$transaction(async (tx) => {
+    // Recolha: só agora, na validação final do Gestor, o equipamento muda de
+    // unidade — o galpão já foi escolhido na aprovação (feedback 26/08).
+    if (solicitacao.tipo === 'RECOLHA') {
+      const galpaoId = solicitacao.unidadeDestinoId!;
+      await tx.equipamento.update({
+        where: { id: solicitacao.equipamentoId! },
+        data: { unidadeId: galpaoId },
+      });
+      await tx.movimentacao.create({
+        data: {
+          equipamentoId: solicitacao.equipamentoId!,
+          tipo: 'RECOLHA',
+          descricao: `Equipamento recolhido ao galpão a partir de ${solicitacao.unidadeOrigem.nome}`,
+          unidadeOrigemId: solicitacao.unidadeOrigemId,
+          unidadeDestinoId: galpaoId,
+          usuarioId: usuario.sub,
+        },
+      });
+    }
     const s = await tx.solicitacao.update({
       where: { id },
       data: { status: 'CONCLUIDA' },
@@ -1003,40 +1101,34 @@ export async function marcarLancadoBranet(
   return atualizada;
 }
 
-// Conclusão da recolha — galpão (escolhido na criação) confirma o recebimento físico
+// Unidade de origem confirma que o equipamento realmente saiu (não é mais o
+// galpão quem confirma — feedback do cliente 26/08, mesma lógica já aplicada
+// à confirmação de recebimento: quem sabe o que realmente aconteceu é quem
+// está na ponta). Só avança pra Aguardando Validação — quem move o
+// equipamento de unidade e conclui é o Gestor, em concluirSolicitacao.
+// A etapa (Patrimônio/Branet) é escolhida uma vez, na aprovação, e não muda
+// depois — não é um pré-requisito pra confirmar (feedback do cliente 27/08).
 export async function confirmarRecolha(usuario: AuthPayload, id: string) {
   const solicitacao = await buscarPorId(usuario, id);
   if (solicitacao.tipo !== 'RECOLHA' || solicitacao.status !== 'AGUARDANDO_ENTREGA') {
-    throw new AppError('Esta recolha não está aguardando confirmação do galpão.', 422);
+    throw new AppError('Esta recolha não está aguardando confirmação.', 422);
   }
-  const galpaoId = solicitacao.unidadeDestinoId!;
+  if (usuario.perfil !== 'UNIDADE' || solicitacao.unidadeOrigemId !== usuario.unidadeId) {
+    throw new AppError('Somente a unidade de origem confirma a recolha.', 403);
+  }
   const atualizada = await prisma.$transaction(async (tx) => {
     const s = await tx.solicitacao.update({
       where: { id },
-      data: { status: 'CONCLUIDA' },
+      data: { status: 'AGUARDANDO_VALIDACAO' },
       include: includePadrao,
-    });
-    await tx.equipamento.update({
-      where: { id: s.equipamentoId! },
-      data: { unidadeId: galpaoId },
-    });
-    await tx.movimentacao.create({
-      data: {
-        equipamentoId: s.equipamentoId!,
-        tipo: 'RECOLHA',
-        descricao: `Equipamento recolhido ao galpão a partir de ${s.unidadeOrigem.nome}`,
-        unidadeOrigemId: s.unidadeOrigemId,
-        unidadeDestinoId: galpaoId,
-        usuarioId: usuario.sub,
-      },
     });
     await registrarAuditoria(
       {
         usuarioId: usuario.sub,
-        acao: 'CONCLUIR_RECOLHA',
+        acao: 'CONFIRMAR_RECOLHA',
         entidade: 'solicitacao',
         entidadeId: id,
-        dadosDepois: { equipamentoId: s.equipamentoId, galpaoId },
+        dadosDepois: { status: s.status },
       },
       tx,
     );
