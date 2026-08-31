@@ -20,13 +20,78 @@ import {
 const TIPOS_COM_ATA = ['AMPLIACAO', 'SUBSTITUICAO'];
 
 // Aguardando Disponibilidade com estoque já disponível vira um badge próprio
-// (verde, "Disponível para Reserva") em vez do status + um badge separado
+// (verde, "Disponível para Reserva") em vez do status + um badge separado.
+// Recolha ganha rótulos próprios: Pendente Aprovação de Recolha, e depois
+// Aguardando Recolha (Patrimônio) ou (Branet) — escolhido pelo Gestor de
+// uma vez, na aprovação, e não muda depois (feedback do cliente 26/08 e 27/08).
 function statusExibido(s: Solicitacao) {
   if (s.status === 'AGUARDANDO_DISPONIBILIDADE' && s.disponivelParaReserva) {
     return { valor: 'DISPONIVEL_PARA_RESERVA', texto: 'Disponível para Reserva' };
   }
+  if (s.tipo === 'RECOLHA') {
+    if (s.status === 'PENDENTE_APROVACAO') {
+      return { valor: s.status, texto: 'Pendente Aprovação de Recolha' };
+    }
+    if (s.status === 'AGUARDANDO_ENTREGA') {
+      return s.pedidoEntregaRegistradoEm
+        ? { valor: 'AGUARDANDO_RECOLHA_BRANET', texto: 'Aguardando Recolha (Branet)' }
+        : { valor: 'AGUARDANDO_RECOLHA_PATRIMONIO', texto: 'Aguardando Recolha (Patrimônio)' };
+    }
+  }
   return { valor: s.status as string, texto: ROTULO_STATUS_SOLICITACAO[s.status] };
 }
+
+// Pseudo-status calculados por statusExibido() que não existem como valor
+// de status no banco — precisam de opção própria no filtro (senão o usuário
+// vê o badge na lista mas não consegue filtrar por ele) e de um status real
+// equivalente pra mandar de fato pro backend (feedback do cliente 27/08).
+const OPCOES_STATUS_EXTRA: Array<{ valor: string; texto: string; statusBackend: string }> = [
+  { valor: 'DISPONIVEL_PARA_RESERVA', texto: 'Disponível para Reserva', statusBackend: 'AGUARDANDO_DISPONIBILIDADE' },
+  { valor: 'AGUARDANDO_RECOLHA_PATRIMONIO', texto: 'Aguardando Recolha (Patrimônio)', statusBackend: 'AGUARDANDO_ENTREGA' },
+  { valor: 'AGUARDANDO_RECOLHA_BRANET', texto: 'Aguardando Recolha (Branet)', statusBackend: 'AGUARDANDO_ENTREGA' },
+];
+
+// Cada tipo só passa por um subconjunto dos status — quando o filtro de tipo
+// está ativo, o de status esconde o resto pra não oferecer uma combinação
+// que nunca acontece na prática (feedback do cliente 27/08, mesmo espírito
+// da limpeza de status mortos de 20/08).
+const STATUS_POR_TIPO: Record<string, string[]> = {
+  AMPLIACAO: [
+    'PENDENTE_APROVACAO',
+    'NEGADA',
+    'EXPIRADA',
+    'RESERVADO',
+    'AGUARDANDO_DISPONIBILIDADE',
+    'DISPONIVEL_PARA_RESERVA',
+    'AGUARDANDO_ENTREGA',
+    'AGUARDANDO_VALIDACAO',
+    'CONCLUIDA',
+  ],
+  SUBSTITUICAO: [
+    'PENDENTE_APROVACAO',
+    'NEGADA',
+    'EXPIRADA',
+    'RESERVADO',
+    'AGUARDANDO_DISPONIBILIDADE',
+    'DISPONIVEL_PARA_RESERVA',
+    'AGUARDANDO_ENTREGA',
+    'AGUARDANDO_VALIDACAO',
+    'CONCLUIDA',
+  ],
+  CESSAO_USO: ['PENDENTE_APROVACAO', 'NEGADA', 'EXPIRADA', 'AGUARDANDO_SAIDA', 'CONCLUIDA'],
+  // RN05 — empréstimo dispensa aprovação: nunca passa por
+  // PENDENTE_APROVACAO/NEGADA/EXPIRADA.
+  EMPRESTIMO: ['AGUARDANDO_RECEBIMENTO', 'AGUARDANDO_RETORNO', 'CONCLUIDA'],
+  RECOLHA: [
+    'PENDENTE_APROVACAO',
+    'NEGADA',
+    'EXPIRADA',
+    'AGUARDANDO_RECOLHA_PATRIMONIO',
+    'AGUARDANDO_RECOLHA_BRANET',
+    'AGUARDANDO_VALIDACAO',
+    'CONCLUIDA',
+  ],
+};
 
 export function Solicitacoes() {
   const { usuario } = useAuth();
@@ -44,7 +109,10 @@ export function Solicitacoes() {
     const params = new URLSearchParams();
     if (busca) params.set('busca', busca);
     if (filtroTipo) params.set('tipo', filtroTipo);
-    if (filtroStatus) params.set('status', filtroStatus);
+    if (filtroStatus) {
+      const extra = OPCOES_STATUS_EXTRA.find((o) => o.valor === filtroStatus);
+      params.set('status', extra?.statusBackend ?? filtroStatus);
+    }
     api
       .get<Solicitacao[]>(`/solicitacoes?${params}`)
       .then(setSolicitacoes)
@@ -65,6 +133,12 @@ export function Solicitacoes() {
   }, [location.state]);
 
   const detalhe = solicitacoes.find((s) => s.id === detalheId) ?? null;
+  // O backend filtra pelo status real (ex: AGUARDANDO_ENTREGA), mas quando o
+  // filtro escolhido é um pseudo-status (ex: "Aguardando Recolha (Branet)")
+  // ainda falta refinar no cliente pra bater exatamente com o badge exibido
+  const solicitacoesExibidas = OPCOES_STATUS_EXTRA.some((o) => o.valor === filtroStatus)
+    ? solicitacoes.filter((s) => statusExibido(s).valor === filtroStatus)
+    : solicitacoes;
 
   return (
     <>
@@ -72,8 +146,8 @@ export function Solicitacoes() {
         <div>
           <h2>Solicitações</h2>
           <p className="count-sub">
-            {solicitacoes.length} solicitaç{solicitacoes.length === 1 ? 'ão' : 'ões'} encontrada
-            {solicitacoes.length === 1 ? '' : 's'}
+            {solicitacoesExibidas.length} solicitaç{solicitacoesExibidas.length === 1 ? 'ão' : 'ões'} encontrada
+            {solicitacoesExibidas.length === 1 ? '' : 's'}
           </p>
         </div>
         {usuario?.perfil === 'UNIDADE' && (
@@ -94,7 +168,17 @@ export function Solicitacoes() {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-          <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
+          <select
+            value={filtroTipo}
+            onChange={(e) => {
+              const novoTipo = e.target.value;
+              setFiltroTipo(novoTipo);
+              const statusValidos = novoTipo ? STATUS_POR_TIPO[novoTipo] : null;
+              if (statusValidos && filtroStatus && !statusValidos.includes(filtroStatus)) {
+                setFiltroStatus('');
+              }
+            }}
+          >
             <option value="">Todos os tipos</option>
             {Object.entries(ROTULO_TIPO_SOLICITACAO).map(([valor, rotulo]) => (
               <option key={valor} value={valor}>
@@ -104,21 +188,30 @@ export function Solicitacoes() {
           </select>
           <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
             <option value="">Todos os status</option>
-            {Object.entries(ROTULO_STATUS_SOLICITACAO).map(([valor, rotulo]) => (
+            {Object.entries(ROTULO_STATUS_SOLICITACAO)
+              .filter(([valor]) => !filtroTipo || STATUS_POR_TIPO[filtroTipo]?.includes(valor))
+              .map(([valor, rotulo]) => (
+                <option key={valor} value={valor}>
+                  {rotulo}
+                </option>
+              ))}
+            {OPCOES_STATUS_EXTRA.filter(
+              ({ valor }) => !filtroTipo || STATUS_POR_TIPO[filtroTipo]?.includes(valor),
+            ).map(({ valor, texto }) => (
               <option key={valor} value={valor}>
-                {rotulo}
+                {texto}
               </option>
             ))}
           </select>
         </div>
         <div className="request-list">
-          {solicitacoes.map((s) => (
+          {solicitacoesExibidas.map((s) => (
             <div key={s.id} className="request-item" onClick={() => setDetalheId(s.id)}>
               <div>
                 <div className="request-title">
                   <Badge valor={s.tipo}>{ROTULO_TIPO_SOLICITACAO[s.tipo]}</Badge>
                   {s.equipamento
-                    ? `${s.equipamento.descricao}`
+                    ? s.equipamento.tipoEquipamento?.nome || s.equipamento.descricao
                     : s.tipoEquipamento?.nome ?? 'Equipamento'}
                   {s.equipamento && <span className="tomb">#{s.equipamento.tombamento}</span>}
                   {s.origemRecurso === 'EMENDA_PARLAMENTAR' && (
@@ -128,7 +221,9 @@ export function Solicitacoes() {
                 </div>
                 <div className="request-sub">
                   Origem: {s.unidadeOrigem.nome}
-                  {s.unidadeDestino && <> ⇆ Destino: {s.unidadeDestino.nome}</>}
+                  {/* Recolha sempre vai pro galpão padrão — não é informação
+                      relevante pra mostrar (feedback do cliente 27/08) */}
+                  {s.unidadeDestino && s.tipo !== 'RECOLHA' && <> ⇆ Destino: {s.unidadeDestino.nome}</>}
                   {s.entidadeExternaNome && <> ⇆ Destino: {s.entidadeExternaNome} (externo)</>}
                   {s.quantidade && <> · Qtd: {s.quantidade}</>}
                 </div>
@@ -152,7 +247,7 @@ export function Solicitacoes() {
               </div>
             </div>
           ))}
-          {solicitacoes.length === 0 && (
+          {solicitacoesExibidas.length === 0 && (
             <div className="empty-state">Nenhuma solicitação encontrada</div>
           )}
         </div>
@@ -189,6 +284,9 @@ function DetalheSolicitacao({
   const [prioridade, setPrioridade] = useState('');
   const [acaoPendente, setAcaoPendente] = useState<'aprovar' | 'negar' | null>(null);
   const [estado, setEstado] = useState('BOM');
+  // Gestor: aprovar Recolha exige escolher direto em qual das duas etapas ela
+  // já está — não escolhe mais um galpão (feedback 27/08)
+  const [etapaRecolha, setEtapaRecolha] = useState<'PATRIMONIO' | 'BRANET' | ''>('');
   // Gestor: lançar no Branet (número do pedido + tombamento de cada item)
   const [numeroPedidoBranet, setNumeroPedidoBranet] = useState('');
   const [itensBranet, setItensBranet] = useState(
@@ -218,10 +316,10 @@ function DetalheSolicitacao({
     setTombamentosConfirmados({});
     setAjustandoTombamento(false);
     setItensAjuste((s.itensGerados ?? []).map((eq) => ({ equipamentoId: eq.id, tombamento: eq.tombamento })));
+    setEtapaRecolha('');
   }, [s.status]);
 
   const ehGP = usuario?.perfil === 'GESTOR_PATRIMONIO';
-  const ehGalpao = usuario?.perfil === 'GALPAO';
   const ehOrigem = usuario?.unidadeId === s.unidadeOrigem.id || ehGP;
   const ehDestino = usuario?.unidadeId === s.unidadeDestino?.id || ehGP;
   // Confirmação de recebimento de Ampliação/Substituição é só da Unidade —
@@ -246,7 +344,7 @@ function DetalheSolicitacao({
       titulo={`Solicitação — ${ROTULO_TIPO_SOLICITACAO[s.tipo]}`}
       subtitulo={
         s.equipamento
-          ? `#${s.equipamento.tombamento} - ${s.equipamento.descricao}`
+          ? `#${s.equipamento.tombamento} — ${s.equipamento.tipoEquipamento?.nome || s.equipamento.descricao}`
           : s.tipoEquipamento?.nome
       }
       onFechar={onFechar}
@@ -257,7 +355,9 @@ function DetalheSolicitacao({
           <div className="info-label">Unidade de Origem</div>
           <div className="info-value">{s.unidadeOrigem.nome}</div>
         </div>
-        {s.unidadeDestino && (
+        {/* Recolha sempre vai pro galpão padrão — não é informação relevante
+            pra mostrar (feedback do cliente 27/08) */}
+        {s.unidadeDestino && s.tipo !== 'RECOLHA' && (
           <div className="info-box">
             <div className="info-label">Unidade de Destino</div>
             <div className="info-value">{s.unidadeDestino.nome}</div>
@@ -300,17 +400,19 @@ function DetalheSolicitacao({
       <div className="info-box" style={{ marginBottom: 14 }}>
         {s.justificativa}
       </div>
-      {s.anexoUrl && (
-        <>
-          <div className="section-title">Anexo</div>
-          <a href={urlArquivo(s.anexoUrl)} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: 14 }}>
-            {s.anexoUrl.endsWith('.pdf') ? (
-              <span className="badge badge-gray">📄 Ver anexo (PDF)</span>
-            ) : (
-              <img src={urlArquivo(s.anexoUrl)} alt="Anexo da solicitação" style={{ maxWidth: 240, borderRadius: 8 }} />
-            )}
-          </a>
-        </>
+      <div className="section-title">Anexo</div>
+      {s.anexoUrl ? (
+        <a href={urlArquivo(s.anexoUrl)} target="_blank" rel="noreferrer" style={{ display: 'block', marginBottom: 14 }}>
+          {s.anexoUrl.endsWith('.pdf') ? (
+            <span className="badge badge-gray">📄 Ver anexo (PDF)</span>
+          ) : (
+            <img src={urlArquivo(s.anexoUrl)} alt="Anexo da solicitação" style={{ maxWidth: 240, borderRadius: 8 }} />
+          )}
+        </a>
+      ) : (
+        <div className="info-box" style={{ marginBottom: 14, color: 'var(--text-secondary)' }}>
+          Sem arquivos anexados
+        </div>
       )}
       {s.motivoNegacao && (
         <>
@@ -353,15 +455,40 @@ function DetalheSolicitacao({
                       </select>
                     </div>
                   )}
+                  {s.tipo === 'RECOLHA' && (
+                    <div className="field">
+                      <label>Etapa da Recolha *</label>
+                      <div className="actions-row" style={{ marginBottom: 0 }}>
+                        <button
+                          type="button"
+                          className={`btn ${etapaRecolha === 'PATRIMONIO' ? 'btn-success' : 'btn-outline'}`}
+                          onClick={() => setEtapaRecolha('PATRIMONIO')}
+                        >
+                          Aguardando Recolha (Patrimônio)
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn ${etapaRecolha === 'BRANET' ? 'btn-success' : 'btn-outline'}`}
+                          onClick={() => setEtapaRecolha('BRANET')}
+                        >
+                          Aguardando Recolha (Branet)
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <div className="actions-row">
                     <button
                       className="btn-link sucesso"
-                      disabled={TIPOS_COM_ATA.includes(s.tipo) && !prioridade}
+                      disabled={
+                        (TIPOS_COM_ATA.includes(s.tipo) && !prioridade) ||
+                        (s.tipo === 'RECOLHA' && !etapaRecolha)
+                      }
                       onClick={() =>
                         executar(
                           () =>
                             api.post(`/solicitacoes/${s.id}/aprovar`, {
                               ...(prioridade ? { prioridade: Number(prioridade) } : {}),
+                              ...(etapaRecolha ? { etapaRecolha } : {}),
                             }),
                           'Solicitação aprovada.',
                         )
@@ -714,17 +841,20 @@ function DetalheSolicitacao({
         </div>
       )}
 
-      {/* Galpão: confirmar recolha */}
-      {ehGalpao && s.tipo === 'RECOLHA' && s.status === 'AGUARDANDO_ENTREGA' && (
+      {/* Unidade de origem: confirma que o equipamento realmente saiu — não é
+          mais o galpão quem confirma (feedback 26/08). A etapa (Patrimônio/
+          Branet) é escolhida uma vez, na aprovação, e não é pré-requisito
+          pra confirmar (feedback 27/08). */}
+      {s.tipo === 'RECOLHA' && s.status === 'AGUARDANDO_ENTREGA' && souUnidadeOrigem && (
         <div className="actions-box">
-          <div className="actions-title">Confirmar recebimento da recolha no galpão</div>
+          <div className="actions-title">Confirmar recolha</div>
           <div className="actions-row">
             <button
               className="btn btn-success"
               onClick={() =>
                 executar(
                   () => api.post(`/solicitacoes/${s.id}/confirmar-recolha`),
-                  'Recolha concluída — equipamento no galpão.',
+                  'Recolha confirmada — aguardando validação do Patrimônio.',
                 )
               }
             >

@@ -34,17 +34,18 @@ const criarSchema = z.object({
   unidadeDestinoId: z.string().uuid().optional(),
   tipoEquipamentoId: z.string().uuid().optional(),
   quantidade: z.number().int().positive().optional(),
-  // Ampliação/Substituição: seleção de múltiplos itens numa única solicitação
-  // — o sistema cria uma Solicitacao por item internamente (feedback 17/08 e
-  // 25/08). Substituição usa também `equipamentoId` e `justificativa` por
-  // item (equipamento existente a ser substituído e motivo específico da
-  // troca); Ampliação não usa esses campos.
+  // Ampliação/Substituição/Recolha: seleção de múltiplos itens numa única
+  // solicitação — o sistema cria uma Solicitacao por item internamente
+  // (feedback 17/08, 25/08 e 26/08). Substituição usa também `equipamentoId`
+  // e `justificativa` por item; Recolha usa só `equipamentoId` (a unidade
+  // escolhe os equipamentos existentes, sem tipo/quantidade/destino);
+  // Ampliação usa só `tipoEquipamentoId`/`quantidade`.
   itens: z
     .array(
       z.object({
         equipamentoId: z.string().uuid().optional(),
-        tipoEquipamentoId: z.string().uuid(),
-        quantidade: z.number().int().positive(),
+        tipoEquipamentoId: z.string().uuid().optional(),
+        quantidade: z.number().int().positive().optional(),
         justificativa: z.string().min(5, 'informe a justificativa').optional(),
       }),
     )
@@ -66,13 +67,27 @@ solicitacoesRouter.post(
 
 // RN04 — somente o Gestor de Patrimônio aprova. Pra Ampliação/Substituição o
 // próprio sistema decide reservado ou aguardando disponibilidade. Prioridade
-// (1–3, opcional) é definida pelo Gestor, não pelo solicitante (feedback 17/08).
+// (1–3, opcional) é definida pelo Gestor, não pelo solicitante (feedback
+// 17/08). Pra Recolha, o Gestor escolhe direto em qual das duas etapas ela
+// já está (Patrimônio ou Branet) — não escolhe mais um galpão (feedback 27/08).
 solicitacoesRouter.post(
   '/:id/aprovar',
   permitir(Perfil.GESTOR_PATRIMONIO),
-  validarBody(z.object({ prioridade: z.number().int().min(1).max(3).optional() })),
+  validarBody(
+    z.object({
+      prioridade: z.number().int().min(1).max(3).optional(),
+      etapaRecolha: z.enum(['PATRIMONIO', 'BRANET']).optional(),
+    }),
+  ),
   async (req, res) => {
-    res.json(await service.aprovar(req.usuario!, req.params.id, req.body.prioridade));
+    res.json(
+      await service.aprovar(
+        req.usuario!,
+        req.params.id,
+        req.body.prioridade,
+        req.body.etapaRecolha,
+      ),
+    );
   },
 );
 
@@ -217,9 +232,11 @@ solicitacoesRouter.post(
   },
 );
 
+// Quem confirma que o equipamento saiu é a unidade de origem, não mais o
+// galpão (feedback do cliente 26/08).
 solicitacoesRouter.post(
   '/:id/confirmar-recolha',
-  permitir(Perfil.GALPAO),
+  permitir(Perfil.UNIDADE),
   async (req, res) => {
     res.json(await service.confirmarRecolha(req.usuario!, req.params.id));
   },
