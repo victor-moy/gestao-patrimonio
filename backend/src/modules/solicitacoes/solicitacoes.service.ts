@@ -197,20 +197,22 @@ async function anotarDisponibilidade<
 // internamente).
 export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<string[]> {
   // CESSAO_USO — exclusiva do Gestor de Patrimônio (envolve entidade externa
-  // à secretaria). Como o Gestor não tem unidade própria e pode enxergar o
-  // inventário inteiro, ele escolhe um ou mais equipamentos de qualquer
-  // unidade (cada item mantém a própria unidade de origem) pra ceder à mesma
-  // entidade externa numa única tela — mesmo padrão de lista repetível dos
-  // demais tipos (feedback do cliente); vira uma Solicitacao por item.
+  // à secretaria). Não sai do inventário de uma unidade específica: reserva
+  // do estoque de galpão por tipo/quantidade, igual Ampliação/Substituição,
+  // mas sem a etapa de Ata — se não tiver saldo, falha na hora (não fica
+  // aguardando disponibilidade). Vira uma Solicitacao por item, já
+  // RESERVADO; o Gestor só marca lançado no Branet depois pra concluir,
+  // sem gerar tombamento novo (o destino é externo, não rastreado no
+  // inventário).
   if (dados.tipo === 'CESSAO_USO') {
     if (usuario.perfil !== 'GESTOR_PATRIMONIO') {
       throw new AppError('Somente o Gestor de Patrimônio pode abrir uma Cessão de Uso.', 403);
     }
     if (!dados.itens || dados.itens.length === 0) {
-      throw new AppError('Selecione ao menos um equipamento para a cessão.', 422);
+      throw new AppError('Selecione ao menos um item para a cessão.', 422);
     }
-    if (dados.itens.some((item) => !item.equipamentoId)) {
-      throw new AppError('Informe o equipamento em cada item.', 422);
+    if (dados.itens.some((item) => !item.tipoEquipamentoId || !item.quantidade)) {
+      throw new AppError('Informe o tipo de equipamento e a quantidade de cada item.', 422);
     }
     if (!dados.justificativa?.trim()) {
       throw new AppError('Informe a justificativa.', 422);
@@ -218,43 +220,33 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     if (!dados.entidadeExternaNome?.trim()) {
       throw new AppError('Informe o nome da entidade externa que receberá o equipamento.', 422);
     }
-    const idsEquipamentosCessao = dados.itens.map((item) => item.equipamentoId!);
-    if (new Set(idsEquipamentosCessao).size !== idsEquipamentosCessao.length) {
-      throw new AppError('Um mesmo equipamento não pode aparecer duas vezes na mesma solicitação.', 422);
-    }
-    const equipamentosCessao = await Promise.all(
-      idsEquipamentosCessao.map(async (id) => {
-        const equipamento = await prisma.equipamento.findUnique({ where: { id } });
-        if (!equipamento) throw new AppError('Equipamento não encontrado.', 404);
-        return equipamento;
-      }),
-    );
-    for (const equipamento of equipamentosCessao) {
-      // RN02/FA07 — equipamento em manutenção não pode ser cedido
-      if (equipamento.status !== 'ATIVO') {
-        throw new AppError(
-          `O equipamento ${equipamento.tombamento} está com status ${equipamento.status} e não pode ser movimentado até o encerramento do ciclo atual.`,
-          422,
-        );
-      }
-    }
     const entidadeExterna = dados.entidadeExternaNome.trim();
     const justificativaCessao = dados.justificativa;
-    const criadasCessao = await prisma.$transaction(
-      equipamentosCessao.map((equipamento) =>
-        prisma.solicitacao.create({
+    const itensCessao = dados.itens;
+    const criadasCessao = await prisma.$transaction(async (tx) => {
+      const criadas = [];
+      for (let i = 0; i < itensCessao.length; i++) {
+        const item = itensCessao[i];
+        const pool = await tentarReservarDoEstoque(tx, item.tipoEquipamentoId!, item.quantidade!);
+        if (!pool) {
+          throw new AppError(`Estoque insuficiente para o item ${i + 1}.`, 422);
+        }
+        const criada = await tx.solicitacao.create({
           data: {
             tipo: 'CESSAO_USO',
-            status: 'AGUARDANDO_SAIDA',
-            unidadeOrigemId: equipamento.unidadeId,
+            status: 'RESERVADO',
+            unidadeOrigemId: pool.unidadeId,
+            tipoEquipamentoId: item.tipoEquipamentoId!,
+            quantidade: item.quantidade!,
             entidadeExternaNome: entidadeExterna,
-            equipamentoId: equipamento.id,
             justificativa: justificativaCessao,
             criadoPorId: usuario.sub,
           },
-        }),
-      ),
-    );
+        });
+        criadas.push(criada);
+      }
+      return criadas;
+    });
     return criadasCessao.map((s) => s.id);
   }
 
@@ -762,18 +754,13 @@ export async function negar(usuario: AuthPayload, id: string, motivo: string) {
   return atualizada;
 }
 
-// UC12/RF22 — unidade de origem confirma a saída física do equipamento.
-// Cessão de Uso: destino é uma entidade externa (sem usuário no sistema),
-// então a confirmação de saída já conclui a solicitação — não há etapa de
-// "destino confirma". Empréstimo: é só nesse momento que o equipamento passa
-// a contar no inventário da unidade de destino (RN06) — antes disso (durante
-// a aprovação do Gestor) o item continua normalmente na origem.
+// UC12/RF22 — unidade de origem confirma a saída física do equipamento do
+// empréstimo. É só nesse momento que o equipamento passa a contar no
+// inventário da unidade de destino (RN06) — antes disso (durante a
+// aprovação do Gestor) o item continua normalmente na origem.
 export async function confirmarSaida(usuario: AuthPayload, id: string) {
   const solicitacao = await buscarPorId(usuario, id);
-  if (
-    (solicitacao.tipo !== 'CESSAO_USO' && solicitacao.tipo !== 'EMPRESTIMO') ||
-    solicitacao.status !== 'AGUARDANDO_SAIDA'
-  ) {
+  if (solicitacao.tipo !== 'EMPRESTIMO' || solicitacao.status !== 'AGUARDANDO_SAIDA') {
     throw new AppError('Esta solicitação não está aguardando confirmação de saída.', 422);
   }
   // Só a unidade de origem confirma — nem o Gestor de Patrimônio pode fazer
@@ -782,48 +769,8 @@ export async function confirmarSaida(usuario: AuthPayload, id: string) {
     throw new AppError('Somente a unidade de origem confirma a saída.', 403);
   }
 
-  if (solicitacao.tipo === 'CESSAO_USO') {
-    const atualizada = await prisma.$transaction(async (tx) => {
-      const s = await tx.solicitacao.update({
-        where: { id },
-        data: { status: 'CONCLUIDA' },
-        include: includePadrao,
-      });
-      await tx.equipamento.update({
-        where: { id: s.equipamentoId! },
-        data: { status: 'CEDIDO' },
-      });
-      await tx.movimentacao.create({
-        data: {
-          equipamentoId: s.equipamentoId!,
-          tipo: 'CESSAO_USO',
-          descricao: `Cessão de uso concluída: ${s.unidadeOrigem.nome} → ${s.entidadeExternaNome} (entidade externa)`,
-          unidadeOrigemId: s.unidadeOrigemId,
-          usuarioId: usuario.sub,
-        },
-      });
-      await registrarAuditoria(
-        {
-          usuarioId: usuario.sub,
-          acao: 'CONCLUIR_CESSAO',
-          entidade: 'solicitacao',
-          entidadeId: id,
-          dadosDepois: { equipamentoId: s.equipamentoId, entidadeExterna: s.entidadeExternaNome },
-        },
-        tx,
-      );
-      return s;
-    });
-    await notificar(
-      atualizada.unidadeOrigem.emailBase,
-      'Cessão de uso concluída',
-      `O equipamento ${atualizada.equipamento?.tombamento} foi cedido a ${atualizada.entidadeExternaNome}.`,
-    );
-    return atualizada;
-  }
-
-  // EMPRESTIMO: fica "emprestado" (AGUARDANDO_RETORNO) até a origem
-  // confirmar o retorno — não existe mais transferência permanente.
+  // Fica "emprestado" (AGUARDANDO_RETORNO) até a origem confirmar o
+  // retorno — não existe mais transferência permanente.
   const atualizada = await prisma.$transaction(async (tx) => {
     const s = await tx.solicitacao.update({
       where: { id },
@@ -1006,6 +953,10 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
 // de cada item (Ampliação: item novo; Substituição: item novo + baixa do
 // antigo). Absorve o que antes era uma etapa separada do Galpão (feedback do
 // cliente 17/08: quem lida com o Branet e o tombamento é o Gestor, não o Galpão).
+// Cessão de Uso reserva do estoque na própria criação (sem etapa de Ata) —
+// aqui só registra o número do pedido e já conclui direto, sem gerar
+// tombamento novo, já que o destino é externo e não é rastreado no
+// inventário.
 export async function marcarLancadoBranet(
   usuario: AuthPayload,
   id: string,
@@ -1013,9 +964,35 @@ export async function marcarLancadoBranet(
   itens: Array<{ tombamento: string; descricao: string; dataAquisicao?: Date }>,
 ) {
   const solicitacao = await buscarPorId(usuario, id);
-  if (!TIPOS_COM_ATA.includes(solicitacao.tipo) || solicitacao.status !== 'RESERVADO') {
-    throw new AppError('Somente solicitações de ampliação ou substituição reservadas podem ser marcadas como lançadas no Branet.', 422);
+  if (![...TIPOS_COM_ATA, 'CESSAO_USO'].includes(solicitacao.tipo) || solicitacao.status !== 'RESERVADO') {
+    throw new AppError(
+      'Somente solicitações de ampliação, substituição ou cessão de uso reservadas podem ser marcadas como lançadas no Branet.',
+      422,
+    );
   }
+
+  if (solicitacao.tipo === 'CESSAO_USO') {
+    const atualizada = await prisma.$transaction(async (tx) => {
+      const s = await tx.solicitacao.update({
+        where: { id },
+        data: { status: 'CONCLUIDA', numeroPedidoBranet, pedidoEntregaRegistradoEm: new Date() },
+        include: includePadrao,
+      });
+      await registrarAuditoria(
+        {
+          usuarioId: usuario.sub,
+          acao: 'MARCAR_LANCADO_BRANET',
+          entidade: 'solicitacao',
+          entidadeId: id,
+          dadosDepois: { status: s.status, numeroPedidoBranet },
+        },
+        tx,
+      );
+      return s;
+    });
+    return atualizada;
+  }
+
   if (itens.length !== solicitacao.quantidade) {
     throw new AppError(`Informe o tombamento de todos os ${solicitacao.quantidade} item(ns) da solicitação.`, 422);
   }

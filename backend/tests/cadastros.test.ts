@@ -507,7 +507,7 @@ describe('Fluxos complementares de solicitação (UC11/UC12, recolha)', () => {
   const cessaoAprovada = {
     id: 'sol-1',
     tipo: 'CESSAO_USO',
-    status: 'AGUARDANDO_SAIDA',
+    status: 'RESERVADO',
     unidadeOrigemId: 'unidade-1',
     unidadeDestinoId: 'unidade-2',
     equipamentoId: 'eq-1',
@@ -531,6 +531,7 @@ describe('Fluxos complementares de solicitação (UC11/UC12, recolha)', () => {
     prismaMock.solicitacao.update.mockResolvedValue({
       ...cessaoAprovada,
       tipo: 'EMPRESTIMO',
+      status: 'AGUARDANDO_SAIDA',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
@@ -540,10 +541,10 @@ describe('Fluxos complementares de solicitação (UC11/UC12, recolha)', () => {
     expect(res.body.status).toBe('AGUARDANDO_SAIDA');
   });
 
-  it('cessão de uso não passa mais por aprovação — só o Gestor abre, já nasce em AGUARDANDO_SAIDA', async () => {
+  it('cessão de uso não passa mais por aprovação — só o Gestor abre, já nasce RESERVADO (estoque já reservado na criação)', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue({
       ...cessaoAprovada,
-      status: 'AGUARDANDO_SAIDA',
+      status: 'RESERVADO',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
@@ -553,25 +554,20 @@ describe('Fluxos complementares de solicitação (UC11/UC12, recolha)', () => {
     expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
   });
 
-  it('origem confirma a saída da cessão (RF22)', async () => {
+  it('Gestor marca cessão de uso reservada como lançada no Branet: conclui direto, sem gerar tombamento (RF22)', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue(cessaoAprovada as never);
     prismaMock.solicitacao.update.mockResolvedValue({
       ...cessaoAprovada,
-      status: 'AGUARDANDO_RECEBIMENTO',
+      status: 'CONCLUIDA',
+      numeroPedidoBranet: '12345',
     } as never);
     const res = await request(app)
-      .post('/solicitacoes/sol-1/confirmar-saida')
-      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }));
+      .post('/solicitacoes/sol-1/lancar-branet')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ numeroPedidoBranet: '12345' });
     expect(res.status).toBe(200);
-    expect(res.body.status).toBe('AGUARDANDO_RECEBIMENTO');
-  });
-
-  it('outra unidade não confirma a saída', async () => {
-    prismaMock.solicitacao.findUnique.mockResolvedValue(cessaoAprovada as never);
-    const res = await request(app)
-      .post('/solicitacoes/sol-1/confirmar-saida')
-      .set(auth('UNIDADE', { unidadeId: 'unidade-2' }));
-    expect(res.status).toBe(403);
+    expect(res.body.status).toBe('CONCLUIDA');
+    expect(prismaMock.equipamento.create).not.toHaveBeenCalled();
   });
 
   it('recolha aprovada, já lançada no Branet, é confirmada pela unidade de origem (feedback 26/08)', async () => {

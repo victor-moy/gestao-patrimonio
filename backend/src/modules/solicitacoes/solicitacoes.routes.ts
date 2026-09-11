@@ -36,10 +36,11 @@ const criarSchema = z.object({
   // Ampliação/Substituição/Recolha/Empréstimo/Cessão de Uso: seleção de
   // múltiplos itens numa única solicitação — o sistema cria uma Solicitacao
   // por item internamente (feedback 17/08, 25/08 e 26/08). Substituição usa
-  // também `equipamentoId` e `justificativa` por item; Recolha, Empréstimo e
-  // Cessão de Uso usam só `equipamentoId` (a unidade, ou o Gestor no caso da
-  // Cessão, escolhe os equipamentos existentes, sem tipo/quantidade);
-  // Ampliação usa só `tipoEquipamentoId`/`quantidade`.
+  // também `equipamentoId` e `justificativa` por item; Recolha e Empréstimo
+  // usam só `equipamentoId` (a unidade escolhe equipamentos existentes, sem
+  // tipo/quantidade); Ampliação e Cessão de Uso usam só
+  // `tipoEquipamentoId`/`quantidade` (Cessão reserva do estoque de galpão,
+  // não escolhe um equipamento existente de uma unidade).
   itens: z
     .array(
       z.object({
@@ -125,9 +126,11 @@ solicitacoesRouter.post(
   },
 );
 
-// Gestor de Patrimônio marca que o pedido foi lançado no Branet (RESERVADO →
-// AGUARDANDO_ENTREGA), informando o número do pedido e o tombamento de cada
-// item — não é mais uma etapa separada do Galpão (feedback 17/08)
+// Gestor de Patrimônio marca que o pedido foi lançado no Branet, informando
+// o número do pedido: Ampliação/Substituição (RESERVADO → AGUARDANDO_ENTREGA)
+// também informam o tombamento de cada item — não é mais uma etapa separada
+// do Galpão (feedback 17/08); Cessão de Uso (RESERVADO → CONCLUIDA) não
+// gera tombamento novo, então não envia `itens`.
 solicitacoesRouter.post(
   '/:id/lancar-branet',
   permitir(Perfil.GESTOR_PATRIMONIO),
@@ -142,7 +145,7 @@ solicitacoesRouter.post(
             dataAquisicao: z.coerce.date().optional(),
           }),
         )
-        .min(1),
+        .optional(),
     }),
   ),
   async (req, res) => {
@@ -151,7 +154,7 @@ solicitacoesRouter.post(
         req.usuario!,
         req.params.id,
         req.body.numeroPedidoBranet,
-        req.body.itens,
+        req.body.itens ?? [],
       ),
     );
   },
