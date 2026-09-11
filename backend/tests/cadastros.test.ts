@@ -522,18 +522,35 @@ describe('Fluxos complementares de solicitação (UC11/UC12, recolha)', () => {
     decididoPor: null,
   };
 
-  it('aprova cessão de uso: AGUARDANDO_SAIDA (UC11)', async () => {
+  it('aprova empréstimo: AGUARDANDO_SAIDA (UC11)', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue({
       ...cessaoAprovada,
+      tipo: 'EMPRESTIMO',
       status: 'PENDENTE_APROVACAO',
     } as never);
-    prismaMock.solicitacao.update.mockResolvedValue(cessaoAprovada as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...cessaoAprovada,
+      tipo: 'EMPRESTIMO',
+    } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({});
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('AGUARDANDO_SAIDA');
+  });
+
+  it('cessão de uso não passa mais por aprovação — só o Gestor abre, já nasce em AGUARDANDO_SAIDA', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...cessaoAprovada,
+      status: 'AGUARDANDO_SAIDA',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/aprovar')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({});
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
   });
 
   it('origem confirma a saída da cessão (RF22)', async () => {

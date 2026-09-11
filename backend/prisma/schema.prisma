@@ -324,8 +324,12 @@ model Solicitacao {
   anexoUrl            String?           @map("anexo_url")
   // Cessão de Uso: nome da entidade externa (fora do município) que recebe o equipamento
   entidadeExternaNome String?           @map("entidade_externa_nome")
-  // Empréstimo (RF24-27) — ausência de data indica transferência permanente
+  // Legado: usado pelo fluxo antigo de Empréstimo (transferência permanente
+  // sem data vs. temporária com data). Não é mais preenchido — todo
+  // empréstimo hoje exige confirmação de retorno.
   dataRetornoPrevista DateTime?         @map("data_retorno_prevista")
+  // Legado: 5 níveis de conservação avaliados no recebimento do empréstimo
+  // antigo — a confirmação de recebimento foi substituída por confirmar-saída.
   estadoRecebimento   EstadoConservacao? @map("estado_recebimento")
   // Ampliação/Substituição: registro manual de que o pedido foi lançado no
   // Branet (não é integração — só um marcador de auditoria), feito pelo

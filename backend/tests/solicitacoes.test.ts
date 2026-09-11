@@ -63,30 +63,87 @@ const solicitacaoBase = {
 };
 
 describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
-  it('cria cessão de uso externa para equipamento próprio', async () => {
+  it('Gestor cria cessão de uso escolhendo um equipamento de qualquer unidade', async () => {
     prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
-    prismaMock.solicitacao.create.mockResolvedValue(solicitacaoBase as never);
+    prismaMock.solicitacao.create.mockResolvedValue({
+      ...solicitacaoBase,
+      status: 'AGUARDANDO_SAIDA',
+    } as never);
     const res = await request(app)
       .post('/solicitacoes')
-      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .set(auth('GESTOR_PATRIMONIO'))
       .send({
         tipo: 'CESSAO_USO',
-        equipamentoId: UUID,
+        itens: [{ equipamentoId: UUID }],
         entidadeExternaNome: 'Hospital Regional (outro município)',
         justificativa: 'Necessidade urgente de equipamento adicional',
       });
     expect(res.status).toBe(201);
     expect(res.body.ids).toEqual(['sol-1']);
+    // Sem aprovação — já nasce em AGUARDANDO_SAIDA — e a origem vem do
+    // próprio equipamento (o Gestor não tem unidade própria).
+    expect(prismaMock.solicitacao.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'AGUARDANDO_SAIDA', unidadeOrigemId: 'unidade-1' }),
+      }),
+    );
   });
 
-  it('cessão de uso exige o nome da entidade externa', async () => {
-    prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
+  it('Gestor cria cessão com múltiplos equipamentos de unidades diferentes: uma Solicitacao por item', async () => {
+    prismaMock.equipamento.findUnique
+      .mockResolvedValueOnce(equipamentoAtivo as never)
+      .mockResolvedValueOnce({ ...equipamentoAtivo, id: 'eq-2', unidadeId: 'unidade-2' } as never);
+    prismaMock.solicitacao.create.mockResolvedValue({
+      ...solicitacaoBase,
+      status: 'AGUARDANDO_SAIDA',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({
+        tipo: 'CESSAO_USO',
+        itens: [{ equipamentoId: UUID }, { equipamentoId: EQUIP_UUID }],
+        entidadeExternaNome: 'Hospital Regional (outro município)',
+        justificativa: 'Cessão de dois equipamentos de unidades diferentes',
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.ids).toEqual(['sol-1', 'sol-1']);
+  });
+
+  it('bloqueia UNIDADE de abrir cessão de uso — exclusiva do Gestor de Patrimônio', async () => {
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
         tipo: 'CESSAO_USO',
-        equipamentoId: UUID,
+        itens: [{ equipamentoId: UUID }],
+        entidadeExternaNome: 'Hospital Regional (outro município)',
+        justificativa: 'Necessidade urgente de equipamento adicional',
+      });
+    expect(res.status).toBe(403);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+  });
+
+  it('cessão de uso exige ao menos um equipamento', async () => {
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({
+        tipo: 'CESSAO_USO',
+        entidadeExternaNome: 'Hospital Regional (outro município)',
+        justificativa: 'Necessidade urgente de equipamento adicional',
+      });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+  });
+
+  it('cessão de uso exige o nome da entidade externa', async () => {
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({
+        tipo: 'CESSAO_USO',
+        itens: [{ equipamentoId: UUID }],
         justificativa: 'Necessidade urgente de equipamento adicional',
       });
     expect(res.status).toBe(422);
@@ -100,10 +157,10 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     } as never);
     const res = await request(app)
       .post('/solicitacoes')
-      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .set(auth('GESTOR_PATRIMONIO'))
       .send({
         tipo: 'CESSAO_USO',
-        equipamentoId: UUID,
+        itens: [{ equipamentoId: UUID }],
         entidadeExternaNome: 'Hospital Regional',
         justificativa: 'Justificativa qualquer',
       });
@@ -111,72 +168,78 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
 
-  it('bloqueia solicitação para equipamento de outra unidade', async () => {
-    prismaMock.equipamento.findUnique.mockResolvedValue({
-      ...equipamentoAtivo,
-      unidadeId: 'outra',
-    } as never);
+  it('cessão de uso rejeita o mesmo equipamento repetido na mesma solicitação', async () => {
     const res = await request(app)
       .post('/solicitacoes')
-      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .set(auth('GESTOR_PATRIMONIO'))
       .send({
         tipo: 'CESSAO_USO',
-        equipamentoId: UUID,
+        itens: [{ equipamentoId: UUID }, { equipamentoId: UUID }],
         entidadeExternaNome: 'Hospital Regional',
         justificativa: 'Justificativa qualquer',
       });
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
 
-  it('empréstimo dispensa aprovação e marca equipamento como EMPRESTADO (RN05/RF25)', async () => {
+  it('empréstimo é criado pendente de aprovação do Gestor, sem tocar no equipamento ainda', async () => {
     prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
     prismaMock.solicitacao.create.mockResolvedValue({
       ...solicitacaoBase,
       tipo: 'EMPRESTIMO',
-      status: 'AGUARDANDO_RECEBIMENTO',
+      status: 'PENDENTE_APROVACAO',
       unidadeDestinoId: 'unidade-2',
       unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
-      dataRetornoPrevista: new Date('2026-08-01'),
     } as never);
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
         tipo: 'EMPRESTIMO',
-        equipamentoId: UUID,
         unidadeDestinoId: UUID2,
-        dataRetornoPrevista: '2026-08-01',
+        itens: [{ equipamentoId: UUID }],
         justificativa: 'Empréstimo durante manutenção do nosso equipamento',
       });
     expect(res.status).toBe(201);
-    // RN06 — tombamento permanece na origem; destino é detentor temporário
-    expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ status: 'EMPRESTADO' }),
-      }),
-    );
+    // Só passa a movimentar o equipamento quando a origem confirma a saída,
+    // depois de aprovado pelo Gestor — não na criação.
+    expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
   });
 
-  it('empréstimo sem data de retorno é aceito como transferência permanente', async () => {
+  it('empréstimo com múltiplos equipamentos: uma Solicitacao por item, mesma unidade de destino', async () => {
     prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
     prismaMock.solicitacao.create.mockResolvedValue({
       ...solicitacaoBase,
       tipo: 'EMPRESTIMO',
-      status: 'AGUARDANDO_RECEBIMENTO',
+      status: 'PENDENTE_APROVACAO',
       unidadeDestinoId: 'unidade-2',
       unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
-      dataRetornoPrevista: null,
     } as never);
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
         tipo: 'EMPRESTIMO',
-        equipamentoId: UUID,
         unidadeDestinoId: UUID2,
-        justificativa: 'Transferência definitiva do equipamento',
+        itens: [{ equipamentoId: UUID }, { equipamentoId: EQUIP_UUID }],
+        justificativa: 'Empréstimo de dois equipamentos para a mesma unidade',
       });
     expect(res.status).toBe(201);
+    expect(res.body.ids).toEqual(['sol-1', 'sol-1']);
+  });
+
+  it('empréstimo rejeita o mesmo equipamento repetido na mesma solicitação', async () => {
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        tipo: 'EMPRESTIMO',
+        unidadeDestinoId: UUID2,
+        itens: [{ equipamentoId: UUID }, { equipamentoId: UUID }],
+        justificativa: 'Equipamento duplicado',
+      });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
 
   it('cria solicitação de ampliação com um item selecionado (RF28)', async () => {
@@ -729,6 +792,42 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('RESERVADO');
   });
+
+  it('Gestor aprova empréstimo: vira AGUARDANDO_SAIDA, sem tocar no equipamento ainda', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'EMPRESTIMO',
+      status: 'PENDENTE_APROVACAO',
+      unidadeDestinoId: 'unidade-2',
+      unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
+    } as never);
+    prismaMock.solicitacao.update.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'EMPRESTIMO',
+      status: 'AGUARDANDO_SAIDA',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/aprovar')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe('AGUARDANDO_SAIDA');
+    expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
+  });
+
+  it('cessão de uso não passa por aprovação — já nasce em AGUARDANDO_SAIDA', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...solicitacaoBase,
+      tipo: 'CESSAO_USO',
+      status: 'AGUARDANDO_SAIDA',
+    } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/aprovar')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
+  });
 });
 
 describe('Solicitações — cessão externa, empréstimo e recolha (UC12, UC14, UC15, UC18)', () => {
@@ -751,11 +850,11 @@ describe('Solicitações — cessão externa, empréstimo e recolha (UC12, UC14,
     );
   });
 
-  it('empréstimo: receptor deve registrar o estado no recebimento (RF26)', async () => {
+  it('empréstimo não usa mais o endpoint de confirmar-recebimento (fluxo passou a ser via confirmar-saida)', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue({
       ...solicitacaoBase,
       tipo: 'EMPRESTIMO',
-      status: 'AGUARDANDO_RECEBIMENTO',
+      status: 'AGUARDANDO_SAIDA',
       unidadeDestinoId: 'unidade-2',
       unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
     } as never);
@@ -764,65 +863,42 @@ describe('Solicitações — cessão externa, empréstimo e recolha (UC12, UC14,
       .set(auth('UNIDADE', { unidadeId: 'unidade-2' }))
       .send({});
     expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
   });
 
-  it('empréstimo temporário: recebimento com data prevista aguarda retorno (RF26)', async () => {
+  it('empréstimo: origem confirma saída, equipamento vai pro inventário do destino como EMPRESTADO (RF25/RN06)', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue({
       ...solicitacaoBase,
       tipo: 'EMPRESTIMO',
-      status: 'AGUARDANDO_RECEBIMENTO',
+      status: 'AGUARDANDO_SAIDA',
       unidadeDestinoId: 'unidade-2',
       unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
-      dataRetornoPrevista: new Date('2026-08-01'),
     } as never);
     prismaMock.solicitacao.update.mockResolvedValue({
       ...solicitacaoBase,
       tipo: 'EMPRESTIMO',
       status: 'AGUARDANDO_RETORNO',
+      unidadeDestinoId: 'unidade-2',
+      unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
     } as never);
     const res = await request(app)
-      .post('/solicitacoes/sol-1/confirmar-recebimento')
-      .set(auth('UNIDADE', { unidadeId: 'unidade-2' }))
-      .send({ estadoRecebimento: 'BOM' });
+      .post('/solicitacoes/sol-1/confirmar-saida')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send();
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('AGUARDANDO_RETORNO');
-    expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
-  });
-
-  it('empréstimo permanente: recebimento sem data prevista transfere o tombamento (RF23)', async () => {
-    prismaMock.solicitacao.findUnique.mockResolvedValue({
-      ...solicitacaoBase,
-      tipo: 'EMPRESTIMO',
-      status: 'AGUARDANDO_RECEBIMENTO',
-      unidadeDestinoId: 'unidade-2',
-      unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
-      dataRetornoPrevista: null,
-    } as never);
-    prismaMock.solicitacao.update.mockResolvedValue({
-      ...solicitacaoBase,
-      tipo: 'EMPRESTIMO',
-      status: 'CONCLUIDA',
-      unidadeDestinoId: 'unidade-2',
-      unidadeDestino: { id: 'unidade-2', nome: 'UBS Centro', emailBase: 'centro@jlle.gov' },
-    } as never);
-    const res = await request(app)
-      .post('/solicitacoes/sol-1/confirmar-recebimento')
-      .set(auth('UNIDADE', { unidadeId: 'unidade-2' }))
-      .send({ estadoRecebimento: 'BOM' });
-    expect(res.status).toBe(200);
     expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ unidadeId: 'unidade-2', unidadeTemporariaId: null, status: 'ATIVO' }),
+        data: { status: 'EMPRESTADO', unidadeTemporariaId: 'unidade-2' },
       }),
     );
   });
 
-  it('origem confirma retorno do empréstimo temporário: equipamento volta a ATIVO (RF27)', async () => {
+  it('origem confirma retorno do empréstimo: equipamento volta a ATIVO (RF27)', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue({
       ...solicitacaoBase,
       tipo: 'EMPRESTIMO',
       status: 'AGUARDANDO_RETORNO',
-      dataRetornoPrevista: new Date('2026-05-01'),
     } as never);
     prismaMock.solicitacao.update.mockResolvedValue({
       ...solicitacaoBase,
@@ -839,6 +915,24 @@ describe('Solicitações — cessão externa, empréstimo e recolha (UC12, UC14,
         data: { status: 'ATIVO', unidadeTemporariaId: null },
       }),
     );
+  });
+
+  it('bloqueia o Gestor de Patrimônio de confirmar saída — só a unidade de origem', async () => {
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/confirmar-saida')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(403);
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
+  });
+
+  it('bloqueia o Gestor de Patrimônio de confirmar retorno — só a unidade de origem', async () => {
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/confirmar-retorno')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send();
+    expect(res.status).toBe(403);
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
   });
 
   it('unidade confirma a recolha aprovada como Aguardando Branet: vira Aguardando Validação (feedback 26/08)', async () => {

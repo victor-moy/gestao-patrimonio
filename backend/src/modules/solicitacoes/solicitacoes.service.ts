@@ -1,4 +1,4 @@
-import { EstadoConservacao, OrigemRecurso, Prisma, TipoSolicitacao } from '@prisma/client';
+import { OrigemRecurso, Prisma, TipoSolicitacao } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -95,16 +95,15 @@ export interface DadosCriacao {
   // justificativa por item (feedback do cliente 25/08: cada equipamento
   // trocado pode ter um motivo diferente de defeito).
   justificativa?: string;
-  equipamentoId?: string;
   unidadeDestinoId?: string;
   tipoEquipamentoId?: string;
   quantidade?: number;
-  // Ampliação/Substituição/Recolha: seleção de múltiplos itens numa única
-  // tela — vira uma Solicitacao por item internamente (feedback do cliente
-  // 17/08, 25/08 e 26/08). Substituição usa `equipamentoId` e `justificativa`
-  // por item; Recolha usa só `equipamentoId` (a unidade escolhe os
-  // equipamentos existentes a recolher, sem tipo/quantidade/destino — quem
-  // define o galpão é o Gestor, ao aprovar); Ampliação usa só
+  // Ampliação/Substituição/Recolha/Empréstimo/Cessão de Uso: seleção de
+  // múltiplos itens numa única tela — vira uma Solicitacao por item
+  // internamente (feedback do cliente 17/08, 25/08 e 26/08). Substituição
+  // usa `equipamentoId` e `justificativa` por item; Recolha, Empréstimo e
+  // Cessão de Uso usam só `equipamentoId` (quem abre escolhe os equipamentos
+  // existentes, sem tipo/quantidade); Ampliação usa só
   // `tipoEquipamentoId`/`quantidade`.
   itens?: Array<{
     equipamentoId?: string;
@@ -114,7 +113,6 @@ export interface DadosCriacao {
   }>;
   origemRecurso?: OrigemRecurso;
   entidadeExternaNome?: string;
-  dataRetornoPrevista?: Date;
 }
 
 // Recolha não pede mais pro Gestor escolher o galpão — vai sempre pro único
@@ -198,6 +196,68 @@ async function anotarDisponibilidade<
 // seleção de múltiplos itens numa única tela, uma Solicitacao por item
 // internamente).
 export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<string[]> {
+  // CESSAO_USO — exclusiva do Gestor de Patrimônio (envolve entidade externa
+  // à secretaria). Como o Gestor não tem unidade própria e pode enxergar o
+  // inventário inteiro, ele escolhe um ou mais equipamentos de qualquer
+  // unidade (cada item mantém a própria unidade de origem) pra ceder à mesma
+  // entidade externa numa única tela — mesmo padrão de lista repetível dos
+  // demais tipos (feedback do cliente); vira uma Solicitacao por item.
+  if (dados.tipo === 'CESSAO_USO') {
+    if (usuario.perfil !== 'GESTOR_PATRIMONIO') {
+      throw new AppError('Somente o Gestor de Patrimônio pode abrir uma Cessão de Uso.', 403);
+    }
+    if (!dados.itens || dados.itens.length === 0) {
+      throw new AppError('Selecione ao menos um equipamento para a cessão.', 422);
+    }
+    if (dados.itens.some((item) => !item.equipamentoId)) {
+      throw new AppError('Informe o equipamento em cada item.', 422);
+    }
+    if (!dados.justificativa?.trim()) {
+      throw new AppError('Informe a justificativa.', 422);
+    }
+    if (!dados.entidadeExternaNome?.trim()) {
+      throw new AppError('Informe o nome da entidade externa que receberá o equipamento.', 422);
+    }
+    const idsEquipamentosCessao = dados.itens.map((item) => item.equipamentoId!);
+    if (new Set(idsEquipamentosCessao).size !== idsEquipamentosCessao.length) {
+      throw new AppError('Um mesmo equipamento não pode aparecer duas vezes na mesma solicitação.', 422);
+    }
+    const equipamentosCessao = await Promise.all(
+      idsEquipamentosCessao.map(async (id) => {
+        const equipamento = await prisma.equipamento.findUnique({ where: { id } });
+        if (!equipamento) throw new AppError('Equipamento não encontrado.', 404);
+        return equipamento;
+      }),
+    );
+    for (const equipamento of equipamentosCessao) {
+      // RN02/FA07 — equipamento em manutenção não pode ser cedido
+      if (equipamento.status !== 'ATIVO') {
+        throw new AppError(
+          `O equipamento ${equipamento.tombamento} está com status ${equipamento.status} e não pode ser movimentado até o encerramento do ciclo atual.`,
+          422,
+        );
+      }
+    }
+    const entidadeExterna = dados.entidadeExternaNome.trim();
+    const justificativaCessao = dados.justificativa;
+    const criadasCessao = await prisma.$transaction(
+      equipamentosCessao.map((equipamento) =>
+        prisma.solicitacao.create({
+          data: {
+            tipo: 'CESSAO_USO',
+            status: 'AGUARDANDO_SAIDA',
+            unidadeOrigemId: equipamento.unidadeId,
+            entidadeExternaNome: entidadeExterna,
+            equipamentoId: equipamento.id,
+            justificativa: justificativaCessao,
+            criadoPorId: usuario.sub,
+          },
+        }),
+      ),
+    );
+    return criadasCessao.map((s) => s.id);
+  }
+
   if (!usuario.unidadeId) {
     throw new AppError('Usuário não está vinculado a uma unidade.', 403);
   }
@@ -326,98 +386,63 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     return criadasRecolha.map((s) => s.id);
   }
 
-  // Demais tipos exigem um equipamento ATIVO do inventário da própria unidade
-  if (!dados.equipamentoId) {
-    throw new AppError('Informe o equipamento da solicitação.', 422);
-  }
-  if (!dados.justificativa?.trim()) {
-    throw new AppError('Informe a justificativa.', 422);
-  }
-  const justificativa = dados.justificativa;
-  const equipamento = await buscarEquipamentoDaUnidade(dados.equipamentoId, unidadeOrigemId);
-  // RN02/FA07 — equipamento em manutenção não pode ser cedido/emprestado/baixado
-  if (equipamento.status !== 'ATIVO') {
-    throw new AppError(
-      `O equipamento está com status ${equipamento.status} e não pode ser movimentado até o encerramento do ciclo atual.`,
-      422,
-    );
-  }
-
-  if (dados.tipo === 'CESSAO_USO') {
-    // Cessão de Uso é exclusiva para entidades externas ao município
-    if (!dados.entidadeExternaNome?.trim()) {
-      throw new AppError('Informe o nome da entidade externa que receberá o equipamento.', 422);
-    }
-    const criada = await prisma.solicitacao.create({
-      data: {
-        tipo: 'CESSAO_USO',
-        unidadeOrigemId,
-        entidadeExternaNome: dados.entidadeExternaNome.trim(),
-        equipamentoId: equipamento.id,
-        justificativa,
-        criadoPorId: usuario.sub,
-      },
-    });
-    return [criada.id];
-  }
-
+  // EMPRESTIMO — a unidade de origem escolhe um ou mais equipamentos
+  // próprios e a unidade de destino (mesmo padrão de lista repetível da
+  // Recolha); vira uma Solicitacao por item, todas passam por aprovação do
+  // Gestor e só movimentam o equipamento quando a origem confirma a saída
+  // (RF25/RN06 — tombamento permanece na origem até a devolução).
   if (dados.tipo === 'EMPRESTIMO') {
     if (!dados.unidadeDestinoId) throw new AppError('Informe a unidade de destino do empréstimo.', 422);
     if (dados.unidadeDestinoId === unidadeOrigemId) {
       throw new AppError('A unidade de destino deve ser diferente da unidade de origem.', 422);
     }
-    // RN05 — empréstimo não requer aprovação do Gestor de Patrimônio, com ou
-    // sem data de retorno (ausência de data = transferência permanente).
-    // RF25/RN06 — tombamento permanece na origem; destino é detentor temporário
-    // até a confirmação de recebimento.
-    const solicitacao = await prisma.$transaction(async (tx) => {
-      const criada = await tx.solicitacao.create({
-        data: {
-          tipo: 'EMPRESTIMO',
-          status: 'AGUARDANDO_RECEBIMENTO',
-          unidadeOrigemId,
-          unidadeDestinoId: dados.unidadeDestinoId,
-          equipamentoId: equipamento.id,
-          justificativa,
-          dataRetornoPrevista: dados.dataRetornoPrevista ?? null,
-          criadoPorId: usuario.sub,
-        },
-        include: includePadrao,
-      });
-      await tx.equipamento.update({
-        where: { id: equipamento.id },
-        data: { status: 'EMPRESTADO', unidadeTemporariaId: dados.unidadeDestinoId },
-      });
-      await tx.movimentacao.create({
-        data: {
-          equipamentoId: equipamento.id,
-          tipo: 'EMPRESTIMO',
-          descricao: dados.dataRetornoPrevista
-            ? `Empréstimo registrado com retorno previsto para ${dados.dataRetornoPrevista.toLocaleDateString('pt-BR')}`
-            : 'Transferência registrada sem data de retorno (permanente)',
-          unidadeOrigemId,
-          unidadeDestinoId: dados.unidadeDestinoId,
-          usuarioId: usuario.sub,
-        },
-      });
-      await registrarAuditoria(
-        {
-          usuarioId: usuario.sub,
-          acao: 'REGISTRAR_EMPRESTIMO',
-          entidade: 'solicitacao',
-          entidadeId: criada.id,
-          dadosDepois: { equipamentoId: equipamento.id, destino: dados.unidadeDestinoId },
-        },
-        tx,
-      );
-      return criada;
-    });
-    await notificar(
-      solicitacao.unidadeDestino?.emailBase,
-      'Empréstimo de equipamento registrado',
-      `A unidade ${solicitacao.unidadeOrigem.nome} registrou o empréstimo do equipamento ${solicitacao.equipamento?.tombamento} para a sua unidade. Registre a avaliação do estado no recebimento.`,
+    if (!dados.itens || dados.itens.length === 0) {
+      throw new AppError('Selecione ao menos um equipamento para o empréstimo.', 422);
+    }
+    if (dados.itens.some((item) => !item.equipamentoId)) {
+      throw new AppError('Informe o equipamento em cada item.', 422);
+    }
+    if (!dados.justificativa?.trim()) {
+      throw new AppError('Informe a justificativa.', 422);
+    }
+    const justificativaEmprestimo = dados.justificativa;
+    const idsEquipamentosEmprestimo = dados.itens.map((item) => item.equipamentoId!);
+    if (new Set(idsEquipamentosEmprestimo).size !== idsEquipamentosEmprestimo.length) {
+      throw new AppError('Um mesmo equipamento não pode aparecer duas vezes na mesma solicitação.', 422);
+    }
+    const equipamentosEmprestimo = await Promise.all(
+      idsEquipamentosEmprestimo.map((id) => buscarEquipamentoDaUnidade(id, unidadeOrigemId)),
     );
-    return [solicitacao.id];
+    for (const equipamento of equipamentosEmprestimo) {
+      // RN02/FA07 — equipamento em manutenção não pode ser emprestado
+      if (equipamento.status !== 'ATIVO') {
+        throw new AppError(
+          `O equipamento ${equipamento.tombamento} está com status ${equipamento.status} e não pode ser movimentado até o encerramento do ciclo atual.`,
+          422,
+        );
+      }
+    }
+    const criadasEmprestimo = await prisma.$transaction(
+      equipamentosEmprestimo.map((equipamento) =>
+        prisma.solicitacao.create({
+          data: {
+            tipo: 'EMPRESTIMO',
+            unidadeOrigemId,
+            unidadeDestinoId: dados.unidadeDestinoId,
+            equipamentoId: equipamento.id,
+            justificativa: justificativaEmprestimo,
+            criadoPorId: usuario.sub,
+          },
+        }),
+      ),
+    );
+    await registrarAuditoria({
+      usuarioId: usuario.sub,
+      acao: 'REGISTRAR_EMPRESTIMO',
+      entidade: 'solicitacao',
+      dadosDepois: { equipamentos: idsEquipamentosEmprestimo, destino: dados.unidadeDestinoId },
+    });
+    return criadasEmprestimo.map((s) => s.id);
   }
 
   throw new AppError('Tipo de solicitação inválido.', 422);
@@ -477,7 +502,7 @@ export async function aprovar(
     return atualizada;
   }
 
-  if (solicitacao.tipo === 'CESSAO_USO') {
+  if (solicitacao.tipo === 'EMPRESTIMO') {
     const atualizada = await prisma.$transaction(async (tx) => {
       const s = await tx.solicitacao.update({
         where: { id },
@@ -487,7 +512,7 @@ export async function aprovar(
       await registrarAuditoria(
         {
           usuarioId: usuario.sub,
-          acao: 'APROVAR_CESSAO',
+          acao: 'APROVAR_EMPRESTIMO',
           entidade: 'solicitacao',
           entidadeId: id,
           dadosDepois: { status: s.status },
@@ -498,8 +523,8 @@ export async function aprovar(
     });
     await notificar(
       atualizada.unidadeOrigem.emailBase,
-      'Cessão de uso aprovada',
-      `A cessão do equipamento ${atualizada.equipamento?.tombamento} para ${atualizada.entidadeExternaNome} foi aprovada. Confirme a saída do equipamento.`,
+      'Empréstimo aprovado',
+      `O empréstimo do equipamento ${atualizada.equipamento?.tombamento} para ${atualizada.unidadeDestino?.nome} foi aprovado. Confirme a saída do equipamento.`,
     );
     return atualizada;
   }
@@ -544,7 +569,7 @@ export async function aprovar(
     return atualizada;
   }
 
-  throw new AppError('Empréstimos não passam por aprovação do Gestor de Patrimônio (RN05).', 422);
+  throw new AppError('Esta solicitação não passa por aprovação do Gestor de Patrimônio.', 422);
 }
 
 // UC17/RF29/RN08/RN09 — vínculo com ata: valida vencimento e saldo. Só entra
@@ -737,59 +762,109 @@ export async function negar(usuario: AuthPayload, id: string, motivo: string) {
   return atualizada;
 }
 
-// UC12/RF22 — unidade de origem confirma a saída (cessão externa). Como o
-// destino é uma entidade externa (sem usuário no sistema), a confirmação de
-// saída já conclui a solicitação — não há etapa de "destino confirma".
+// UC12/RF22 — unidade de origem confirma a saída física do equipamento.
+// Cessão de Uso: destino é uma entidade externa (sem usuário no sistema),
+// então a confirmação de saída já conclui a solicitação — não há etapa de
+// "destino confirma". Empréstimo: é só nesse momento que o equipamento passa
+// a contar no inventário da unidade de destino (RN06) — antes disso (durante
+// a aprovação do Gestor) o item continua normalmente na origem.
 export async function confirmarSaida(usuario: AuthPayload, id: string) {
   const solicitacao = await buscarPorId(usuario, id);
-  if (solicitacao.tipo !== 'CESSAO_USO' || solicitacao.status !== 'AGUARDANDO_SAIDA') {
+  if (
+    (solicitacao.tipo !== 'CESSAO_USO' && solicitacao.tipo !== 'EMPRESTIMO') ||
+    solicitacao.status !== 'AGUARDANDO_SAIDA'
+  ) {
     throw new AppError('Esta solicitação não está aguardando confirmação de saída.', 422);
   }
-  if (usuario.perfil === 'UNIDADE' && solicitacao.unidadeOrigemId !== usuario.unidadeId) {
+  // Só a unidade de origem confirma — nem o Gestor de Patrimônio pode fazer
+  // isso por ela (mesmo padrão de confirmar-recolha).
+  if (usuario.perfil !== 'UNIDADE' || solicitacao.unidadeOrigemId !== usuario.unidadeId) {
     throw new AppError('Somente a unidade de origem confirma a saída.', 403);
   }
+
+  if (solicitacao.tipo === 'CESSAO_USO') {
+    const atualizada = await prisma.$transaction(async (tx) => {
+      const s = await tx.solicitacao.update({
+        where: { id },
+        data: { status: 'CONCLUIDA' },
+        include: includePadrao,
+      });
+      await tx.equipamento.update({
+        where: { id: s.equipamentoId! },
+        data: { status: 'CEDIDO' },
+      });
+      await tx.movimentacao.create({
+        data: {
+          equipamentoId: s.equipamentoId!,
+          tipo: 'CESSAO_USO',
+          descricao: `Cessão de uso concluída: ${s.unidadeOrigem.nome} → ${s.entidadeExternaNome} (entidade externa)`,
+          unidadeOrigemId: s.unidadeOrigemId,
+          usuarioId: usuario.sub,
+        },
+      });
+      await registrarAuditoria(
+        {
+          usuarioId: usuario.sub,
+          acao: 'CONCLUIR_CESSAO',
+          entidade: 'solicitacao',
+          entidadeId: id,
+          dadosDepois: { equipamentoId: s.equipamentoId, entidadeExterna: s.entidadeExternaNome },
+        },
+        tx,
+      );
+      return s;
+    });
+    await notificar(
+      atualizada.unidadeOrigem.emailBase,
+      'Cessão de uso concluída',
+      `O equipamento ${atualizada.equipamento?.tombamento} foi cedido a ${atualizada.entidadeExternaNome}.`,
+    );
+    return atualizada;
+  }
+
+  // EMPRESTIMO: fica "emprestado" (AGUARDANDO_RETORNO) até a origem
+  // confirmar o retorno — não existe mais transferência permanente.
   const atualizada = await prisma.$transaction(async (tx) => {
     const s = await tx.solicitacao.update({
       where: { id },
-      data: { status: 'CONCLUIDA' },
+      data: { status: 'AGUARDANDO_RETORNO' },
       include: includePadrao,
     });
     await tx.equipamento.update({
       where: { id: s.equipamentoId! },
-      data: { status: 'CEDIDO' },
+      data: { status: 'EMPRESTADO', unidadeTemporariaId: s.unidadeDestinoId },
     });
     await tx.movimentacao.create({
       data: {
         equipamentoId: s.equipamentoId!,
-        tipo: 'CESSAO_USO',
-        descricao: `Cessão de uso concluída: ${s.unidadeOrigem.nome} → ${s.entidadeExternaNome} (entidade externa)`,
+        tipo: 'EMPRESTIMO',
+        descricao: `Empréstimo iniciado: ${s.unidadeOrigem.nome} → ${s.unidadeDestino?.nome}`,
         unidadeOrigemId: s.unidadeOrigemId,
+        unidadeDestinoId: s.unidadeDestinoId,
         usuarioId: usuario.sub,
       },
     });
     await registrarAuditoria(
       {
         usuarioId: usuario.sub,
-        acao: 'CONCLUIR_CESSAO',
+        acao: 'CONFIRMAR_SAIDA_EMPRESTIMO',
         entidade: 'solicitacao',
         entidadeId: id,
-        dadosDepois: { equipamentoId: s.equipamentoId, entidadeExterna: s.entidadeExternaNome },
+        dadosDepois: { status: s.status, equipamentoId: s.equipamentoId },
       },
       tx,
     );
     return s;
   });
   await notificar(
-    atualizada.unidadeOrigem.emailBase,
-    'Cessão de uso concluída',
-    `O equipamento ${atualizada.equipamento?.tombamento} foi cedido a ${atualizada.entidadeExternaNome}.`,
+    atualizada.unidadeDestino?.emailBase,
+    'Empréstimo iniciado',
+    `O equipamento ${atualizada.equipamento?.tombamento} chegou como empréstimo da unidade ${atualizada.unidadeOrigem.nome} e já está no inventário da sua unidade.`,
   );
   return atualizada;
 }
 
 export interface DadosConfirmarRecebimento {
-  // Empréstimo (fluxo antigo, inalterado): 5 níveis de conservação
-  estadoRecebimento?: EstadoConservacao;
   // Ampliação/Substituição (feedback do cliente 17/08): OK/Não OK binário.
   // Se OK, exige o tombamento de cada item pra comparar com o cadastrado.
   ok?: boolean;
@@ -797,8 +872,6 @@ export interface DadosConfirmarRecebimento {
   itens?: Array<{ equipamentoId: string; tombamentoConfirmado: string }>;
 }
 
-// UC14/RF26 — destino (interno) confirma o recebimento do empréstimo e
-// avalia o estado; sem data de retorno, a transferência já é permanente (RF23).
 // Ampliação/Substituição: a unidade de origem confirma o recebimento do item
 // (que já tem tombamento desde que o Gestor lançou no Branet) — não conclui
 // sozinha, só avança pra validação final do Patrimônio (feedback do cliente).
@@ -879,84 +952,20 @@ export async function confirmarRecebimento(
     return atualizada;
   }
 
-  const { estadoRecebimento } = dados;
-  if (solicitacao.tipo !== 'EMPRESTIMO' || solicitacao.status !== 'AGUARDANDO_RECEBIMENTO') {
-    throw new AppError('Esta solicitação não está aguardando recebimento.', 422);
-  }
-  if (usuario.perfil === 'UNIDADE' && solicitacao.unidadeDestinoId !== usuario.unidadeId) {
-    throw new AppError('Somente a unidade de destino confirma o recebimento.', 403);
-  }
-  if (!estadoRecebimento) {
-    throw new AppError('Registre o estado do equipamento no recebimento.', 422);
-  }
-
-  // Transferência temporária: aguarda o retorno futuro (RF26)
-  if (solicitacao.dataRetornoPrevista) {
-    return prisma.solicitacao.update({
-      where: { id },
-      data: { status: 'AGUARDANDO_RETORNO', estadoRecebimento },
-      include: includePadrao,
-    });
-  }
-
-  // Transferência permanente (sem data de retorno): move o tombamento (RF23)
-  const atualizada = await prisma.$transaction(async (tx) => {
-    const s = await tx.solicitacao.update({
-      where: { id },
-      data: { status: 'CONCLUIDA', estadoRecebimento },
-      include: includePadrao,
-    });
-    await tx.equipamento.update({
-      where: { id: s.equipamentoId! },
-      data: {
-        unidadeId: s.unidadeDestinoId!,
-        unidadeTemporariaId: null,
-        status: 'ATIVO',
-        estadoConservacao: estadoRecebimento,
-      },
-    });
-    await tx.movimentacao.create({
-      data: {
-        equipamentoId: s.equipamentoId!,
-        tipo: 'CESSAO_USO',
-        descricao: `Transferência permanente concluída: ${s.unidadeOrigem.nome} → ${s.unidadeDestino?.nome}`,
-        unidadeOrigemId: s.unidadeOrigemId,
-        unidadeDestinoId: s.unidadeDestinoId,
-        usuarioId: usuario.sub,
-      },
-    });
-    await registrarAuditoria(
-      {
-        usuarioId: usuario.sub,
-        acao: 'CONCLUIR_TRANSFERENCIA_PERMANENTE',
-        entidade: 'solicitacao',
-        entidadeId: id,
-        dadosDepois: { equipamentoId: s.equipamentoId, novaUnidade: s.unidadeDestinoId },
-      },
-      tx,
-    );
-    return s;
-  });
-  await notificar(
-    atualizada.unidadeOrigem.emailBase,
-    'Transferência concluída',
-    `O equipamento ${atualizada.equipamento?.tombamento} foi transferido permanentemente para ${atualizada.unidadeDestino?.nome}.`,
-  );
-  return atualizada;
+  throw new AppError('Esta solicitação não está aguardando recebimento.', 422);
 }
 
-// UC15/RF27 — unidade de origem confirma o retorno do empréstimo temporário
+// UC15/RF27 — unidade de origem confirma o retorno do empréstimo
 export async function confirmarRetorno(usuario: AuthPayload, id: string) {
   const solicitacao = await buscarPorId(usuario, id);
   if (solicitacao.tipo !== 'EMPRESTIMO' || solicitacao.status !== 'AGUARDANDO_RETORNO') {
     throw new AppError('Este empréstimo não está aguardando retorno.', 422);
   }
-  if (usuario.perfil === 'UNIDADE' && solicitacao.unidadeOrigemId !== usuario.unidadeId) {
+  // Só a unidade de origem confirma — nem o Gestor de Patrimônio pode fazer
+  // isso por ela.
+  if (usuario.perfil !== 'UNIDADE' || solicitacao.unidadeOrigemId !== usuario.unidadeId) {
     throw new AppError('Somente a unidade de origem confirma o retorno do empréstimo.', 403);
   }
-  // FA05 — atraso é registrado no histórico, sem bloqueio
-  const atrasado =
-    solicitacao.dataRetornoPrevista !== null && solicitacao.dataRetornoPrevista < new Date();
   const atualizada = await prisma.$transaction(async (tx) => {
     const s = await tx.solicitacao.update({
       where: { id },
@@ -971,7 +980,7 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
       data: {
         equipamentoId: s.equipamentoId!,
         tipo: 'DEVOLUCAO_EMPRESTIMO',
-        descricao: `Empréstimo encerrado — equipamento devolvido a ${s.unidadeOrigem.nome}${atrasado ? ' (devolução após o prazo previsto)' : ''}`,
+        descricao: `Empréstimo encerrado — equipamento devolvido a ${s.unidadeOrigem.nome}`,
         unidadeOrigemId: s.unidadeDestinoId,
         unidadeDestinoId: s.unidadeOrigemId,
         usuarioId: usuario.sub,
@@ -983,7 +992,7 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
         acao: 'CONCLUIR_EMPRESTIMO',
         entidade: 'solicitacao',
         entidadeId: id,
-        dadosDepois: { status: 'CONCLUIDA', atrasado },
+        dadosDepois: { status: 'CONCLUIDA' },
       },
       tx,
     );

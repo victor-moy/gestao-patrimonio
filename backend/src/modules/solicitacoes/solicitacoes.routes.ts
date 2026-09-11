@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { EstadoConservacao, OrigemRecurso, Perfil, TipoSolicitacao } from '@prisma/client';
+import { OrigemRecurso, Perfil, TipoSolicitacao } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
@@ -30,15 +30,15 @@ const criarSchema = z.object({
   // Obrigatória pra todos os tipos, exceto Substituição (que valida a
   // justificativa por item, no service) — feedback do cliente 25/08.
   justificativa: z.string().min(5, 'informe a justificativa').optional(),
-  equipamentoId: z.string().uuid().optional(),
   unidadeDestinoId: z.string().uuid().optional(),
   tipoEquipamentoId: z.string().uuid().optional(),
   quantidade: z.number().int().positive().optional(),
-  // Ampliação/Substituição/Recolha: seleção de múltiplos itens numa única
-  // solicitação — o sistema cria uma Solicitacao por item internamente
-  // (feedback 17/08, 25/08 e 26/08). Substituição usa também `equipamentoId`
-  // e `justificativa` por item; Recolha usa só `equipamentoId` (a unidade
-  // escolhe os equipamentos existentes, sem tipo/quantidade/destino);
+  // Ampliação/Substituição/Recolha/Empréstimo/Cessão de Uso: seleção de
+  // múltiplos itens numa única solicitação — o sistema cria uma Solicitacao
+  // por item internamente (feedback 17/08, 25/08 e 26/08). Substituição usa
+  // também `equipamentoId` e `justificativa` por item; Recolha, Empréstimo e
+  // Cessão de Uso usam só `equipamentoId` (a unidade, ou o Gestor no caso da
+  // Cessão, escolhe os equipamentos existentes, sem tipo/quantidade);
   // Ampliação usa só `tipoEquipamentoId`/`quantidade`.
   itens: z
     .array(
@@ -52,7 +52,6 @@ const criarSchema = z.object({
     .optional(),
   origemRecurso: z.nativeEnum(OrigemRecurso).optional(),
   entidadeExternaNome: z.string().min(2).optional(),
-  dataRetornoPrevista: z.coerce.date().optional(),
 });
 
 solicitacoesRouter.post(
@@ -158,17 +157,17 @@ solicitacoesRouter.post(
   },
 );
 
+// Só a unidade de origem confirma a saída — nem o Gestor de Patrimônio pode
+// fazer isso por ela (mesmo padrão de confirmar-recolha).
 solicitacoesRouter.post(
   '/:id/confirmar-saida',
-  permitir(Perfil.UNIDADE, Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.UNIDADE),
   async (req, res) => {
     res.json(await service.confirmarSaida(req.usuario!, req.params.id));
   },
 );
 
 const confirmarRecebimentoSchema = z.object({
-  // Empréstimo (fluxo antigo, inalterado): 5 níveis de conservação
-  estadoRecebimento: z.nativeEnum(EstadoConservacao).optional(),
   // Ampliação/Substituição (feedback 17/08): OK/Não OK binário
   ok: z.boolean().optional(),
   observacao: z.string().optional(),
@@ -191,9 +190,11 @@ solicitacoesRouter.post(
   },
 );
 
+// Só a unidade de origem confirma o retorno do empréstimo — nem o Gestor de
+// Patrimônio pode fazer isso por ela.
 solicitacoesRouter.post(
   '/:id/confirmar-retorno',
-  permitir(Perfil.UNIDADE, Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.UNIDADE),
   async (req, res) => {
     res.json(await service.confirmarRetorno(req.usuario!, req.params.id));
   },
