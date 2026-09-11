@@ -95,10 +95,11 @@ export function NovaSolicitacao() {
     // escolhe um ou mais equipamentos próprios para emprestar de uma vez à
     // mesma unidade de destino.
     itensEmprestimo: [{ equipamentoId: '' }],
-    // Cessão de Uso: mesmo padrão de lista repetível — o Gestor escolhe um
-    // ou mais equipamentos (de qualquer unidade) para ceder à mesma entidade
-    // externa.
-    itensCessao: [{ equipamentoId: '' }],
+    // Cessão de Uso: mesmo padrão de lista repetível da Ampliação — o Gestor
+    // escolhe um ou mais tipos de equipamento e a quantidade, reservando do
+    // estoque de galpão (não escolhe um equipamento específico de uma
+    // unidade).
+    itensCessao: [{ tipoEquipamentoId: '', quantidade: 1 }],
     justificativa: '',
     entidadeExternaNome: '',
   };
@@ -166,10 +167,11 @@ export function NovaSolicitacao() {
         ...(tipo === 'CESSAO_USO'
           ? {
               entidadeExternaNome: form.entidadeExternaNome,
-              // A origem de cada item vem do próprio equipamento (o Gestor
-              // não tem unidade própria e escolhe de qualquer unidade).
+              // Reserva do estoque de galpão por tipo/quantidade — a origem
+              // vem do galpão que tinha saldo, não de uma unidade escolhida.
               itens: form.itensCessao.map((item) => ({
-                equipamentoId: item.equipamentoId,
+                tipoEquipamentoId: item.tipoEquipamentoId,
+                quantidade: Number(item.quantidade),
               })),
             }
           : {}),
@@ -688,18 +690,31 @@ export function NovaSolicitacao() {
                     )}
                   </div>
                   <div className="field">
-                    <label>Item (de qualquer unidade) *</label>
-                    <SeletorEquipamento
-                      equipamentos={equipamentos}
-                      value={item.equipamentoId}
-                      mostrarUnidade
+                    <label>Tipo de Item *</label>
+                    <SeletorTipoEquipamento
+                      categorias={categorias}
+                      value={item.tipoEquipamentoId}
                       idsExcluidos={form.itensCessao
                         .filter((_, j) => j !== i)
-                        .map((it) => it.equipamentoId)
+                        .map((it) => it.tipoEquipamentoId)
                         .filter(Boolean)}
                       onChange={(id) => {
                         const itens = [...form.itensCessao];
-                        itens[i] = { ...item, equipamentoId: id };
+                        itens[i] = { ...item, tipoEquipamentoId: id };
+                        setForm({ ...form, itensCessao: itens });
+                      }}
+                      required
+                    />
+                  </div>
+                  <div className="field item-ampliacao-quantidade">
+                    <label>Quantidade *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantidade}
+                      onChange={(e) => {
+                        const itens = [...form.itensCessao];
+                        itens[i] = { ...item, quantidade: Number(e.target.value) };
                         setForm({ ...form, itensCessao: itens });
                       }}
                       required
@@ -714,7 +729,7 @@ export function NovaSolicitacao() {
                 onClick={() =>
                   setForm({
                     ...form,
-                    itensCessao: [...form.itensCessao, { equipamentoId: '' }],
+                    itensCessao: [...form.itensCessao, { tipoEquipamentoId: '', quantidade: 1 }],
                   })
                 }
               >

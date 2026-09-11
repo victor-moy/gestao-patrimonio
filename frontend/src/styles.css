@@ -2678,12 +2678,6 @@ tr.clickable:hover {
   flex-shrink: 0;
 }
 
-.seletor-tipo-unidade {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  font-weight: 400;
-}
-
 .seletor-tipo-item.selecionado .seletor-tipo-codigo {
   color: var(--blue-text);
   opacity: 0.75;

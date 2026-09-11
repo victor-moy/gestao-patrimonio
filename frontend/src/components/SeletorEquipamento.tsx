@@ -11,9 +11,6 @@ interface SeletorEquipamentoProps {
   // Ids a esconder da lista (ex: já escolhidos em outras linhas da mesma
   // solicitação de Substituição) — não deve incluir o próprio `value`.
   idsExcluidos?: string[];
-  // Cessão de Uso: o Gestor escolhe equipamentos de qualquer unidade (não só
-  // da própria), então precisa ver e buscar pela unidade de cada item.
-  mostrarUnidade?: boolean;
 }
 
 function normalizar(texto: string) {
@@ -34,7 +31,6 @@ export function SeletorEquipamento({
   placeholder = 'Selecione o item...',
   required,
   idsExcluidos,
-  mostrarUnidade,
 }: SeletorEquipamentoProps) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState('');
@@ -61,8 +57,7 @@ export function SeletorEquipamento({
         (!alvo ||
           normalizar(eq.tombamento).includes(alvo) ||
           normalizar(eq.tipoEquipamento.nome).includes(alvo) ||
-          normalizar(eq.descricao ?? '').includes(alvo) ||
-          (mostrarUnidade && normalizar(eq.unidade.nome).includes(alvo))),
+          normalizar(eq.descricao ?? '').includes(alvo)),
     );
     const porCategoria = new Map<string, Equipamento[]>();
     for (const eq of visiveis) {
@@ -73,7 +68,7 @@ export function SeletorEquipamento({
     return [...porCategoria.entries()]
       .map(([nome, itens]) => ({ nome, itens }))
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-  }, [equipamentos, busca, idsExcluidos, mostrarUnidade]);
+  }, [equipamentos, busca, idsExcluidos]);
 
   const itensPlanos = useMemo(() => gruposFiltrados.flatMap((c) => c.itens), [gruposFiltrados]);
 
@@ -140,11 +135,7 @@ export function SeletorEquipamento({
         aria-expanded={aberto}
       >
         <span className={selecionado ? '' : 'seletor-tipo-placeholder'}>
-          {selecionado
-            ? `${selecionado.tombamento} — ${selecionado.tipoEquipamento.nome}${
-                mostrarUnidade ? ` (${selecionado.unidade.nome})` : ''
-              }`
-            : placeholder}
+          {selecionado ? `${selecionado.tombamento} — ${selecionado.tipoEquipamento.nome}` : placeholder}
         </span>
         <IconeChevron />
       </button>
@@ -160,11 +151,7 @@ export function SeletorEquipamento({
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               onKeyDown={aoTeclar}
-              placeholder={
-                mostrarUnidade
-                  ? 'Buscar por tombamento, tipo, descrição ou unidade...'
-                  : 'Buscar por tombamento, tipo ou descrição...'
-              }
+              placeholder="Buscar por tombamento, tipo ou descrição..."
             />
           </div>
           <div className="seletor-tipo-lista" style={{ maxHeight: alturaLista }}>
@@ -181,10 +168,7 @@ export function SeletorEquipamento({
                       onMouseEnter={() => setIndiceAtivo(indice)}
                       onClick={() => selecionar(eq.id)}
                     >
-                      <span>
-                        {eq.tipoEquipamento.nome}
-                        {mostrarUnidade && <span className="seletor-tipo-unidade"> · {eq.unidade.nome}</span>}
-                      </span>
+                      <span>{eq.tipoEquipamento.nome}</span>
                       <span className="seletor-tipo-codigo">{eq.tombamento}</span>
                     </button>
                   );

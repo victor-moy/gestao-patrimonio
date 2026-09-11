@@ -77,9 +77,9 @@ const STATUS_POR_TIPO: Record<string, string[]> = {
     'AGUARDANDO_VALIDACAO',
     'CONCLUIDA',
   ],
-  // Cessão de Uso não passa mais por aprovação — só o Gestor abre, e já
-  // nasce em AGUARDANDO_SAIDA.
-  CESSAO_USO: ['AGUARDANDO_SAIDA', 'CONCLUIDA'],
+  // Cessão de Uso não passa mais por aprovação — só o Gestor abre, reserva
+  // do estoque na hora (já nasce RESERVADO) e conclui ao lançar no Branet.
+  CESSAO_USO: ['RESERVADO', 'CONCLUIDA'],
   EMPRESTIMO: ['PENDENTE_APROVACAO', 'NEGADA', 'EXPIRADA', 'AGUARDANDO_SAIDA', 'AGUARDANDO_RETORNO', 'CONCLUIDA'],
   RECOLHA: [
     'PENDENTE_APROVACAO',
@@ -554,10 +554,13 @@ function DetalheSolicitacao({
         </div>
       )}
 
-      {/* GP: reservado — informa o número do pedido Branet e o tombamento de
-          cada item; isso já cadastra os equipamentos e avança pra Aguardando
-          Entrega (feedback do cliente 17/08: quem lida com o tombamento
-          agora é o Gestor, não mais o Galpão depois) */}
+      {/* GP: reservado — informa o número do pedido Branet. Ampliação/
+          Substituição também informam o tombamento de cada item, o que já
+          cadastra os equipamentos e avança pra Aguardando Entrega (feedback
+          do cliente 17/08: quem lida com o tombamento agora é o Gestor, não
+          mais o Galpão depois). Cessão de Uso reservou do estoque na própria
+          criação e não gera tombamento novo (destino externo) — só registra
+          o número do pedido e já conclui direto. */}
       {ehGP && s.status === 'RESERVADO' && (
         <div className="actions-box">
           <div className="actions-title">Lançar no Branet</div>
@@ -565,52 +568,58 @@ function DetalheSolicitacao({
             <label>Número do Pedido (Branet) *</label>
             <input value={numeroPedidoBranet} onChange={(e) => setNumeroPedidoBranet(e.target.value)} />
           </div>
-          {itensBranet.map((item, i) => (
-            <div key={i} className="item-ampliacao">
-              <div className="item-ampliacao-cabecalho">
-                <span className="item-ampliacao-numero">
-                  {s.tipoEquipamento?.nome ?? 'Item'}
-                  {itensBranet.length > 1 ? ` — unidade ${i + 1} de ${itensBranet.length}` : ''}
-                </span>
-              </div>
-              <div className="info-grid" style={{ marginBottom: 0 }}>
-                <div className="field">
-                  <label>Tombamento *</label>
-                  <input
-                    value={item.tombamento}
-                    onChange={(e) => {
-                      const novos = [...itensBranet];
-                      novos[i] = { ...item, tombamento: e.target.value };
-                      setItensBranet(novos);
-                    }}
-                  />
+          {s.tipo !== 'CESSAO_USO' &&
+            itensBranet.map((item, i) => (
+              <div key={i} className="item-ampliacao">
+                <div className="item-ampliacao-cabecalho">
+                  <span className="item-ampliacao-numero">
+                    {s.tipoEquipamento?.nome ?? 'Item'}
+                    {itensBranet.length > 1 ? ` — unidade ${i + 1} de ${itensBranet.length}` : ''}
+                  </span>
                 </div>
-                <div className="field">
-                  <label>Descrição *</label>
-                  <input
-                    value={item.descricao}
-                    onChange={(e) => {
-                      const novos = [...itensBranet];
-                      novos[i] = { ...item, descricao: e.target.value };
-                      setItensBranet(novos);
-                    }}
-                  />
+                <div className="info-grid" style={{ marginBottom: 0 }}>
+                  <div className="field">
+                    <label>Tombamento *</label>
+                    <input
+                      value={item.tombamento}
+                      onChange={(e) => {
+                        const novos = [...itensBranet];
+                        novos[i] = { ...item, tombamento: e.target.value };
+                        setItensBranet(novos);
+                      }}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Descrição *</label>
+                    <input
+                      value={item.descricao}
+                      onChange={(e) => {
+                        const novos = [...itensBranet];
+                        novos[i] = { ...item, descricao: e.target.value };
+                        setItensBranet(novos);
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
           <div className="actions-row">
             <button
               className="btn btn-success"
-              disabled={!numeroPedidoBranet || itensBranet.some((i) => !i.tombamento || !i.descricao)}
+              disabled={
+                !numeroPedidoBranet ||
+                (s.tipo !== 'CESSAO_USO' && itensBranet.some((i) => !i.tombamento || !i.descricao))
+              }
               onClick={() =>
                 executar(
                   () =>
                     api.post(`/solicitacoes/${s.id}/lancar-branet`, {
                       numeroPedidoBranet,
-                      itens: itensBranet,
+                      ...(s.tipo !== 'CESSAO_USO' ? { itens: itensBranet } : {}),
                     }),
-                  'Pedido lançado no Branet e tombamento cadastrado.',
+                  s.tipo === 'CESSAO_USO'
+                    ? 'Pedido lançado no Branet — cessão concluída.'
+                    : 'Pedido lançado no Branet e tombamento cadastrado.',
                 )
               }
             >
@@ -682,10 +691,9 @@ function DetalheSolicitacao({
         </div>
       )}
 
-      {/* Cessão externa e Empréstimo: origem confirma a saída física do
-          equipamento. Cessão já conclui (destino é externo, sem usuário no
-          sistema). Empréstimo passa a "emprestado" (aguardando retorno). */}
-      {(s.tipo === 'CESSAO_USO' || s.tipo === 'EMPRESTIMO') && s.status === 'AGUARDANDO_SAIDA' && souUnidadeOrigem && (
+      {/* Empréstimo: origem confirma a saída física do equipamento, que
+          passa a "emprestado" (aguardando retorno). */}
+      {s.tipo === 'EMPRESTIMO' && s.status === 'AGUARDANDO_SAIDA' && souUnidadeOrigem && (
         <div className="actions-box">
           <div className="actions-title">Confirmar saída do item</div>
           <div className="actions-row">
@@ -694,9 +702,7 @@ function DetalheSolicitacao({
               onClick={() =>
                 executar(
                   () => api.post(`/solicitacoes/${s.id}/confirmar-saida`),
-                  s.tipo === 'CESSAO_USO'
-                    ? 'Saída confirmada — cessão concluída.'
-                    : 'Saída confirmada — empréstimo em andamento.',
+                  'Saída confirmada — empréstimo em andamento.',
                 )
               }
             >
