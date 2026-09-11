@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Equipamento } from '../types';
 import { IconeBusca, IconeChevron } from './icons';
 
@@ -11,6 +11,9 @@ interface SeletorEquipamentoProps {
   // Ids a esconder da lista (ex: já escolhidos em outras linhas da mesma
   // solicitação de Substituição) — não deve incluir o próprio `value`.
   idsExcluidos?: string[];
+  // Cessão de Uso: o Gestor escolhe equipamentos de qualquer unidade (não só
+  // da própria), então precisa ver e buscar pela unidade de cada item.
+  mostrarUnidade?: boolean;
 }
 
 function normalizar(texto: string) {
@@ -28,14 +31,20 @@ export function SeletorEquipamento({
   equipamentos,
   value,
   onChange,
-  placeholder = 'Selecione o equipamento...',
+  placeholder = 'Selecione o item...',
   required,
   idsExcluidos,
+  mostrarUnidade,
 }: SeletorEquipamentoProps) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState('');
   const [indiceAtivo, setIndiceAtivo] = useState(0);
+  // Altura máxima da lista, recalculada a cada abertura pra caber no espaço
+  // até o fim da viewport — sem isso, o painel podia se estender além da
+  // tela e "esticar" o scroll da página com espaço em branco embaixo.
+  const [alturaLista, setAlturaLista] = useState<number>();
   const containerRef = useRef<HTMLDivElement>(null);
+  const buscaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selecionado = useMemo(
@@ -52,7 +61,8 @@ export function SeletorEquipamento({
         (!alvo ||
           normalizar(eq.tombamento).includes(alvo) ||
           normalizar(eq.tipoEquipamento.nome).includes(alvo) ||
-          normalizar(eq.descricao ?? '').includes(alvo)),
+          normalizar(eq.descricao ?? '').includes(alvo) ||
+          (mostrarUnidade && normalizar(eq.unidade.nome).includes(alvo))),
     );
     const porCategoria = new Map<string, Equipamento[]>();
     for (const eq of visiveis) {
@@ -63,7 +73,7 @@ export function SeletorEquipamento({
     return [...porCategoria.entries()]
       .map(([nome, itens]) => ({ nome, itens }))
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-  }, [equipamentos, busca, idsExcluidos]);
+  }, [equipamentos, busca, idsExcluidos, mostrarUnidade]);
 
   const itensPlanos = useMemo(() => gruposFiltrados.flatMap((c) => c.itens), [gruposFiltrados]);
 
@@ -81,6 +91,14 @@ export function SeletorEquipamento({
     }
     document.addEventListener('mousedown', aoClicarFora);
     return () => document.removeEventListener('mousedown', aoClicarFora);
+  }, [aberto]);
+
+  useLayoutEffect(() => {
+    if (!aberto || !containerRef.current) return;
+    const espacoAbaixo = window.innerHeight - containerRef.current.getBoundingClientRect().bottom;
+    const alturaBusca = buscaRef.current?.getBoundingClientRect().height ?? 0;
+    // 6 (gap do painel) + 16 (margem até o fim da viewport)
+    setAlturaLista(Math.max(120, Math.min(400, espacoAbaixo - alturaBusca - 22)));
   }, [aberto]);
 
   function abrir() {
@@ -122,7 +140,11 @@ export function SeletorEquipamento({
         aria-expanded={aberto}
       >
         <span className={selecionado ? '' : 'seletor-tipo-placeholder'}>
-          {selecionado ? `${selecionado.tombamento} — ${selecionado.tipoEquipamento.nome}` : placeholder}
+          {selecionado
+            ? `${selecionado.tombamento} — ${selecionado.tipoEquipamento.nome}${
+                mostrarUnidade ? ` (${selecionado.unidade.nome})` : ''
+              }`
+            : placeholder}
         </span>
         <IconeChevron />
       </button>
@@ -131,17 +153,21 @@ export function SeletorEquipamento({
 
       {aberto && (
         <div className="seletor-tipo-painel" role="listbox">
-          <div className="seletor-tipo-busca">
+          <div className="seletor-tipo-busca" ref={buscaRef}>
             <IconeBusca />
             <input
               ref={inputRef}
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               onKeyDown={aoTeclar}
-              placeholder="Buscar por tombamento, tipo ou descrição..."
+              placeholder={
+                mostrarUnidade
+                  ? 'Buscar por tombamento, tipo, descrição ou unidade...'
+                  : 'Buscar por tombamento, tipo ou descrição...'
+              }
             />
           </div>
-          <div className="seletor-tipo-lista">
+          <div className="seletor-tipo-lista" style={{ maxHeight: alturaLista }}>
             {gruposFiltrados.map((categoria) => (
               <div key={categoria.nome} className="seletor-tipo-grupo">
                 <div className="seletor-tipo-grupo-titulo">{categoria.nome}</div>
@@ -155,7 +181,10 @@ export function SeletorEquipamento({
                       onMouseEnter={() => setIndiceAtivo(indice)}
                       onClick={() => selecionar(eq.id)}
                     >
-                      <span>{eq.tipoEquipamento.nome}</span>
+                      <span>
+                        {eq.tipoEquipamento.nome}
+                        {mostrarUnidade && <span className="seletor-tipo-unidade"> · {eq.unidade.nome}</span>}
+                      </span>
                       <span className="seletor-tipo-codigo">{eq.tombamento}</span>
                     </button>
                   );
@@ -163,7 +192,7 @@ export function SeletorEquipamento({
               </div>
             ))}
             {itensPlanos.length === 0 && (
-              <div className="seletor-tipo-vazio">Nenhum equipamento encontrado para "{busca}".</div>
+              <div className="seletor-tipo-vazio">Nenhum item encontrado para "{busca}".</div>
             )}
           </div>
         </div>
