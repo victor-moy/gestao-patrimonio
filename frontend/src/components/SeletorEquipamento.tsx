@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Equipamento } from '../types';
 import { IconeBusca, IconeChevron } from './icons';
 
@@ -28,14 +28,19 @@ export function SeletorEquipamento({
   equipamentos,
   value,
   onChange,
-  placeholder = 'Selecione o equipamento...',
+  placeholder = 'Selecione o item...',
   required,
   idsExcluidos,
 }: SeletorEquipamentoProps) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState('');
   const [indiceAtivo, setIndiceAtivo] = useState(0);
+  // Altura máxima da lista, recalculada a cada abertura pra caber no espaço
+  // até o fim da viewport — sem isso, o painel podia se estender além da
+  // tela e "esticar" o scroll da página com espaço em branco embaixo.
+  const [alturaLista, setAlturaLista] = useState<number>();
   const containerRef = useRef<HTMLDivElement>(null);
+  const buscaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const selecionado = useMemo(
@@ -81,6 +86,14 @@ export function SeletorEquipamento({
     }
     document.addEventListener('mousedown', aoClicarFora);
     return () => document.removeEventListener('mousedown', aoClicarFora);
+  }, [aberto]);
+
+  useLayoutEffect(() => {
+    if (!aberto || !containerRef.current) return;
+    const espacoAbaixo = window.innerHeight - containerRef.current.getBoundingClientRect().bottom;
+    const alturaBusca = buscaRef.current?.getBoundingClientRect().height ?? 0;
+    // 6 (gap do painel) + 16 (margem até o fim da viewport)
+    setAlturaLista(Math.max(120, Math.min(400, espacoAbaixo - alturaBusca - 22)));
   }, [aberto]);
 
   function abrir() {
@@ -131,7 +144,7 @@ export function SeletorEquipamento({
 
       {aberto && (
         <div className="seletor-tipo-painel" role="listbox">
-          <div className="seletor-tipo-busca">
+          <div className="seletor-tipo-busca" ref={buscaRef}>
             <IconeBusca />
             <input
               ref={inputRef}
@@ -141,7 +154,7 @@ export function SeletorEquipamento({
               placeholder="Buscar por tombamento, tipo ou descrição..."
             />
           </div>
-          <div className="seletor-tipo-lista">
+          <div className="seletor-tipo-lista" style={{ maxHeight: alturaLista }}>
             {gruposFiltrados.map((categoria) => (
               <div key={categoria.nome} className="seletor-tipo-grupo">
                 <div className="seletor-tipo-grupo-titulo">{categoria.nome}</div>
@@ -163,7 +176,7 @@ export function SeletorEquipamento({
               </div>
             ))}
             {itensPlanos.length === 0 && (
-              <div className="seletor-tipo-vazio">Nenhum equipamento encontrado para "{busca}".</div>
+              <div className="seletor-tipo-vazio">Nenhum item encontrado para "{busca}".</div>
             )}
           </div>
         </div>

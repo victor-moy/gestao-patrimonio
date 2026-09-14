@@ -19,7 +19,12 @@ export function montarFiltroVisibilidade(usuario: AuthPayload): Prisma.Equipamen
     if (!usuario.unidadeId) {
       throw new AppError('Usuário não está vinculado a uma unidade.', 403);
     }
-    return { unidadeId: usuario.unidadeId };
+    // Inclui itens emprestados temporariamente (RN06) — enquanto a origem
+    // não confirma o retorno, o equipamento conta no inventário de quem
+    // pegou emprestado.
+    return {
+      OR: [{ unidadeId: usuario.unidadeId }, { unidadeTemporariaId: usuario.unidadeId }],
+    };
   }
   return {};
 }

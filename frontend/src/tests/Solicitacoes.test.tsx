@@ -61,7 +61,7 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
     // Formulário do tipo escolhido — Ampliação aceita múltiplos itens
     // numa lista repetível (feedback do cliente 17/08). O tipo é escolhido
     // via combobox com busca (SeletorTipoEquipamento), não um <select> nativo.
-    await waitFor(() => expect(screen.getByText('Tipo de Equipamento *')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Tipo de Item *')).toBeInTheDocument());
     await userEvent.click(screen.getByText('Selecione o tipo...'));
     await userEvent.type(screen.getByPlaceholderText('Buscar por nome ou código...'), 'Autoclave');
     await userEvent.click(screen.getByText('Autoclave Vertical 75L'));

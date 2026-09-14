@@ -10,7 +10,6 @@ import type { Solicitacao } from '../types';
 import {
   formatarData,
   formatarMoeda,
-  ROTULO_ESTADO,
   ROTULO_STATUS_SOLICITACAO,
   ROTULO_TIPO_SOLICITACAO,
 } from '../utils/format';
@@ -78,10 +77,10 @@ const STATUS_POR_TIPO: Record<string, string[]> = {
     'AGUARDANDO_VALIDACAO',
     'CONCLUIDA',
   ],
-  CESSAO_USO: ['PENDENTE_APROVACAO', 'NEGADA', 'EXPIRADA', 'AGUARDANDO_SAIDA', 'CONCLUIDA'],
-  // RN05 — empréstimo dispensa aprovação: nunca passa por
-  // PENDENTE_APROVACAO/NEGADA/EXPIRADA.
-  EMPRESTIMO: ['AGUARDANDO_RECEBIMENTO', 'AGUARDANDO_RETORNO', 'CONCLUIDA'],
+  // Cessão de Uso não passa mais por aprovação — só o Gestor abre, reserva
+  // do estoque na hora (já nasce RESERVADO) e conclui ao lançar no Branet.
+  CESSAO_USO: ['RESERVADO', 'CONCLUIDA'],
+  EMPRESTIMO: ['PENDENTE_APROVACAO', 'NEGADA', 'EXPIRADA', 'AGUARDANDO_SAIDA', 'AGUARDANDO_RETORNO', 'CONCLUIDA'],
   RECOLHA: [
     'PENDENTE_APROVACAO',
     'NEGADA',
@@ -150,7 +149,9 @@ export function Solicitacoes() {
             {solicitacoesExibidas.length === 1 ? '' : 's'}
           </p>
         </div>
-        {usuario?.perfil === 'UNIDADE' && (
+        {/* Gestor de Patrimônio também precisa chegar aqui pra abrir uma
+            Cessão de Uso, que é exclusiva dele. */}
+        {(usuario?.perfil === 'UNIDADE' || usuario?.perfil === 'GESTOR_PATRIMONIO') && (
           <button className="btn btn-primary" onClick={() => navigate('/solicitacoes/nova')}>
             + Nova Solicitação
           </button>
@@ -164,7 +165,7 @@ export function Solicitacoes() {
         <div className="toolbar">
           <input
             className="search"
-            placeholder="Buscar por equipamento, tombamento ou unidade..."
+            placeholder="Buscar por item, tombamento ou unidade..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
@@ -212,7 +213,7 @@ export function Solicitacoes() {
                   <Badge valor={s.tipo}>{ROTULO_TIPO_SOLICITACAO[s.tipo]}</Badge>
                   {s.equipamento
                     ? s.equipamento.tipoEquipamento?.nome || s.equipamento.descricao
-                    : s.tipoEquipamento?.nome ?? 'Equipamento'}
+                    : s.tipoEquipamento?.nome ?? 'Item'}
                   {s.equipamento && <span className="tomb">#{s.equipamento.tombamento}</span>}
                   {s.origemRecurso === 'EMENDA_PARLAMENTAR' && (
                     <span className="badge badge-purple">Emenda</span>
@@ -283,7 +284,6 @@ function DetalheSolicitacao({
   const [motivo, setMotivo] = useState('');
   const [prioridade, setPrioridade] = useState('');
   const [acaoPendente, setAcaoPendente] = useState<'aprovar' | 'negar' | null>(null);
-  const [estado, setEstado] = useState('BOM');
   // Gestor: aprovar Recolha exige escolher direto em qual das duas etapas ela
   // já está — não escolhe mais um galpão (feedback 27/08)
   const [etapaRecolha, setEtapaRecolha] = useState<'PATRIMONIO' | 'BRANET' | ''>('');
@@ -320,10 +320,9 @@ function DetalheSolicitacao({
   }, [s.status]);
 
   const ehGP = usuario?.perfil === 'GESTOR_PATRIMONIO';
-  const ehOrigem = usuario?.unidadeId === s.unidadeOrigem.id || ehGP;
-  const ehDestino = usuario?.unidadeId === s.unidadeDestino?.id || ehGP;
-  // Confirmação de recebimento de Ampliação/Substituição é só da Unidade —
-  // nem o Gestor de Patrimônio pode fazer isso por ela (feedback 18/08)
+  // Confirmação de recebimento de Ampliação/Substituição, saída e retorno de
+  // Empréstimo/Cessão são só da Unidade de origem — nem o Gestor de
+  // Patrimônio pode fazer isso por ela (feedback 18/08)
   const souUnidadeOrigem = usuario?.perfil === 'UNIDADE' && usuario.unidadeId === s.unidadeOrigem.id;
 
   async function executar(acao: () => Promise<unknown>, mensagem: string) {
@@ -423,7 +422,7 @@ function DetalheSolicitacao({
 
       {/* GP: aprovar/negar — sem escolher ata aqui (o sistema decide sozinho
           se reserva do estoque ou fica aguardando disponibilidade) */}
-      {ehGP && pendente && s.tipo !== 'EMPRESTIMO' && (
+      {ehGP && pendente && (
         <div className="actions-box">
           <div className="actions-title">Ações Disponíveis</div>
 
@@ -555,10 +554,13 @@ function DetalheSolicitacao({
         </div>
       )}
 
-      {/* GP: reservado — informa o número do pedido Branet e o tombamento de
-          cada item; isso já cadastra os equipamentos e avança pra Aguardando
-          Entrega (feedback do cliente 17/08: quem lida com o tombamento
-          agora é o Gestor, não mais o Galpão depois) */}
+      {/* GP: reservado — informa o número do pedido Branet. Ampliação/
+          Substituição também informam o tombamento de cada item, o que já
+          cadastra os equipamentos e avança pra Aguardando Entrega (feedback
+          do cliente 17/08: quem lida com o tombamento agora é o Gestor, não
+          mais o Galpão depois). Cessão de Uso reservou do estoque na própria
+          criação e não gera tombamento novo (destino externo) — só registra
+          o número do pedido e já conclui direto. */}
       {ehGP && s.status === 'RESERVADO' && (
         <div className="actions-box">
           <div className="actions-title">Lançar no Branet</div>
@@ -566,52 +568,58 @@ function DetalheSolicitacao({
             <label>Número do Pedido (Branet) *</label>
             <input value={numeroPedidoBranet} onChange={(e) => setNumeroPedidoBranet(e.target.value)} />
           </div>
-          {itensBranet.map((item, i) => (
-            <div key={i} className="item-ampliacao">
-              <div className="item-ampliacao-cabecalho">
-                <span className="item-ampliacao-numero">
-                  {s.tipoEquipamento?.nome ?? 'Item'}
-                  {itensBranet.length > 1 ? ` — unidade ${i + 1} de ${itensBranet.length}` : ''}
-                </span>
-              </div>
-              <div className="info-grid" style={{ marginBottom: 0 }}>
-                <div className="field">
-                  <label>Tombamento *</label>
-                  <input
-                    value={item.tombamento}
-                    onChange={(e) => {
-                      const novos = [...itensBranet];
-                      novos[i] = { ...item, tombamento: e.target.value };
-                      setItensBranet(novos);
-                    }}
-                  />
+          {s.tipo !== 'CESSAO_USO' &&
+            itensBranet.map((item, i) => (
+              <div key={i} className="item-ampliacao">
+                <div className="item-ampliacao-cabecalho">
+                  <span className="item-ampliacao-numero">
+                    {s.tipoEquipamento?.nome ?? 'Item'}
+                    {itensBranet.length > 1 ? ` — unidade ${i + 1} de ${itensBranet.length}` : ''}
+                  </span>
                 </div>
-                <div className="field">
-                  <label>Descrição *</label>
-                  <input
-                    value={item.descricao}
-                    onChange={(e) => {
-                      const novos = [...itensBranet];
-                      novos[i] = { ...item, descricao: e.target.value };
-                      setItensBranet(novos);
-                    }}
-                  />
+                <div className="info-grid" style={{ marginBottom: 0 }}>
+                  <div className="field">
+                    <label>Tombamento *</label>
+                    <input
+                      value={item.tombamento}
+                      onChange={(e) => {
+                        const novos = [...itensBranet];
+                        novos[i] = { ...item, tombamento: e.target.value };
+                        setItensBranet(novos);
+                      }}
+                    />
+                  </div>
+                  <div className="field">
+                    <label>Descrição *</label>
+                    <input
+                      value={item.descricao}
+                      onChange={(e) => {
+                        const novos = [...itensBranet];
+                        novos[i] = { ...item, descricao: e.target.value };
+                        setItensBranet(novos);
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
           <div className="actions-row">
             <button
               className="btn btn-success"
-              disabled={!numeroPedidoBranet || itensBranet.some((i) => !i.tombamento || !i.descricao)}
+              disabled={
+                !numeroPedidoBranet ||
+                (s.tipo !== 'CESSAO_USO' && itensBranet.some((i) => !i.tombamento || !i.descricao))
+              }
               onClick={() =>
                 executar(
                   () =>
                     api.post(`/solicitacoes/${s.id}/lancar-branet`, {
                       numeroPedidoBranet,
-                      itens: itensBranet,
+                      ...(s.tipo !== 'CESSAO_USO' ? { itens: itensBranet } : {}),
                     }),
-                  'Pedido lançado no Branet e tombamento cadastrado.',
+                  s.tipo === 'CESSAO_USO'
+                    ? 'Pedido lançado no Branet — cessão concluída.'
+                    : 'Pedido lançado no Branet e tombamento cadastrado.',
                 )
               }
             >
@@ -683,56 +691,22 @@ function DetalheSolicitacao({
         </div>
       )}
 
-      {/* Cessão externa: origem confirma saída (já conclui a solicitação) */}
-      {s.tipo === 'CESSAO_USO' && s.status === 'AGUARDANDO_SAIDA' && ehOrigem && (
+      {/* Empréstimo: origem confirma a saída física do equipamento, que
+          passa a "emprestado" (aguardando retorno). */}
+      {s.tipo === 'EMPRESTIMO' && s.status === 'AGUARDANDO_SAIDA' && souUnidadeOrigem && (
         <div className="actions-box">
-          <div className="actions-title">Confirmar saída do equipamento</div>
+          <div className="actions-title">Confirmar saída do item</div>
           <div className="actions-row">
             <button
               className="btn btn-primary"
               onClick={() =>
                 executar(
                   () => api.post(`/solicitacoes/${s.id}/confirmar-saida`),
-                  'Saída confirmada — cessão concluída.',
+                  'Saída confirmada — empréstimo em andamento.',
                 )
               }
             >
               ✓ Confirmar Saída
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Empréstimo: destino confirma recebimento e avalia o estado */}
-      {s.tipo === 'EMPRESTIMO' && s.status === 'AGUARDANDO_RECEBIMENTO' && ehDestino && (
-        <div className="actions-box">
-          <div className="actions-title">Confirmar recebimento e avaliar o estado</div>
-          <div className="field">
-            <label>Estado do equipamento no recebimento</label>
-            <select value={estado} onChange={(e) => setEstado(e.target.value)}>
-              {Object.entries(ROTULO_ESTADO).map(([v, r]) => (
-                <option key={v} value={v}>
-                  {r}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="actions-row">
-            <button
-              className="btn btn-success"
-              onClick={() =>
-                executar(
-                  () =>
-                    api.post(`/solicitacoes/${s.id}/confirmar-recebimento`, {
-                      estadoRecebimento: estado,
-                    }),
-                  s.dataRetornoPrevista
-                    ? 'Recebimento confirmado.'
-                    : 'Recebimento confirmado — transferência concluída.',
-                )
-              }
-            >
-              ✓ Confirmar Recebimento
             </button>
           </div>
         </div>
@@ -821,8 +795,8 @@ function DetalheSolicitacao({
         </div>
       )}
 
-      {/* Empréstimo temporário: origem confirma retorno */}
-      {s.tipo === 'EMPRESTIMO' && s.status === 'AGUARDANDO_RETORNO' && ehOrigem && (
+      {/* Empréstimo: origem confirma retorno */}
+      {s.tipo === 'EMPRESTIMO' && s.status === 'AGUARDANDO_RETORNO' && souUnidadeOrigem && (
         <div className="actions-box">
           <div className="actions-title">Encerrar empréstimo</div>
           <div className="actions-row">
@@ -831,11 +805,11 @@ function DetalheSolicitacao({
               onClick={() =>
                 executar(
                   () => api.post(`/solicitacoes/${s.id}/confirmar-retorno`),
-                  'Empréstimo encerrado — equipamento devolvido.',
+                  'Empréstimo encerrado — item devolvido.',
                 )
               }
             >
-              ✓ Confirmar Retorno do Equipamento
+              ✓ Confirmar Retorno do Item
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
+import { useAuth } from '../auth/AuthContext';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
 import {
@@ -11,7 +12,6 @@ import {
   IconeDetalhes,
   IconeEmprestimo,
   IconeEnviar,
-  IconeInventario,
   IconeRecolha,
   IconeSubstituicao,
 } from '../components/icons';
@@ -29,10 +29,10 @@ const CATALOGO_TIPOS: Array<{
   Icone: () => JSX.Element;
   descricao: string;
 }> = [
-  { tipo: 'SUBSTITUICAO', Icone: IconeSubstituicao, descricao: 'Trocar um equipamento com defeito por um novo' },
+  { tipo: 'SUBSTITUICAO', Icone: IconeSubstituicao, descricao: 'Trocar um item com defeito por um novo' },
   { tipo: 'AMPLIACAO', Icone: IconeAmpliacao, descricao: 'Adquirir um item novo, sem remover outro' },
-  { tipo: 'CESSAO_USO', Icone: IconeCessaoExterna, descricao: 'Ceder um equipamento a uma entidade externa' },
-  { tipo: 'EMPRESTIMO', Icone: IconeEmprestimo, descricao: 'Movimentar um equipamento entre unidades da SES' },
+  { tipo: 'CESSAO_USO', Icone: IconeCessaoExterna, descricao: 'Ceder um item a uma entidade externa' },
+  { tipo: 'EMPRESTIMO', Icone: IconeEmprestimo, descricao: 'Movimentar um item entre unidades da SES' },
   { tipo: 'RECOLHA', Icone: IconeRecolha, descricao: 'Processo para recolha de itens na unidade' },
 ];
 
@@ -52,6 +52,7 @@ function IlustracaoFormulario() {
 }
 
 export function NovaSolicitacao() {
+  const { usuario } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [tipo, setTipo] = useState<TipoSolicitacaoValor | null>(null);
@@ -59,13 +60,11 @@ export function NovaSolicitacao() {
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
-  const [semRetorno, setSemRetorno] = useState(false);
   const [anexo, setAnexo] = useState<File | null>(null);
   const [previewAnexo, setPreviewAnexo] = useState<string | null>(null);
   const inputAnexo = useRef<HTMLInputElement>(null);
   const [erro, setErro] = useMensagemTemporaria();
   const inicial = {
-    equipamentoId: '',
     unidadeDestinoId: '',
     tipoEquipamentoId: '',
     quantidade: 1,
@@ -92,9 +91,17 @@ export function NovaSolicitacao() {
     // escolher o galpão de destino, que agora é o Gestor quem define ao
     // aprovar (feedback do cliente 26/08).
     itensRecolha: [{ equipamentoId: '' }],
+    // Empréstimo: mesmo padrão de lista repetível da Recolha — a unidade
+    // escolhe um ou mais equipamentos próprios para emprestar de uma vez à
+    // mesma unidade de destino.
+    itensEmprestimo: [{ equipamentoId: '' }],
+    // Cessão de Uso: mesmo padrão de lista repetível da Ampliação — o Gestor
+    // escolhe um ou mais tipos de equipamento e a quantidade, reservando do
+    // estoque de galpão (não escolhe um equipamento específico de uma
+    // unidade).
+    itensCessao: [{ tipoEquipamentoId: '', quantidade: 1 }],
     justificativa: '',
     entidadeExternaNome: '',
-    dataRetornoPrevista: '',
   };
   const [form, setForm] = useState(inicial);
 
@@ -114,11 +121,6 @@ export function NovaSolicitacao() {
     }
   }
 
-  // Ampliação, Substituição e Recolha usam listas repetíveis próprias
-  // (itensAmpliacao/itensSubstituicao/itensRecolha) — só os demais tipos
-  // usam o campo único de equipamento
-  const precisaEquipamento = tipo !== 'AMPLIACAO' && tipo !== 'SUBSTITUICAO' && tipo !== 'RECOLHA';
-
   async function aoEnviar(e: FormEvent) {
     e.preventDefault();
     if (!tipo) return;
@@ -129,7 +131,6 @@ export function NovaSolicitacao() {
         // Substituição carrega justificativa por item, não aqui (feedback do
         // cliente 25/08) — os demais tipos continuam com uma só, global.
         ...(tipo !== 'SUBSTITUICAO' ? { justificativa: form.justificativa } : {}),
-        ...(precisaEquipamento ? { equipamentoId: form.equipamentoId } : {}),
         ...(tipo === 'AMPLIACAO'
           ? {
               itens: form.itensAmpliacao.map((item) => ({
@@ -155,10 +156,24 @@ export function NovaSolicitacao() {
               })),
             }
           : {}),
-        ...(tipo === 'CESSAO_USO' ? { entidadeExternaNome: form.entidadeExternaNome } : {}),
-        ...(tipo === 'EMPRESTIMO' ? { unidadeDestinoId: form.unidadeDestinoId } : {}),
-        ...(tipo === 'EMPRESTIMO' && !semRetorno
-          ? { dataRetornoPrevista: form.dataRetornoPrevista }
+        ...(tipo === 'EMPRESTIMO'
+          ? {
+              unidadeDestinoId: form.unidadeDestinoId,
+              itens: form.itensEmprestimo.map((item) => ({
+                equipamentoId: item.equipamentoId,
+              })),
+            }
+          : {}),
+        ...(tipo === 'CESSAO_USO'
+          ? {
+              entidadeExternaNome: form.entidadeExternaNome,
+              // Reserva do estoque de galpão por tipo/quantidade — a origem
+              // vem do galpão que tinha saldo, não de uma unidade escolhida.
+              itens: form.itensCessao.map((item) => ({
+                tipoEquipamentoId: item.tipoEquipamentoId,
+                quantidade: Number(item.quantidade),
+              })),
+            }
           : {}),
       });
       if (tipo === 'SUBSTITUICAO') {
@@ -193,9 +208,11 @@ export function NovaSolicitacao() {
   }
 
   if (!tipo) {
-    const catalogoFiltrado = CATALOGO_TIPOS.filter((item) =>
-      ROTULO_TIPO_SOLICITACAO[item.tipo].toLowerCase().includes(buscaTipo.toLowerCase()),
-    );
+    const catalogoFiltrado = CATALOGO_TIPOS
+      // Cessão de Uso envolve entidade externa à secretaria — só o Gestor
+      // de Patrimônio pode abrir.
+      .filter((item) => item.tipo !== 'CESSAO_USO' || usuario?.perfil === 'GESTOR_PATRIMONIO')
+      .filter((item) => ROTULO_TIPO_SOLICITACAO[item.tipo].toLowerCase().includes(buscaTipo.toLowerCase()));
     return (
       <>
         <button type="button" className="catalogo-voltar pagina-voltar" onClick={voltar}>
@@ -270,88 +287,6 @@ export function NovaSolicitacao() {
 
           <div className={`form-colunas${tipo === 'SUBSTITUICAO' ? ' form-colunas-unica' : ''}`}>
           <div className="form-coluna">
-          {precisaEquipamento && (
-            <div className="form-secao">
-              <div className="form-secao-titulo">
-                <div className="form-secao-titulo-icone">
-                  <IconeInventario />
-                </div>
-                Equipamento
-              </div>
-              <div className="info-grid">
-                <div className="field">
-                  <label>Equipamento (do seu inventário) *</label>
-                  <select
-                    value={form.equipamentoId}
-                    onChange={(e) => setForm({ ...form, equipamentoId: e.target.value })}
-                    required
-                  >
-                    <option value="">Selecione um equipamento</option>
-                    {equipamentos.map((eq) => (
-                      <option key={eq.id} value={eq.id}>
-                        {eq.tombamento} — {eq.tipoEquipamento.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {tipo === 'CESSAO_USO' && (
-                  <div className="field">
-                    <label>Entidade Externa (nome) *</label>
-                    <input
-                      placeholder="Ex: Hospital Regional (outro município)"
-                      value={form.entidadeExternaNome}
-                      onChange={(e) => setForm({ ...form, entidadeExternaNome: e.target.value })}
-                      required
-                    />
-                  </div>
-                )}
-                {tipo === 'EMPRESTIMO' && (
-                  <div className="field">
-                    <label>Unidade de Destino *</label>
-                    <select
-                      value={form.unidadeDestinoId}
-                      onChange={(e) => setForm({ ...form, unidadeDestinoId: e.target.value })}
-                      required
-                    >
-                      <option value="">Selecione a unidade</option>
-                      {unidades.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-              {tipo === 'EMPRESTIMO' && (
-                <>
-                  <label className="toggle-row">
-                    <input
-                      type="checkbox"
-                      checked={semRetorno}
-                      onChange={(e) => setSemRetorno(e.target.checked)}
-                    />
-                    <div>
-                      <div className="toggle-row-titulo">Transferência permanente</div>
-                      <div className="toggle-row-desc">Sem data de retorno — o equipamento passa a pertencer à unidade de destino</div>
-                    </div>
-                  </label>
-                  {!semRetorno && (
-                    <div className="field" style={{ maxWidth: 240 }}>
-                      <label>Data Prevista de Retorno *</label>
-                      <input
-                        type="date"
-                        value={form.dataRetornoPrevista}
-                        onChange={(e) => setForm({ ...form, dataRetornoPrevista: e.target.value })}
-                        required
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
           {tipo === 'SUBSTITUICAO' && (
             <div className="form-secao">
               {form.itensSubstituicao.map((item, i) => (
@@ -408,7 +343,7 @@ export function NovaSolicitacao() {
                     <textarea
                       rows={2}
                       maxLength={JUSTIFICATIVA_MAX}
-                      placeholder="Explique o motivo da substituição deste equipamento..."
+                      placeholder="Explique o motivo da substituição deste item..."
                       value={item.justificativa}
                       onChange={(e) => {
                         const itens = [...form.itensSubstituicao];
@@ -531,7 +466,7 @@ export function NovaSolicitacao() {
                     )}
                   </div>
                   <div className="field">
-                    <label>Tipo de Equipamento *</label>
+                    <label>Tipo de Item *</label>
                     <SeletorTipoEquipamento
                       categorias={categorias}
                       value={item.tipoEquipamentoId}
@@ -633,6 +568,168 @@ export function NovaSolicitacao() {
                   setForm({
                     ...form,
                     itensRecolha: [...form.itensRecolha, { equipamentoId: '' }],
+                  })
+                }
+              >
+                + Adicionar item
+              </button>
+            </div>
+          )}
+
+          {tipo === 'EMPRESTIMO' && (
+            <div className="form-secao">
+              <div className="form-secao-titulo">
+                <div className="form-secao-titulo-icone">
+                  <IconeCaixa />
+                </div>
+                Itens a Emprestar
+              </div>
+              <div className="field">
+                <label>Unidade de Destino *</label>
+                <select
+                  value={form.unidadeDestinoId}
+                  onChange={(e) => setForm({ ...form, unidadeDestinoId: e.target.value })}
+                  required
+                >
+                  <option value="">Selecione a unidade</option>
+                  {unidades.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {form.itensEmprestimo.map((item, i) => (
+                <div key={i} className="item-ampliacao">
+                  <div className="item-ampliacao-cabecalho">
+                    <span className="item-ampliacao-numero">Item {i + 1}</span>
+                    {form.itensEmprestimo.length > 1 && (
+                      <button
+                        type="button"
+                        className="item-ampliacao-remover"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            itensEmprestimo: form.itensEmprestimo.filter((_, j) => j !== i),
+                          })
+                        }
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                  <div className="field">
+                    <label>Item *</label>
+                    <SeletorEquipamento
+                      equipamentos={equipamentos}
+                      value={item.equipamentoId}
+                      idsExcluidos={form.itensEmprestimo
+                        .filter((_, j) => j !== i)
+                        .map((it) => it.equipamentoId)
+                        .filter(Boolean)}
+                      onChange={(id) => {
+                        const itens = [...form.itensEmprestimo];
+                        itens[i] = { ...item, equipamentoId: id };
+                        setForm({ ...form, itensEmprestimo: itens });
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ marginTop: 12 }}
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    itensEmprestimo: [...form.itensEmprestimo, { equipamentoId: '' }],
+                  })
+                }
+              >
+                + Adicionar item
+              </button>
+            </div>
+          )}
+
+          {tipo === 'CESSAO_USO' && (
+            <div className="form-secao">
+              <div className="form-secao-titulo">
+                <div className="form-secao-titulo-icone">
+                  <IconeCaixa />
+                </div>
+                Itens a Ceder
+              </div>
+              <div className="field">
+                <label>Entidade Externa (nome) *</label>
+                <input
+                  placeholder="Ex: Hospital Regional (outro município)"
+                  value={form.entidadeExternaNome}
+                  onChange={(e) => setForm({ ...form, entidadeExternaNome: e.target.value })}
+                  required
+                />
+              </div>
+              {form.itensCessao.map((item, i) => (
+                <div key={i} className="item-ampliacao">
+                  <div className="item-ampliacao-cabecalho">
+                    <span className="item-ampliacao-numero">Item {i + 1}</span>
+                    {form.itensCessao.length > 1 && (
+                      <button
+                        type="button"
+                        className="item-ampliacao-remover"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            itensCessao: form.itensCessao.filter((_, j) => j !== i),
+                          })
+                        }
+                      >
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                  <div className="field">
+                    <label>Tipo de Item *</label>
+                    <SeletorTipoEquipamento
+                      categorias={categorias}
+                      value={item.tipoEquipamentoId}
+                      idsExcluidos={form.itensCessao
+                        .filter((_, j) => j !== i)
+                        .map((it) => it.tipoEquipamentoId)
+                        .filter(Boolean)}
+                      onChange={(id) => {
+                        const itens = [...form.itensCessao];
+                        itens[i] = { ...item, tipoEquipamentoId: id };
+                        setForm({ ...form, itensCessao: itens });
+                      }}
+                      required
+                    />
+                  </div>
+                  <div className="field item-ampliacao-quantidade">
+                    <label>Quantidade *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantidade}
+                      onChange={(e) => {
+                        const itens = [...form.itensCessao];
+                        itens[i] = { ...item, quantidade: Number(e.target.value) };
+                        setForm({ ...form, itensCessao: itens });
+                      }}
+                      required
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                style={{ marginTop: 12 }}
+                onClick={() =>
+                  setForm({
+                    ...form,
+                    itensCessao: [...form.itensCessao, { tipoEquipamentoId: '', quantidade: 1 }],
                   })
                 }
               >

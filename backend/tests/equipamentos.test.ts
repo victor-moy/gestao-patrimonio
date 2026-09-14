@@ -33,13 +33,15 @@ describe('Inventário (RF06-RF10, RN01)', () => {
     );
   });
 
-  it('restringe a Unidade ao próprio inventário (RF08)', async () => {
+  it('restringe a Unidade ao próprio inventário, incluindo itens emprestados temporariamente (RF08/RN06)', async () => {
     prismaMock.equipamento.findMany.mockResolvedValue([] as never);
     await request(app)
       .get('/equipamentos')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }));
     expect(prismaMock.equipamento.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { unidadeId: 'unidade-1' } }),
+      expect.objectContaining({
+        where: { OR: [{ unidadeId: 'unidade-1' }, { unidadeTemporariaId: 'unidade-1' }] },
+      }),
     );
   });
 
