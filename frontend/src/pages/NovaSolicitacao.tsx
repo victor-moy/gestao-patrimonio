@@ -99,7 +99,7 @@ export function NovaSolicitacao() {
     // escolhe um ou mais tipos de equipamento e a quantidade, reservando do
     // estoque de galpão (não escolhe um equipamento específico de uma
     // unidade).
-    itensCessao: [{ tipoEquipamentoId: '', quantidade: 1, numerosPatrimonio: [''] }],
+    itensCessao: [{ tipoEquipamentoId: '', numeroPatrimonio: '' }],
     dataRetornoPrevista: '',
     justificativa: '',
     entidadeExternaNome: '',
@@ -169,12 +169,11 @@ export function NovaSolicitacao() {
         ...(tipo === 'CESSAO_USO'
           ? {
               entidadeExternaNome: form.entidadeExternaNome,
-              // Reserva do estoque de galpão por tipo/quantidade — a origem
+              // Reserva 1 unidade do estoque de galpão por item — a origem
               // vem do galpão que tinha saldo, não de uma unidade escolhida.
               itens: form.itensCessao.map((item) => ({
                 tipoEquipamentoId: item.tipoEquipamentoId,
-                quantidade: Number(item.quantidade),
-                numerosPatrimonio: item.numerosPatrimonio,
+                numerosPatrimonio: [item.numeroPatrimonio],
               })),
             }
           : {}),
@@ -720,45 +719,18 @@ export function NovaSolicitacao() {
                       required
                     />
                   </div>
-                  <div className="field item-ampliacao-quantidade">
-                    <label>Quantidade *</label>
+                  <div className="field">
+                    <label>Nº de Patrimônio *</label>
                     <input
-                      type="number"
-                      min="1"
-                      value={item.quantidade}
+                      value={item.numeroPatrimonio}
                       onChange={(e) => {
-                        const quantidade = Math.max(1, Number(e.target.value));
-                        // Mantém um campo de nº de patrimônio por unidade —
-                        // completa ou corta a lista conforme a quantidade muda.
-                        const numerosPatrimonio = Array.from(
-                          { length: quantidade },
-                          (_, k) => item.numerosPatrimonio[k] ?? '',
-                        );
                         const itens = [...form.itensCessao];
-                        itens[i] = { ...item, quantidade, numerosPatrimonio };
+                        itens[i] = { ...item, numeroPatrimonio: e.target.value };
                         setForm({ ...form, itensCessao: itens });
                       }}
                       required
                     />
                   </div>
-                  {item.numerosPatrimonio.map((numero, k) => (
-                    <div className="field" key={k}>
-                      <label>
-                        Nº de Patrimônio {item.numerosPatrimonio.length > 1 ? `(unidade ${k + 1})` : ''} *
-                      </label>
-                      <input
-                        value={numero}
-                        onChange={(e) => {
-                          const numerosPatrimonio = [...item.numerosPatrimonio];
-                          numerosPatrimonio[k] = e.target.value;
-                          const itens = [...form.itensCessao];
-                          itens[i] = { ...item, numerosPatrimonio };
-                          setForm({ ...form, itensCessao: itens });
-                        }}
-                        required
-                      />
-                    </div>
-                  ))}
                 </div>
               ))}
               <button
@@ -768,7 +740,7 @@ export function NovaSolicitacao() {
                 onClick={() =>
                   setForm({
                     ...form,
-                    itensCessao: [...form.itensCessao, { tipoEquipamentoId: '', quantidade: 1, numerosPatrimonio: [''] }],
+                    itensCessao: [...form.itensCessao, { tipoEquipamentoId: '', numeroPatrimonio: '' }],
                   })
                 }
               >

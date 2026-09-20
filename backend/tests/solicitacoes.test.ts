@@ -63,7 +63,7 @@ const solicitacaoBase = {
 };
 
 describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
-  it('Gestor cria cessão de uso reservando do estoque de galpão por tipo/quantidade', async () => {
+  it('Gestor cria cessão de uso reservando 1 unidade do estoque de galpão por item', async () => {
     prismaMock.estoqueGalpao.findMany.mockResolvedValue([
       { id: 'est-1', unidadeId: 'galpao-1', quantidade: 5 },
     ] as never);
@@ -74,14 +74,14 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       equipamentoId: null,
       equipamento: null,
       tipoEquipamentoId: 'tipo-1',
-      quantidade: 2,
+      quantidade: 1,
     } as never);
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({
         tipo: 'CESSAO_USO',
-        itens: [{ tipoEquipamentoId: UUID, quantidade: 2, numerosPatrimonio: ['12345/2026', '12346/2026'] }],
+        itens: [{ tipoEquipamentoId: UUID, numerosPatrimonio: ['12345/2026'] }],
         entidadeExternaNome: 'Hospital Regional (outro município)',
         justificativa: 'Necessidade urgente de equipamento adicional',
       });
@@ -90,14 +90,15 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     // Sem aprovação — já reserva do estoque e nasce RESERVADO — a origem é
     // o galpão que tinha saldo (o Gestor não tem unidade própria).
     expect(prismaMock.estoqueGalpao.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'est-1' }, data: { quantidade: { decrement: 2 } } }),
+      expect.objectContaining({ where: { id: 'est-1' }, data: { quantidade: { decrement: 1 } } }),
     );
     expect(prismaMock.solicitacao.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           status: 'RESERVADO',
           unidadeOrigemId: 'galpao-1',
-          numerosPatrimonio: ['12345/2026', '12346/2026'],
+          quantidade: 1,
+          numerosPatrimonio: ['12345/2026'],
         }),
       }),
     );
@@ -120,8 +121,8 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .send({
         tipo: 'CESSAO_USO',
         itens: [
-          { tipoEquipamentoId: UUID, quantidade: 1, numerosPatrimonio: ['12345/2026'] },
-          { tipoEquipamentoId: EQUIP_UUID, quantidade: 1, numerosPatrimonio: ['12346/2026'] },
+          { tipoEquipamentoId: UUID, numerosPatrimonio: ['12345/2026'] },
+          { tipoEquipamentoId: EQUIP_UUID, numerosPatrimonio: ['12346/2026'] },
         ],
         entidadeExternaNome: 'Hospital Regional (outro município)',
         justificativa: 'Cessão de dois tipos de equipamento',
@@ -130,15 +131,15 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     expect(res.body.ids).toEqual(['sol-1', 'sol-1']);
   });
 
-  it('cessão de uso exige o nº de patrimônio de cada unidade do item', async () => {
+  it('cessão de uso exige o nº de patrimônio de cada item', async () => {
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({
         tipo: 'CESSAO_USO',
-        itens: [{ tipoEquipamentoId: UUID, quantidade: 2, numerosPatrimonio: ['12345/2026'] }],
+        itens: [{ tipoEquipamentoId: UUID }],
         entidadeExternaNome: 'Hospital Regional (outro município)',
-        justificativa: 'Faltando um nº de patrimônio',
+        justificativa: 'Faltando o nº de patrimônio',
       });
     expect(res.status).toBe(422);
     expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
@@ -186,20 +187,14 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
 
   it('bloqueia cessão de uso sem estoque suficiente (fluxo simples, sem aguardar disponibilidade)', async () => {
     prismaMock.estoqueGalpao.findMany.mockResolvedValue([
-      { id: 'est-1', unidadeId: 'galpao-1', quantidade: 1 },
+      { id: 'est-1', unidadeId: 'galpao-1', quantidade: 0 },
     ] as never);
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({
         tipo: 'CESSAO_USO',
-        itens: [
-          {
-            tipoEquipamentoId: UUID,
-            quantidade: 5,
-            numerosPatrimonio: ['1', '2', '3', '4', '5'],
-          },
-        ],
+        itens: [{ tipoEquipamentoId: UUID, numerosPatrimonio: ['12345/2026'] }],
         entidadeExternaNome: 'Hospital Regional',
         justificativa: 'Justificativa qualquer',
       });

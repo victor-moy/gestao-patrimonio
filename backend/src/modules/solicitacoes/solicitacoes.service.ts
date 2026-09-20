@@ -103,10 +103,11 @@ export interface DadosCriacao {
   // internamente (feedback do cliente 17/08, 25/08 e 26/08). Substituição
   // usa `equipamentoId` e `justificativa` por item; Recolha e Empréstimo
   // usam só `equipamentoId` (quem abre escolhe os equipamentos existentes,
-  // sem tipo/quantidade); Ampliação usa só `tipoEquipamentoId`/`quantidade`;
-  // Cessão de Uso usa `tipoEquipamentoId`/`quantidade` (reserva do estoque
-  // de galpão) mais `numerosPatrimonio`, um nº de patrimônio por unidade
-  // reservada, já informado na criação.
+  // sem tipo/quantidade); Ampliação usa `tipoEquipamentoId`/`quantidade`;
+  // Cessão de Uso usa `tipoEquipamentoId` (reserva 1 unidade do estoque de
+  // galpão por item — sempre quantidade 1, pra ceder mais de uma unidade
+  // do mesmo tipo adiciona outro item) mais `numerosPatrimonio` com um
+  // único nº de patrimônio, já informado na criação.
   itens?: Array<{
     equipamentoId?: string;
     tipoEquipamentoId?: string;
@@ -203,12 +204,13 @@ async function anotarDisponibilidade<
 export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<string[]> {
   // CESSAO_USO — exclusiva do Gestor de Patrimônio (envolve entidade externa
   // à secretaria). Não sai do inventário de uma unidade específica: reserva
-  // do estoque de galpão por tipo/quantidade, igual Ampliação/Substituição,
-  // mas sem a etapa de Ata — se não tiver saldo, falha na hora (não fica
-  // aguardando disponibilidade). Vira uma Solicitacao por item, já
-  // RESERVADO; o Gestor só marca lançado no Branet depois pra concluir,
-  // sem gerar tombamento novo (o destino é externo, não rastreado no
-  // inventário).
+  // do estoque de galpão por tipo, sempre 1 unidade por item (cada item já
+  // tem seu próprio nº de patrimônio — pra ceder mais de uma unidade do
+  // mesmo tipo, adiciona outro item), igual Ampliação/Substituição mas sem
+  // a etapa de Ata — se não tiver saldo, falha na hora (não fica aguardando
+  // disponibilidade). Vira uma Solicitacao por item, já RESERVADO; o Gestor
+  // só marca lançado no Branet depois pra concluir, sem gerar tombamento
+  // novo (o destino é externo, não rastreado no inventário).
   if (dados.tipo === 'CESSAO_USO') {
     if (usuario.perfil !== 'GESTOR_PATRIMONIO') {
       throw new AppError('Somente o Gestor de Patrimônio pode abrir uma Cessão de Uso.', 403);
@@ -216,18 +218,15 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     if (!dados.itens || dados.itens.length === 0) {
       throw new AppError('Selecione ao menos um item para a cessão.', 422);
     }
-    if (dados.itens.some((item) => !item.tipoEquipamentoId || !item.quantidade)) {
-      throw new AppError('Informe o tipo de equipamento e a quantidade de cada item.', 422);
+    if (dados.itens.some((item) => !item.tipoEquipamentoId)) {
+      throw new AppError('Informe o tipo de equipamento de cada item.', 422);
     }
     if (
       dados.itens.some(
-        (item) =>
-          !item.numerosPatrimonio ||
-          item.numerosPatrimonio.length !== item.quantidade ||
-          item.numerosPatrimonio.some((n) => !n.trim()),
+        (item) => !item.numerosPatrimonio || item.numerosPatrimonio.length !== 1 || !item.numerosPatrimonio[0]?.trim(),
       )
     ) {
-      throw new AppError('Informe o nº de patrimônio de cada unidade do item.', 422);
+      throw new AppError('Informe o nº de patrimônio de cada item.', 422);
     }
     if (!dados.justificativa?.trim()) {
       throw new AppError('Informe a justificativa.', 422);
@@ -242,7 +241,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
       const criadas = [];
       for (let i = 0; i < itensCessao.length; i++) {
         const item = itensCessao[i];
-        const pool = await tentarReservarDoEstoque(tx, item.tipoEquipamentoId!, item.quantidade!);
+        const pool = await tentarReservarDoEstoque(tx, item.tipoEquipamentoId!, 1);
         if (!pool) {
           throw new AppError(`Estoque insuficiente para o item ${i + 1}.`, 422);
         }
@@ -252,7 +251,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
             status: 'RESERVADO',
             unidadeOrigemId: pool.unidadeId,
             tipoEquipamentoId: item.tipoEquipamentoId!,
-            quantidade: item.quantidade!,
+            quantidade: 1,
             numerosPatrimonio: item.numerosPatrimonio!.map((n) => n.trim()),
             entidadeExternaNome: entidadeExterna,
             justificativa: justificativaCessao,

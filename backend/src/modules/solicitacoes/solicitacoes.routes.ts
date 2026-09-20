@@ -38,10 +38,10 @@ const criarSchema = z.object({
   // por item internamente (feedback 17/08, 25/08 e 26/08). Substituição usa
   // também `equipamentoId` e `justificativa` por item; Recolha e Empréstimo
   // usam só `equipamentoId` (a unidade escolhe equipamentos existentes, sem
-  // tipo/quantidade); Ampliação usa só `tipoEquipamentoId`/`quantidade`;
-  // Cessão de Uso usa `tipoEquipamentoId`/`quantidade` (reserva do estoque
-  // de galpão) mais `numerosPatrimonio`, um nº de patrimônio por unidade
-  // reservada.
+  // tipo/quantidade); Ampliação usa `tipoEquipamentoId`/`quantidade`;
+  // Cessão de Uso usa `tipoEquipamentoId` (reserva 1 unidade do estoque de
+  // galpão por item — sempre quantidade 1) mais `numerosPatrimonio` com um
+  // único nº de patrimônio.
   itens: z
     .array(
       z.object({
