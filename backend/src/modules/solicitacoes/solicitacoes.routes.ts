@@ -38,9 +38,10 @@ const criarSchema = z.object({
   // por item internamente (feedback 17/08, 25/08 e 26/08). Substituição usa
   // também `equipamentoId` e `justificativa` por item; Recolha e Empréstimo
   // usam só `equipamentoId` (a unidade escolhe equipamentos existentes, sem
-  // tipo/quantidade); Ampliação e Cessão de Uso usam só
-  // `tipoEquipamentoId`/`quantidade` (Cessão reserva do estoque de galpão,
-  // não escolhe um equipamento existente de uma unidade).
+  // tipo/quantidade); Ampliação usa só `tipoEquipamentoId`/`quantidade`;
+  // Cessão de Uso usa `tipoEquipamentoId`/`quantidade` (reserva do estoque
+  // de galpão) mais `numerosPatrimonio`, um nº de patrimônio por unidade
+  // reservada.
   itens: z
     .array(
       z.object({
@@ -48,11 +49,14 @@ const criarSchema = z.object({
         tipoEquipamentoId: z.string().uuid().optional(),
         quantidade: z.number().int().positive().optional(),
         justificativa: z.string().min(5, 'informe a justificativa').optional(),
+        numerosPatrimonio: z.array(z.string().min(1)).optional(),
       }),
     )
     .optional(),
   origemRecurso: z.nativeEnum(OrigemRecurso).optional(),
   entidadeExternaNome: z.string().min(2).optional(),
+  // Empréstimo: data final prevista, obrigatória (validada no service).
+  dataRetornoPrevista: z.coerce.date().optional(),
 });
 
 solicitacoesRouter.post(

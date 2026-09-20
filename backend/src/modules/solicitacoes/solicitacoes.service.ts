@@ -101,18 +101,23 @@ export interface DadosCriacao {
   // Ampliação/Substituição/Recolha/Empréstimo/Cessão de Uso: seleção de
   // múltiplos itens numa única tela — vira uma Solicitacao por item
   // internamente (feedback do cliente 17/08, 25/08 e 26/08). Substituição
-  // usa `equipamentoId` e `justificativa` por item; Recolha, Empréstimo e
-  // Cessão de Uso usam só `equipamentoId` (quem abre escolhe os equipamentos
-  // existentes, sem tipo/quantidade); Ampliação usa só
-  // `tipoEquipamentoId`/`quantidade`.
+  // usa `equipamentoId` e `justificativa` por item; Recolha e Empréstimo
+  // usam só `equipamentoId` (quem abre escolhe os equipamentos existentes,
+  // sem tipo/quantidade); Ampliação usa só `tipoEquipamentoId`/`quantidade`;
+  // Cessão de Uso usa `tipoEquipamentoId`/`quantidade` (reserva do estoque
+  // de galpão) mais `numerosPatrimonio`, um nº de patrimônio por unidade
+  // reservada, já informado na criação.
   itens?: Array<{
     equipamentoId?: string;
     tipoEquipamentoId?: string;
     quantidade?: number;
     justificativa?: string;
+    numerosPatrimonio?: string[];
   }>;
   origemRecurso?: OrigemRecurso;
   entidadeExternaNome?: string;
+  // Empréstimo: data final prevista do empréstimo, obrigatória na criação.
+  dataRetornoPrevista?: Date;
 }
 
 // Recolha não pede mais pro Gestor escolher o galpão — vai sempre pro único
@@ -214,6 +219,16 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     if (dados.itens.some((item) => !item.tipoEquipamentoId || !item.quantidade)) {
       throw new AppError('Informe o tipo de equipamento e a quantidade de cada item.', 422);
     }
+    if (
+      dados.itens.some(
+        (item) =>
+          !item.numerosPatrimonio ||
+          item.numerosPatrimonio.length !== item.quantidade ||
+          item.numerosPatrimonio.some((n) => !n.trim()),
+      )
+    ) {
+      throw new AppError('Informe o nº de patrimônio de cada unidade do item.', 422);
+    }
     if (!dados.justificativa?.trim()) {
       throw new AppError('Informe a justificativa.', 422);
     }
@@ -238,6 +253,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
             unidadeOrigemId: pool.unidadeId,
             tipoEquipamentoId: item.tipoEquipamentoId!,
             quantidade: item.quantidade!,
+            numerosPatrimonio: item.numerosPatrimonio!.map((n) => n.trim()),
             entidadeExternaNome: entidadeExterna,
             justificativa: justificativaCessao,
             criadoPorId: usuario.sub,
@@ -397,7 +413,11 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     if (!dados.justificativa?.trim()) {
       throw new AppError('Informe a justificativa.', 422);
     }
+    if (!dados.dataRetornoPrevista) {
+      throw new AppError('Informe a data final do empréstimo.', 422);
+    }
     const justificativaEmprestimo = dados.justificativa;
+    const dataRetornoPrevista = dados.dataRetornoPrevista;
     const idsEquipamentosEmprestimo = dados.itens.map((item) => item.equipamentoId!);
     if (new Set(idsEquipamentosEmprestimo).size !== idsEquipamentosEmprestimo.length) {
       throw new AppError('Um mesmo equipamento não pode aparecer duas vezes na mesma solicitação.', 422);
@@ -423,6 +443,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
             unidadeDestinoId: dados.unidadeDestinoId,
             equipamentoId: equipamento.id,
             justificativa: justificativaEmprestimo,
+            dataRetornoPrevista,
             criadoPorId: usuario.sub,
           },
         }),
@@ -913,6 +934,9 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
   if (usuario.perfil !== 'UNIDADE' || solicitacao.unidadeOrigemId !== usuario.unidadeId) {
     throw new AppError('Somente a unidade de origem confirma o retorno do empréstimo.', 403);
   }
+  // FA05 — atraso é registrado no histórico, sem bloqueio
+  const atrasado =
+    solicitacao.dataRetornoPrevista !== null && solicitacao.dataRetornoPrevista < new Date();
   const atualizada = await prisma.$transaction(async (tx) => {
     const s = await tx.solicitacao.update({
       where: { id },
@@ -927,7 +951,7 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
       data: {
         equipamentoId: s.equipamentoId!,
         tipo: 'DEVOLUCAO_EMPRESTIMO',
-        descricao: `Empréstimo encerrado — equipamento devolvido a ${s.unidadeOrigem.nome}`,
+        descricao: `Empréstimo encerrado — equipamento devolvido a ${s.unidadeOrigem.nome}${atrasado ? ' (devolução após o prazo previsto)' : ''}`,
         unidadeOrigemId: s.unidadeDestinoId,
         unidadeDestinoId: s.unidadeOrigemId,
         usuarioId: usuario.sub,
@@ -939,7 +963,7 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
         acao: 'CONCLUIR_EMPRESTIMO',
         entidade: 'solicitacao',
         entidadeId: id,
-        dadosDepois: { status: 'CONCLUIDA' },
+        dadosDepois: { status: 'CONCLUIDA', atrasado },
       },
       tx,
     );
