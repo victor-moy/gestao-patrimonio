@@ -368,6 +368,14 @@ function DetalheSolicitacao({
             <div className="info-value">{s.entidadeExternaNome}</div>
           </div>
         )}
+        {s.numerosPatrimonio && s.numerosPatrimonio.length > 0 && (
+          <div className="info-box">
+            <div className="info-label">
+              {s.numerosPatrimonio.length > 1 ? 'Nºs de Patrimônio' : 'Nº de Patrimônio'}
+            </div>
+            <div className="info-value">{s.numerosPatrimonio.join(', ')}</div>
+          </div>
+        )}
         <div className="info-box">
           <div className="info-label">Status</div>
           <div className="info-value">
