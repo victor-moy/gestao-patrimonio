@@ -62,7 +62,7 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
     // numa lista repetível (feedback do cliente 17/08). O tipo é escolhido
     // via combobox com busca (SeletorTipoEquipamento), não um <select> nativo.
     await waitFor(() => expect(screen.getByText('Tipo de Item *')).toBeInTheDocument());
-    await userEvent.click(screen.getByText('Selecione o tipo...'));
+    await userEvent.click(screen.getByText('Selecione o item...'));
     await userEvent.type(screen.getByPlaceholderText('Buscar por nome ou código...'), 'Autoclave');
     await userEvent.click(screen.getByText('Autoclave Vertical 75L'));
     await userEvent.type(
