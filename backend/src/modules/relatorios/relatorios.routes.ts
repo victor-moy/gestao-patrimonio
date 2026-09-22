@@ -61,3 +61,12 @@ relatoriosRouter.get('/cessoes', async (req, res) => {
 relatoriosRouter.get('/itens-estoque', async (_req, res) => {
   res.json(await service.itensEstoque());
 });
+
+relatoriosRouter.get('/itens-por-unidade', async (req, res) => {
+  res.json(
+    await service.itensPorUnidade({
+      ...periodo(req),
+      unidadeIds: unidadeIds(req),
+    }),
+  );
+});

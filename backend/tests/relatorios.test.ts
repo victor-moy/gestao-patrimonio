@@ -156,4 +156,49 @@ describe('Relatórios — Fase 1 (visão geral, ranking, empréstimos, cessões)
     expect(res.body).toEqual([expect.objectContaining({ quantidade: 7, solicitacoes: 2 })]);
     expect(res.body[0].tipoEquipamento.nome).toBe('Autoclave Vertical 75L');
   });
+
+  it('itens por unidade: acumula CADASTRO/RECEBIMENTO_GALPAO/RECOLHA/BAIXA mês a mês, sem contar empréstimo/manutenção', async () => {
+    prismaMock.movimentacao.findMany.mockResolvedValue([
+      { unidadeOrigemId: null, unidadeDestinoId: 'unidade-1', criadoEm: new Date('2026-01-10') },
+      { unidadeOrigemId: null, unidadeDestinoId: 'unidade-1', criadoEm: new Date('2026-02-05') },
+      { unidadeOrigemId: 'unidade-1', unidadeDestinoId: 'unidade-2', criadoEm: new Date('2026-02-20') },
+      { unidadeOrigemId: 'unidade-2', unidadeDestinoId: null, criadoEm: new Date('2026-03-01') },
+    ] as never);
+    prismaMock.unidade.findMany.mockResolvedValue([
+      { id: 'unidade-1', nome: 'UBS Sul' },
+      { id: 'unidade-2', nome: 'Galpão CIAD/Branet' },
+    ] as never);
+    const res = await request(app)
+      .get('/relatorios/itens-por-unidade?dataFim=2026-03-31')
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body.unidades).toEqual(['UBS Sul', 'Galpão CIAD/Branet']);
+    expect(res.body.linhas).toEqual([
+      { mes: '2026-01', 'UBS Sul': 1, 'Galpão CIAD/Branet': 0 },
+      { mes: '2026-02', 'UBS Sul': 1, 'Galpão CIAD/Branet': 1 },
+      { mes: '2026-03', 'UBS Sul': 1, 'Galpão CIAD/Branet': 0 },
+    ]);
+    expect(prismaMock.movimentacao.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tipo: { in: ['CADASTRO', 'IMPORTACAO_CSV', 'RECEBIMENTO_GALPAO', 'RECOLHA', 'BAIXA'] } },
+      }),
+    );
+  });
+
+  it('itens por unidade: filtro de unidade restringe as séries retornadas', async () => {
+    prismaMock.movimentacao.findMany.mockResolvedValue([
+      { unidadeOrigemId: null, unidadeDestinoId: 'unidade-1', criadoEm: new Date('2026-01-10') },
+      { unidadeOrigemId: null, unidadeDestinoId: 'unidade-2', criadoEm: new Date('2026-01-15') },
+    ] as never);
+    prismaMock.unidade.findMany.mockResolvedValue([
+      { id: 'unidade-1', nome: 'UBS Sul' },
+      { id: 'unidade-2', nome: 'UBS Norte' },
+    ] as never);
+    const res = await request(app)
+      .get('/relatorios/itens-por-unidade?dataFim=2026-01-31&unidadeId=unidade-1')
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body.unidades).toEqual(['UBS Sul']);
+    expect(res.body.linhas).toEqual([{ mes: '2026-01', 'UBS Sul': 1 }]);
+  });
 });
