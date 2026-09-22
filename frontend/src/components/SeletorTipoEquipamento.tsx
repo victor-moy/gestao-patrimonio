@@ -28,7 +28,7 @@ export function SeletorTipoEquipamento({
   categorias,
   value,
   onChange,
-  placeholder = 'Selecione o tipo...',
+  placeholder = 'Selecione o item...',
   required,
   idsExcluidos,
 }: SeletorTipoEquipamentoProps) {

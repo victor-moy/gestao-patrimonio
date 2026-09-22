@@ -101,18 +101,24 @@ export interface DadosCriacao {
   // Ampliação/Substituição/Recolha/Empréstimo/Cessão de Uso: seleção de
   // múltiplos itens numa única tela — vira uma Solicitacao por item
   // internamente (feedback do cliente 17/08, 25/08 e 26/08). Substituição
-  // usa `equipamentoId` e `justificativa` por item; Recolha, Empréstimo e
-  // Cessão de Uso usam só `equipamentoId` (quem abre escolhe os equipamentos
-  // existentes, sem tipo/quantidade); Ampliação usa só
-  // `tipoEquipamentoId`/`quantidade`.
+  // usa `equipamentoId` e `justificativa` por item; Recolha e Empréstimo
+  // usam só `equipamentoId` (quem abre escolhe os equipamentos existentes,
+  // sem tipo/quantidade); Ampliação usa `tipoEquipamentoId`/`quantidade`;
+  // Cessão de Uso usa `tipoEquipamentoId` (reserva 1 unidade do estoque de
+  // galpão por item — sempre quantidade 1, pra ceder mais de uma unidade
+  // do mesmo tipo adiciona outro item) mais `numerosPatrimonio` com um
+  // único nº de patrimônio, já informado na criação.
   itens?: Array<{
     equipamentoId?: string;
     tipoEquipamentoId?: string;
     quantidade?: number;
     justificativa?: string;
+    numerosPatrimonio?: string[];
   }>;
   origemRecurso?: OrigemRecurso;
   entidadeExternaNome?: string;
+  // Empréstimo: data final prevista do empréstimo, obrigatória na criação.
+  dataRetornoPrevista?: Date;
 }
 
 // Recolha não pede mais pro Gestor escolher o galpão — vai sempre pro único
@@ -198,12 +204,13 @@ async function anotarDisponibilidade<
 export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<string[]> {
   // CESSAO_USO — exclusiva do Gestor de Patrimônio (envolve entidade externa
   // à secretaria). Não sai do inventário de uma unidade específica: reserva
-  // do estoque de galpão por tipo/quantidade, igual Ampliação/Substituição,
-  // mas sem a etapa de Ata — se não tiver saldo, falha na hora (não fica
-  // aguardando disponibilidade). Vira uma Solicitacao por item, já
-  // RESERVADO; o Gestor só marca lançado no Branet depois pra concluir,
-  // sem gerar tombamento novo (o destino é externo, não rastreado no
-  // inventário).
+  // do estoque de galpão por tipo, sempre 1 unidade por item (cada item já
+  // tem seu próprio nº de patrimônio — pra ceder mais de uma unidade do
+  // mesmo tipo, adiciona outro item), igual Ampliação/Substituição mas sem
+  // a etapa de Ata — se não tiver saldo, falha na hora (não fica aguardando
+  // disponibilidade). Vira uma Solicitacao por item, já RESERVADO; o Gestor
+  // só marca lançado no Branet depois pra concluir, sem gerar tombamento
+  // novo (o destino é externo, não rastreado no inventário).
   if (dados.tipo === 'CESSAO_USO') {
     if (usuario.perfil !== 'GESTOR_PATRIMONIO') {
       throw new AppError('Somente o Gestor de Patrimônio pode abrir uma Cessão de Uso.', 403);
@@ -211,8 +218,15 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     if (!dados.itens || dados.itens.length === 0) {
       throw new AppError('Selecione ao menos um item para a cessão.', 422);
     }
-    if (dados.itens.some((item) => !item.tipoEquipamentoId || !item.quantidade)) {
-      throw new AppError('Informe o tipo de equipamento e a quantidade de cada item.', 422);
+    if (dados.itens.some((item) => !item.tipoEquipamentoId)) {
+      throw new AppError('Informe o tipo de equipamento de cada item.', 422);
+    }
+    if (
+      dados.itens.some(
+        (item) => !item.numerosPatrimonio || item.numerosPatrimonio.length !== 1 || !item.numerosPatrimonio[0]?.trim(),
+      )
+    ) {
+      throw new AppError('Informe o nº de patrimônio de cada item.', 422);
     }
     if (!dados.justificativa?.trim()) {
       throw new AppError('Informe a justificativa.', 422);
@@ -227,7 +241,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
       const criadas = [];
       for (let i = 0; i < itensCessao.length; i++) {
         const item = itensCessao[i];
-        const pool = await tentarReservarDoEstoque(tx, item.tipoEquipamentoId!, item.quantidade!);
+        const pool = await tentarReservarDoEstoque(tx, item.tipoEquipamentoId!, 1);
         if (!pool) {
           throw new AppError(`Estoque insuficiente para o item ${i + 1}.`, 422);
         }
@@ -237,7 +251,8 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
             status: 'RESERVADO',
             unidadeOrigemId: pool.unidadeId,
             tipoEquipamentoId: item.tipoEquipamentoId!,
-            quantidade: item.quantidade!,
+            quantidade: 1,
+            numerosPatrimonio: item.numerosPatrimonio!.map((n) => n.trim()),
             entidadeExternaNome: entidadeExterna,
             justificativa: justificativaCessao,
             criadoPorId: usuario.sub,
@@ -397,7 +412,11 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
     if (!dados.justificativa?.trim()) {
       throw new AppError('Informe a justificativa.', 422);
     }
+    if (!dados.dataRetornoPrevista) {
+      throw new AppError('Informe a data final do empréstimo.', 422);
+    }
     const justificativaEmprestimo = dados.justificativa;
+    const dataRetornoPrevista = dados.dataRetornoPrevista;
     const idsEquipamentosEmprestimo = dados.itens.map((item) => item.equipamentoId!);
     if (new Set(idsEquipamentosEmprestimo).size !== idsEquipamentosEmprestimo.length) {
       throw new AppError('Um mesmo equipamento não pode aparecer duas vezes na mesma solicitação.', 422);
@@ -423,6 +442,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
             unidadeDestinoId: dados.unidadeDestinoId,
             equipamentoId: equipamento.id,
             justificativa: justificativaEmprestimo,
+            dataRetornoPrevista,
             criadoPorId: usuario.sub,
           },
         }),
@@ -913,6 +933,9 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
   if (usuario.perfil !== 'UNIDADE' || solicitacao.unidadeOrigemId !== usuario.unidadeId) {
     throw new AppError('Somente a unidade de origem confirma o retorno do empréstimo.', 403);
   }
+  // FA05 — atraso é registrado no histórico, sem bloqueio
+  const atrasado =
+    solicitacao.dataRetornoPrevista !== null && solicitacao.dataRetornoPrevista < new Date();
   const atualizada = await prisma.$transaction(async (tx) => {
     const s = await tx.solicitacao.update({
       where: { id },
@@ -927,7 +950,7 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
       data: {
         equipamentoId: s.equipamentoId!,
         tipo: 'DEVOLUCAO_EMPRESTIMO',
-        descricao: `Empréstimo encerrado — equipamento devolvido a ${s.unidadeOrigem.nome}`,
+        descricao: `Empréstimo encerrado — equipamento devolvido a ${s.unidadeOrigem.nome}${atrasado ? ' (devolução após o prazo previsto)' : ''}`,
         unidadeOrigemId: s.unidadeDestinoId,
         unidadeDestinoId: s.unidadeOrigemId,
         usuarioId: usuario.sub,
@@ -939,7 +962,7 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
         acao: 'CONCLUIR_EMPRESTIMO',
         entidade: 'solicitacao',
         entidadeId: id,
-        dadosDepois: { status: 'CONCLUIDA' },
+        dadosDepois: { status: 'CONCLUIDA', atrasado },
       },
       tx,
     );

@@ -99,7 +99,8 @@ export function NovaSolicitacao() {
     // escolhe um ou mais tipos de equipamento e a quantidade, reservando do
     // estoque de galpão (não escolhe um equipamento específico de uma
     // unidade).
-    itensCessao: [{ tipoEquipamentoId: '', quantidade: 1 }],
+    itensCessao: [{ tipoEquipamentoId: '', numeroPatrimonio: '' }],
+    dataRetornoPrevista: '',
     justificativa: '',
     entidadeExternaNome: '',
   };
@@ -159,6 +160,7 @@ export function NovaSolicitacao() {
         ...(tipo === 'EMPRESTIMO'
           ? {
               unidadeDestinoId: form.unidadeDestinoId,
+              dataRetornoPrevista: form.dataRetornoPrevista,
               itens: form.itensEmprestimo.map((item) => ({
                 equipamentoId: item.equipamentoId,
               })),
@@ -167,11 +169,11 @@ export function NovaSolicitacao() {
         ...(tipo === 'CESSAO_USO'
           ? {
               entidadeExternaNome: form.entidadeExternaNome,
-              // Reserva do estoque de galpão por tipo/quantidade — a origem
+              // Reserva 1 unidade do estoque de galpão por item — a origem
               // vem do galpão que tinha saldo, não de uma unidade escolhida.
               itens: form.itensCessao.map((item) => ({
                 tipoEquipamentoId: item.tipoEquipamentoId,
-                quantidade: Number(item.quantidade),
+                numerosPatrimonio: [item.numeroPatrimonio],
               })),
             }
           : {}),
@@ -584,20 +586,31 @@ export function NovaSolicitacao() {
                 </div>
                 Itens a Emprestar
               </div>
-              <div className="field">
-                <label>Unidade de Destino *</label>
-                <select
-                  value={form.unidadeDestinoId}
-                  onChange={(e) => setForm({ ...form, unidadeDestinoId: e.target.value })}
-                  required
-                >
-                  <option value="">Selecione a unidade</option>
-                  {unidades.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.nome}
-                    </option>
-                  ))}
-                </select>
+              <div className="info-grid">
+                <div className="field">
+                  <label>Unidade de Destino *</label>
+                  <select
+                    value={form.unidadeDestinoId}
+                    onChange={(e) => setForm({ ...form, unidadeDestinoId: e.target.value })}
+                    required
+                  >
+                    <option value="">Selecione a unidade</option>
+                    {unidades.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Data Final do Empréstimo *</label>
+                  <input
+                    type="date"
+                    value={form.dataRetornoPrevista}
+                    onChange={(e) => setForm({ ...form, dataRetornoPrevista: e.target.value })}
+                    required
+                  />
+                </div>
               </div>
               {form.itensEmprestimo.map((item, i) => (
                 <div key={i} className="item-ampliacao">
@@ -690,7 +703,7 @@ export function NovaSolicitacao() {
                     )}
                   </div>
                   <div className="field">
-                    <label>Tipo de Item *</label>
+                    <label>Item *</label>
                     <SeletorTipoEquipamento
                       categorias={categorias}
                       value={item.tipoEquipamentoId}
@@ -706,15 +719,13 @@ export function NovaSolicitacao() {
                       required
                     />
                   </div>
-                  <div className="field item-ampliacao-quantidade">
-                    <label>Quantidade *</label>
+                  <div className="field">
+                    <label>Nº de Patrimônio *</label>
                     <input
-                      type="number"
-                      min="1"
-                      value={item.quantidade}
+                      value={item.numeroPatrimonio}
                       onChange={(e) => {
                         const itens = [...form.itensCessao];
-                        itens[i] = { ...item, quantidade: Number(e.target.value) };
+                        itens[i] = { ...item, numeroPatrimonio: e.target.value };
                         setForm({ ...form, itensCessao: itens });
                       }}
                       required
@@ -729,7 +740,7 @@ export function NovaSolicitacao() {
                 onClick={() =>
                   setForm({
                     ...form,
-                    itensCessao: [...form.itensCessao, { tipoEquipamentoId: '', quantidade: 1 }],
+                    itensCessao: [...form.itensCessao, { tipoEquipamentoId: '', numeroPatrimonio: '' }],
                   })
                 }
               >

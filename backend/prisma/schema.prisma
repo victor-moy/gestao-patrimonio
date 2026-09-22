@@ -324,9 +324,12 @@ model Solicitacao {
   anexoUrl            String?           @map("anexo_url")
   // Cessão de Uso: nome da entidade externa (fora do município) que recebe o equipamento
   entidadeExternaNome String?           @map("entidade_externa_nome")
-  // Legado: usado pelo fluxo antigo de Empréstimo (transferência permanente
-  // sem data vs. temporária com data). Não é mais preenchido — todo
-  // empréstimo hoje exige confirmação de retorno.
+  // Cessão de Uso: nº de patrimônio de cada unidade do item cedido (reservado
+  // do estoque por tipo/quantidade — quem abre já informa qual(is) item(ns)
+  // específico(s) do estoque serão cedidos)
+  numerosPatrimonio   String[]          @default([]) @map("numeros_patrimonio")
+  // Empréstimo: data final prevista, informada na criação — usada pra
+  // sinalizar atraso quando a origem confirma o retorno.
   dataRetornoPrevista DateTime?         @map("data_retorno_prevista")
   // Legado: 5 níveis de conservação avaliados no recebimento do empréstimo
   // antigo — a confirmação de recebimento foi substituída por confirmar-saída.

@@ -226,7 +226,9 @@ export function Solicitacoes() {
                       relevante pra mostrar (feedback do cliente 27/08) */}
                   {s.unidadeDestino && s.tipo !== 'RECOLHA' && <> ⇆ Destino: {s.unidadeDestino.nome}</>}
                   {s.entidadeExternaNome && <> ⇆ Destino: {s.entidadeExternaNome} (externo)</>}
-                  {s.quantidade && <> · Qtd: {s.quantidade}</>}
+                  {/* Cessão de Uso sempre reserva 1 unidade por item — não é
+                      informação relevante pra mostrar */}
+                  {s.quantidade && s.tipo !== 'CESSAO_USO' && <> · Qtd: {s.quantidade}</>}
                 </div>
                 <div className="request-desc">{s.justificativa}</div>
                 <div className="request-meta">
@@ -368,13 +370,21 @@ function DetalheSolicitacao({
             <div className="info-value">{s.entidadeExternaNome}</div>
           </div>
         )}
+        {s.numerosPatrimonio && s.numerosPatrimonio.length > 0 && (
+          <div className="info-box">
+            <div className="info-label">
+              {s.numerosPatrimonio.length > 1 ? 'Nºs de Patrimônio' : 'Nº de Patrimônio'}
+            </div>
+            <div className="info-value">{s.numerosPatrimonio.join(', ')}</div>
+          </div>
+        )}
         <div className="info-box">
           <div className="info-label">Status</div>
           <div className="info-value">
             <Badge valor={statusExibido(s).valor}>{statusExibido(s).texto}</Badge>
           </div>
         </div>
-        {s.quantidade && (
+        {s.quantidade && s.tipo !== 'CESSAO_USO' && (
           <div className="info-box">
             <div className="info-label">Quantidade</div>
             <div className="info-value">{s.quantidade}</div>

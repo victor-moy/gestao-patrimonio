@@ -155,6 +155,7 @@ export interface Solicitacao {
   origemRecurso: 'REGULAR' | 'EMENDA_PARLAMENTAR' | null;
   anexoUrl?: string | null;
   entidadeExternaNome?: string | null;
+  numerosPatrimonio?: string[];
   dataRetornoPrevista: string | null;
   automatica: boolean;
   criadoEm: string;
