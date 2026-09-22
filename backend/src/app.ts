@@ -14,6 +14,7 @@ import { atasRouter } from './modules/atas/atas.routes';
 import { contratosRouter } from './modules/contratos/contratos.routes';
 import { estoqueRouter } from './modules/estoque/estoque.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
+import { relatoriosRouter } from './modules/relatorios/relatorios.routes';
 import { importacaoRouter } from './modules/importacao/importacao.routes';
 import { tratarErros } from './middlewares/error';
 import { prisma } from './lib/prisma';
@@ -69,6 +70,7 @@ export function criarApp() {
   app.use('/contratos', contratosRouter);
   app.use('/estoque', estoqueRouter);
   app.use('/dashboard', dashboardRouter);
+  app.use('/relatorios', relatoriosRouter);
   app.use('/importacao', importacaoRouter);
 
   app.use(tratarErros);
