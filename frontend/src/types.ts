@@ -237,6 +237,52 @@ export interface Alerta {
   mensagem: string;
 }
 
+export interface VisaoGeralTipo {
+  tipo: TipoSolicitacao;
+  emAndamento: number;
+  concluida: number;
+  negadaCancelada: number;
+}
+
+export interface RankingUnidadeTipo {
+  unidadeId: string;
+  unidade: string;
+  quantidade: number;
+}
+
+export interface EmprestimoRelatorio {
+  id: string;
+  equipamento: string | null;
+  unidadeOrigem: string;
+  unidadeDestino: string | null;
+  dataRetornoPrevista: string | null;
+  status: StatusSolicitacao;
+  atrasado: boolean;
+  criadoEm: string;
+}
+
+export interface RelatorioEmprestimos {
+  percentualAtraso: number;
+  duracaoMediaDias: number;
+  itens: EmprestimoRelatorio[];
+}
+
+export interface CessaoRelatorio {
+  id: string;
+  entidadeExternaNome: string | null;
+  tipoEquipamento: string | null;
+  numerosPatrimonio: string[];
+  unidadeOrigem: string;
+  status: StatusSolicitacao;
+  numeroPedidoBranet: string | null;
+  dataConclusao: string | null;
+  criadoEm: string;
+}
+
+export interface RelatorioCessoes {
+  itens: CessaoRelatorio[];
+}
+
 export type StatusContrato = 'ATIVO' | 'RENOVACAO_PENDENTE' | 'EXPIRADO';
 
 export interface Contrato {
