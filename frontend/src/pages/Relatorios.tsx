@@ -3,6 +3,8 @@ import {
   Bar,
   BarChart,
   Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,6 +17,7 @@ import type {
   CessaoRelatorio,
   EmprestimoRelatorio,
   EstoqueAguardandoItem,
+  ItensPorUnidadeResposta,
   RankingUnidadeTipo,
   RelatorioCessoes,
   RelatorioEmprestimos,
@@ -22,7 +25,14 @@ import type {
   Unidade,
   VisaoGeralTipo,
 } from '../types';
-import { capitalizarPalavras, formatarData, formatarMoeda, ROTULO_STATUS_SOLICITACAO, ROTULO_TIPO_SOLICITACAO } from '../utils/format';
+import {
+  capitalizarPalavras,
+  formatarData,
+  formatarMes,
+  formatarMoeda,
+  ROTULO_STATUS_SOLICITACAO,
+  ROTULO_TIPO_SOLICITACAO,
+} from '../utils/format';
 
 type OpcaoRelatorio = 'visao-geral' | 'emprestimos' | 'cessoes' | 'itens-estoque';
 
@@ -43,6 +53,10 @@ const CORES_RANKING: Record<string, string> = {
   EMPRESTIMO: '#c98f3d',
   RECOLHA: '#7c3aed',
 };
+
+// Paleta cíclica pras linhas do gráfico de itens por unidade — o número de
+// unidades com movimentação varia, não dá pra ter uma cor fixa por unidade.
+const PALETA_LINHAS = ['#0e4e6e', '#1d6fa3', '#c98f3d', '#7c3aed', '#16a34a', '#dc2626', '#0891b2', '#be185d'];
 
 export function Relatorios() {
   const [relatorio, setRelatorio] = useState<OpcaoRelatorio>('visao-geral');
@@ -469,12 +483,16 @@ function RelatorioCessoes() {
   );
 }
 
-// Relatório 4 — Itens e Estoque: o que está represado em Aguardando
-// Disponibilidade, sem estoque suficiente pra reservar agora. Antes vivia
-// dentro da tela de Estoque, virou um relatório dedicado.
+// Relatório 4 — Itens e Estoque: quantidade de equipamentos por unidade ao
+// longo do tempo + o que está represado em Aguardando Disponibilidade, sem
+// estoque suficiente pra reservar agora. A segunda parte vivia antes dentro
+// da tela de Estoque, virou um relatório dedicado.
 function RelatorioItensEstoque() {
   const [dados, setDados] = useState<EstoqueAguardandoItem[] | null>(null);
+  const [serie, setSerie] = useState<ItensPorUnidadeResposta | null>(null);
+  const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [erro, setErro] = useState<string | null>(null);
+  const [filtros, setFiltros] = useState({ dataInicio: '', dataFim: '', unidadeIds: [] as string[] });
 
   useEffect(() => {
     api
@@ -482,6 +500,25 @@ function RelatorioItensEstoque() {
       .then(setDados)
       .catch((e) => setErro(e.message));
   }, []);
+
+  useEffect(() => {
+    api.get<Unidade[]>('/unidades').then(setUnidades).catch(() => {});
+  }, []);
+
+  const carregarSerie = useCallback(() => {
+    const params = new URLSearchParams();
+    if (filtros.dataInicio) params.set('dataInicio', filtros.dataInicio);
+    if (filtros.dataFim) params.set('dataFim', filtros.dataFim);
+    if (filtros.unidadeIds.length > 0) params.set('unidadeId', filtros.unidadeIds.join(','));
+    api
+      .get<ItensPorUnidadeResposta>(`/relatorios/itens-por-unidade?${params}`)
+      .then(setSerie)
+      .catch((e) => setErro(e.message));
+  }, [filtros]);
+
+  useEffect(() => {
+    carregarSerie();
+  }, [carregarSerie]);
 
   const verbaTotal = (dados ?? []).reduce((total, item) => {
     const preco = item.tipoEquipamento.preco;
@@ -492,6 +529,67 @@ function RelatorioItensEstoque() {
   return (
     <>
       {erro && <div className="error-banner">{erro}</div>}
+
+      <div className="card" style={{ marginTop: 20 }}>
+        <div className="toolbar">
+          <div>
+            <label style={{ fontSize: 12 }}>Período — início</label>
+            <input
+              type="date"
+              value={filtros.dataInicio}
+              onChange={(e) => setFiltros({ ...filtros, dataInicio: e.target.value })}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12 }}>Período — fim</label>
+            <input
+              type="date"
+              value={filtros.dataFim}
+              onChange={(e) => setFiltros({ ...filtros, dataFim: e.target.value })}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12 }}>Unidade</label>
+            <SeletorMultiploUnidades
+              unidades={unidades}
+              selecionados={filtros.unidadeIds}
+              onChange={(ids) => setFiltros({ ...filtros, unidadeIds: ids })}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="card card-pad" style={{ marginTop: 20 }}>
+        <h3>Quantidade de Itens por Unidade ao Longo do Tempo</h3>
+        <p className="subtitle" style={{ marginTop: -4 }}>
+          Total acumulado de equipamentos por unidade, mês a mês
+        </p>
+        {serie && serie.linhas.length > 0 ? (
+          <ResponsiveContainer width="100%" height={340}>
+            <LineChart data={serie.linhas.map((l) => ({ ...l, mes: formatarMes(String(l.mes)) }))} margin={{ left: 8 }}>
+              <XAxis dataKey="mes" fontSize={12} />
+              <YAxis allowDecimals={false} fontSize={12} />
+              <Tooltip />
+              <Legend />
+              {serie.unidades.map((nome, i) => (
+                <Line
+                  key={nome}
+                  type="monotone"
+                  dataKey={nome}
+                  stroke={PALETA_LINHAS[i % PALETA_LINHAS.length]}
+                  strokeWidth={2}
+                  dot={false}
+                />
+              ))}
+            </LineChart>
+          </ResponsiveContainer>
+        ) : serie ? (
+          <div className="empty-state">Sem movimentações para os filtros selecionados</div>
+        ) : (
+          <div className="empty-state">Carregando…</div>
+        )}
+      </div>
+
       <div className="card card-pad" style={{ marginTop: 20 }}>
         <h3>Itens Aguardando Estoque</h3>
         <p className="subtitle" style={{ marginTop: -4 }}>

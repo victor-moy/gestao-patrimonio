@@ -210,6 +210,14 @@ export interface EstoqueAguardandoItem {
   solicitacoes: number;
 }
 
+export interface ItensPorUnidadeResposta {
+  // Nomes das unidades com séries no gráfico, na ordem em que aparecem em `linhas`
+  unidades: string[];
+  // Uma linha por mês (chave "mes": "AAAA-MM") + uma chave por unidade com o
+  // total acumulado de equipamentos até o fim daquele mês
+  linhas: Array<Record<string, string | number>>;
+}
+
 export interface MovimentacaoEstoque {
   id: string;
   tipo: 'ENTRADA' | 'SAIDA';
