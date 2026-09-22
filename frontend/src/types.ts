@@ -247,7 +247,10 @@ export interface VisaoGeralTipo {
 export interface RankingUnidadeTipo {
   unidadeId: string;
   unidade: string;
-  quantidade: number;
+  SUBSTITUICAO: number;
+  AMPLIACAO: number;
+  EMPRESTIMO: number;
+  RECOLHA: number;
 }
 
 export interface EmprestimoRelatorio {

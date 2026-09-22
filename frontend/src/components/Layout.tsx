@@ -31,7 +31,7 @@ const TABS: TabDef[] = [
   { para: '/manutencoes', rotulo: 'Manutenções', icone: <IconeManutencoes />, perfis: ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO', 'UNIDADE'] },
   { para: '/solicitacoes', rotulo: 'Solicitações', icone: <IconeSolicitacoes />, perfis: ['GESTOR_PATRIMONIO', 'UNIDADE', 'GALPAO'] },
   { para: '/estoque', rotulo: 'Estoque', icone: <IconeEstoque />, perfis: ['GESTOR_PATRIMONIO', 'GALPAO'] },
-  { para: '/relatorios', rotulo: 'Relatórios', icone: <IconeRelatorios />, perfis: ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO'] },
+  { para: '/relatorios', rotulo: 'Relatórios', icone: <IconeRelatorios />, perfis: ['GESTOR_PATRIMONIO'] },
 ];
 
 export function Layout() {
