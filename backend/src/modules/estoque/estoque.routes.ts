@@ -93,36 +93,6 @@ estoqueRouter.get('/', async (req, res) => {
   res.json(itens.map((i) => ({ ...i, reservado: reservadoPorTipo.get(i.tipoEquipamentoId) ?? 0 })));
 });
 
-// Lista, por tipo de equipamento, tudo que está represado em
-// AGUARDANDO_DISPONIBILIDADE (sem estoque suficiente pra reservar ainda) —
-// não é por galpão, já que a solicitação ainda não tem um galpão associado.
-estoqueRouter.get('/aguardando', async (_req, res) => {
-  const grupos = await prisma.solicitacao.groupBy({
-    by: ['tipoEquipamentoId'],
-    where: {
-      status: 'AGUARDANDO_DISPONIBILIDADE',
-      tipo: { in: [...TIPOS_COM_ATA] },
-    },
-    _sum: { quantidade: true },
-    _count: { _all: true },
-  });
-  const ids = grupos.map((g) => g.tipoEquipamentoId).filter((id): id is string => !!id);
-  const tipos = await prisma.tipoEquipamento.findMany({
-    where: { id: { in: ids } },
-    include: { categoria: { select: { nome: true, cor: true } } },
-  });
-  const tiposPorId = new Map(tipos.map((t) => [t.id, t]));
-  const situacao = grupos
-    .filter((g) => g.tipoEquipamentoId && tiposPorId.has(g.tipoEquipamentoId))
-    .map((g) => ({
-      tipoEquipamento: tiposPorId.get(g.tipoEquipamentoId as string)!,
-      quantidade: g._sum.quantidade ?? 0,
-      solicitacoes: g._count._all,
-    }))
-    .sort((a, b) => a.tipoEquipamento.nome.localeCompare(b.tipoEquipamento.nome, 'pt-BR'));
-  res.json(situacao);
-});
-
 estoqueRouter.get('/movimentacoes', async (_req, res) => {
   const movimentacoes = await prisma.movimentacaoEstoque.findMany({
     include: {

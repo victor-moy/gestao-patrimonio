@@ -35,30 +35,31 @@ describe('Relatórios — Fase 1 (visão geral, ranking, empréstimos, cessões)
     });
   });
 
-  it('ranking de unidades exige o tipo de solicitação', async () => {
-    const res = await request(app).get('/relatorios/ranking-unidades').set(auth('GESTOR_PATRIMONIO'));
-    expect(res.status).toBe(422);
-  });
-
-  it('ranking de unidades: conta solicitações por unidade de origem, filtrado por tipo', async () => {
+  it('ranking de unidades: conta por tipo, os 4 tipos lado a lado por unidade, ordenado pelo total desc', async () => {
     (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([
-      { unidadeOrigemId: 'unidade-1', _count: { id: 12 } },
-      { unidadeOrigemId: 'unidade-2', _count: { id: 5 } },
+      { unidadeOrigemId: 'unidade-1', tipo: 'SUBSTITUICAO', _count: { id: 12 } },
+      { unidadeOrigemId: 'unidade-1', tipo: 'EMPRESTIMO', _count: { id: 2 } },
+      { unidadeOrigemId: 'unidade-2', tipo: 'AMPLIACAO', _count: { id: 20 } },
     ]);
     prismaMock.unidade.findMany.mockResolvedValue([
       { id: 'unidade-1', nome: 'UBS Sul' },
       { id: 'unidade-2', nome: 'UBS Centro' },
     ] as never);
-    const res = await request(app)
-      .get('/relatorios/ranking-unidades?tipo=SUBSTITUICAO')
-      .set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get('/relatorios/ranking-unidades').set(auth('GESTOR_PATRIMONIO'));
     expect(res.status).toBe(200);
+    // UBS Centro vem primeiro: total 20 > 14 da UBS Sul
     expect(res.body).toEqual([
-      { unidadeId: 'unidade-1', unidade: 'UBS Sul', quantidade: 12 },
-      { unidadeId: 'unidade-2', unidade: 'UBS Centro', quantidade: 5 },
+      { unidadeId: 'unidade-2', unidade: 'UBS Centro', SUBSTITUICAO: 0, AMPLIACAO: 20, EMPRESTIMO: 0, RECOLHA: 0 },
+      { unidadeId: 'unidade-1', unidade: 'UBS Sul', SUBSTITUICAO: 12, AMPLIACAO: 0, EMPRESTIMO: 2, RECOLHA: 0 },
     ]);
+    // Cessão de Uso fica de fora — sua unidade de origem é o galpão, não uma
+    // unidade solicitando
     expect(prismaMock.solicitacao.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ tipo: 'SUBSTITUICAO' }) }),
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tipo: { in: ['SUBSTITUICAO', 'AMPLIACAO', 'EMPRESTIMO', 'RECOLHA'] },
+        }),
+      }),
     );
   });
 
@@ -126,19 +127,33 @@ describe('Relatórios — Fase 1 (visão geral, ranking, empréstimos, cessões)
     });
   });
 
-  it('filtra por período em todos os relatórios', async () => {
+  it('filtra por período e por múltiplas unidades (multiselect) em todos os relatórios', async () => {
     (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([]);
+    const UUID_2 = '5fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b7';
     const res = await request(app)
-      .get(`/relatorios/visao-geral?dataInicio=2026-01-01&dataFim=2026-01-31&unidadeId=${UUID}`)
+      .get(`/relatorios/visao-geral?dataInicio=2026-01-01&dataFim=2026-01-31&unidadeId=${UUID},${UUID_2}`)
       .set(auth('GESTOR_PATRIMONIO'));
     expect(res.status).toBe(200);
     expect(prismaMock.solicitacao.groupBy).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          unidadeOrigemId: UUID,
+          unidadeOrigemId: { in: [UUID, UUID_2] },
           criadoEm: expect.objectContaining({ gte: new Date('2026-01-01'), lte: new Date('2026-01-31') }),
         }),
       }),
     );
+  });
+
+  it('itens e estoque: lista o que está aguardando disponibilidade, agregado por tipo', async () => {
+    (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([
+      { tipoEquipamentoId: UUID, _sum: { quantidade: 7 }, _count: { _all: 2 } },
+    ]);
+    prismaMock.tipoEquipamento.findMany.mockResolvedValue([
+      { id: UUID, nome: 'Autoclave Vertical 75L', codigo: 'AUT-75', categoria: { nome: 'Esterilização', cor: '#000' } },
+    ] as never);
+    const res = await request(app).get('/relatorios/itens-estoque').set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([expect.objectContaining({ quantidade: 7, solicitacoes: 2 })]);
+    expect(res.body[0].tipoEquipamento.nome).toBe('Autoclave Vertical 75L');
   });
 });

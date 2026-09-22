@@ -27,12 +27,17 @@ const TERMINAL_NEGADA = new Set(['NEGADA', 'CANCELADA', 'EXPIRADA']);
 
 const TODOS_TIPOS: TipoSolicitacao[] = ['SUBSTITUICAO', 'AMPLIACAO', 'CESSAO_USO', 'EMPRESTIMO', 'RECOLHA'];
 
+// Cessão de Uso fica de fora do ranking por unidade: sua unidadeOrigemId é o
+// galpão que tinha o estoque, não uma unidade solicitando — rankear não
+// responde a mesma pergunta que pros outros 4 tipos.
+const TIPOS_RANKING: TipoSolicitacao[] = ['SUBSTITUICAO', 'AMPLIACAO', 'EMPRESTIMO', 'RECOLHA'];
+
 // Relatório 1 — Visão Geral de Solicitações: funil por tipo (em andamento /
 // concluída / negada-cancelada), já que os 13 status brutos ficariam
 // ilegíveis num gráfico.
-export async function visaoGeral(filtros: FiltrosPeriodo & { unidadeId?: string }) {
+export async function visaoGeral(filtros: FiltrosPeriodo & { unidadeIds?: string[] }) {
   const where: Prisma.SolicitacaoWhereInput = {
-    ...(filtros.unidadeId ? { unidadeOrigemId: filtros.unidadeId } : {}),
+    ...(filtros.unidadeIds?.length ? { unidadeOrigemId: { in: filtros.unidadeIds } } : {}),
     ...filtroPeriodo(filtros),
   };
   const grupos = await prisma.solicitacao.groupBy({
@@ -53,36 +58,48 @@ export async function visaoGeral(filtros: FiltrosPeriodo & { unidadeId?: string 
   return TODOS_TIPOS.map((tipo) => ({ tipo, ...porTipo.get(tipo)! }));
 }
 
-// Relatório 2 — Ranking de Unidades por Tipo. Cessão de Uso fica de fora do
-// seletor no frontend: unidadeOrigemId ali é o galpão que tinha o estoque,
-// não uma unidade solicitando, então rankear não responde a mesma pergunta.
-export async function rankingUnidades(filtros: FiltrosPeriodo & { tipo: TipoSolicitacao }) {
+// Relatório 2 (mostrado dentro de Visão Geral) — Ranking de Unidades, com os
+// 4 tipos lado a lado por unidade, num gráfico só (feedback do cliente:
+// dinâmico, sem precisar escolher um tipo por vez).
+export async function rankingUnidades(filtros: FiltrosPeriodo & { unidadeIds?: string[] }) {
   const where: Prisma.SolicitacaoWhereInput = {
-    tipo: filtros.tipo,
+    tipo: { in: TIPOS_RANKING },
+    ...(filtros.unidadeIds?.length ? { unidadeOrigemId: { in: filtros.unidadeIds } } : {}),
     ...filtroPeriodo(filtros),
   };
   const grupos = await prisma.solicitacao.groupBy({
-    by: ['unidadeOrigemId'],
+    by: ['unidadeOrigemId', 'tipo'],
     where,
     _count: { id: true },
-    orderBy: { _count: { id: 'desc' } },
   });
   const nomeUnidade = await mapaNomeUnidade();
-  return grupos.map((g) => ({
-    unidadeId: g.unidadeOrigemId,
-    unidade: nomeUnidade(g.unidadeOrigemId),
-    quantidade: g._count.id,
-  }));
+  const porUnidade = new Map<string, Record<TipoSolicitacao, number>>();
+  for (const g of grupos) {
+    if (!porUnidade.has(g.unidadeOrigemId)) {
+      porUnidade.set(
+        g.unidadeOrigemId,
+        Object.fromEntries(TIPOS_RANKING.map((t) => [t, 0])) as Record<TipoSolicitacao, number>,
+      );
+    }
+    porUnidade.get(g.unidadeOrigemId)![g.tipo] = g._count.id;
+  }
+  return Array.from(porUnidade.entries())
+    .map(([unidadeId, tipos]) => ({ unidadeId, unidade: nomeUnidade(unidadeId), ...tipos }))
+    .sort((a, b) => {
+      const totalA = TIPOS_RANKING.reduce((soma, t) => soma + a[t], 0);
+      const totalB = TIPOS_RANKING.reduce((soma, t) => soma + b[t], 0);
+      return totalB - totalA;
+    });
 }
 
 // Relatório 3 — Empréstimos: prazos e devoluções. "Atrasado" cobre tanto o
 // empréstimo ainda em aberto além do prazo quanto o que já foi devolvido
 // depois do prazo (mesma regra do alerta EMPRESTIMO_ATRASADO do dashboard,
 // aqui virando dado consultável em vez de só uma mensagem).
-export async function emprestimos(filtros: FiltrosPeriodo & { unidadeId?: string }) {
+export async function emprestimos(filtros: FiltrosPeriodo & { unidadeIds?: string[] }) {
   const where: Prisma.SolicitacaoWhereInput = {
     tipo: 'EMPRESTIMO',
-    ...(filtros.unidadeId ? { unidadeOrigemId: filtros.unidadeId } : {}),
+    ...(filtros.unidadeIds?.length ? { unidadeOrigemId: { in: filtros.unidadeIds } } : {}),
     ...filtroPeriodo(filtros),
   };
   const registros = await prisma.solicitacao.findMany({
@@ -140,7 +157,42 @@ export async function emprestimos(filtros: FiltrosPeriodo & { unidadeId?: string
   return { percentualAtraso, duracaoMediaDias, itens };
 }
 
-// Relatório 4 — Cessões de Uso: prestação de contas (o que foi cedido, pra
+// Tipos que reservam do estoque de galpão (Ampliação/Substituição sem ata) —
+// mesmo conjunto usado em solicitacoes.service.ts
+const TIPOS_COM_ATA = ['AMPLIACAO', 'SUBSTITUICAO'] as const;
+
+// Relatório 4 — Itens e Estoque: o que está represado em
+// AGUARDANDO_DISPONIBILIDADE (sem estoque suficiente pra reservar ainda),
+// agregado por tipo de equipamento — não é por galpão, já que a solicitação
+// ainda não tem um galpão associado. Movido de GET /estoque/aguardando pra
+// virar um relatório dedicado (antes vivia dentro da tela de Estoque).
+export async function itensEstoque() {
+  const grupos = await prisma.solicitacao.groupBy({
+    by: ['tipoEquipamentoId'],
+    where: {
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+      tipo: { in: [...TIPOS_COM_ATA] },
+    },
+    _sum: { quantidade: true },
+    _count: { _all: true },
+  });
+  const ids = grupos.map((g) => g.tipoEquipamentoId).filter((id): id is string => !!id);
+  const tipos = await prisma.tipoEquipamento.findMany({
+    where: { id: { in: ids } },
+    include: { categoria: { select: { nome: true, cor: true } } },
+  });
+  const tiposPorId = new Map(tipos.map((t) => [t.id, t]));
+  return grupos
+    .filter((g) => g.tipoEquipamentoId && tiposPorId.has(g.tipoEquipamentoId))
+    .map((g) => ({
+      tipoEquipamento: tiposPorId.get(g.tipoEquipamentoId as string)!,
+      quantidade: g._sum.quantidade ?? 0,
+      solicitacoes: g._count._all,
+    }))
+    .sort((a, b) => a.tipoEquipamento.nome.localeCompare(b.tipoEquipamento.nome, 'pt-BR'));
+}
+
+// Relatório 5 — Cessões de Uso: prestação de contas (o que foi cedido, pra
 // quem, com qual nº de patrimônio).
 export async function cessoes(filtros: FiltrosPeriodo) {
   const where: Prisma.SolicitacaoWhereInput = {

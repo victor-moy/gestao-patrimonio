@@ -1,6 +1,5 @@
 import { Router } from 'express';
-import { Perfil, TipoSolicitacao } from '@prisma/client';
-import { AppError } from '../../errors/AppError';
+import { Perfil } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
 import * as service from './relatorios.service';
@@ -19,32 +18,46 @@ function periodo(req: import('express').Request) {
   };
 }
 
+// Filtro de unidade aceita múltiplas seleções (multiselect no frontend),
+// enviadas como lista separada por vírgula num único query param.
+function unidadeIds(req: import('express').Request): string[] | undefined {
+  const bruto = req.query.unidadeId as string | undefined;
+  if (!bruto) return undefined;
+  const ids = bruto.split(',').filter(Boolean);
+  return ids.length > 0 ? ids : undefined;
+}
+
 relatoriosRouter.get('/visao-geral', async (req, res) => {
   res.json(
     await service.visaoGeral({
       ...periodo(req),
-      unidadeId: req.query.unidadeId as string | undefined,
+      unidadeIds: unidadeIds(req),
     }),
   );
 });
 
 relatoriosRouter.get('/ranking-unidades', async (req, res) => {
-  const tipo = req.query.tipo as TipoSolicitacao | undefined;
-  if (!tipo) {
-    throw new AppError('Informe o tipo de solicitação.', 422);
-  }
-  res.json(await service.rankingUnidades({ ...periodo(req), tipo }));
+  res.json(
+    await service.rankingUnidades({
+      ...periodo(req),
+      unidadeIds: unidadeIds(req),
+    }),
+  );
 });
 
 relatoriosRouter.get('/emprestimos', async (req, res) => {
   res.json(
     await service.emprestimos({
       ...periodo(req),
-      unidadeId: req.query.unidadeId as string | undefined,
+      unidadeIds: unidadeIds(req),
     }),
   );
 });
 
 relatoriosRouter.get('/cessoes', async (req, res) => {
   res.json(await service.cessoes(periodo(req)));
+});
+
+relatoriosRouter.get('/itens-estoque', async (_req, res) => {
+  res.json(await service.itensEstoque());
 });
