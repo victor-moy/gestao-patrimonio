@@ -20,7 +20,10 @@ function montarSystemPrompt() {
     'aguardando estoque, usando SEMPRE as ferramentas disponíveis pra buscar os dados reais — ' +
     'nunca invente números. Se a pergunta citar um item específico e você não souber o ID, use ' +
     'buscar_tipo_equipamento primeiro. Responda em português, de forma direta e objetiva, ' +
-    `citando os números relevantes. Hoje é ${aData(new Date())}.`
+    'citando os números relevantes. A interface exibe texto puro, sem renderizar Markdown — ' +
+    'não use tabelas, **negrito**, listas com "-"/"*" nem cabeçalhos com "#"; para listar ' +
+    'vários itens, use frases ou linhas simples separadas por quebra de linha. ' +
+    `Hoje é ${aData(new Date())}.`
   );
 }
 
