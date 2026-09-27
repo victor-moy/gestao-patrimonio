@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../api/client';
 import { Badge } from '../components/Badge';
-import { IconeChevron } from '../components/icons';
+import { IconeCaixa, IconeCheck, IconeChevron, IconeRelogio } from '../components/icons';
 import { Modal } from '../components/Modal';
 import { SeletorTipoEquipamento } from '../components/SeletorTipoEquipamento';
 import { useAlinhamentoDropdown } from '../hooks/useAlinhamentoDropdown';
@@ -450,23 +450,41 @@ function RelatorioVisaoGeral() {
       )}
 
       {resumoItem && (
-        <div className="stats-grid" style={{ marginTop: 20 }}>
-          <div className="card stat-card">
-            <div className="stat-label">Entregue — {resumoItem.itemNome}</div>
-            <div className="stat-value">{resumoItem.entregue}</div>
-          </div>
-          <div className="card stat-card">
-            <div className="stat-label">Pendente</div>
-            <div className="stat-value">{resumoItem.pendente}</div>
-          </div>
-          <div className="card stat-card">
-            <div className="stat-label">Demanda (aguardando estoque)</div>
-            <div className="stat-value">{resumoItem.demandaQuantidade}</div>
-            {resumoItem.demandaQuantidade > 0 && (
-              <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
-                {formatarMoeda(resumoItem.demandaValor)} previstos
+        <div className="card card-pad resumo-item-card" style={{ marginTop: 20 }}>
+          <div className="resumo-item-eyebrow">Item selecionado</div>
+          <h2 className="resumo-item-titulo">{resumoItem.itemNome}</h2>
+          <div className="resumo-item-stats">
+            <div className="resumo-item-stat">
+              <div className="resumo-item-stat-label">Entregues</div>
+              <div className="resumo-item-stat-valor">
+                <span className="resumo-item-icone resumo-item-icone--verde">
+                  <IconeCheck />
+                </span>
+                {resumoItem.entregue}
               </div>
-            )}
+            </div>
+            <div className="resumo-item-stat">
+              <div className="resumo-item-stat-label">Pendentes</div>
+              <div className="resumo-item-stat-valor">
+                <span className="resumo-item-icone resumo-item-icone--amber">
+                  <IconeRelogio />
+                </span>
+                {resumoItem.pendente}
+              </div>
+            </div>
+            <div className="resumo-item-stat">
+              <div className="resumo-item-stat-label">Aguardando estoque</div>
+              <div className="resumo-item-stat-valor">
+                <span className="resumo-item-icone resumo-item-icone--azul">
+                  <IconeCaixa />
+                </span>
+                {resumoItem.demandaQuantidade}
+              </div>
+            </div>
+          </div>
+          <div className="resumo-item-rodape">
+            <span>Previsão de custo da demanda</span>
+            <strong>{formatarMoeda(resumoItem.demandaValor)}</strong>
           </div>
         </div>
       )}

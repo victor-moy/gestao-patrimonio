@@ -295,3 +295,16 @@ export const IconeDislike = () => (
     <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
   </Icone>
 );
+
+export const IconeCheck = () => (
+  <Icone width="20" height="20">
+    <path d="M20 6 9 17l-5-5" />
+  </Icone>
+);
+
+export const IconeRelogio = () => (
+  <Icone width="20" height="20">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 6v6l4 2" />
+  </Icone>
+);
