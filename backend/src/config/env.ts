@@ -3,6 +3,9 @@ export const env = {
   nodeEnv: process.env.NODE_ENV ?? 'development',
   jwtSecret: process.env.JWT_SECRET ?? 'dev-secret',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '30m',
+  // Assistente de IA (chat de relatórios) — opcional; sem a chave, só essa
+  // funcionalidade fica indisponível (não trava o resto do app).
+  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
   smtp: {
     enabled: process.env.SMTP_ENABLED === 'true',
     host: process.env.SMTP_HOST ?? '',
