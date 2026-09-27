@@ -5,6 +5,7 @@ import { Badge } from '../components/Badge';
 import { IconeChevron } from '../components/icons';
 import { Modal } from '../components/Modal';
 import { SeletorTipoEquipamento } from '../components/SeletorTipoEquipamento';
+import { useAlinhamentoDropdown } from '../hooks/useAlinhamentoDropdown';
 import type {
   CessaoRelatorio,
   Categoria,
@@ -46,6 +47,44 @@ const TIPOS_RANKING: TipoRanking[] = ['SUBSTITUICAO', 'AMPLIACAO', 'EMPRESTIMO',
 // Paleta cíclica pras linhas do gráfico de itens por unidade — o número de
 // unidades com movimentação varia, não dá pra ter uma cor fixa por unidade.
 const PALETA_LINHAS = ['#0e4e6e', '#1d6fa3', '#c98f3d', '#7c3aed', '#16a34a', '#dc2626', '#0891b2', '#be185d'];
+
+const OPCOES_PERIODO = [
+  { valor: '', rotulo: 'Todo o período' },
+  { valor: 'hoje', rotulo: 'Hoje' },
+  { valor: '7dias', rotulo: 'Últimos 7 dias' },
+  { valor: 'mes', rotulo: 'Este mês' },
+  { valor: '3meses', rotulo: 'Últimos 3 meses' },
+  { valor: 'ano', rotulo: 'Este ano' },
+];
+
+function aData(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+// Um único seletor de período (em vez de dois campos de data) — traduz um
+// preset em dataInicio/dataFim, que é o que os endpoints já esperam.
+function calcularPeriodo(preset: string): { dataInicio: string; dataFim: string } {
+  const hoje = new Date();
+  const fim = aData(hoje);
+  if (preset === 'hoje') return { dataInicio: fim, dataFim: fim };
+  if (preset === '7dias') {
+    const inicio = new Date(hoje);
+    inicio.setDate(inicio.getDate() - 6);
+    return { dataInicio: aData(inicio), dataFim: fim };
+  }
+  if (preset === 'mes') {
+    return { dataInicio: aData(new Date(hoje.getFullYear(), hoje.getMonth(), 1)), dataFim: fim };
+  }
+  if (preset === '3meses') {
+    const inicio = new Date(hoje);
+    inicio.setDate(inicio.getDate() - 89);
+    return { dataInicio: aData(inicio), dataFim: fim };
+  }
+  if (preset === 'ano') {
+    return { dataInicio: aData(new Date(hoje.getFullYear(), 0, 1)), dataFim: fim };
+  }
+  return { dataInicio: '', dataFim: '' };
+}
 
 export function Relatorios() {
   const [relatorio, setRelatorio] = useState<OpcaoRelatorio>('visao-geral');
@@ -93,6 +132,7 @@ function SeletorMultiploUnidades({
 }) {
   const [aberto, setAberto] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const alinhamento = useAlinhamentoDropdown(containerRef, aberto);
 
   useEffect(() => {
     if (!aberto) return;
@@ -129,7 +169,10 @@ function SeletorMultiploUnidades({
         <IconeChevron />
       </button>
       {aberto && (
-        <div className="seletor-tipo-painel" role="listbox">
+        <div
+          className={`seletor-tipo-painel${alinhamento === 'direita' ? ' seletor-tipo-painel--direita' : ''}`}
+          role="listbox"
+        >
           <div className="seletor-tipo-lista">
             <button type="button" className="seletor-tipo-item" onClick={() => onChange([])}>
               <span style={{ fontWeight: selecionados.length === 0 ? 600 : 400 }}>Todas</span>
@@ -166,6 +209,7 @@ function RelatorioVisaoGeral() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [filtros, setFiltros] = useState({
+    periodo: '',
     dataInicio: '',
     dataFim: '',
     unidadeIds: [] as string[],
@@ -242,23 +286,18 @@ function RelatorioVisaoGeral() {
       {erro && <div className="error-banner">{erro}</div>}
       <div className="card card-pad" style={{ marginTop: 20 }}>
         <div className="toolbar">
-          <div style={{ flex: 1.4, minWidth: 220, display: 'flex', gap: 10 }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 12 }}>Período — início</label>
-              <input
-                type="date"
-                value={filtros.dataInicio}
-                onChange={(e) => setFiltros({ ...filtros, dataInicio: e.target.value })}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 12 }}>Período — fim</label>
-              <input
-                type="date"
-                value={filtros.dataFim}
-                onChange={(e) => setFiltros({ ...filtros, dataFim: e.target.value })}
-              />
-            </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <label style={{ fontSize: 12 }}>Período</label>
+            <select
+              value={filtros.periodo}
+              onChange={(e) => setFiltros({ ...filtros, periodo: e.target.value, ...calcularPeriodo(e.target.value) })}
+            >
+              {OPCOES_PERIODO.map((o) => (
+                <option key={o.valor} value={o.valor}>
+                  {o.rotulo}
+                </option>
+              ))}
+            </select>
           </div>
           <div style={{ flex: 1, minWidth: 200 }}>
             <label style={{ fontSize: 12 }}>Unidade de origem</label>

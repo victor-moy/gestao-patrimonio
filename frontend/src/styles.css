@@ -1360,9 +1360,13 @@ tr.clickable:hover {
   width: 100%;
   max-width: 760px;
   padding: 26px 28px;
-  /* margin auto centraliza nos dois eixos e, quando o conteúdo é maior
-     que a tela, permite rolar sem cortar o topo */
+  /* margin auto centraliza nos dois eixos; a altura é limitada à viewport
+     (descontando o padding vertical do overlay) e quem rola é o corpo, não
+     o modal inteiro — assim o cabeçalho fica sempre visível */
   margin: auto;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -1370,6 +1374,12 @@ tr.clickable:hover {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 18px;
+  flex-shrink: 0;
+}
+
+.modal-corpo {
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .modal-header h3 {
@@ -2603,6 +2613,13 @@ tr.clickable:hover {
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(16, 24, 40, 0.16);
   overflow: hidden;
+}
+
+/* Campo perto da borda direita da tela — abre pra esquerda em vez de
+   estourar a viewport (ver useAlinhamentoDropdown). */
+.seletor-tipo-painel--direita {
+  left: auto;
+  right: 0;
 }
 
 .seletor-tipo-busca {

@@ -24,7 +24,7 @@ export function Modal({ titulo, subtitulo, onFechar, children, acaoHeader }: Mod
             </button>
           </div>
         </div>
-        {children}
+        <div className="modal-corpo">{children}</div>
       </div>
     </div>
   );
