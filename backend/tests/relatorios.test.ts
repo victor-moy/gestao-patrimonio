@@ -202,3 +202,140 @@ describe('Relatórios — Fase 1 (visão geral, ranking, empréstimos, cessões)
     expect(res.body.linhas).toEqual([{ mes: '2026-01', 'UBS Sul': 1 }]);
   });
 });
+
+describe('Relatórios — feedback do stakeholder (filtro por item, busca, drill-down, resumo)', () => {
+  it('filtro por item: cobre tanto tipoEquipamentoId direto quanto via equipamento (empréstimo/recolha)', async () => {
+    (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([]);
+    await request(app)
+      .get(`/relatorios/visao-geral?tipoEquipamentoId=${UUID}`)
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(prismaMock.solicitacao.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          OR: [{ tipoEquipamentoId: UUID }, { equipamento: { tipoEquipamentoId: UUID } }],
+        }),
+      }),
+    );
+  });
+
+  it('empréstimos: busca por patrimônio filtra por tombamento/descrição do equipamento', async () => {
+    prismaMock.solicitacao.findMany.mockResolvedValue([] as never);
+    await request(app)
+      .get('/relatorios/emprestimos?busca=autoclave')
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          AND: expect.arrayContaining([
+            {
+              OR: [
+                { equipamento: { tombamento: { contains: 'autoclave', mode: 'insensitive' } } },
+                { equipamento: { descricao: { contains: 'autoclave', mode: 'insensitive' } } },
+              ],
+            },
+          ]),
+        }),
+      }),
+    );
+  });
+
+  it('cessões: busca por patrimônio filtra em JS sobre numerosPatrimonio/entidade/tipo', async () => {
+    prismaMock.solicitacao.findMany.mockResolvedValue([
+      {
+        id: 'sol-1',
+        entidadeExternaNome: 'Hospital Regional',
+        tipoEquipamento: { nome: 'Autoclave Vertical 75L' },
+        numerosPatrimonio: ['12345/2026'],
+        unidadeOrigem: { nome: 'Galpão CIAD/Branet' },
+        status: 'CONCLUIDA',
+        numeroPedidoBranet: 'PED-1',
+        pedidoEntregaRegistradoEm: new Date('2026-01-05'),
+        criadoEm: new Date('2026-01-01'),
+      },
+      {
+        id: 'sol-2',
+        entidadeExternaNome: 'Creche Municipal',
+        tipoEquipamento: { nome: 'Purificador de Água' },
+        numerosPatrimonio: ['99999/2026'],
+        unidadeOrigem: { nome: 'Galpão CIAD/Branet' },
+        status: 'CONCLUIDA',
+        numeroPedidoBranet: 'PED-2',
+        pedidoEntregaRegistradoEm: new Date('2026-01-06'),
+        criadoEm: new Date('2026-01-01'),
+      },
+    ] as never);
+    const res = await request(app).get('/relatorios/cessoes?busca=12345').set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body.itens).toHaveLength(1);
+    expect(res.body.itens[0].id).toBe('sol-1');
+  });
+
+  it('detalhe da unidade: exige unidadeId', async () => {
+    const res = await request(app).get('/relatorios/detalhe-unidade').set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(422);
+  });
+
+  it('detalhe da unidade: lista as solicitações da unidade clicada no ranking', async () => {
+    prismaMock.solicitacao.findMany.mockResolvedValue([
+      {
+        id: 'sol-1',
+        tipo: 'AMPLIACAO',
+        quantidade: 2,
+        status: 'CONCLUIDA',
+        criadoEm: new Date('2026-01-01'),
+        equipamento: null,
+        tipoEquipamento: { nome: 'Purificador de Água' },
+      },
+    ] as never);
+    const res = await request(app)
+      .get('/relatorios/detalhe-unidade?unidadeId=unidade-1')
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      { id: 'sol-1', tipo: 'AMPLIACAO', item: 'Purificador de Água', quantidade: 2, status: 'CONCLUIDA', criadoEm: '2026-01-01T00:00:00.000Z' },
+    ]);
+    expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tipo: { in: ['SUBSTITUICAO', 'AMPLIACAO', 'EMPRESTIMO', 'RECOLHA'] },
+          unidadeOrigemId: 'unidade-1',
+        }),
+      }),
+    );
+  });
+
+  it('resumo do item: exige tipoEquipamentoId', async () => {
+    const res = await request(app).get('/relatorios/resumo-item').set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(422);
+  });
+
+  it('resumo do item: entregue (concluída), pendente (em andamento) e demanda (aguardando estoque)', async () => {
+    prismaMock.tipoEquipamento.findUnique.mockResolvedValue({
+      id: UUID,
+      nome: 'Purificador de Água',
+      preco: '250.00',
+    } as never);
+    (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([
+      { status: 'CONCLUIDA', _count: { id: 5 } },
+      { status: 'RESERVADO', _count: { id: 3 } },
+      { status: 'NEGADA', _count: { id: 1 } },
+    ]);
+    prismaMock.solicitacao.aggregate.mockResolvedValue({ _sum: { quantidade: 4 } } as never);
+    const res = await request(app)
+      .get(`/relatorios/resumo-item?tipoEquipamentoId=${UUID}`)
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      itemNome: 'Purificador de Água',
+      entregue: 5,
+      pendente: 3,
+      demandaQuantidade: 4,
+      demandaValor: 1000,
+    });
+    expect(prismaMock.solicitacao.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tipo: { in: ['AMPLIACAO', 'SUBSTITUICAO', 'CESSAO_USO'] }, tipoEquipamentoId: UUID }),
+      }),
+    );
+  });
+});

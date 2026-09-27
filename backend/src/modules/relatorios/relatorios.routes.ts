@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { Perfil } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
+import { AppError } from '../../errors/AppError';
 import * as service from './relatorios.service';
 
 export const relatoriosRouter = Router();
@@ -27,11 +28,21 @@ function unidadeIds(req: import('express').Request): string[] | undefined {
   return ids.length > 0 ? ids : undefined;
 }
 
+// Filtro de item — seleção única (combobox), diferente do multiselect de unidade.
+function tipoEquipamentoId(req: import('express').Request): string | undefined {
+  return (req.query.tipoEquipamentoId as string | undefined) || undefined;
+}
+
+function busca(req: import('express').Request): string | undefined {
+  return (req.query.busca as string | undefined) || undefined;
+}
+
 relatoriosRouter.get('/visao-geral', async (req, res) => {
   res.json(
     await service.visaoGeral({
       ...periodo(req),
       unidadeIds: unidadeIds(req),
+      tipoEquipamentoId: tipoEquipamentoId(req),
     }),
   );
 });
@@ -41,6 +52,20 @@ relatoriosRouter.get('/ranking-unidades', async (req, res) => {
     await service.rankingUnidades({
       ...periodo(req),
       unidadeIds: unidadeIds(req),
+      tipoEquipamentoId: tipoEquipamentoId(req),
+    }),
+  );
+});
+
+relatoriosRouter.get('/detalhe-unidade', async (req, res) => {
+  const unidadeId = req.query.unidadeId as string | undefined;
+  if (!unidadeId) {
+    throw new AppError('Informe a unidade (unidadeId).', 422);
+  }
+  res.json(
+    await service.detalheUnidade(unidadeId, {
+      ...periodo(req),
+      tipoEquipamentoId: tipoEquipamentoId(req),
     }),
   );
 });
@@ -50,16 +75,32 @@ relatoriosRouter.get('/emprestimos', async (req, res) => {
     await service.emprestimos({
       ...periodo(req),
       unidadeIds: unidadeIds(req),
+      tipoEquipamentoId: tipoEquipamentoId(req),
+      busca: busca(req),
     }),
   );
 });
 
 relatoriosRouter.get('/cessoes', async (req, res) => {
-  res.json(await service.cessoes(periodo(req)));
+  res.json(
+    await service.cessoes({
+      ...periodo(req),
+      tipoEquipamentoId: tipoEquipamentoId(req),
+      busca: busca(req),
+    }),
+  );
 });
 
 relatoriosRouter.get('/itens-estoque', async (_req, res) => {
   res.json(await service.itensEstoque());
+});
+
+relatoriosRouter.get('/resumo-item', async (req, res) => {
+  const idItem = tipoEquipamentoId(req);
+  if (!idItem) {
+    throw new AppError('Informe o item (tipoEquipamentoId).', 422);
+  }
+  res.json(await service.resumoItem(idItem, periodo(req)));
 });
 
 relatoriosRouter.get('/itens-por-unidade', async (req, res) => {

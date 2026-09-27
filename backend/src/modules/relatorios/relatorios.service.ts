@@ -21,6 +21,16 @@ async function mapaNomeUnidade() {
   return (id: string) => unidades.find((u) => u.id === id)?.nome ?? 'Desconhecida';
 }
 
+// Um "item" (tipo de equipamento) é referenciado de duas formas na
+// Solicitacao: direto (Ampliação/Substituição/Cessão de Uso, que pedem um
+// tipo, não uma unidade física ainda existente) ou via o equipamento
+// específico (Empréstimo/Recolha, que apontam pra um item já cadastrado).
+// O filtro cobre os dois casos.
+function filtroItem(tipoEquipamentoId?: string): Prisma.SolicitacaoWhereInput {
+  if (!tipoEquipamentoId) return {};
+  return { OR: [{ tipoEquipamentoId }, { equipamento: { tipoEquipamentoId } }] };
+}
+
 // Status terminais que não representam sucesso — o resto (PENDENTE_APROVACAO,
 // RESERVADO, AGUARDANDO_*, etc.) conta como "em andamento" pro funil.
 const TERMINAL_NEGADA = new Set(['NEGADA', 'CANCELADA', 'EXPIRADA']);
@@ -35,9 +45,10 @@ const TIPOS_RANKING: TipoSolicitacao[] = ['SUBSTITUICAO', 'AMPLIACAO', 'EMPRESTI
 // Relatório 1 — Visão Geral de Solicitações: funil por tipo (em andamento /
 // concluída / negada-cancelada), já que os 13 status brutos ficariam
 // ilegíveis num gráfico.
-export async function visaoGeral(filtros: FiltrosPeriodo & { unidadeIds?: string[] }) {
+export async function visaoGeral(filtros: FiltrosPeriodo & { unidadeIds?: string[]; tipoEquipamentoId?: string }) {
   const where: Prisma.SolicitacaoWhereInput = {
     ...(filtros.unidadeIds?.length ? { unidadeOrigemId: { in: filtros.unidadeIds } } : {}),
+    ...filtroItem(filtros.tipoEquipamentoId),
     ...filtroPeriodo(filtros),
   };
   const grupos = await prisma.solicitacao.groupBy({
@@ -61,10 +72,11 @@ export async function visaoGeral(filtros: FiltrosPeriodo & { unidadeIds?: string
 // Relatório 2 (mostrado dentro de Visão Geral) — Ranking de Unidades, com os
 // 4 tipos lado a lado por unidade, num gráfico só (feedback do cliente:
 // dinâmico, sem precisar escolher um tipo por vez).
-export async function rankingUnidades(filtros: FiltrosPeriodo & { unidadeIds?: string[] }) {
+export async function rankingUnidades(filtros: FiltrosPeriodo & { unidadeIds?: string[]; tipoEquipamentoId?: string }) {
   const where: Prisma.SolicitacaoWhereInput = {
     tipo: { in: TIPOS_RANKING },
     ...(filtros.unidadeIds?.length ? { unidadeOrigemId: { in: filtros.unidadeIds } } : {}),
+    ...filtroItem(filtros.tipoEquipamentoId),
     ...filtroPeriodo(filtros),
   };
   const grupos = await prisma.solicitacao.groupBy({
@@ -92,15 +104,59 @@ export async function rankingUnidades(filtros: FiltrosPeriodo & { unidadeIds?: s
     });
 }
 
+// Drill-down do ranking (feedback do stakeholder: clicar numa unidade e ver
+// tudo que ela pediu, não só o número agregado) — mesmos 4 tipos do gráfico
+// de ranking, filtrável também por item.
+export async function detalheUnidade(unidadeId: string, filtros: FiltrosPeriodo & { tipoEquipamentoId?: string }) {
+  const where: Prisma.SolicitacaoWhereInput = {
+    tipo: { in: TIPOS_RANKING },
+    unidadeOrigemId: unidadeId,
+    ...filtroItem(filtros.tipoEquipamentoId),
+    ...filtroPeriodo(filtros),
+  };
+  const registros = await prisma.solicitacao.findMany({
+    where,
+    include: {
+      equipamento: { select: { tombamento: true, descricao: true } },
+      tipoEquipamento: { select: { nome: true } },
+    },
+    orderBy: { criadoEm: 'desc' },
+  });
+  return registros.map((s) => ({
+    id: s.id,
+    tipo: s.tipo,
+    item: s.equipamento ? `${s.equipamento.tombamento} — ${s.equipamento.descricao}` : (s.tipoEquipamento?.nome ?? null),
+    quantidade: s.quantidade,
+    status: s.status,
+    criadoEm: s.criadoEm,
+  }));
+}
+
 // Relatório 3 — Empréstimos: prazos e devoluções. "Atrasado" cobre tanto o
 // empréstimo ainda em aberto além do prazo quanto o que já foi devolvido
 // depois do prazo (mesma regra do alerta EMPRESTIMO_ATRASADO do dashboard,
 // aqui virando dado consultável em vez de só uma mensagem).
-export async function emprestimos(filtros: FiltrosPeriodo & { unidadeIds?: string[] }) {
+export async function emprestimos(
+  filtros: FiltrosPeriodo & { unidadeIds?: string[]; tipoEquipamentoId?: string; busca?: string },
+) {
+  const busca = filtros.busca?.trim();
+  // filtroItem já usa "OR" — combina num "AND" de sub-filtros pra não um
+  // OR sobrescrever o outro no spread.
   const where: Prisma.SolicitacaoWhereInput = {
     tipo: 'EMPRESTIMO',
     ...(filtros.unidadeIds?.length ? { unidadeOrigemId: { in: filtros.unidadeIds } } : {}),
     ...filtroPeriodo(filtros),
+    AND: [
+      filtroItem(filtros.tipoEquipamentoId),
+      busca
+        ? {
+            OR: [
+              { equipamento: { tombamento: { contains: busca, mode: 'insensitive' } } },
+              { equipamento: { descricao: { contains: busca, mode: 'insensitive' } } },
+            ],
+          }
+        : {},
+    ],
   };
   const registros = await prisma.solicitacao.findMany({
     where,
@@ -192,6 +248,52 @@ export async function itensEstoque() {
     .sort((a, b) => a.tipoEquipamento.nome.localeCompare(b.tipoEquipamento.nome, 'pt-BR'));
 }
 
+// Tipos que representam "entrega" de um item (Ampliação/Substituição/Cessão
+// de Uso pedem um tipo e recebem um item novo pro acervo) — Empréstimo e
+// Recolha ficam de fora do resumo por item: são movimentação de um
+// equipamento já existente, não entrega de item novo.
+const TIPOS_ENTREGA_ITEM: TipoSolicitacao[] = ['AMPLIACAO', 'SUBSTITUICAO', 'CESSAO_USO'];
+
+// Resumo de um item específico (feedback do stakeholder: "quanto foi
+// entregue, quantos pendentes, qual a demanda" pra um tipo de equipamento,
+// ex. purificador de água). Reaproveita a mesma regra de "em andamento" do
+// funil de Visão Geral e a mesma agregação de "aguardando estoque" do
+// itensEstoque(), só que escopadas a um único tipoEquipamentoId.
+export async function resumoItem(tipoEquipamentoId: string, filtros: FiltrosPeriodo) {
+  const tipoEquipamento = await prisma.tipoEquipamento.findUnique({ where: { id: tipoEquipamentoId } });
+  const where: Prisma.SolicitacaoWhereInput = {
+    tipo: { in: TIPOS_ENTREGA_ITEM },
+    tipoEquipamentoId,
+    ...filtroPeriodo(filtros),
+  };
+  const grupos = await prisma.solicitacao.groupBy({ by: ['status'], where, _count: { id: true } });
+  let entregue = 0;
+  let pendente = 0;
+  for (const g of grupos) {
+    if (g.status === 'CONCLUIDA') entregue += g._count.id;
+    else if (!TERMINAL_NEGADA.has(g.status)) pendente += g._count.id;
+  }
+
+  const demanda = await prisma.solicitacao.aggregate({
+    where: {
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+      tipo: { in: [...TIPOS_COM_ATA] },
+      tipoEquipamentoId,
+    },
+    _sum: { quantidade: true },
+  });
+  const demandaQuantidade = demanda._sum.quantidade ?? 0;
+  const preco = tipoEquipamento?.preco ? Number(tipoEquipamento.preco) : 0;
+
+  return {
+    itemNome: tipoEquipamento?.nome ?? 'Item não encontrado',
+    entregue,
+    pendente,
+    demandaQuantidade,
+    demandaValor: demandaQuantidade * preco,
+  };
+}
+
 // Tipos de Movimentacao que alteram a unidade *permanente* dona do
 // equipamento — exclui manutenção e empréstimo, que só mudam status/
 // unidadeTemporariaId (RN06: durante empréstimo o tombamento permanece na
@@ -274,9 +376,10 @@ export async function itensPorUnidade(filtros: FiltrosPeriodo & { unidadeIds?: s
 
 // Relatório 6 — Cessões de Uso: prestação de contas (o que foi cedido, pra
 // quem, com qual nº de patrimônio).
-export async function cessoes(filtros: FiltrosPeriodo) {
+export async function cessoes(filtros: FiltrosPeriodo & { tipoEquipamentoId?: string; busca?: string }) {
   const where: Prisma.SolicitacaoWhereInput = {
     tipo: 'CESSAO_USO',
+    ...filtroItem(filtros.tipoEquipamentoId),
     ...filtroPeriodo(filtros),
   };
   const registros = await prisma.solicitacao.findMany({
@@ -287,8 +390,20 @@ export async function cessoes(filtros: FiltrosPeriodo) {
     },
     orderBy: { criadoEm: 'desc' },
   });
+  // numerosPatrimonio é String[] — Prisma não faz "contains" de substring
+  // dentro de array (só igualdade exata via "has"), então filtra em JS.
+  // Volume é baixo (cada cessão já é granular por item).
+  const busca = filtros.busca?.trim().toLowerCase();
+  const filtrados = busca
+    ? registros.filter(
+        (s) =>
+          s.numerosPatrimonio.some((n) => n.toLowerCase().includes(busca)) ||
+          s.entidadeExternaNome?.toLowerCase().includes(busca) ||
+          s.tipoEquipamento?.nome.toLowerCase().includes(busca),
+      )
+    : registros;
   return {
-    itens: registros.map((s) => ({
+    itens: filtrados.map((s) => ({
       id: s.id,
       entidadeExternaNome: s.entidadeExternaNome,
       tipoEquipamento: s.tipoEquipamento?.nome ?? null,
