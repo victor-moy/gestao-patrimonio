@@ -1,15 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Bar,
-  BarChart,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
+import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../api/client';
 import { Badge } from '../components/Badge';
 import { IconeChevron } from '../components/icons';
@@ -26,7 +16,6 @@ import type {
   RelatorioCessoes,
   RelatorioEmprestimos,
   ResumoItem,
-  TipoSolicitacao,
   Unidade,
   VisaoGeralTipo,
 } from '../types';
@@ -51,13 +40,8 @@ const OPCOES: Array<{ valor: OpcaoRelatorio; rotulo: string }> = [
 // Cessão de Uso fica de fora do ranking por unidade: a unidade de origem ali
 // é o galpão que tinha o estoque, não uma unidade solicitando — rankear não
 // responde à mesma pergunta que pros outros 4 tipos.
-const TIPOS_RANKING: TipoSolicitacao[] = ['SUBSTITUICAO', 'AMPLIACAO', 'EMPRESTIMO', 'RECOLHA'];
-const CORES_RANKING: Record<string, string> = {
-  SUBSTITUICAO: '#0e4e6e',
-  AMPLIACAO: '#1d6fa3',
-  EMPRESTIMO: '#c98f3d',
-  RECOLHA: '#7c3aed',
-};
+type TipoRanking = keyof Omit<RankingUnidadeTipo, 'unidadeId' | 'unidade'>;
+const TIPOS_RANKING: TipoRanking[] = ['SUBSTITUICAO', 'AMPLIACAO', 'EMPRESTIMO', 'RECOLHA'];
 
 // Paleta cíclica pras linhas do gráfico de itens por unidade — o número de
 // unidades com movimentação varia, não dá pra ter uma cor fixa por unidade.
@@ -231,28 +215,52 @@ function RelatorioVisaoGeral() {
       .catch((e) => setErro(e.message));
   }, [filtros.tipoEquipamentoId, filtros.dataInicio, filtros.dataFim]);
 
+  // Totais gerais pros cards de estatística — soma dos 3 buckets, dos 5 tipos.
+  const totalGeral = dados ? dados.reduce((soma, d) => soma + d.emAndamento + d.concluida + d.negadaCancelada, 0) : 0;
+  const totalEmAndamento = dados ? dados.reduce((soma, d) => soma + d.emAndamento, 0) : 0;
+  const totalConcluida = dados ? dados.reduce((soma, d) => soma + d.concluida, 0) : 0;
+  const totalNegada = dados ? dados.reduce((soma, d) => soma + d.negadaCancelada, 0) : 0;
+  const percentual = (valor: number) => (totalGeral > 0 ? Math.round((valor / totalGeral) * 100) : 0);
+
+  // Lista de tipos com total, ordenada do maior pro menor volume.
+  const tiposComTotal = (dados ?? [])
+    .map((d) => ({ ...d, total: d.emAndamento + d.concluida + d.negadaCancelada }))
+    .filter((d) => d.total > 0)
+    .sort((a, b) => b.total - a.total);
+  const maxTipo = Math.max(1, ...tiposComTotal.map((d) => d.total));
+
+  // Ranking com total + tipo dominante ("principal demanda") por unidade.
+  const rankingComTotal = (ranking ?? []).map((u) => {
+    const total = TIPOS_RANKING.reduce((soma, t) => soma + u[t], 0);
+    const dominante = TIPOS_RANKING.reduce((melhor, t) => (u[t] > u[melhor] ? t : melhor), TIPOS_RANKING[0]);
+    return { ...u, total, dominante };
+  });
+  const maxRanking = Math.max(1, ...rankingComTotal.map((u) => u.total));
+
   return (
     <>
       {erro && <div className="error-banner">{erro}</div>}
-      <div className="card" style={{ marginTop: 20 }}>
+      <div className="card card-pad" style={{ marginTop: 20 }}>
         <div className="toolbar">
-          <div>
-            <label style={{ fontSize: 12 }}>Período — início</label>
-            <input
-              type="date"
-              value={filtros.dataInicio}
-              onChange={(e) => setFiltros({ ...filtros, dataInicio: e.target.value })}
-            />
+          <div style={{ flex: 1.4, minWidth: 220, display: 'flex', gap: 10 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 12 }}>Período — início</label>
+              <input
+                type="date"
+                value={filtros.dataInicio}
+                onChange={(e) => setFiltros({ ...filtros, dataInicio: e.target.value })}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 12 }}>Período — fim</label>
+              <input
+                type="date"
+                value={filtros.dataFim}
+                onChange={(e) => setFiltros({ ...filtros, dataFim: e.target.value })}
+              />
+            </div>
           </div>
-          <div>
-            <label style={{ fontSize: 12 }}>Período — fim</label>
-            <input
-              type="date"
-              value={filtros.dataFim}
-              onChange={(e) => setFiltros({ ...filtros, dataFim: e.target.value })}
-            />
-          </div>
-          <div>
+          <div style={{ flex: 1, minWidth: 200 }}>
             <label style={{ fontSize: 12 }}>Unidade de origem</label>
             <SeletorMultiploUnidades
               unidades={unidades}
@@ -260,7 +268,7 @@ function RelatorioVisaoGeral() {
               onChange={(ids) => setFiltros({ ...filtros, unidadeIds: ids })}
             />
           </div>
-          <div>
+          <div style={{ flex: 1, minWidth: 200 }}>
             <label style={{ fontSize: 12 }}>Item</label>
             <SeletorTipoEquipamento
               categorias={categorias}
@@ -271,6 +279,43 @@ function RelatorioVisaoGeral() {
           </div>
         </div>
       </div>
+
+      {dados && (
+        <div className="stats-grid" style={{ marginTop: 20 }}>
+          <div className="card stat-card" style={{ borderLeft: '3px solid var(--accent)' }}>
+            <div className="stat-label">Total de solicitações</div>
+            <div className="stat-value">{totalGeral}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>No período selecionado</div>
+          </div>
+          <div className="card stat-card">
+            <div className="stat-label">
+              <span className="stat-dot stat-dot--andamento" /> Em andamento
+            </div>
+            <div className="stat-value">{totalEmAndamento}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+              {percentual(totalEmAndamento)}% do total
+            </div>
+          </div>
+          <div className="card stat-card">
+            <div className="stat-label">
+              <span className="stat-dot stat-dot--concluida" /> Concluídas
+            </div>
+            <div className="stat-value">{totalConcluida}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+              {percentual(totalConcluida)}% do total
+            </div>
+          </div>
+          <div className="card stat-card">
+            <div className="stat-label">
+              <span className="stat-dot stat-dot--negada" /> Negadas / canceladas
+            </div>
+            <div className="stat-value">{totalNegada}</div>
+            <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+              {percentual(totalNegada)}% do total
+            </div>
+          </div>
+        </div>
+      )}
 
       {resumoItem && (
         <div className="stats-grid" style={{ marginTop: 20 }}>
@@ -294,62 +339,95 @@ function RelatorioVisaoGeral() {
         </div>
       )}
 
-      <div className="card card-pad" style={{ marginTop: 20 }}>
-        <h3>Solicitações por Tipo e Status</h3>
-        {dados ? (
-          <ResponsiveContainer width="100%" height={340}>
-            <BarChart
-              data={dados.map((d) => ({ ...d, tipoLabel: ROTULO_TIPO_SOLICITACAO[d.tipo] }))}
-              layout="vertical"
-              margin={{ left: 8 }}
-            >
-              <XAxis type="number" allowDecimals={false} fontSize={12} />
-              <YAxis type="category" dataKey="tipoLabel" width={130} fontSize={12} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="emAndamento" name="Em andamento" stackId="a" fill="#c98f3d" />
-              <Bar dataKey="concluida" name="Concluída" stackId="a" fill="#16a34a" />
-              <Bar dataKey="negadaCancelada" name="Negada / Cancelada" stackId="a" fill="#9ca3af" radius={[0, 3, 3, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="empty-state">Carregando…</div>
-        )}
-      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18, marginTop: 20 }}>
+        <div className="card card-pad">
+          <h3>Solicitações por tipo</h3>
+          <p className="subtitle" style={{ marginTop: -10, marginBottom: 16 }}>
+            Volume total e situação de cada demanda
+          </p>
+          {dados ? (
+            tiposComTotal.length > 0 ? (
+              <>
+                <div className="resumo-legenda">
+                  <span>
+                    <span className="stat-dot stat-dot--andamento" /> Em andamento
+                  </span>
+                  <span>
+                    <span className="stat-dot stat-dot--concluida" /> Concluídas
+                  </span>
+                  <span>
+                    <span className="stat-dot stat-dot--negada" /> Negadas / canceladas
+                  </span>
+                </div>
+                <div className="resumo-tipo-lista">
+                  {tiposComTotal.map((d) => (
+                    <div key={d.tipo}>
+                      <div className="resumo-tipo-cabecalho">
+                        <strong>{ROTULO_TIPO_SOLICITACAO[d.tipo]}</strong>
+                        <strong>{d.total}</strong>
+                      </div>
+                      <div className="resumo-tipo-barra">
+                        <div className="resumo-tipo-barra-preenchida" style={{ width: `${(d.total / maxTipo) * 100}%` }}>
+                          <div style={{ width: `${(d.emAndamento / d.total) * 100}%`, background: '#c98f3d' }} />
+                          <div style={{ width: `${(d.concluida / d.total) * 100}%`, background: '#16a34a' }} />
+                          <div style={{ width: `${(d.negadaCancelada / d.total) * 100}%`, background: '#9ca3af' }} />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="resumo-tipo-eixo">
+                  <span>0</span>
+                  <span>{Math.round(maxTipo / 2)}</span>
+                  <span>{maxTipo} solicitações</span>
+                </div>
+              </>
+            ) : (
+              <div className="empty-state">Sem solicitações para os filtros selecionados</div>
+            )
+          ) : (
+            <div className="empty-state">Carregando…</div>
+          )}
+        </div>
 
-      <div className="card card-pad" style={{ marginTop: 20 }}>
-        <h3>Ranking de Unidades por Tipo</h3>
-        {ranking && ranking.length > 0 ? (
-          <>
-            <p className="subtitle" style={{ marginTop: -4 }}>
-              Clique numa unidade pra ver o detalhe do que ela pediu
-            </p>
-            <ResponsiveContainer width="100%" height={Math.max(220, ranking.length * 50)}>
-              <BarChart data={ranking} layout="vertical" margin={{ left: 8 }}>
-                <XAxis type="number" allowDecimals={false} fontSize={12} />
-                <YAxis type="category" dataKey="unidade" width={140} fontSize={12} />
-                <Tooltip />
-                <Legend />
-                {TIPOS_RANKING.map((t) => (
-                  <Bar
-                    key={t}
-                    dataKey={t}
-                    name={ROTULO_TIPO_SOLICITACAO[t]}
-                    fill={CORES_RANKING[t]}
-                    cursor="pointer"
-                    onClick={(dados: { payload: RankingUnidadeTipo }) =>
-                      setUnidadeDetalhe({ id: dados.payload.unidadeId, nome: dados.payload.unidade })
-                    }
-                  />
+        <div className="card card-pad">
+          <h3>Unidades com mais solicitações</h3>
+          <p className="subtitle" style={{ marginTop: -10, marginBottom: 16 }}>
+            Ranking por volume — clique pra ver o detalhe
+          </p>
+          {ranking ? (
+            rankingComTotal.length > 0 ? (
+              <div className="ranking-lista">
+                {rankingComTotal.map((u, i) => (
+                  <button
+                    type="button"
+                    key={u.unidadeId}
+                    className="ranking-linha"
+                    onClick={() => setUnidadeDetalhe({ id: u.unidadeId, nome: u.unidade })}
+                  >
+                    <div className="ranking-cabecalho">
+                      <span>
+                        <span className="ranking-posicao">{String(i + 1).padStart(2, '0')}</span>
+                        {u.unidade}
+                      </span>
+                      <strong>{u.total}</strong>
+                    </div>
+                    <div className="ranking-barra">
+                      <div className="ranking-barra-fill" style={{ width: `${(u.total / maxRanking) * 100}%` }} />
+                    </div>
+                    <div className="ranking-demanda">
+                      Principal demanda: {ROTULO_TIPO_SOLICITACAO[u.dominante].toLowerCase()}
+                    </div>
+                  </button>
                 ))}
-              </BarChart>
-            </ResponsiveContainer>
-          </>
-        ) : ranking ? (
-          <div className="empty-state">Sem solicitações para os filtros selecionados</div>
-        ) : (
-          <div className="empty-state">Carregando…</div>
-        )}
+              </div>
+            ) : (
+              <div className="empty-state">Sem solicitações para os filtros selecionados</div>
+            )
+          ) : (
+            <div className="empty-state">Carregando…</div>
+          )}
+        </div>
       </div>
 
       {unidadeDetalhe && (
