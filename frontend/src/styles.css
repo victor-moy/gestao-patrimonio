@@ -2645,6 +2645,16 @@ tr.clickable:hover {
   text-align: left;
 }
 
+/* Rótulo (item/unidade/período selecionado) sempre numa linha só — sem
+   isso, um nome comprido quebrava linha e esticava a caixa. */
+.seletor-tipo-gatilho > span:first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
 .seletor-tipo-gatilho:hover {
   border-color: var(--text-muted);
 }
@@ -2998,17 +3008,18 @@ tr.clickable:hover {
 
 /* ---------- Resumo do item selecionado (Visão Geral de Solicitações) ---------- */
 .resumo-item-eyebrow {
-  font-size: 12.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-secondary);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .resumo-item-titulo {
-  font-size: 26px;
-  margin: 0 0 18px;
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 16px;
   color: var(--text);
 }
 
