@@ -26,6 +26,33 @@
   --shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
 }
 
+/* Tema escuro — ativado via ThemeContext (toggle no menu do usuário).
+   O menu lateral já é escuro nos dois temas (--primary/--primary-dark), só
+   a área de conteúdo (fundo, cards, texto, badges) muda aqui. */
+:root[data-theme='dark'] {
+  --accent: #3b82f6;
+  --bg: #0b1526;
+  --surface: #121f35;
+  --border: #263349;
+  --text: #e5e9f0;
+  --text-secondary: #93a1b8;
+  --text-muted: #64748b;
+  --green: #22c55e;
+  --green-bg: #0f3d2c;
+  --green-text: #6ee7b7;
+  --yellow-bg: #4a2e05;
+  --yellow-text: #fcd34d;
+  --blue-bg: #1c3555;
+  --blue-text: #93c5fd;
+  --red-bg: #4c1414;
+  --red-text: #fca5a5;
+  --gray-bg: #1b2740;
+  --gray-text: #cbd5e1;
+  --purple-bg: #341257;
+  --purple-text: #d8b4fe;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -588,6 +615,42 @@ label {
 .user-menu button:hover,
 .user-menu a:hover {
   background: var(--gray-bg);
+}
+
+.user-menu button.user-menu-tema {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mini-switch {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.mini-switch.ativo {
+  background: var(--accent);
+}
+
+.mini-switch-bolinha {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.mini-switch.ativo .mini-switch-bolinha {
+  transform: translateX(14px);
 }
 
 .sidebar-backdrop {

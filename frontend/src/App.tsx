@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import type { Location } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthContext';
+import { ThemeProvider } from './theme/ThemeContext';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
 import { Inicio } from './pages/Inicio';
@@ -53,10 +54,12 @@ function RotasProtegidas() {
 
 export function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <RotasProtegidas />
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
+          <RotasProtegidas />
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { useTheme } from '../theme/ThemeContext';
 import logoPrefeitura from '../assets/logo-prefeitura-saude.png';
 import { SeletorImpersonar } from './SeletorImpersonar';
 import {
@@ -36,6 +37,7 @@ const TABS: TabDef[] = [
 
 export function Layout() {
   const { usuario, logout, impersonando, voltarAoMestre } = useAuth();
+  const { tema, alternarTema } = useTheme();
   const location = useLocation();
   const [menuAberto, setMenuAberto] = useState(false);
   const [sidebarAberta, setSidebarAberta] = useState(false);
@@ -119,6 +121,12 @@ export function Layout() {
                   Entrar como...
                 </button>
               )}
+              <button type="button" className="user-menu-tema" onClick={alternarTema}>
+                <span>Tema escuro</span>
+                <span className={`mini-switch${tema === 'dark' ? ' ativo' : ''}`} aria-hidden>
+                  <span className="mini-switch-bolinha" />
+                </span>
+              </button>
               <button onClick={logout}>Sair</button>
             </div>
           )}
