@@ -340,15 +340,11 @@ function RelatorioVisaoGeral() {
     api.get<Categoria[]>('/categorias').then(setCategorias).catch(() => {});
   }, []);
 
-  // Resumo do item (entregue/pendente/demanda) só faz sentido com um item
-  // específico selecionado — sem filtro, "Itens e Estoque" já cobre a visão
-  // agregada de todos os itens.
+  // Resumo do item — sempre visível: com um item filtrado, escopado a ele;
+  // sem filtro, agrega todos os itens.
   useEffect(() => {
-    if (!filtros.tipoEquipamentoId) {
-      setResumoItem(null);
-      return;
-    }
-    const params = new URLSearchParams({ tipoEquipamentoId: filtros.tipoEquipamentoId });
+    const params = new URLSearchParams();
+    if (filtros.tipoEquipamentoId) params.set('tipoEquipamentoId', filtros.tipoEquipamentoId);
     if (filtros.dataInicio) params.set('dataInicio', filtros.dataInicio);
     if (filtros.dataFim) params.set('dataFim', filtros.dataFim);
     api
@@ -451,7 +447,7 @@ function RelatorioVisaoGeral() {
 
       {resumoItem && (
         <div className="card card-pad resumo-item-card" style={{ marginTop: 20 }}>
-          <div className="resumo-item-eyebrow">Item selecionado</div>
+          <div className="resumo-item-eyebrow">{filtros.tipoEquipamentoId ? 'Item selecionado' : 'Resumo geral'}</div>
           <h2 className="resumo-item-titulo">{resumoItem.itemNome}</h2>
           <div className="resumo-item-stats">
             <div className="resumo-item-stat">

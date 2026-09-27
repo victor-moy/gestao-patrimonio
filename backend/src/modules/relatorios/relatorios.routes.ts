@@ -96,11 +96,7 @@ relatoriosRouter.get('/itens-estoque', async (_req, res) => {
 });
 
 relatoriosRouter.get('/resumo-item', async (req, res) => {
-  const idItem = tipoEquipamentoId(req);
-  if (!idItem) {
-    throw new AppError('Informe o item (tipoEquipamentoId).', 422);
-  }
-  res.json(await service.resumoItem(idItem, periodo(req)));
+  res.json(await service.resumoItem(tipoEquipamentoId(req), periodo(req)));
 });
 
 relatoriosRouter.get('/itens-por-unidade', async (req, res) => {

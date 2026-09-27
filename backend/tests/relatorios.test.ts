@@ -304,23 +304,20 @@ describe('Relatórios — feedback do stakeholder (filtro por item, busca, drill
     );
   });
 
-  it('resumo do item: exige tipoEquipamentoId', async () => {
-    const res = await request(app).get('/relatorios/resumo-item').set(auth('GESTOR_PATRIMONIO'));
-    expect(res.status).toBe(422);
-  });
-
-  it('resumo do item: entregue (concluída), pendente (em andamento) e demanda (aguardando estoque)', async () => {
+  it('resumo do item: entregue (concluída), pendente (em andamento) e demanda valorizada (aguardando estoque)', async () => {
     prismaMock.tipoEquipamento.findUnique.mockResolvedValue({
       id: UUID,
       nome: 'Purificador de Água',
       preco: '250.00',
     } as never);
-    (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([
-      { status: 'CONCLUIDA', _count: { id: 5 } },
-      { status: 'RESERVADO', _count: { id: 3 } },
-      { status: 'NEGADA', _count: { id: 1 } },
-    ]);
-    prismaMock.solicitacao.aggregate.mockResolvedValue({ _sum: { quantidade: 4 } } as never);
+    (prismaMock.solicitacao.groupBy as jest.Mock)
+      .mockResolvedValueOnce([
+        { status: 'CONCLUIDA', _count: { id: 5 } },
+        { status: 'RESERVADO', _count: { id: 3 } },
+        { status: 'NEGADA', _count: { id: 1 } },
+      ])
+      .mockResolvedValueOnce([{ tipoEquipamentoId: UUID, _sum: { quantidade: 4 } }]);
+    prismaMock.tipoEquipamento.findMany.mockResolvedValue([{ id: UUID, preco: '250.00' }] as never);
     const res = await request(app)
       .get(`/relatorios/resumo-item?tipoEquipamentoId=${UUID}`)
       .set(auth('GESTOR_PATRIMONIO'));
@@ -332,10 +329,39 @@ describe('Relatórios — feedback do stakeholder (filtro por item, busca, drill
       demandaQuantidade: 4,
       demandaValor: 1000,
     });
-    expect(prismaMock.solicitacao.groupBy).toHaveBeenCalledWith(
+    expect(prismaMock.solicitacao.groupBy).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         where: expect.objectContaining({ tipo: { in: ['AMPLIACAO', 'SUBSTITUICAO', 'CESSAO_USO'] }, tipoEquipamentoId: UUID }),
       }),
     );
+  });
+
+  it('resumo do item sem filtro: agrega todos os itens, valorizando a demanda por tipo (preços diferentes)', async () => {
+    (prismaMock.solicitacao.groupBy as jest.Mock)
+      .mockResolvedValueOnce([
+        { status: 'CONCLUIDA', _count: { id: 10 } },
+        { status: 'PENDENTE_APROVACAO', _count: { id: 4 } },
+      ])
+      .mockResolvedValueOnce([
+        { tipoEquipamentoId: 'tipo-1', _sum: { quantidade: 2 } },
+        { tipoEquipamentoId: 'tipo-2', _sum: { quantidade: 3 } },
+      ]);
+    prismaMock.tipoEquipamento.findMany.mockResolvedValue([
+      { id: 'tipo-1', preco: '100.00' },
+      { id: 'tipo-2', preco: '50.00' },
+    ] as never);
+    const res = await request(app).get('/relatorios/resumo-item').set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      itemNome: 'Todos os itens',
+      entregue: 10,
+      pendente: 4,
+      demandaQuantidade: 5,
+      demandaValor: 350, // 2×100 + 3×50 — não dá pra multiplicar pela soma por um preço só
+    });
+    expect(prismaMock.tipoEquipamento.findUnique).not.toHaveBeenCalled();
+    const primeiraChamada = (prismaMock.solicitacao.groupBy as jest.Mock).mock.calls[0][0];
+    expect(primeiraChamada.where.tipoEquipamentoId).toBeUndefined();
   });
 });

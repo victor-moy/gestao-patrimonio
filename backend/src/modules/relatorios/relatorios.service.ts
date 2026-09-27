@@ -254,16 +254,48 @@ export async function itensEstoque() {
 // equipamento já existente, não entrega de item novo.
 const TIPOS_ENTREGA_ITEM: TipoSolicitacao[] = ['AMPLIACAO', 'SUBSTITUICAO', 'CESSAO_USO'];
 
-// Resumo de um item específico (feedback do stakeholder: "quanto foi
-// entregue, quantos pendentes, qual a demanda" pra um tipo de equipamento,
-// ex. purificador de água). Reaproveita a mesma regra de "em andamento" do
-// funil de Visão Geral e a mesma agregação de "aguardando estoque" do
-// itensEstoque(), só que escopadas a um único tipoEquipamentoId.
-export async function resumoItem(tipoEquipamentoId: string, filtros: FiltrosPeriodo) {
-  const tipoEquipamento = await prisma.tipoEquipamento.findUnique({ where: { id: tipoEquipamentoId } });
+// Demanda ("aguardando estoque") valorizada — sem um tipoEquipamentoId,
+// precisa somar quantidade × preço POR tipo antes de somar o total, já que
+// cada tipo tem seu próprio preço (não dá pra multiplicar a quantidade
+// agregada por um preço só). Mesma agregação de itensEstoque(), só que
+// também retorna o valor total já calculado.
+async function calcularDemanda(tipoEquipamentoId?: string) {
+  const grupos = await prisma.solicitacao.groupBy({
+    by: ['tipoEquipamentoId'],
+    where: {
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+      tipo: { in: [...TIPOS_COM_ATA] },
+      ...(tipoEquipamentoId ? { tipoEquipamentoId } : {}),
+    },
+    _sum: { quantidade: true },
+  });
+  const ids = grupos.map((g) => g.tipoEquipamentoId).filter((id): id is string => !!id);
+  const tipos = await prisma.tipoEquipamento.findMany({ where: { id: { in: ids } }, select: { id: true, preco: true } });
+  const precoPorId = new Map(tipos.map((t) => [t.id, t.preco ? Number(t.preco) : 0]));
+  let quantidade = 0;
+  let valor = 0;
+  for (const g of grupos) {
+    const qtd = g._sum.quantidade ?? 0;
+    quantidade += qtd;
+    valor += qtd * (precoPorId.get(g.tipoEquipamentoId as string) ?? 0);
+  }
+  return { quantidade, valor };
+}
+
+// Resumo de item (feedback do stakeholder: "quanto foi entregue, quantos
+// pendentes, qual a demanda"). Com tipoEquipamentoId, escopado a um item só
+// (ex. purificador de água); sem, agrega todos os itens — pra sempre ter
+// esse resumo visível em Visão Geral, filtrado ou não. Reaproveita a mesma
+// regra de "em andamento" do funil e a mesma agregação de "aguardando
+// estoque" do itensEstoque().
+export async function resumoItem(tipoEquipamentoId: string | undefined, filtros: FiltrosPeriodo) {
+  const itemNome = tipoEquipamentoId
+    ? ((await prisma.tipoEquipamento.findUnique({ where: { id: tipoEquipamentoId } }))?.nome ?? 'Item não encontrado')
+    : 'Todos os itens';
+
   const where: Prisma.SolicitacaoWhereInput = {
     tipo: { in: TIPOS_ENTREGA_ITEM },
-    tipoEquipamentoId,
+    ...(tipoEquipamentoId ? { tipoEquipamentoId } : {}),
     ...filtroPeriodo(filtros),
   };
   const grupos = await prisma.solicitacao.groupBy({ by: ['status'], where, _count: { id: true } });
@@ -274,23 +306,14 @@ export async function resumoItem(tipoEquipamentoId: string, filtros: FiltrosPeri
     else if (!TERMINAL_NEGADA.has(g.status)) pendente += g._count.id;
   }
 
-  const demanda = await prisma.solicitacao.aggregate({
-    where: {
-      status: 'AGUARDANDO_DISPONIBILIDADE',
-      tipo: { in: [...TIPOS_COM_ATA] },
-      tipoEquipamentoId,
-    },
-    _sum: { quantidade: true },
-  });
-  const demandaQuantidade = demanda._sum.quantidade ?? 0;
-  const preco = tipoEquipamento?.preco ? Number(tipoEquipamento.preco) : 0;
+  const demanda = await calcularDemanda(tipoEquipamentoId);
 
   return {
-    itemNome: tipoEquipamento?.nome ?? 'Item não encontrado',
+    itemNome,
     entregue,
     pendente,
-    demandaQuantidade,
-    demandaValor: demandaQuantidade * preco,
+    demandaQuantidade: demanda.quantidade,
+    demandaValor: demanda.valor,
   };
 }
 
