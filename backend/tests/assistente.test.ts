@@ -17,6 +17,7 @@ jest.mock('@anthropic-ai/sdk', () => {
 
 import { criarApp } from '../src/app';
 import { env } from '../src/config/env';
+import { limparMarkdown } from '../src/modules/assistente/assistente.service';
 import {
   handleBuscarTipoEquipamento,
   handleItensAguardandoEstoque,
@@ -101,6 +102,26 @@ describe('Assistente de IA — tools (wrappers em cima dos relatórios)', () => 
     expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: expect.objectContaining({ unidadeOrigemId: { in: ['unidade-1'] } }) }),
     );
+  });
+});
+
+describe('Assistente de IA — limparMarkdown', () => {
+  it('remove negrito com asteriscos duplos', () => {
+    expect(limparMarkdown('O item é **Purificador de Água** com 3 unidades.')).toBe(
+      'O item é Purificador de Água com 3 unidades.',
+    );
+  });
+
+  it('remove ênfase com asterisco simples, sem afetar um asterisco solto', () => {
+    expect(limparMarkdown('Isso é *importante* e aqui um * solto.')).toBe('Isso é importante e aqui um * solto.');
+  });
+
+  it('remove cabeçalhos markdown no início da linha', () => {
+    expect(limparMarkdown('# Resumo\nTexto normal')).toBe('Resumo\nTexto normal');
+  });
+
+  it('deixa texto sem marcação intacto', () => {
+    expect(limparMarkdown('Nenhum empréstimo em atraso no momento.')).toBe('Nenhum empréstimo em atraso no momento.');
   });
 });
 
