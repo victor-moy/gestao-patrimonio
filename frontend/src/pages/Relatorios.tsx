@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../api/client';
 import { Badge } from '../components/Badge';
-import { IconeCaixa, IconeCheck, IconeChevron, IconeRelogio } from '../components/icons';
+import { IconeBusca, IconeCaixa, IconeCheck, IconeChevron, IconeRelogio } from '../components/icons';
 import { Modal } from '../components/Modal';
 import { SeletorTipoEquipamento } from '../components/SeletorTipoEquipamento';
 import { useAlinhamentoDropdown } from '../hooks/useAlinhamentoDropdown';
@@ -32,11 +32,32 @@ import {
 type OpcaoRelatorio = 'visao-geral' | 'emprestimos' | 'cessoes' | 'itens-estoque';
 
 const OPCOES: Array<{ valor: OpcaoRelatorio; rotulo: string }> = [
-  { valor: 'visao-geral', rotulo: 'Visão Geral de Solicitações' },
-  { valor: 'emprestimos', rotulo: 'Empréstimos — Prazos e Devoluções' },
-  { valor: 'cessoes', rotulo: 'Cessões de Uso — Prestação de Contas' },
+  { valor: 'visao-geral', rotulo: 'Visão Geral' },
+  { valor: 'emprestimos', rotulo: 'Empréstimos' },
+  { valor: 'cessoes', rotulo: 'Cessões de Uso' },
   { valor: 'itens-estoque', rotulo: 'Itens e Estoque' },
 ];
+
+// Título + subtítulo do cabeçalho mudam com o relatório selecionado — o
+// dropdown "Relatório" já diz qual é, a breadcrumb só ecoa esse rótulo.
+const METADADOS_RELATORIO: Record<OpcaoRelatorio, { titulo: string; subtitulo: string }> = {
+  'visao-geral': {
+    titulo: 'Visão geral de solicitações',
+    subtitulo: 'Acompanhe o funil de solicitações por tipo e unidade.',
+  },
+  emprestimos: {
+    titulo: 'Prazos e devoluções',
+    subtitulo: 'Acompanhe os empréstimos e as datas de retorno.',
+  },
+  cessoes: {
+    titulo: 'Prestação de contas',
+    subtitulo: 'Acompanhe os equipamentos cedidos a entidades externas.',
+  },
+  'itens-estoque': {
+    titulo: 'Itens e estoque',
+    subtitulo: 'Quantidade de itens por unidade e itens aguardando estoque.',
+  },
+};
 
 // Cessão de Uso fica de fora do ranking por unidade: a unidade de origem ali
 // é o galpão que tinha o estoque, não uma unidade solicitando — rankear não
@@ -88,18 +109,18 @@ function calcularPeriodo(preset: string): { dataInicio: string; dataFim: string 
 
 export function Relatorios() {
   const [relatorio, setRelatorio] = useState<OpcaoRelatorio>('visao-geral');
+  const opcaoAtual = OPCOES.find((o) => o.valor === relatorio) ?? OPCOES[0];
+  const metadados = METADADOS_RELATORIO[relatorio];
 
   return (
     <>
       <div className="page-header">
         <div>
-          <h2>Relatórios</h2>
-          <p className="subtitle">Relatórios gerenciais de Solicitações</p>
+          <div className="breadcrumb">Relatórios / {opcaoAtual.rotulo}</div>
+          <h2>{metadados.titulo}</h2>
+          <p className="subtitle">{metadados.subtitulo}</p>
         </div>
-      </div>
-
-      <div className="card card-pad">
-        <div className="field" style={{ maxWidth: 360 }}>
+        <div className="field" style={{ marginBottom: 0, minWidth: 220 }}>
           <label>Relatório</label>
           <select value={relatorio} onChange={(e) => setRelatorio(e.target.value as OpcaoRelatorio)}>
             {OPCOES.map((o) => (
@@ -669,16 +690,18 @@ function RelatorioEmprestimos() {
   const [filtros, setFiltros] = useState({
     dataInicio: '',
     dataFim: '',
-    unidadeId: '',
+    unidadeIds: [] as string[],
     tipoEquipamentoId: '',
     busca: '',
   });
 
   const carregar = useCallback(() => {
     const params = new URLSearchParams();
-    Object.entries(filtros).forEach(([k, v]) => {
-      if (v) params.set(k, v);
-    });
+    if (filtros.dataInicio) params.set('dataInicio', filtros.dataInicio);
+    if (filtros.dataFim) params.set('dataFim', filtros.dataFim);
+    if (filtros.unidadeIds.length > 0) params.set('unidadeId', filtros.unidadeIds.join(','));
+    if (filtros.tipoEquipamentoId) params.set('tipoEquipamentoId', filtros.tipoEquipamentoId);
+    if (filtros.busca) params.set('busca', filtros.busca);
     api
       .get<RelatorioEmprestimos>(`/relatorios/emprestimos?${params}`)
       .then(setDados)
@@ -698,51 +721,40 @@ function RelatorioEmprestimos() {
     <>
       {erro && <div className="error-banner">{erro}</div>}
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="toolbar">
-          <div>
-            <label style={{ fontSize: 12 }}>Período — início</label>
-            <input
-              type="date"
-              value={filtros.dataInicio}
-              onChange={(e) => setFiltros({ ...filtros, dataInicio: e.target.value })}
+        <div className="relatorio-filtros">
+          <div className="field">
+            <label style={{ fontSize: 12 }}>Período</label>
+            <SeletorPeriodo
+              dataInicio={filtros.dataInicio}
+              dataFim={filtros.dataFim}
+              onChange={(dataInicio, dataFim) => setFiltros({ ...filtros, dataInicio, dataFim })}
             />
           </div>
-          <div>
-            <label style={{ fontSize: 12 }}>Período — fim</label>
-            <input
-              type="date"
-              value={filtros.dataFim}
-              onChange={(e) => setFiltros({ ...filtros, dataFim: e.target.value })}
-            />
-          </div>
-          <div>
+          <div className="field">
             <label style={{ fontSize: 12 }}>Unidade de origem</label>
-            <select
-              value={filtros.unidadeId}
-              onChange={(e) => setFiltros({ ...filtros, unidadeId: e.target.value })}
-            >
-              <option value="">Todas</option>
-              {unidades.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.nome}
-                </option>
-              ))}
-            </select>
+            <SeletorMultiploUnidades
+              unidades={unidades}
+              selecionados={filtros.unidadeIds}
+              onChange={(ids) => setFiltros({ ...filtros, unidadeIds: ids })}
+            />
           </div>
-          <div>
+          <div className="field">
             <label style={{ fontSize: 12 }}>Item</label>
             <SeletorTipoEquipamento
               categorias={categorias}
               value={filtros.tipoEquipamentoId}
               onChange={(id) => setFiltros({ ...filtros, tipoEquipamentoId: id })}
               placeholder="Todos os itens"
+              alinhamentoForcado="direita"
             />
           </div>
-          <div>
-            <label style={{ fontSize: 12 }}>Busca por patrimônio</label>
+        </div>
+        <div className="relatorio-busca">
+          <div className="relatorio-busca-campo">
+            <IconeBusca />
             <input
               type="text"
-              placeholder="Tombamento ou descrição..."
+              placeholder="Buscar por tombamento ou descrição"
               value={filtros.busca}
               onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })}
             />
@@ -752,11 +764,11 @@ function RelatorioEmprestimos() {
 
       <div className="stats-grid" style={{ marginTop: 20 }}>
         <div className="card stat-card">
-          <div className="stat-label">Devoluções em Atraso</div>
+          <div className="stat-label">Devoluções em atraso</div>
           <div className="stat-value">{dados ? `${dados.percentualAtraso}%` : '—'}</div>
         </div>
         <div className="card stat-card">
-          <div className="stat-label">Duração Média do Processo</div>
+          <div className="stat-label">Duração média do processo</div>
           <div className="stat-value">
             {dados?.duracaoMediaDias ?? '—'} <small>dias</small>
           </div>
@@ -773,14 +785,17 @@ function RelatorioEmprestimos() {
                   <th>Equipamento</th>
                   <th>Origem</th>
                   <th>Destino</th>
-                  <th>Retorno Previsto</th>
+                  <th>Retorno previsto</th>
                   <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {dados.itens.map((e: EmprestimoRelatorio) => (
                   <tr key={e.id}>
-                    <td>{e.equipamento ?? '—'}</td>
+                    <td>
+                      <div>{e.equipamento ?? '—'}</div>
+                      {e.tombamento && <div className="celula-equipamento-sub">Patrimônio {e.tombamento}</div>}
+                    </td>
                     <td>{e.unidadeOrigem}</td>
                     <td>{e.unidadeDestino ?? '—'}</td>
                     <td>{e.dataRetornoPrevista ? formatarData(e.dataRetornoPrevista) : '—'}</td>

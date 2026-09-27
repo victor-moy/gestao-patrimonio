@@ -12,6 +12,11 @@ interface SeletorTipoEquipamentoProps {
   // Ids a esconder da lista (ex: já escolhidos em outras linhas da mesma
   // solicitação de Ampliação) — não deve incluir o próprio `value`.
   idsExcluidos?: string[];
+  // Força o lado do painel em vez de depender da detecção automática — útil
+  // quando o campo é sempre o último de uma linha (ex: filtro "Item" nos
+  // relatórios) e o painel largo (420px) estoura o próprio campo mesmo sem
+  // estourar a página.
+  alinhamentoForcado?: 'esquerda' | 'direita';
 }
 
 function normalizar(texto: string) {
@@ -32,6 +37,7 @@ export function SeletorTipoEquipamento({
   placeholder = 'Selecione o item...',
   required,
   idsExcluidos,
+  alinhamentoForcado,
 }: SeletorTipoEquipamentoProps) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState('');
@@ -43,7 +49,8 @@ export function SeletorTipoEquipamento({
   const containerRef = useRef<HTMLDivElement>(null);
   const buscaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const alinhamento = useAlinhamentoDropdown(containerRef, aberto);
+  const alinhamentoAuto = useAlinhamentoDropdown(containerRef, aberto);
+  const alinhamento = alinhamentoForcado ?? alinhamentoAuto;
 
   const selecionado = useMemo(() => {
     for (const c of categorias) {

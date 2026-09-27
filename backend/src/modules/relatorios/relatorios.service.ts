@@ -179,7 +179,8 @@ export async function emprestimos(
         s.atualizadoEm > s.dataRetornoPrevista);
     return {
       id: s.id,
-      equipamento: s.equipamento ? `${s.equipamento.tombamento} — ${s.equipamento.descricao}` : null,
+      equipamento: s.equipamento?.descricao ?? null,
+      tombamento: s.equipamento?.tombamento ?? null,
       unidadeOrigem: s.unidadeOrigem.nome,
       unidadeDestino: s.unidadeDestino?.nome ?? null,
       dataRetornoPrevista: s.dataRetornoPrevista,

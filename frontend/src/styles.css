@@ -798,6 +798,12 @@ label {
   gap: 10px;
 }
 
+.breadcrumb {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
 /* ---------- Cards / tabelas ---------- */
 .card {
   background: var(--surface);
@@ -830,6 +836,52 @@ label {
 .toolbar select {
   width: auto;
   min-width: 160px;
+}
+
+/* ---------- Relatórios — toolbar em grade (período + selects + busca) ---------- */
+.relatorio-filtros {
+  display: grid;
+  /* minmax(0, 1fr), não 1fr puro — sem isso, um nome de item comprido
+     estoura a coluna em vez de truncar com "…" (item vira min-content). */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  padding: 20px 20px 0;
+}
+
+.relatorio-filtros .field {
+  margin-bottom: 0;
+}
+
+.relatorio-busca {
+  padding: 16px 20px 20px;
+}
+
+.relatorio-busca-campo {
+  position: relative;
+}
+
+.relatorio-busca-campo svg {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.relatorio-busca-campo input {
+  padding-left: 40px;
+}
+
+@media (max-width: 900px) {
+  .relatorio-filtros {
+    grid-template-columns: 1fr;
+  }
+}
+
+.celula-equipamento-sub {
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  margin-top: 2px;
 }
 
 table {

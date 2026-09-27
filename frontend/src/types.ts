@@ -286,6 +286,7 @@ export interface RankingUnidadeTipo {
 export interface EmprestimoRelatorio {
   id: string;
   equipamento: string | null;
+  tombamento: string | null;
   unidadeOrigem: string;
   unidadeDestino: string | null;
   dataRetornoPrevista: string | null;

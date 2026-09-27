@@ -16,7 +16,13 @@ export function useAlinhamentoDropdown(
     if (!aberto || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     const largura = Math.max(rect.width, larguraMinima);
-    setAlinhamento(rect.left + largura > window.innerWidth ? 'direita' : 'esquerda');
+    // Compara com a borda direita da área de conteúdo (".page", que tem
+    // max-width e fica centralizada), não da janela — em telas largas a
+    // janela sobra bem além do conteúdo e o flip nunca disparava, mesmo
+    // com o painel estourando a borda visível da página.
+    const pagina = containerRef.current.closest<HTMLElement>('.page');
+    const limiteDireito = pagina ? pagina.getBoundingClientRect().right : window.innerWidth;
+    setAlinhamento(rect.left + largura > limiteDireito ? 'direita' : 'esquerda');
   }, [aberto, containerRef, larguraMinima]);
 
   return alinhamento;
