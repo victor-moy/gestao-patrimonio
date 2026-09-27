@@ -13,7 +13,6 @@ import type {
   EmprestimoRelatorio,
   EstoqueAguardandoItem,
   ItensPorUnidadeResposta,
-  MensagemAssistente,
   RankingUnidadeTipo,
   RelatorioCessoes,
   RelatorioEmprestimos,
@@ -30,14 +29,13 @@ import {
   ROTULO_TIPO_SOLICITACAO,
 } from '../utils/format';
 
-type OpcaoRelatorio = 'visao-geral' | 'emprestimos' | 'cessoes' | 'itens-estoque' | 'assistente';
+type OpcaoRelatorio = 'visao-geral' | 'emprestimos' | 'cessoes' | 'itens-estoque';
 
 const OPCOES: Array<{ valor: OpcaoRelatorio; rotulo: string }> = [
   { valor: 'visao-geral', rotulo: 'Visão Geral de Solicitações' },
   { valor: 'emprestimos', rotulo: 'Empréstimos — Prazos e Devoluções' },
   { valor: 'cessoes', rotulo: 'Cessões de Uso — Prestação de Contas' },
   { valor: 'itens-estoque', rotulo: 'Itens e Estoque' },
-  { valor: 'assistente', rotulo: 'Assistente de IA' },
 ];
 
 // Cessão de Uso fica de fora do ranking por unidade: a unidade de origem ali
@@ -117,7 +115,6 @@ export function Relatorios() {
       {relatorio === 'emprestimos' && <RelatorioEmprestimos />}
       {relatorio === 'cessoes' && <RelatorioCessoes />}
       {relatorio === 'itens-estoque' && <RelatorioItensEstoque />}
-      {relatorio === 'assistente' && <RelatorioAssistente />}
     </>
   );
 }
@@ -1084,91 +1081,5 @@ function RelatorioItensEstoque() {
         )}
       </div>
     </>
-  );
-}
-
-const PERGUNTAS_EXEMPLO = [
-  'Qual item tem maior quantidade aguardando estoque?',
-  'Quais unidades mais abriram solicitações?',
-  'Tem algum empréstimo atrasado?',
-];
-
-// Relatório 5 — Assistente de IA: chat com tool use sobre a Claude API,
-// respondendo perguntas em linguagem natural reaproveitando as mesmas
-// funções de agregação dos outros relatórios. Conversa fica só no estado da
-// página (sem persistência) — reinicia ao trocar de relatório ou recarregar.
-function RelatorioAssistente() {
-  const [mensagens, setMensagens] = useState<MensagemAssistente[]>([]);
-  const [entrada, setEntrada] = useState('');
-  const [enviando, setEnviando] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-  const listaRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    listaRef.current?.scrollTo({ top: listaRef.current.scrollHeight });
-  }, [mensagens, enviando]);
-
-  async function enviar(pergunta: string) {
-    const texto = pergunta.trim();
-    if (!texto || enviando) return;
-    setErro(null);
-    const novasMensagens: MensagemAssistente[] = [...mensagens, { role: 'user', content: texto }];
-    setMensagens(novasMensagens);
-    setEntrada('');
-    setEnviando(true);
-    try {
-      const { resposta } = await api.post<{ resposta: string }>('/assistente/perguntar', { mensagens: novasMensagens });
-      setMensagens([...novasMensagens, { role: 'assistant', content: resposta }]);
-    } catch (e) {
-      setErro(e instanceof Error ? e.message : 'Erro ao falar com o assistente.');
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  return (
-    <div className="card assistente-card" style={{ marginTop: 20 }}>
-      <div className="assistente-lista" ref={listaRef}>
-        {mensagens.length === 0 && (
-          <div className="assistente-vazio">
-            <p>Pergunte sobre solicitações, empréstimos, unidades ou itens aguardando estoque.</p>
-            <div className="assistente-exemplos">
-              {PERGUNTAS_EXEMPLO.map((pergunta) => (
-                <button type="button" key={pergunta} className="assistente-exemplo" onClick={() => enviar(pergunta)}>
-                  {pergunta}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-        {mensagens.map((m, i) => (
-          <div key={i} className={`assistente-mensagem assistente-mensagem--${m.role}`}>
-            {m.content}
-          </div>
-        ))}
-        {enviando && <div className="assistente-mensagem assistente-mensagem--assistant assistente-digitando">Pensando…</div>}
-      </div>
-
-      {erro && <div className="error-banner">{erro}</div>}
-
-      <form
-        className="assistente-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          enviar(entrada);
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Pergunte algo sobre os dados de solicitações..."
-          value={entrada}
-          onChange={(e) => setEntrada(e.target.value)}
-          disabled={enviando}
-        />
-        <button type="submit" className="btn btn-primary" disabled={enviando || !entrada.trim()}>
-          Enviar
-        </button>
-      </form>
-    </div>
   );
 }

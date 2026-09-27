@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import logoPrefeitura from '../assets/logo-prefeitura-saude.png';
+import { AssistenteFlutuante } from './AssistenteFlutuante';
 import { SeletorImpersonar } from './SeletorImpersonar';
 import {
   IconeChevron,
@@ -151,6 +152,7 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+      <AssistenteFlutuante />
     </div>
   );
 }

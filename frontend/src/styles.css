@@ -3110,12 +3110,86 @@ tr.clickable:hover {
   }
 }
 
-/* ---------- Assistente de IA (chat sobre os relatórios) ---------- */
-.assistente-card {
+/* ---------- Assistente de IA (botão flutuante, acessível em qualquer tela) ---------- */
+.assistente-flutuante-botao {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.28);
+  cursor: pointer;
+  z-index: 60;
+}
+
+.assistente-flutuante-botao:hover {
+  filter: brightness(1.08);
+}
+
+.assistente-flutuante-painel {
+  position: fixed;
+  right: 24px;
+  bottom: 92px;
+  width: min(380px, calc(100vw - 32px));
+  height: min(560px, calc(100vh - 140px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 16px 40px rgba(16, 24, 40, 0.3);
   display: flex;
   flex-direction: column;
-  height: min(640px, calc(100vh - 220px));
   overflow: hidden;
+  z-index: 60;
+}
+
+.assistente-flutuante-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.assistente-limpar {
+  background: none;
+  border: none;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.assistente-limpar:hover {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.assistente-flutuante-fechar {
+  display: flex;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.assistente-flutuante-fechar svg {
+  width: 18px;
+  height: 18px;
+}
+
+.assistente-flutuante-fechar:hover {
+  color: var(--text);
 }
 
 .assistente-lista {
