@@ -13,14 +13,19 @@ import {
 import { api } from '../api/client';
 import { Badge } from '../components/Badge';
 import { IconeChevron } from '../components/icons';
+import { Modal } from '../components/Modal';
+import { SeletorTipoEquipamento } from '../components/SeletorTipoEquipamento';
 import type {
   CessaoRelatorio,
+  Categoria,
+  DetalheSolicitacaoUnidade,
   EmprestimoRelatorio,
   EstoqueAguardandoItem,
   ItensPorUnidadeResposta,
   RankingUnidadeTipo,
   RelatorioCessoes,
   RelatorioEmprestimos,
+  ResumoItem,
   TipoSolicitacao,
   Unidade,
   VisaoGeralTipo,
@@ -172,15 +177,24 @@ function SeletorMultiploUnidades({
 function RelatorioVisaoGeral() {
   const [dados, setDados] = useState<VisaoGeralTipo[] | null>(null);
   const [ranking, setRanking] = useState<RankingUnidadeTipo[] | null>(null);
+  const [resumoItem, setResumoItem] = useState<ResumoItem | null>(null);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [erro, setErro] = useState<string | null>(null);
-  const [filtros, setFiltros] = useState({ dataInicio: '', dataFim: '', unidadeIds: [] as string[] });
+  const [filtros, setFiltros] = useState({
+    dataInicio: '',
+    dataFim: '',
+    unidadeIds: [] as string[],
+    tipoEquipamentoId: '',
+  });
+  const [unidadeDetalhe, setUnidadeDetalhe] = useState<{ id: string; nome: string } | null>(null);
 
   const carregar = useCallback(() => {
     const params = new URLSearchParams();
     if (filtros.dataInicio) params.set('dataInicio', filtros.dataInicio);
     if (filtros.dataFim) params.set('dataFim', filtros.dataFim);
     if (filtros.unidadeIds.length > 0) params.set('unidadeId', filtros.unidadeIds.join(','));
+    if (filtros.tipoEquipamentoId) params.set('tipoEquipamentoId', filtros.tipoEquipamentoId);
     api
       .get<VisaoGeralTipo[]>(`/relatorios/visao-geral?${params}`)
       .then(setDados)
@@ -197,7 +211,25 @@ function RelatorioVisaoGeral() {
 
   useEffect(() => {
     api.get<Unidade[]>('/unidades').then(setUnidades).catch(() => {});
+    api.get<Categoria[]>('/categorias').then(setCategorias).catch(() => {});
   }, []);
+
+  // Resumo do item (entregue/pendente/demanda) só faz sentido com um item
+  // específico selecionado — sem filtro, "Itens e Estoque" já cobre a visão
+  // agregada de todos os itens.
+  useEffect(() => {
+    if (!filtros.tipoEquipamentoId) {
+      setResumoItem(null);
+      return;
+    }
+    const params = new URLSearchParams({ tipoEquipamentoId: filtros.tipoEquipamentoId });
+    if (filtros.dataInicio) params.set('dataInicio', filtros.dataInicio);
+    if (filtros.dataFim) params.set('dataFim', filtros.dataFim);
+    api
+      .get<ResumoItem>(`/relatorios/resumo-item?${params}`)
+      .then(setResumoItem)
+      .catch((e) => setErro(e.message));
+  }, [filtros.tipoEquipamentoId, filtros.dataInicio, filtros.dataFim]);
 
   return (
     <>
@@ -228,8 +260,39 @@ function RelatorioVisaoGeral() {
               onChange={(ids) => setFiltros({ ...filtros, unidadeIds: ids })}
             />
           </div>
+          <div>
+            <label style={{ fontSize: 12 }}>Item</label>
+            <SeletorTipoEquipamento
+              categorias={categorias}
+              value={filtros.tipoEquipamentoId}
+              onChange={(id) => setFiltros({ ...filtros, tipoEquipamentoId: id })}
+              placeholder="Todos os itens"
+            />
+          </div>
         </div>
       </div>
+
+      {resumoItem && (
+        <div className="stats-grid" style={{ marginTop: 20 }}>
+          <div className="card stat-card">
+            <div className="stat-label">Entregue — {resumoItem.itemNome}</div>
+            <div className="stat-value">{resumoItem.entregue}</div>
+          </div>
+          <div className="card stat-card">
+            <div className="stat-label">Pendente</div>
+            <div className="stat-value">{resumoItem.pendente}</div>
+          </div>
+          <div className="card stat-card">
+            <div className="stat-label">Demanda (aguardando estoque)</div>
+            <div className="stat-value">{resumoItem.demandaQuantidade}</div>
+            {resumoItem.demandaQuantidade > 0 && (
+              <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+                {formatarMoeda(resumoItem.demandaValor)} previstos
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="card card-pad" style={{ marginTop: 20 }}>
         <h3>Solicitações por Tipo e Status</h3>
@@ -257,24 +320,119 @@ function RelatorioVisaoGeral() {
       <div className="card card-pad" style={{ marginTop: 20 }}>
         <h3>Ranking de Unidades por Tipo</h3>
         {ranking && ranking.length > 0 ? (
-          <ResponsiveContainer width="100%" height={Math.max(220, ranking.length * 50)}>
-            <BarChart data={ranking} layout="vertical" margin={{ left: 8 }}>
-              <XAxis type="number" allowDecimals={false} fontSize={12} />
-              <YAxis type="category" dataKey="unidade" width={140} fontSize={12} />
-              <Tooltip />
-              <Legend />
-              {TIPOS_RANKING.map((t) => (
-                <Bar key={t} dataKey={t} name={ROTULO_TIPO_SOLICITACAO[t]} fill={CORES_RANKING[t]} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
+          <>
+            <p className="subtitle" style={{ marginTop: -4 }}>
+              Clique numa unidade pra ver o detalhe do que ela pediu
+            </p>
+            <ResponsiveContainer width="100%" height={Math.max(220, ranking.length * 50)}>
+              <BarChart data={ranking} layout="vertical" margin={{ left: 8 }}>
+                <XAxis type="number" allowDecimals={false} fontSize={12} />
+                <YAxis type="category" dataKey="unidade" width={140} fontSize={12} />
+                <Tooltip />
+                <Legend />
+                {TIPOS_RANKING.map((t) => (
+                  <Bar
+                    key={t}
+                    dataKey={t}
+                    name={ROTULO_TIPO_SOLICITACAO[t]}
+                    fill={CORES_RANKING[t]}
+                    cursor="pointer"
+                    onClick={(dados: { payload: RankingUnidadeTipo }) =>
+                      setUnidadeDetalhe({ id: dados.payload.unidadeId, nome: dados.payload.unidade })
+                    }
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </>
         ) : ranking ? (
           <div className="empty-state">Sem solicitações para os filtros selecionados</div>
         ) : (
           <div className="empty-state">Carregando…</div>
         )}
       </div>
+
+      {unidadeDetalhe && (
+        <DetalheUnidadeModal
+          unidadeId={unidadeDetalhe.id}
+          unidadeNome={unidadeDetalhe.nome}
+          tipoEquipamentoId={filtros.tipoEquipamentoId}
+          dataInicio={filtros.dataInicio}
+          dataFim={filtros.dataFim}
+          onFechar={() => setUnidadeDetalhe(null)}
+        />
+      )}
     </>
+  );
+}
+
+// Modal de drill-down do ranking — lista tudo que uma unidade pediu (feedback
+// do stakeholder: "descer" o relatório, não só ver o número agregado).
+function DetalheUnidadeModal({
+  unidadeId,
+  unidadeNome,
+  tipoEquipamentoId,
+  dataInicio,
+  dataFim,
+  onFechar,
+}: {
+  unidadeId: string;
+  unidadeNome: string;
+  tipoEquipamentoId: string;
+  dataInicio: string;
+  dataFim: string;
+  onFechar: () => void;
+}) {
+  const [itens, setItens] = useState<DetalheSolicitacaoUnidade[] | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams({ unidadeId });
+    if (tipoEquipamentoId) params.set('tipoEquipamentoId', tipoEquipamentoId);
+    if (dataInicio) params.set('dataInicio', dataInicio);
+    if (dataFim) params.set('dataFim', dataFim);
+    api
+      .get<DetalheSolicitacaoUnidade[]>(`/relatorios/detalhe-unidade?${params}`)
+      .then(setItens)
+      .catch((e) => setErro(e.message));
+  }, [unidadeId, tipoEquipamentoId, dataInicio, dataFim]);
+
+  return (
+    <Modal titulo={unidadeNome} subtitulo="Substituição, Ampliação, Empréstimo e Recolha" onFechar={onFechar}>
+      {erro && <div className="error-banner">{erro}</div>}
+      {itens && itens.length > 0 ? (
+        <div style={{ overflowX: 'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Item</th>
+                <th>Quantidade</th>
+                <th>Status</th>
+                <th>Criado em</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itens.map((s) => (
+                <tr key={s.id}>
+                  <td>{ROTULO_TIPO_SOLICITACAO[s.tipo]}</td>
+                  <td>{s.item ?? '—'}</td>
+                  <td>{s.quantidade ?? '—'}</td>
+                  <td>
+                    <Badge valor={s.status}>{ROTULO_STATUS_SOLICITACAO[s.status]}</Badge>
+                  </td>
+                  <td>{formatarData(s.criadoEm)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : itens ? (
+        <div className="empty-state">Sem solicitações para os filtros selecionados</div>
+      ) : (
+        <div className="empty-state">Carregando…</div>
+      )}
+    </Modal>
   );
 }
 
@@ -282,8 +440,15 @@ function RelatorioVisaoGeral() {
 function RelatorioEmprestimos() {
   const [dados, setDados] = useState<RelatorioEmprestimos | null>(null);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [erro, setErro] = useState<string | null>(null);
-  const [filtros, setFiltros] = useState({ dataInicio: '', dataFim: '', unidadeId: '' });
+  const [filtros, setFiltros] = useState({
+    dataInicio: '',
+    dataFim: '',
+    unidadeId: '',
+    tipoEquipamentoId: '',
+    busca: '',
+  });
 
   const carregar = useCallback(() => {
     const params = new URLSearchParams();
@@ -302,6 +467,7 @@ function RelatorioEmprestimos() {
 
   useEffect(() => {
     api.get<Unidade[]>('/unidades').then(setUnidades).catch(() => {});
+    api.get<Categoria[]>('/categorias').then(setCategorias).catch(() => {});
   }, []);
 
   return (
@@ -338,6 +504,24 @@ function RelatorioEmprestimos() {
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 12 }}>Item</label>
+            <SeletorTipoEquipamento
+              categorias={categorias}
+              value={filtros.tipoEquipamentoId}
+              onChange={(id) => setFiltros({ ...filtros, tipoEquipamentoId: id })}
+              placeholder="Todos os itens"
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12 }}>Busca por patrimônio</label>
+            <input
+              type="text"
+              placeholder="Tombamento ou descrição..."
+              value={filtros.busca}
+              onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })}
+            />
           </div>
         </div>
       </div>
@@ -400,8 +584,9 @@ function RelatorioEmprestimos() {
 // Relatório 3 — prestação de contas de Cessão de Uso.
 function RelatorioCessoes() {
   const [dados, setDados] = useState<RelatorioCessoes | null>(null);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [erro, setErro] = useState<string | null>(null);
-  const [filtros, setFiltros] = useState({ dataInicio: '', dataFim: '' });
+  const [filtros, setFiltros] = useState({ dataInicio: '', dataFim: '', tipoEquipamentoId: '', busca: '' });
 
   const carregar = useCallback(() => {
     const params = new URLSearchParams();
@@ -417,6 +602,10 @@ function RelatorioCessoes() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    api.get<Categoria[]>('/categorias').then(setCategorias).catch(() => {});
+  }, []);
 
   return (
     <>
@@ -437,6 +626,24 @@ function RelatorioCessoes() {
               type="date"
               value={filtros.dataFim}
               onChange={(e) => setFiltros({ ...filtros, dataFim: e.target.value })}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12 }}>Item</label>
+            <SeletorTipoEquipamento
+              categorias={categorias}
+              value={filtros.tipoEquipamentoId}
+              onChange={(id) => setFiltros({ ...filtros, tipoEquipamentoId: id })}
+              placeholder="Todos os itens"
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12 }}>Busca por patrimônio</label>
+            <input
+              type="text"
+              placeholder="Nº de patrimônio, entidade ou item..."
+              value={filtros.busca}
+              onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })}
             />
           </div>
         </div>

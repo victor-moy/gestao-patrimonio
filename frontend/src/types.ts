@@ -218,6 +218,23 @@ export interface ItensPorUnidadeResposta {
   linhas: Array<Record<string, string | number>>;
 }
 
+export interface ResumoItem {
+  itemNome: string;
+  entregue: number;
+  pendente: number;
+  demandaQuantidade: number;
+  demandaValor: number;
+}
+
+export interface DetalheSolicitacaoUnidade {
+  id: string;
+  tipo: TipoSolicitacao;
+  item: string | null;
+  quantidade: number | null;
+  status: StatusSolicitacao;
+  criadoEm: string;
+}
+
 export interface MovimentacaoEstoque {
   id: string;
   tipo: 'ENTRADA' | 'SAIDA';
