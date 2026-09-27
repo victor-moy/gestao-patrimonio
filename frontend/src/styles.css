@@ -2598,6 +2598,27 @@ tr.clickable:hover {
   flex-shrink: 0;
 }
 
+.seletor-tipo-limpar {
+  display: flex;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: 4px;
+}
+
+.seletor-tipo-limpar svg {
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+}
+
+.seletor-tipo-limpar:hover {
+  background: var(--gray-bg);
+}
+
+.seletor-tipo-limpar:hover svg {
+  color: var(--text);
+}
+
 .seletor-tipo-placeholder {
   color: var(--text-muted);
 }
@@ -2620,6 +2641,35 @@ tr.clickable:hover {
 .seletor-tipo-painel--direita {
   left: auto;
   right: 0;
+}
+
+.seletor-periodo-personalizado {
+  border-top: 1px solid var(--border);
+  padding: 14px 16px 16px;
+}
+
+.seletor-periodo-personalizado-titulo {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.seletor-periodo-personalizado-campos {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.seletor-periodo-personalizado-campos input {
+  flex: 1;
+}
+
+.seletor-periodo-personalizado-campos span {
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .seletor-tipo-busca {

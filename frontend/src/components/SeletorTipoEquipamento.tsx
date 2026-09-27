@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAlinhamentoDropdown } from '../hooks/useAlinhamentoDropdown';
 import type { Categoria } from '../types';
-import { IconeBusca, IconeChevron } from './icons';
+import { IconeBusca, IconeChevron, IconeFechar } from './icons';
 
 interface SeletorTipoEquipamentoProps {
   categorias: Categoria[];
@@ -123,6 +123,12 @@ export function SeletorTipoEquipamento({
     }
   }
 
+  // Filtros opcionais (não required) podem ser limpos de volta pro
+  // placeholder — diferente de um formulário, onde o item é obrigatório e
+  // não faz sentido desmarcar. Não é um multiselect: continua escolhendo um
+  // item por vez, só ganha essa saída rápida pra "nenhum".
+  const permiteLimpar = !required && !!selecionado;
+
   return (
     <div className="seletor-tipo" ref={containerRef}>
       <button
@@ -135,7 +141,21 @@ export function SeletorTipoEquipamento({
         <span className={selecionado ? '' : 'seletor-tipo-placeholder'}>
           {selecionado ? selecionado.nome : placeholder}
         </span>
-        <IconeChevron />
+        {permiteLimpar ? (
+          <span
+            role="button"
+            aria-label="Limpar seleção"
+            className="seletor-tipo-limpar"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange('');
+            }}
+          >
+            <IconeFechar />
+          </span>
+        ) : (
+          <IconeChevron />
+        )}
       </button>
       {/* input escondido só pra garantir validação HTML (required) do form */}
       <input type="text" value={value} required={required} readOnly tabIndex={-1} className="seletor-tipo-shadow" aria-hidden />

@@ -197,6 +197,105 @@ function SeletorMultiploUnidades({
   );
 }
 
+function formatarDataCurta(iso: string) {
+  const [, mes, dia] = iso.split('-');
+  return `${dia}/${mes}`;
+}
+
+// Período — presets rápidos (Hoje, Últimos 7 dias...) ou um intervalo
+// personalizado, tudo dentro de um único campo (mesma casca seletor-tipo-*
+// dos outros combos, sem virar um multiselect).
+function SeletorPeriodo({
+  dataInicio,
+  dataFim,
+  onChange,
+}: {
+  dataInicio: string;
+  dataFim: string;
+  onChange: (dataInicio: string, dataFim: string) => void;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const [inicioRascunho, setInicioRascunho] = useState(dataInicio);
+  const [fimRascunho, setFimRascunho] = useState(dataFim);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const alinhamento = useAlinhamentoDropdown(containerRef, aberto);
+
+  useEffect(() => {
+    if (!aberto) return;
+    function aoClicarFora(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setAberto(false);
+      }
+    }
+    document.addEventListener('mousedown', aoClicarFora);
+    return () => document.removeEventListener('mousedown', aoClicarFora);
+  }, [aberto]);
+
+  function abrir() {
+    setInicioRascunho(dataInicio);
+    setFimRascunho(dataFim);
+    setAberto(true);
+  }
+
+  function aplicarPreset(preset: string) {
+    const calculado = calcularPeriodo(preset);
+    onChange(calculado.dataInicio, calculado.dataFim);
+    setAberto(false);
+  }
+
+  function aplicarPersonalizado() {
+    onChange(inicioRascunho, fimRascunho);
+    setAberto(false);
+  }
+
+  const semFiltro = !dataInicio && !dataFim;
+  const rotulo = semFiltro
+    ? 'Todo o período'
+    : `${dataInicio ? formatarDataCurta(dataInicio) : '…'} – ${dataFim ? formatarDataCurta(dataFim) : '…'}`;
+
+  return (
+    <div className="seletor-tipo" ref={containerRef}>
+      <button
+        type="button"
+        className="seletor-tipo-gatilho"
+        onClick={() => (aberto ? setAberto(false) : abrir())}
+        aria-haspopup="dialog"
+        aria-expanded={aberto}
+      >
+        <span className={semFiltro ? 'seletor-tipo-placeholder' : ''}>{rotulo}</span>
+        <IconeChevron />
+      </button>
+      {aberto && (
+        <div className={`seletor-tipo-painel${alinhamento === 'direita' ? ' seletor-tipo-painel--direita' : ''}`}>
+          <div className="seletor-tipo-lista">
+            {OPCOES_PERIODO.map((o) => (
+              <button type="button" key={o.valor} className="seletor-tipo-item" onClick={() => aplicarPreset(o.valor)}>
+                <span>{o.rotulo}</span>
+              </button>
+            ))}
+          </div>
+          <div className="seletor-periodo-personalizado">
+            <div className="seletor-periodo-personalizado-titulo">Personalizado</div>
+            <div className="seletor-periodo-personalizado-campos">
+              <input type="date" value={inicioRascunho} onChange={(e) => setInicioRascunho(e.target.value)} />
+              <span>até</span>
+              <input type="date" value={fimRascunho} onChange={(e) => setFimRascunho(e.target.value)} />
+            </div>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              style={{ width: '100%', marginTop: 10 }}
+              onClick={aplicarPersonalizado}
+            >
+              Aplicar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Relatório 1 — funil de Solicitações por tipo (3 grupos, já que os 13
 // status brutos ficariam ilegíveis num gráfico) + ranking de unidades com os
 // 4 tipos lado a lado num gráfico só (feedback do cliente: dinâmico, sem
@@ -209,7 +308,6 @@ function RelatorioVisaoGeral() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [filtros, setFiltros] = useState({
-    periodo: '',
     dataInicio: '',
     dataFim: '',
     unidadeIds: [] as string[],
@@ -286,18 +384,13 @@ function RelatorioVisaoGeral() {
       {erro && <div className="error-banner">{erro}</div>}
       <div className="card card-pad" style={{ marginTop: 20 }}>
         <div className="toolbar">
-          <div style={{ flex: 1, minWidth: 200 }}>
+          <div style={{ flex: 1.3, minWidth: 240 }}>
             <label style={{ fontSize: 12 }}>Período</label>
-            <select
-              value={filtros.periodo}
-              onChange={(e) => setFiltros({ ...filtros, periodo: e.target.value, ...calcularPeriodo(e.target.value) })}
-            >
-              {OPCOES_PERIODO.map((o) => (
-                <option key={o.valor} value={o.valor}>
-                  {o.rotulo}
-                </option>
-              ))}
-            </select>
+            <SeletorPeriodo
+              dataInicio={filtros.dataInicio}
+              dataFim={filtros.dataFim}
+              onChange={(dataInicio, dataFim) => setFiltros({ ...filtros, dataInicio, dataFim })}
+            />
           </div>
           <div style={{ flex: 1, minWidth: 200 }}>
             <label style={{ fontSize: 12 }}>Unidade de origem</label>
