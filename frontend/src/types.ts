@@ -235,6 +235,11 @@ export interface DetalheSolicitacaoUnidade {
   criadoEm: string;
 }
 
+export interface MensagemAssistente {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
 export interface MovimentacaoEstoque {
   id: string;
   tipo: 'ENTRADA' | 'SAIDA';
