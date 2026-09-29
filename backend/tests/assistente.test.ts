@@ -33,7 +33,7 @@ const UUID = '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6';
 describe('Assistente de IA — tools (wrappers em cima dos relatórios)', () => {
   it('itens_aguardando_estoque: devolve o JSON de itensEstoque()', async () => {
     (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([
-      { tipoEquipamentoId: UUID, _sum: { quantidade: 7 }, _count: { _all: 2 } },
+      { tipoEquipamentoId: UUID, _sum: { quantidade: 7 }, _count: { _all: 2 }, _min: { criadoEm: new Date('2026-01-01') } },
     ]);
     prismaMock.tipoEquipamento.findMany.mockResolvedValue([
       { id: UUID, nome: 'Purificador de Água', codigo: 'PUR-1', categoria: { nome: 'Cozinha', cor: '#000' } },
