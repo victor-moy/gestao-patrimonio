@@ -310,6 +310,7 @@ export interface CessaoRelatorio {
   entidadeExternaNome: string | null;
   tipoEquipamento: string | null;
   numerosPatrimonio: string[];
+  preco: number | null;
   unidadeOrigem: string;
   status: StatusSolicitacao;
   numeroPedidoBranet: string | null;
@@ -318,6 +319,10 @@ export interface CessaoRelatorio {
 }
 
 export interface RelatorioCessoes {
+  total: number;
+  concluida: number;
+  aguardandoBranet: number;
+  valorTotal: number;
   itens: CessaoRelatorio[];
 }
 

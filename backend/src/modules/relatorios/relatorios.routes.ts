@@ -85,6 +85,7 @@ relatoriosRouter.get('/cessoes', async (req, res) => {
   res.json(
     await service.cessoes({
       ...periodo(req),
+      unidadeIds: unidadeIds(req),
       tipoEquipamentoId: tipoEquipamentoId(req),
       busca: busca(req),
     }),

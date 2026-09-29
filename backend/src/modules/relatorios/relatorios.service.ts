@@ -406,17 +406,23 @@ export async function itensPorUnidade(filtros: FiltrosPeriodo & { unidadeIds?: s
 }
 
 // Relatório 6 — Cessões de Uso: prestação de contas (o que foi cedido, pra
-// quem, com qual nº de patrimônio).
-export async function cessoes(filtros: FiltrosPeriodo & { tipoEquipamentoId?: string; busca?: string }) {
+// quem, com qual nº de patrimônio). Diferente de Empréstimo/Ampliação, o
+// fluxo de Cessão só tem 2 estados na prática (reserva na criação, sem etapa
+// de aprovação nem cancelamento): RESERVADO até o Gestor lançar no Branet, e
+// CONCLUIDA depois disso — por isso não há balde de negada/cancelada aqui.
+export async function cessoes(
+  filtros: FiltrosPeriodo & { unidadeIds?: string[]; tipoEquipamentoId?: string; busca?: string },
+) {
   const where: Prisma.SolicitacaoWhereInput = {
     tipo: 'CESSAO_USO',
+    ...(filtros.unidadeIds?.length ? { unidadeOrigemId: { in: filtros.unidadeIds } } : {}),
     ...filtroItem(filtros.tipoEquipamentoId),
     ...filtroPeriodo(filtros),
   };
   const registros = await prisma.solicitacao.findMany({
     where,
     include: {
-      tipoEquipamento: { select: { nome: true } },
+      tipoEquipamento: { select: { nome: true, preco: true } },
       unidadeOrigem: { select: { nome: true } },
     },
     orderBy: { criadoEm: 'desc' },
@@ -433,12 +439,23 @@ export async function cessoes(filtros: FiltrosPeriodo & { tipoEquipamentoId?: st
           s.tipoEquipamento?.nome.toLowerCase().includes(busca),
       )
     : registros;
+
+  const total = filtrados.length;
+  const concluida = filtrados.filter((s) => s.status === 'CONCLUIDA').length;
+  const aguardandoBranet = total - concluida;
+  const valorTotal = filtrados.reduce((soma, s) => soma + (s.tipoEquipamento?.preco ? Number(s.tipoEquipamento.preco) : 0), 0);
+
   return {
+    total,
+    concluida,
+    aguardandoBranet,
+    valorTotal,
     itens: filtrados.map((s) => ({
       id: s.id,
       entidadeExternaNome: s.entidadeExternaNome,
       tipoEquipamento: s.tipoEquipamento?.nome ?? null,
       numerosPatrimonio: s.numerosPatrimonio,
+      preco: s.tipoEquipamento?.preco ? Number(s.tipoEquipamento.preco) : null,
       unidadeOrigem: s.unidadeOrigem.nome,
       status: s.status,
       numeroPedidoBranet: s.numeroPedidoBranet,

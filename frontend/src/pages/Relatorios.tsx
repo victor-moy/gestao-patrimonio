@@ -860,15 +860,24 @@ function RelatorioEmprestimos() {
 // Relatório 3 — prestação de contas de Cessão de Uso.
 function RelatorioCessoes() {
   const [dados, setDados] = useState<RelatorioCessoes | null>(null);
+  const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [erro, setErro] = useState<string | null>(null);
-  const [filtros, setFiltros] = useState({ dataInicio: '', dataFim: '', tipoEquipamentoId: '', busca: '' });
+  const [filtros, setFiltros] = useState({
+    dataInicio: '',
+    dataFim: '',
+    unidadeIds: [] as string[],
+    tipoEquipamentoId: '',
+    busca: '',
+  });
 
   const carregar = useCallback(() => {
     const params = new URLSearchParams();
-    Object.entries(filtros).forEach(([k, v]) => {
-      if (v) params.set(k, v);
-    });
+    if (filtros.dataInicio) params.set('dataInicio', filtros.dataInicio);
+    if (filtros.dataFim) params.set('dataFim', filtros.dataFim);
+    if (filtros.unidadeIds.length > 0) params.set('unidadeId', filtros.unidadeIds.join(','));
+    if (filtros.tipoEquipamentoId) params.set('tipoEquipamentoId', filtros.tipoEquipamentoId);
+    if (filtros.busca) params.set('busca', filtros.busca);
     api
       .get<RelatorioCessoes>(`/relatorios/cessoes?${params}`)
       .then(setDados)
@@ -880,6 +889,7 @@ function RelatorioCessoes() {
   }, [carregar]);
 
   useEffect(() => {
+    api.get<Unidade[]>('/unidades').then(setUnidades).catch(() => {});
     api.get<Categoria[]>('/categorias').then(setCategorias).catch(() => {});
   }, []);
 
@@ -887,41 +897,68 @@ function RelatorioCessoes() {
     <>
       {erro && <div className="error-banner">{erro}</div>}
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="toolbar">
-          <div>
-            <label style={{ fontSize: 12 }}>Período — início</label>
-            <input
-              type="date"
-              value={filtros.dataInicio}
-              onChange={(e) => setFiltros({ ...filtros, dataInicio: e.target.value })}
+        <div className="relatorio-filtros">
+          <div className="field">
+            <label style={{ fontSize: 12 }}>Período</label>
+            <SeletorPeriodo
+              dataInicio={filtros.dataInicio}
+              dataFim={filtros.dataFim}
+              onChange={(dataInicio, dataFim) => setFiltros({ ...filtros, dataInicio, dataFim })}
             />
           </div>
-          <div>
-            <label style={{ fontSize: 12 }}>Período — fim</label>
-            <input
-              type="date"
-              value={filtros.dataFim}
-              onChange={(e) => setFiltros({ ...filtros, dataFim: e.target.value })}
+          <div className="field">
+            <label style={{ fontSize: 12 }}>Unidade de origem</label>
+            <SeletorMultiploUnidades
+              unidades={unidades}
+              selecionados={filtros.unidadeIds}
+              onChange={(ids) => setFiltros({ ...filtros, unidadeIds: ids })}
             />
           </div>
-          <div>
+          <div className="field">
             <label style={{ fontSize: 12 }}>Item</label>
             <SeletorTipoEquipamento
               categorias={categorias}
               value={filtros.tipoEquipamentoId}
               onChange={(id) => setFiltros({ ...filtros, tipoEquipamentoId: id })}
               placeholder="Todos os itens"
+              alinhamentoForcado="direita"
             />
           </div>
-          <div>
-            <label style={{ fontSize: 12 }}>Busca por patrimônio</label>
+        </div>
+        <div className="relatorio-busca">
+          <div className="relatorio-busca-campo">
+            <IconeBusca />
             <input
               type="text"
-              placeholder="Nº de patrimônio, entidade ou item..."
+              placeholder="Buscar por patrimônio, entidade ou item"
               value={filtros.busca}
               onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })}
             />
           </div>
+        </div>
+      </div>
+
+      <div className="stats-grid" style={{ marginTop: 20 }}>
+        <div className="card stat-card" style={{ borderLeft: '3px solid var(--accent)' }}>
+          <div className="stat-label">Total de cessões</div>
+          <div className="stat-value">{dados?.total ?? '—'}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>No período selecionado</div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-label">
+            <span className="stat-dot stat-dot--andamento" /> Aguardando Branet
+          </div>
+          <div className="stat-value">{dados?.aguardandoBranet ?? '—'}</div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-label">
+            <span className="stat-dot stat-dot--concluida" /> Concluídas
+          </div>
+          <div className="stat-value">{dados?.concluida ?? '—'}</div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-label">Valor total cedido</div>
+          <div className="stat-value">{formatarMoeda(dados?.valorTotal ?? 0)}</div>
         </div>
       </div>
 
@@ -932,10 +969,10 @@ function RelatorioCessoes() {
             <table>
               <thead>
                 <tr>
-                  <th>Entidade Externa</th>
+                  <th>Entidade externa</th>
                   <th>Equipamento</th>
-                  <th>Nº de Patrimônio</th>
-                  <th>Unidade de Origem</th>
+                  <th>Unidade de origem</th>
+                  <th>Valor</th>
                   <th>Status</th>
                   <th>Pedido Branet</th>
                   <th>Conclusão</th>
@@ -945,9 +982,14 @@ function RelatorioCessoes() {
                 {dados.itens.map((c: CessaoRelatorio) => (
                   <tr key={c.id}>
                     <td>{c.entidadeExternaNome ?? '—'}</td>
-                    <td>{c.tipoEquipamento ?? '—'}</td>
-                    <td>{c.numerosPatrimonio.join(', ') || '—'}</td>
+                    <td>
+                      <div>{c.tipoEquipamento ?? '—'}</div>
+                      {c.numerosPatrimonio.length > 0 && (
+                        <div className="celula-equipamento-sub">Patrimônio {c.numerosPatrimonio.join(', ')}</div>
+                      )}
+                    </td>
                     <td>{c.unidadeOrigem}</td>
+                    <td>{c.preco === null ? '—' : formatarMoeda(c.preco)}</td>
                     <td>
                       <Badge valor={c.status}>{ROTULO_STATUS_SOLICITACAO[c.status]}</Badge>
                     </td>
