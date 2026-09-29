@@ -296,6 +296,10 @@ export interface EmprestimoRelatorio {
 }
 
 export interface RelatorioEmprestimos {
+  total: number;
+  emAndamento: number;
+  concluida: number;
+  negadaCancelada: number;
   percentualAtraso: number;
   duracaoMediaDias: number;
   itens: EmprestimoRelatorio[];

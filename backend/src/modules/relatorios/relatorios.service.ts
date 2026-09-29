@@ -190,6 +190,13 @@ export async function emprestimos(
     };
   });
 
+  // Mesmo funil de 3 baldes da Visão Geral (em andamento / concluída /
+  // negada-cancelada) — pros cards de resumo do relatório.
+  const total = itens.length;
+  const concluida = itens.filter((i) => i.status === 'CONCLUIDA').length;
+  const negadaCancelada = itens.filter((i) => TERMINAL_NEGADA.has(i.status)).length;
+  const emAndamento = total - concluida - negadaCancelada;
+
   // % de atraso só faz sentido sobre empréstimos que já saíram (aguardando
   // retorno ou concluídos) — os que ainda estão pendentes de aprovação/saída
   // não têm como estar atrasados ainda.
@@ -211,7 +218,7 @@ export async function emprestimos(
       ? Math.round(duracoesDias.reduce((a, b) => a + b, 0) / duracoesDias.length)
       : 0;
 
-  return { percentualAtraso, duracaoMediaDias, itens };
+  return { total, emAndamento, concluida, negadaCancelada, percentualAtraso, duracaoMediaDias, itens };
 }
 
 // Tipos que reservam do estoque de galpão (Ampliação/Substituição sem ata) —

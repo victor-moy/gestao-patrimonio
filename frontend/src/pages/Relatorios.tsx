@@ -681,6 +681,11 @@ function DetalheUnidadeModal({
   );
 }
 
+function percentualDoTotal(dados: RelatorioEmprestimos | null, valor: number | undefined) {
+  if (!dados || !valor || dados.total === 0) return 0;
+  return Math.round((valor / dados.total) * 100);
+}
+
 // Relatório 2 — prazos e devoluções de Empréstimo.
 function RelatorioEmprestimos() {
   const [dados, setDados] = useState<RelatorioEmprestimos | null>(null);
@@ -763,6 +768,38 @@ function RelatorioEmprestimos() {
       </div>
 
       <div className="stats-grid" style={{ marginTop: 20 }}>
+        <div className="card stat-card" style={{ borderLeft: '3px solid var(--accent)' }}>
+          <div className="stat-label">Total de empréstimos</div>
+          <div className="stat-value">{dados?.total ?? '—'}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>No período selecionado</div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-label">
+            <span className="stat-dot stat-dot--andamento" /> Em andamento
+          </div>
+          <div className="stat-value">{dados?.emAndamento ?? '—'}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+            {percentualDoTotal(dados, dados?.emAndamento)}% do total
+          </div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-label">
+            <span className="stat-dot stat-dot--concluida" /> Concluídos
+          </div>
+          <div className="stat-value">{dados?.concluida ?? '—'}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+            {percentualDoTotal(dados, dados?.concluida)}% do total
+          </div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-label">
+            <span className="stat-dot stat-dot--negada" /> Negados / cancelados
+          </div>
+          <div className="stat-value">{dados?.negadaCancelada ?? '—'}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>
+            {percentualDoTotal(dados, dados?.negadaCancelada)}% do total
+          </div>
+        </div>
         <div className="card stat-card">
           <div className="stat-label">Devoluções em atraso</div>
           <div className="stat-value">{dados ? `${dados.percentualAtraso}%` : '—'}</div>
