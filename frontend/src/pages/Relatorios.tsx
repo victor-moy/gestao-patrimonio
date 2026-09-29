@@ -17,6 +17,7 @@ import type {
   RelatorioCessoes,
   RelatorioEmprestimos,
   ResumoItem,
+  SolicitacaoAguardandoItem,
   Unidade,
   VisaoGeralTipo,
 } from '../types';
@@ -681,6 +682,11 @@ function DetalheUnidadeModal({
   );
 }
 
+function diasDesde(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / (24 * 60 * 60 * 1000)));
+}
+
 function percentualDoTotal(dados: RelatorioEmprestimos | null, valor: number | undefined) {
   if (!dados || !valor || dados.total === 0) return 0;
   return Math.round((valor / dados.total) * 100);
@@ -1019,6 +1025,11 @@ function RelatorioItensEstoque() {
   const [erro, setErro] = useState<string | null>(null);
   const [filtros, setFiltros] = useState({ dataInicio: '', dataFim: '', unidadeIds: [] as string[] });
   const [busca, setBusca] = useState('');
+  const [ordenacao, setOrdenacao] = useState<{ campo: 'nome' | 'quantidade' | 'antiguidade'; direcao: 'asc' | 'desc' }>({
+    campo: 'nome',
+    direcao: 'asc',
+  });
+  const [itemDetalhe, setItemDetalhe] = useState<{ id: string; nome: string } | null>(null);
 
   useEffect(() => {
     api
@@ -1054,12 +1065,38 @@ function RelatorioItensEstoque() {
   const quantidadeTotal = (dados ?? []).reduce((total, item) => total + item.quantidade, 0);
 
   const buscaNormalizada = busca.trim().toLowerCase();
-  const itensFiltrados = (dados ?? []).filter(
-    (item) =>
-      !buscaNormalizada ||
-      item.tipoEquipamento.nome.toLowerCase().includes(buscaNormalizada) ||
-      item.tipoEquipamento.codigo.toLowerCase().includes(buscaNormalizada),
-  );
+  const itensFiltrados = (dados ?? [])
+    .filter(
+      (item) =>
+        !buscaNormalizada ||
+        item.tipoEquipamento.nome.toLowerCase().includes(buscaNormalizada) ||
+        item.tipoEquipamento.codigo.toLowerCase().includes(buscaNormalizada),
+    )
+    .sort((a, b) => {
+      const sinal = ordenacao.direcao === 'asc' ? 1 : -1;
+      if (ordenacao.campo === 'quantidade') return (a.quantidade - b.quantidade) * sinal;
+      if (ordenacao.campo === 'antiguidade') {
+        const da = a.aguardandoDesde ? new Date(a.aguardandoDesde).getTime() : 0;
+        const db = b.aguardandoDesde ? new Date(b.aguardandoDesde).getTime() : 0;
+        return (da - db) * sinal;
+      }
+      return a.tipoEquipamento.nome.localeCompare(b.tipoEquipamento.nome, 'pt-BR') * sinal;
+    });
+
+  function alternarOrdenacao(campo: 'nome' | 'quantidade' | 'antiguidade') {
+    setOrdenacao((atual) =>
+      atual.campo === campo
+        ? { campo, direcao: atual.direcao === 'asc' ? 'desc' : 'asc' }
+        // Quantidade e antiguidade começam do maior/mais antigo — é o que
+        // interessa primeiro pra decidir prioridade de compra.
+        : { campo, direcao: campo === 'nome' ? 'asc' : 'desc' },
+    );
+  }
+
+  function indicadorOrdenacao(campo: 'nome' | 'quantidade' | 'antiguidade') {
+    if (ordenacao.campo !== campo) return null;
+    return <span style={{ marginLeft: 4 }}>{ordenacao.direcao === 'asc' ? '▲' : '▼'}</span>;
+  }
 
   return (
     <>
@@ -1165,10 +1202,17 @@ function RelatorioItensEstoque() {
             <table>
               <thead>
                 <tr>
-                  <th>Produto</th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => alternarOrdenacao('nome')}>
+                    Produto{indicadorOrdenacao('nome')}
+                  </th>
                   <th>Código</th>
                   <th>Categoria</th>
-                  <th>Quantidade</th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => alternarOrdenacao('quantidade')}>
+                    Quantidade{indicadorOrdenacao('quantidade')}
+                  </th>
+                  <th style={{ cursor: 'pointer' }} onClick={() => alternarOrdenacao('antiguidade')}>
+                    Aguardando há{indicadorOrdenacao('antiguidade')}
+                  </th>
                   <th>Preço Ref.</th>
                   <th>Previsão de Verba</th>
                 </tr>
@@ -1178,8 +1222,13 @@ function RelatorioItensEstoque() {
                   const cor = item.tipoEquipamento.categoria?.cor || '#6b7280';
                   const preco = item.tipoEquipamento.preco;
                   const subtotal = preco === null || preco === undefined ? null : Number(preco) * item.quantidade;
+                  const dias = diasDesde(item.aguardandoDesde);
                   return (
-                    <tr key={item.tipoEquipamento.id}>
+                    <tr
+                      key={item.tipoEquipamento.id}
+                      className="clickable"
+                      onClick={() => setItemDetalhe({ id: item.tipoEquipamento.id, nome: item.tipoEquipamento.nome })}
+                    >
                       <td>{capitalizarPalavras(item.tipoEquipamento.nome)}</td>
                       <td>#{item.tipoEquipamento.codigo}</td>
                       <td>
@@ -1194,6 +1243,7 @@ function RelatorioItensEstoque() {
                           {item.quantidade} <small>un.</small>
                         </span>
                       </td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{dias === null ? '—' : `${dias} dia${dias === 1 ? '' : 's'}`}</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{formatarMoeda(preco)}</td>
                       <td style={{ fontWeight: 600 }}>{subtotal === null ? '—' : formatarMoeda(subtotal)}</td>
                     </tr>
@@ -1202,7 +1252,7 @@ function RelatorioItensEstoque() {
               </tbody>
               <tfoot>
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'right', fontWeight: 700 }}>
+                  <td colSpan={6} style={{ textAlign: 'right', fontWeight: 700 }}>
                     Total previsto
                   </td>
                   <td style={{ fontWeight: 700 }}>
@@ -1220,6 +1270,84 @@ function RelatorioItensEstoque() {
           </div>
         )}
       </div>
+
+      {itemDetalhe && (
+        <DetalheItemAguardandoModal
+          tipoEquipamentoId={itemDetalhe.id}
+          nome={itemDetalhe.nome}
+          onFechar={() => setItemDetalhe(null)}
+        />
+      )}
     </>
+  );
+}
+
+// Drill-down de um item aguardando estoque — feedback do cliente: clicar na
+// linha da tabela e ver quais solicitações específicas estão represadas
+// nele, já ordenadas por prioridade manual e depois por antiguidade (mesmo
+// critério que o Gestor usa pra decidir o que atender primeiro).
+function DetalheItemAguardandoModal({
+  tipoEquipamentoId,
+  nome,
+  onFechar,
+}: {
+  tipoEquipamentoId: string;
+  nome: string;
+  onFechar: () => void;
+}) {
+  const [itens, setItens] = useState<SolicitacaoAguardandoItem[] | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get<SolicitacaoAguardandoItem[]>(`/relatorios/itens-estoque/detalhe?tipoEquipamentoId=${tipoEquipamentoId}`)
+      .then(setItens)
+      .catch((e) => setErro(e.message));
+  }, [tipoEquipamentoId]);
+
+  return (
+    <Modal titulo={capitalizarPalavras(nome)} subtitulo="Solicitações aguardando estoque desse item" onFechar={onFechar}>
+      {erro && <div className="error-banner">{erro}</div>}
+      {itens && itens.length > 0 ? (
+        <div style={{ overflowX: 'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                <th>Unidade</th>
+                <th>Tipo</th>
+                <th>Quantidade</th>
+                <th>Prioridade</th>
+                <th>Aguardando desde</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itens.map((s) => {
+                const dias = diasDesde(s.criadoEm);
+                return (
+                  <tr key={s.id}>
+                    <td>{s.unidadeOrigem}</td>
+                    <td>{ROTULO_TIPO_SOLICITACAO[s.tipo]}</td>
+                    <td>{s.quantidade ?? '—'}</td>
+                    <td>{s.prioridade ? <span className="badge badge-purple">Prioridade {s.prioridade}</span> : '—'}</td>
+                    <td>
+                      {formatarData(s.criadoEm)}
+                      {dias !== null && (
+                        <div style={{ fontSize: 12.5, color: 'var(--text-secondary)' }}>
+                          há {dias} dia{dias === 1 ? '' : 's'}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : itens ? (
+        <div className="empty-state">Sem solicitações aguardando estoque desse item</div>
+      ) : (
+        <div className="empty-state">Carregando…</div>
+      )}
+    </Modal>
   );
 }

@@ -208,6 +208,16 @@ export interface EstoqueAguardandoItem {
   tipoEquipamento: TipoEquipamento & { categoria?: { nome: string; cor: string | null } };
   quantidade: number;
   solicitacoes: number;
+  aguardandoDesde: string | null;
+}
+
+export interface SolicitacaoAguardandoItem {
+  id: string;
+  tipo: TipoSolicitacao;
+  unidadeOrigem: string;
+  quantidade: number | null;
+  prioridade: number | null;
+  criadoEm: string;
 }
 
 export interface ItensPorUnidadeResposta {

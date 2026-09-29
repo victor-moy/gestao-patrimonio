@@ -96,6 +96,14 @@ relatoriosRouter.get('/itens-estoque', async (_req, res) => {
   res.json(await service.itensEstoque());
 });
 
+relatoriosRouter.get('/itens-estoque/detalhe', async (req, res) => {
+  const tipoEquipamentoId = req.query.tipoEquipamentoId as string | undefined;
+  if (!tipoEquipamentoId) {
+    throw new AppError('Informe o item (tipoEquipamentoId).', 422);
+  }
+  res.json(await service.detalheItemAguardando(tipoEquipamentoId));
+});
+
 relatoriosRouter.get('/resumo-item', async (req, res) => {
   res.json(await service.resumoItem(tipoEquipamentoId(req), periodo(req)));
 });

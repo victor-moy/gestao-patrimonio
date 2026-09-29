@@ -239,6 +239,10 @@ export async function itensEstoque() {
     },
     _sum: { quantidade: true },
     _count: { _all: true },
+    // Mais antiga solicitação ainda represada nesse tipo — junto com a
+    // quantidade, é o que orienta prioridade entre pedidos (RN: antiguidade
+    // + prioridade manual do Gestor).
+    _min: { criadoEm: true },
   });
   const ids = grupos.map((g) => g.tipoEquipamentoId).filter((id): id is string => !!id);
   const tipos = await prisma.tipoEquipamento.findMany({
@@ -252,8 +256,35 @@ export async function itensEstoque() {
       tipoEquipamento: tiposPorId.get(g.tipoEquipamentoId as string)!,
       quantidade: g._sum.quantidade ?? 0,
       solicitacoes: g._count._all,
+      aguardandoDesde: g._min.criadoEm,
     }))
     .sort((a, b) => a.tipoEquipamento.nome.localeCompare(b.tipoEquipamento.nome, 'pt-BR'));
+}
+
+// Drill-down do card "Itens Aguardando Estoque" (feedback do cliente: clicar
+// num item e ver quais solicitações específicas estão represadas nele, não
+// só o total agregado) — mesmas solicitações que compõem o grupo acima,
+// ordenadas por prioridade manual (1 = mais urgente) e depois por
+// antiguidade (mais antiga primeiro), que é como o Gestor decide o que
+// atender primeiro quando o estoque chegar.
+export async function detalheItemAguardando(tipoEquipamentoId: string) {
+  const registros = await prisma.solicitacao.findMany({
+    where: {
+      status: 'AGUARDANDO_DISPONIBILIDADE',
+      tipo: { in: [...TIPOS_COM_ATA] },
+      tipoEquipamentoId,
+    },
+    include: { unidadeOrigem: { select: { nome: true } } },
+    orderBy: [{ prioridade: 'asc' }, { criadoEm: 'asc' }],
+  });
+  return registros.map((s) => ({
+    id: s.id,
+    tipo: s.tipo,
+    unidadeOrigem: s.unidadeOrigem.nome,
+    quantidade: s.quantidade,
+    prioridade: s.prioridade,
+    criadoEm: s.criadoEm,
+  }));
 }
 
 // Tipos que representam "entrega" de um item (Ampliação/Substituição/Cessão

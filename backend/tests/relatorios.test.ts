@@ -146,7 +146,12 @@ describe('Relatórios — Fase 1 (visão geral, ranking, empréstimos, cessões)
 
   it('itens e estoque: lista o que está aguardando disponibilidade, agregado por tipo', async () => {
     (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([
-      { tipoEquipamentoId: UUID, _sum: { quantidade: 7 }, _count: { _all: 2 } },
+      {
+        tipoEquipamentoId: UUID,
+        _sum: { quantidade: 7 },
+        _count: { _all: 2 },
+        _min: { criadoEm: new Date('2026-01-01') },
+      },
     ]);
     prismaMock.tipoEquipamento.findMany.mockResolvedValue([
       { id: UUID, nome: 'Autoclave Vertical 75L', codigo: 'AUT-75', categoria: { nome: 'Esterilização', cor: '#000' } },
@@ -155,6 +160,38 @@ describe('Relatórios — Fase 1 (visão geral, ranking, empréstimos, cessões)
     expect(res.status).toBe(200);
     expect(res.body).toEqual([expect.objectContaining({ quantidade: 7, solicitacoes: 2 })]);
     expect(res.body[0].tipoEquipamento.nome).toBe('Autoclave Vertical 75L');
+    expect(res.body[0].aguardandoDesde).toBe('2026-01-01T00:00:00.000Z');
+  });
+
+  it('itens e estoque: detalhe lista as solicitações represadas de um item, ordenadas por prioridade e antiguidade', async () => {
+    prismaMock.solicitacao.findMany.mockResolvedValue([
+      {
+        id: 'sol-1',
+        tipo: 'AMPLIACAO',
+        unidadeOrigem: { nome: 'UBS Sul' },
+        quantidade: 3,
+        prioridade: 1,
+        criadoEm: new Date('2026-01-05'),
+      },
+    ] as never);
+    const res = await request(app)
+      .get(`/relatorios/itens-estoque/detalhe?tipoEquipamentoId=${UUID}`)
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([
+      expect.objectContaining({ unidadeOrigem: 'UBS Sul', tipo: 'AMPLIACAO', quantidade: 3, prioridade: 1 }),
+    ]);
+    expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'AGUARDANDO_DISPONIBILIDADE', tipoEquipamentoId: UUID }),
+        orderBy: [{ prioridade: 'asc' }, { criadoEm: 'asc' }],
+      }),
+    );
+  });
+
+  it('itens e estoque: detalhe exige tipoEquipamentoId', async () => {
+    const res = await request(app).get('/relatorios/itens-estoque/detalhe').set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(422);
   });
 
   it('itens por unidade: acumula CADASTRO/RECEBIMENTO_GALPAO/RECOLHA/BAIXA mês a mês, sem contar empréstimo/manutenção', async () => {
