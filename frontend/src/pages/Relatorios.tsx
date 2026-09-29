@@ -1018,6 +1018,7 @@ function RelatorioItensEstoque() {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [filtros, setFiltros] = useState({ dataInicio: '', dataFim: '', unidadeIds: [] as string[] });
+  const [busca, setBusca] = useState('');
 
   useEffect(() => {
     api
@@ -1050,30 +1051,31 @@ function RelatorioItensEstoque() {
     if (preco === null || preco === undefined) return total;
     return total + Number(preco) * item.quantidade;
   }, 0);
+  const quantidadeTotal = (dados ?? []).reduce((total, item) => total + item.quantidade, 0);
+
+  const buscaNormalizada = busca.trim().toLowerCase();
+  const itensFiltrados = (dados ?? []).filter(
+    (item) =>
+      !buscaNormalizada ||
+      item.tipoEquipamento.nome.toLowerCase().includes(buscaNormalizada) ||
+      item.tipoEquipamento.codigo.toLowerCase().includes(buscaNormalizada),
+  );
 
   return (
     <>
       {erro && <div className="error-banner">{erro}</div>}
 
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="toolbar">
-          <div>
-            <label style={{ fontSize: 12 }}>Período — início</label>
-            <input
-              type="date"
-              value={filtros.dataInicio}
-              onChange={(e) => setFiltros({ ...filtros, dataInicio: e.target.value })}
+        <div className="relatorio-filtros" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+          <div className="field">
+            <label style={{ fontSize: 12 }}>Período</label>
+            <SeletorPeriodo
+              dataInicio={filtros.dataInicio}
+              dataFim={filtros.dataFim}
+              onChange={(dataInicio, dataFim) => setFiltros({ ...filtros, dataInicio, dataFim })}
             />
           </div>
-          <div>
-            <label style={{ fontSize: 12 }}>Período — fim</label>
-            <input
-              type="date"
-              value={filtros.dataFim}
-              onChange={(e) => setFiltros({ ...filtros, dataFim: e.target.value })}
-            />
-          </div>
-          <div>
+          <div className="field">
             <label style={{ fontSize: 12 }}>Unidade</label>
             <SeletorMultiploUnidades
               unidades={unidades}
@@ -1081,6 +1083,40 @@ function RelatorioItensEstoque() {
               onChange={(ids) => setFiltros({ ...filtros, unidadeIds: ids })}
             />
           </div>
+        </div>
+        <div className="relatorio-busca">
+          <div className="relatorio-busca-campo">
+            <IconeBusca />
+            <input
+              type="text"
+              placeholder="Buscar item aguardando estoque por nome ou código"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="stats-grid" style={{ marginTop: 20 }}>
+        <div className="card stat-card" style={{ borderLeft: '3px solid var(--accent)' }}>
+          <div className="stat-label">Itens aguardando estoque</div>
+          <div className="stat-value">{dados?.length ?? '—'}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>Tipos de equipamento diferentes</div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-label">Quantidade aguardando</div>
+          <div className="stat-value">
+            {dados ? quantidadeTotal : '—'} <small>un.</small>
+          </div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-label">Previsão de verba</div>
+          <div className="stat-value">{formatarMoeda(verbaTotal)}</div>
+        </div>
+        <div className="card stat-card">
+          <div className="stat-label">Unidades com movimentação</div>
+          <div className="stat-value">{serie?.unidades.length ?? '—'}</div>
+          <div style={{ fontSize: 12.5, color: 'var(--text-secondary)', marginTop: 4 }}>No período selecionado</div>
         </div>
       </div>
 
@@ -1120,7 +1156,11 @@ function RelatorioItensEstoque() {
         <p className="subtitle" style={{ marginTop: -4 }}>
           Itens sem estoque suficiente pra reservar agora
         </p>
-        {dados && dados.length > 0 ? (
+        {!dados || dados.length === 0 ? (
+          <div className="empty-state">Nada aguardando estoque no momento</div>
+        ) : itensFiltrados.length === 0 ? (
+          <div className="empty-state">Nenhum item aguardando estoque bate com essa busca</div>
+        ) : (
           <div style={{ overflowX: 'auto', marginTop: 12 }}>
             <table>
               <thead>
@@ -1134,7 +1174,7 @@ function RelatorioItensEstoque() {
                 </tr>
               </thead>
               <tbody>
-                {dados.map((item) => {
+                {itensFiltrados.map((item) => {
                   const cor = item.tipoEquipamento.categoria?.cor || '#6b7280';
                   const preco = item.tipoEquipamento.preco;
                   const subtotal = preco === null || preco === undefined ? null : Number(preco) * item.quantidade;
@@ -1165,13 +1205,19 @@ function RelatorioItensEstoque() {
                   <td colSpan={5} style={{ textAlign: 'right', fontWeight: 700 }}>
                     Total previsto
                   </td>
-                  <td style={{ fontWeight: 700 }}>{formatarMoeda(verbaTotal)}</td>
+                  <td style={{ fontWeight: 700 }}>
+                    {formatarMoeda(
+                      itensFiltrados.reduce((total, item) => {
+                        const preco = item.tipoEquipamento.preco;
+                        if (preco === null || preco === undefined) return total;
+                        return total + Number(preco) * item.quantidade;
+                      }, 0),
+                    )}
+                  </td>
                 </tr>
               </tfoot>
             </table>
           </div>
-        ) : (
-          <div className="empty-state">Nada aguardando estoque no momento</div>
         )}
       </div>
     </>
