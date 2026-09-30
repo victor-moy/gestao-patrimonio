@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { useTheme } from '../theme/ThemeContext';
 import logoPrefeitura from '../assets/logo-prefeitura-saude.png';
+import { AssistenteFlutuante } from './AssistenteFlutuante';
 import { SeletorImpersonar } from './SeletorImpersonar';
 import {
   IconeChevron,
@@ -31,11 +33,12 @@ const TABS: TabDef[] = [
   { para: '/manutencoes', rotulo: 'Manutenções', icone: <IconeManutencoes />, perfis: ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO', 'UNIDADE'] },
   { para: '/solicitacoes', rotulo: 'Solicitações', icone: <IconeSolicitacoes />, perfis: ['GESTOR_PATRIMONIO', 'UNIDADE', 'GALPAO'] },
   { para: '/estoque', rotulo: 'Estoque', icone: <IconeEstoque />, perfis: ['GESTOR_PATRIMONIO', 'GALPAO'] },
-  { para: '/relatorios', rotulo: 'Relatórios', icone: <IconeRelatorios />, perfis: ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO'] },
+  { para: '/relatorios', rotulo: 'Relatórios', icone: <IconeRelatorios />, perfis: ['GESTOR_PATRIMONIO'] },
 ];
 
 export function Layout() {
   const { usuario, logout, impersonando, voltarAoMestre } = useAuth();
+  const { tema, alternarTema } = useTheme();
   const location = useLocation();
   const [menuAberto, setMenuAberto] = useState(false);
   const [sidebarAberta, setSidebarAberta] = useState(false);
@@ -119,6 +122,12 @@ export function Layout() {
                   Entrar como...
                 </button>
               )}
+              <button type="button" className="user-menu-tema" onClick={alternarTema}>
+                <span>Tema escuro</span>
+                <span className={`mini-switch${tema === 'dark' ? ' ativo' : ''}`} aria-hidden>
+                  <span className="mini-switch-bolinha" />
+                </span>
+              </button>
               <button onClick={logout}>Sair</button>
             </div>
           )}
@@ -143,6 +152,7 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+      <AssistenteFlutuante />
     </div>
   );
 }

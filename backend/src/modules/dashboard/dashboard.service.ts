@@ -129,7 +129,9 @@ export async function alertas() {
     prisma.solicitacao.findMany({
       where: {
         tipo: 'EMPRESTIMO',
-        status: { in: ['AGUARDANDO_RECEBIMENTO', 'AGUARDANDO_RETORNO'] },
+        // Único status de empréstimo em aberto desde o redesenho do fluxo —
+        // AGUARDANDO_RECEBIMENTO não existe mais nesse tipo.
+        status: 'AGUARDANDO_RETORNO',
         dataRetornoPrevista: { lt: agora },
       },
       include: {

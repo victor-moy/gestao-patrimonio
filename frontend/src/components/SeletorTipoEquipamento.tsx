@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useAlinhamentoDropdown } from '../hooks/useAlinhamentoDropdown';
 import type { Categoria } from '../types';
-import { IconeBusca, IconeChevron } from './icons';
+import { IconeBusca, IconeChevron, IconeFechar } from './icons';
 
 interface SeletorTipoEquipamentoProps {
   categorias: Categoria[];
@@ -11,6 +12,11 @@ interface SeletorTipoEquipamentoProps {
   // Ids a esconder da lista (ex: já escolhidos em outras linhas da mesma
   // solicitação de Ampliação) — não deve incluir o próprio `value`.
   idsExcluidos?: string[];
+  // Força o lado do painel em vez de depender da detecção automática — útil
+  // quando o campo é sempre o último de uma linha (ex: filtro "Item" nos
+  // relatórios) e o painel largo (420px) estoura o próprio campo mesmo sem
+  // estourar a página.
+  alinhamentoForcado?: 'esquerda' | 'direita';
 }
 
 function normalizar(texto: string) {
@@ -31,6 +37,7 @@ export function SeletorTipoEquipamento({
   placeholder = 'Selecione o item...',
   required,
   idsExcluidos,
+  alinhamentoForcado,
 }: SeletorTipoEquipamentoProps) {
   const [aberto, setAberto] = useState(false);
   const [busca, setBusca] = useState('');
@@ -42,6 +49,8 @@ export function SeletorTipoEquipamento({
   const containerRef = useRef<HTMLDivElement>(null);
   const buscaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const alinhamentoAuto = useAlinhamentoDropdown(containerRef, aberto);
+  const alinhamento = alinhamentoForcado ?? alinhamentoAuto;
 
   const selecionado = useMemo(() => {
     for (const c of categorias) {
@@ -121,6 +130,12 @@ export function SeletorTipoEquipamento({
     }
   }
 
+  // Filtros opcionais (não required) podem ser limpos de volta pro
+  // placeholder — diferente de um formulário, onde o item é obrigatório e
+  // não faz sentido desmarcar. Não é um multiselect: continua escolhendo um
+  // item por vez, só ganha essa saída rápida pra "nenhum".
+  const permiteLimpar = !required && !!selecionado;
+
   return (
     <div className="seletor-tipo" ref={containerRef}>
       <button
@@ -133,13 +148,30 @@ export function SeletorTipoEquipamento({
         <span className={selecionado ? '' : 'seletor-tipo-placeholder'}>
           {selecionado ? selecionado.nome : placeholder}
         </span>
-        <IconeChevron />
+        {permiteLimpar ? (
+          <span
+            role="button"
+            aria-label="Limpar seleção"
+            className="seletor-tipo-limpar"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChange('');
+            }}
+          >
+            <IconeFechar />
+          </span>
+        ) : (
+          <IconeChevron />
+        )}
       </button>
       {/* input escondido só pra garantir validação HTML (required) do form */}
       <input type="text" value={value} required={required} readOnly tabIndex={-1} className="seletor-tipo-shadow" aria-hidden />
 
       {aberto && (
-        <div className="seletor-tipo-painel" role="listbox">
+        <div
+          className={`seletor-tipo-painel${alinhamento === 'direita' ? ' seletor-tipo-painel--direita' : ''}`}
+          role="listbox"
+        >
           <div className="seletor-tipo-busca" ref={buscaRef}>
             <IconeBusca />
             <input

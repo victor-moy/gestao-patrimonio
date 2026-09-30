@@ -14,7 +14,7 @@ import {
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import type { Alerta, DashboardData } from '../types';
-import { formatarMoedaCompacta } from '../utils/format';
+import { formatarMes, formatarMoedaCompacta } from '../utils/format';
 
 const CORES_PIZZA = ['#0e4e6e', '#1d6fa3', '#3b93c5', '#7bb8dc', '#aed3ea', '#d3e7f4'];
 
@@ -69,12 +69,6 @@ const ACOES_RAPIDAS = [
     perfis: ['UNIDADE', 'GALPAO'],
   },
 ];
-
-function formatarMes(mes: string) {
-  const [ano, m] = mes.split('-');
-  const nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-  return `${nomes[Number(m) - 1]}/${ano.slice(2)}`;
-}
 
 export function Inicio() {
   const { usuario } = useAuth();

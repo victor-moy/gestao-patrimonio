@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useAlinhamentoDropdown } from '../hooks/useAlinhamentoDropdown';
 import type { Equipamento } from '../types';
 import { IconeBusca, IconeChevron } from './icons';
 
@@ -42,6 +43,7 @@ export function SeletorEquipamento({
   const containerRef = useRef<HTMLDivElement>(null);
   const buscaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const alinhamento = useAlinhamentoDropdown(containerRef, aberto);
 
   const selecionado = useMemo(
     () => equipamentos.find((eq) => eq.id === value) ?? null,
@@ -143,7 +145,10 @@ export function SeletorEquipamento({
       <input type="text" value={value} required={required} readOnly tabIndex={-1} className="seletor-tipo-shadow" aria-hidden />
 
       {aberto && (
-        <div className="seletor-tipo-painel" role="listbox">
+        <div
+          className={`seletor-tipo-painel${alinhamento === 'direita' ? ' seletor-tipo-painel--direita' : ''}`}
+          role="listbox"
+        >
           <div className="seletor-tipo-busca" ref={buscaRef}>
             <IconeBusca />
             <input

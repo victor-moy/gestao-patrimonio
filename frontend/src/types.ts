@@ -208,6 +208,46 @@ export interface EstoqueAguardandoItem {
   tipoEquipamento: TipoEquipamento & { categoria?: { nome: string; cor: string | null } };
   quantidade: number;
   solicitacoes: number;
+  aguardandoDesde: string | null;
+}
+
+export interface SolicitacaoAguardandoItem {
+  id: string;
+  tipo: TipoSolicitacao;
+  unidadeOrigem: string;
+  quantidade: number | null;
+  prioridade: number | null;
+  criadoEm: string;
+}
+
+export interface ItensPorUnidadeResposta {
+  // Nomes das unidades com séries no gráfico, na ordem em que aparecem em `linhas`
+  unidades: string[];
+  // Uma linha por mês (chave "mes": "AAAA-MM") + uma chave por unidade com o
+  // total acumulado de equipamentos até o fim daquele mês
+  linhas: Array<Record<string, string | number>>;
+}
+
+export interface ResumoItem {
+  itemNome: string;
+  entregue: number;
+  pendente: number;
+  demandaQuantidade: number;
+  demandaValor: number;
+}
+
+export interface DetalheSolicitacaoUnidade {
+  id: string;
+  tipo: TipoSolicitacao;
+  item: string | null;
+  quantidade: number | null;
+  status: StatusSolicitacao;
+  criadoEm: string;
+}
+
+export interface MensagemAssistente {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export interface MovimentacaoEstoque {
@@ -235,6 +275,65 @@ export interface Alerta {
   tipo: string;
   severidade: 'AVISO' | 'CRITICO';
   mensagem: string;
+}
+
+export interface VisaoGeralTipo {
+  tipo: TipoSolicitacao;
+  emAndamento: number;
+  concluida: number;
+  negadaCancelada: number;
+}
+
+export interface RankingUnidadeTipo {
+  unidadeId: string;
+  unidade: string;
+  SUBSTITUICAO: number;
+  AMPLIACAO: number;
+  EMPRESTIMO: number;
+  RECOLHA: number;
+}
+
+export interface EmprestimoRelatorio {
+  id: string;
+  equipamento: string | null;
+  tombamento: string | null;
+  unidadeOrigem: string;
+  unidadeDestino: string | null;
+  dataRetornoPrevista: string | null;
+  status: StatusSolicitacao;
+  atrasado: boolean;
+  criadoEm: string;
+}
+
+export interface RelatorioEmprestimos {
+  total: number;
+  emAndamento: number;
+  concluida: number;
+  negadaCancelada: number;
+  percentualAtraso: number;
+  duracaoMediaDias: number;
+  itens: EmprestimoRelatorio[];
+}
+
+export interface CessaoRelatorio {
+  id: string;
+  entidadeExternaNome: string | null;
+  tipoEquipamento: string | null;
+  numerosPatrimonio: string[];
+  preco: number | null;
+  unidadeOrigem: string;
+  status: StatusSolicitacao;
+  numeroPedidoBranet: string | null;
+  dataConclusao: string | null;
+  criadoEm: string;
+}
+
+export interface RelatorioCessoes {
+  total: number;
+  concluida: number;
+  aguardandoBranet: number;
+  valorTotal: number;
+  itens: CessaoRelatorio[];
 }
 
 export type StatusContrato = 'ATIVO' | 'RENOVACAO_PENDENTE' | 'EXPIRADO';

@@ -18,6 +18,14 @@ export function formatarMoedaCompacta(valor: number) {
   return formatarMoeda(valor);
 }
 
+// Converte um bucket "AAAA-MM" (usado nos relatórios agrupados por mês) em
+// rótulo curto pra eixo de gráfico, ex.: "2026-07" -> "Jul/26"
+export function formatarMes(mes: string) {
+  const [ano, m] = mes.split('-');
+  const nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+  return `${nomes[Number(m) - 1]}/${ano.slice(2)}`;
+}
+
 // Converte texto em CAIXA ALTA para "Primeira Letra De Cada Palavra Maiúscula"
 export function capitalizarPalavras(texto: string) {
   return texto
