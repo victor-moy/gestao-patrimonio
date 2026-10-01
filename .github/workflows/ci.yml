@@ -86,6 +86,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Sem isso, o clean padrão do actions/checkout (git clean -ffdx) apaga
+          # o .env (ignorado pelo git) antes de cada deploy — JWT_SECRET,
+          # SMTP_*, GRAFANA_PASSWORD etc. já configurados na VM seriam perdidos.
+          clean: false
+      - name: Garantir GRAFANA_PASSWORD no .env
+        run: |
+          if ! grep -q '^GRAFANA_PASSWORD=' .env 2>/dev/null; then
+            echo "GRAFANA_PASSWORD=$(openssl rand -base64 24)" >> .env
+          fi
       - name: Subir containers
         run: |
           docker compose build
@@ -106,6 +116,11 @@ jobs:
     steps:
       - name: Atualizar código
         run: git pull origin main
+      - name: Garantir GRAFANA_PASSWORD no .env
+        run: |
+          if ! grep -q '^GRAFANA_PASSWORD=' .env 2>/dev/null; then
+            echo "GRAFANA_PASSWORD=$(openssl rand -base64 24)" >> .env
+          fi
       - name: Rebuild e subir containers
         run: |
           docker compose build
