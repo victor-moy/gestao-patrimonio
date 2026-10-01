@@ -75,6 +75,7 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_HOST_URL: https://sonarcloud.io
 
   deploy-prod:
     name: Entrega produção (VM da Secretaria)
@@ -88,7 +89,7 @@ jobs:
       - name: Subir containers
         run: |
           docker compose build
-          docker compose up -d
+          docker compose --profile observability up -d
       - name: Verificação de saúde
         run: |
           sleep 10
@@ -108,7 +109,7 @@ jobs:
       - name: Rebuild e subir containers
         run: |
           docker compose build
-          docker compose up -d
+          docker compose --profile observability up -d
       - name: Verificação de saúde
         run: |
           sleep 15
