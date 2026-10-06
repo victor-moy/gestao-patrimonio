@@ -3,7 +3,6 @@ import { api } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
 import { useAuth } from '../auth/AuthContext';
-import './Inventario.css';
 import {
   IconeBusca,
   IconeCheck,
@@ -150,7 +149,7 @@ export function Inventario() {
   ];
 
   return (
-    <section className="inventario-page" aria-labelledby="inventario-titulo">
+    <section className="gestao-page" aria-labelledby="inventario-titulo">
       <div className="page-header">
         <div>
           <h2 id="inventario-titulo">Inventário de Equipamentos</h2>
@@ -182,13 +181,13 @@ export function Inventario() {
       {mensagem && <div className="success-banner toast-sucesso">{mensagem}</div>}
       {erro && <div className="error-banner">{erro}</div>}
 
-      <div className="inventario-resumo-label">Resumo da seleção atual</div>
-      <div className="inventario-resumo" aria-label="Resumo da seleção atual">
+      <div className="gestao-resumo-label">Resumo da seleção atual</div>
+      <div className="gestao-resumo" aria-label="Resumo da seleção atual">
         {resumos.map((resumo) => (
-          <div className="card inventario-indicador" key={resumo.rotulo}>
-            <span className={`inventario-indicador-icone tom-${resumo.cor}`}>{resumo.icone}</span>
+          <div className="card gestao-indicador" key={resumo.rotulo}>
+            <span className={`gestao-indicador-icone tom-${resumo.cor}`}>{resumo.icone}</span>
             <div>
-              <span className="inventario-indicador-label">{resumo.rotulo}</span>
+              <span className="gestao-indicador-label">{resumo.rotulo}</span>
               <strong>
                 {carregando || falhaCarregamento ? '—' : resumo.valor.toLocaleString('pt-BR')}
               </strong>
@@ -197,8 +196,8 @@ export function Inventario() {
         ))}
       </div>
 
-      <div className="card inventario-lista">
-        <div className="inventario-status" role="group" aria-label="Atalhos de status">
+      <div className="card gestao-lista">
+        <div className="gestao-status" role="group" aria-label="Atalhos de status">
           {[
             ['', 'Todos os bens'],
             ['ATIVO', 'Ativos'],
@@ -215,8 +214,8 @@ export function Inventario() {
             </button>
           ))}
         </div>
-        <div className="toolbar inventario-filtros">
-          <div className="inventario-busca">
+        <div className="toolbar gestao-filtros">
+          <div className="gestao-busca">
             <IconeBusca />
             <input
               className="search"
@@ -254,14 +253,14 @@ export function Inventario() {
           </select>
         </div>
         <div
-          className="inventario-tabela-scroll"
+          className="gestao-tabela-scroll"
           role="region"
           aria-label="Equipamentos"
           tabIndex={0}
           aria-busy={carregando}
         >
           <table>
-            <caption className="inventario-sr-only">Bens patrimoniais da seleção atual</caption>
+            <caption className="gestao-sr-only">Bens patrimoniais da seleção atual</caption>
             <thead>
               <tr>
                 <th scope="col">Tombamento</th>
@@ -279,7 +278,7 @@ export function Inventario() {
                 equipamentosVisiveis.map((eq) => (
                   <tr key={eq.id} className="clickable" onClick={() => abrirDetalhe(eq.id)}>
                     <td style={{ fontWeight: 600 }}>{eq.tombamento}</td>
-                    <td className="inventario-equipamento">
+                    <td className="gestao-equipamento">
                       <strong>{eq.tipoEquipamento.nome}</strong>
                       {eq.descricao && eq.descricao !== eq.tipoEquipamento.nome && (
                         <div className="celula-equipamento-sub">{eq.descricao}</div>
@@ -298,7 +297,7 @@ export function Inventario() {
                         </div>
                       )}
                     </td>
-                    <td className={`inventario-situacao status-${eq.status}`}>
+                    <td className={`gestao-situacao status-${eq.status}`}>
                       <Badge valor={eq.status}>{ROTULO_STATUS_EQUIPAMENTO[eq.status]}</Badge>
                     </td>
                     <td>
@@ -309,7 +308,7 @@ export function Inventario() {
                     <td>{formatarData(eq.dataAquisicao)}</td>
                     <td>
                       <button
-                        className="inventario-detalhes"
+                        className="gestao-detalhes"
                         aria-label={`Ver detalhes de ${eq.tombamento}`}
                         title="Ver detalhes"
                         onClick={(e) => {
@@ -353,7 +352,7 @@ export function Inventario() {
               ))}
           </div>
         )}
-        <div className="inventario-rodape">
+        <div className="gestao-rodape">
           <span role="status">
             {carregando ? (
               'Atualizando seleção…'
@@ -373,7 +372,7 @@ export function Inventario() {
               </>
             )}
           </span>
-          <div className="inventario-paginacao" role="group" aria-label="Paginação do inventário">
+          <div className="gestao-paginacao" role="group" aria-label="Paginação do inventário">
             <button
               type="button"
               className="btn btn-outline"

@@ -1,11 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { api, urlArquivo } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { useAuth } from '../auth/AuthContext';
 import { Badge } from '../components/Badge';
 import { Modal } from '../components/Modal';
-import { IconeDislike, IconeLike } from '../components/icons';
+import {
+  IconeDislike,
+  IconeLike,
+  IconeBusca,
+  IconeCheck,
+  IconeRelogio,
+  IconeSolicitacoes,
+  IconeDetalhes,
+  IconeAmpliacao,
+  IconeSubstituicao,
+  IconeEmprestimo,
+  IconeRecolha,
+  IconeCessaoExterna,
+} from '../components/icons';
+import './Solicitacoes.css';
 import type { Solicitacao } from '../types';
 import {
   formatarData,
@@ -45,9 +59,21 @@ function statusExibido(s: Solicitacao) {
 // vê o badge na lista mas não consegue filtrar por ele) e de um status real
 // equivalente pra mandar de fato pro backend (feedback do cliente 27/08).
 const OPCOES_STATUS_EXTRA: Array<{ valor: string; texto: string; statusBackend: string }> = [
-  { valor: 'DISPONIVEL_PARA_RESERVA', texto: 'Disponível para Reserva', statusBackend: 'AGUARDANDO_DISPONIBILIDADE' },
-  { valor: 'AGUARDANDO_RECOLHA_PATRIMONIO', texto: 'Aguardando Recolha (Patrimônio)', statusBackend: 'AGUARDANDO_ENTREGA' },
-  { valor: 'AGUARDANDO_RECOLHA_BRANET', texto: 'Aguardando Recolha (Branet)', statusBackend: 'AGUARDANDO_ENTREGA' },
+  {
+    valor: 'DISPONIVEL_PARA_RESERVA',
+    texto: 'Disponível para Reserva',
+    statusBackend: 'AGUARDANDO_DISPONIBILIDADE',
+  },
+  {
+    valor: 'AGUARDANDO_RECOLHA_PATRIMONIO',
+    texto: 'Aguardando Recolha (Patrimônio)',
+    statusBackend: 'AGUARDANDO_ENTREGA',
+  },
+  {
+    valor: 'AGUARDANDO_RECOLHA_BRANET',
+    texto: 'Aguardando Recolha (Branet)',
+    statusBackend: 'AGUARDANDO_ENTREGA',
+  },
 ];
 
 // Cada tipo só passa por um subconjunto dos status — quando o filtro de tipo
@@ -80,7 +106,14 @@ const STATUS_POR_TIPO: Record<string, string[]> = {
   // Cessão de Uso não passa mais por aprovação — só o Gestor abre, reserva
   // do estoque na hora (já nasce RESERVADO) e conclui ao lançar no Branet.
   CESSAO_USO: ['RESERVADO', 'CONCLUIDA'],
-  EMPRESTIMO: ['PENDENTE_APROVACAO', 'NEGADA', 'EXPIRADA', 'AGUARDANDO_SAIDA', 'AGUARDANDO_RETORNO', 'CONCLUIDA'],
+  EMPRESTIMO: [
+    'PENDENTE_APROVACAO',
+    'NEGADA',
+    'EXPIRADA',
+    'AGUARDANDO_SAIDA',
+    'AGUARDANDO_RETORNO',
+    'CONCLUIDA',
+  ],
   RECOLHA: [
     'PENDENTE_APROVACAO',
     'NEGADA',
@@ -91,6 +124,20 @@ const STATUS_POR_TIPO: Record<string, string[]> = {
     'CONCLUIDA',
   ],
 };
+
+const ICONES_TIPO = {
+  AMPLIACAO: <IconeAmpliacao />,
+  SUBSTITUICAO: <IconeSubstituicao />,
+  EMPRESTIMO: <IconeEmprestimo />,
+  RECOLHA: <IconeRecolha />,
+  CESSAO_USO: <IconeCessaoExterna />,
+};
+
+function nomeItem(s: Solicitacao) {
+  return s.equipamento
+    ? s.equipamento.tipoEquipamento?.nome || s.equipamento.descricao
+    : (s.tipoEquipamento?.nome ?? 'Item');
+}
 
 export function Solicitacoes() {
   const { usuario } = useAuth();
@@ -104,7 +151,16 @@ export function Solicitacoes() {
   const [mensagem, setMensagem] = useMensagemTemporaria();
   const [erro, setErro] = useState<string | null>(null);
 
+  const [pagina, setPagina] = useState(1);
+  const [carregando, setCarregando] = useState(true);
+  const [falhaCarregamento, setFalhaCarregamento] = useState(false);
+  const requisicao = useRef(0);
+
   const carregar = useCallback(() => {
+    const idRequisicao = ++requisicao.current;
+    setCarregando(true);
+    setFalhaCarregamento(false);
+    setErro(null);
     const params = new URLSearchParams();
     if (busca) params.set('busca', busca);
     if (filtroTipo) params.set('tipo', filtroTipo);
@@ -114,12 +170,26 @@ export function Solicitacoes() {
     }
     api
       .get<Solicitacao[]>(`/solicitacoes?${params}`)
-      .then(setSolicitacoes)
-      .catch((e) => setErro(e.message));
+      .then((dados) => {
+        if (idRequisicao !== requisicao.current) return;
+        setSolicitacoes(dados);
+        setPagina(1);
+      })
+      .catch((e) => {
+        if (idRequisicao !== requisicao.current) return;
+        setFalhaCarregamento(true);
+        setErro(e.message);
+      })
+      .finally(() => {
+        if (idRequisicao === requisicao.current) setCarregando(false);
+      });
   }, [busca, filtroTipo, filtroStatus]);
 
   useEffect(() => {
     carregar();
+    return () => {
+      requisicao.current += 1;
+    };
   }, [carregar]);
 
   // Mensagem de sucesso vinda da navegação de volta da tela de Nova Solicitação
@@ -139,55 +209,116 @@ export function Solicitacoes() {
     ? solicitacoes.filter((s) => statusExibido(s).valor === filtroStatus)
     : solicitacoes;
 
+  const porPagina = 8;
+  const totalPaginas = Math.max(1, Math.ceil(solicitacoesExibidas.length / porPagina));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const inicio = (paginaAtual - 1) * porPagina;
+  const resumos = [
+    {
+      rotulo: 'Total de solicitações',
+      valor: solicitacoesExibidas.length,
+      cor: 'blue',
+      icone: <IconeSolicitacoes />,
+    },
+    {
+      rotulo: 'Aguardando aprovação',
+      valor: solicitacoesExibidas.filter((s) => s.status === 'PENDENTE_APROVACAO').length,
+      cor: 'yellow',
+      icone: <IconeRelogio />,
+    },
+    {
+      rotulo: 'Em andamento',
+      valor: solicitacoesExibidas.filter(
+        (s) =>
+          !['PENDENTE_APROVACAO', 'CONCLUIDA', 'NEGADA', 'EXPIRADA', 'CANCELADA'].includes(
+            s.status,
+          ),
+      ).length,
+      cor: 'blue',
+      icone: <IconeSolicitacoes />,
+    },
+    {
+      rotulo: 'Concluídas',
+      valor: solicitacoesExibidas.filter((s) => s.status === 'CONCLUIDA').length,
+      cor: 'green',
+      icone: <IconeCheck />,
+    },
+  ];
+
+  function selecionarTipo(tipo: string) {
+    setFiltroTipo(tipo);
+    if (tipo && filtroStatus && !STATUS_POR_TIPO[tipo]?.includes(filtroStatus)) {
+      setFiltroStatus('');
+    }
+  }
+
   return (
-    <>
+    <section className="gestao-page solicitacoes-page" aria-labelledby="solicitacoes-titulo">
       <div className="page-header">
         <div>
-          <h2>Solicitações</h2>
-          <p className="count-sub">
-            {solicitacoesExibidas.length} solicitaç{solicitacoesExibidas.length === 1 ? 'ão' : 'ões'} encontrada
-            {solicitacoesExibidas.length === 1 ? '' : 's'}
-          </p>
+          <h2 id="solicitacoes-titulo">Solicitações</h2>
+          <p className="subtitle">Acompanhe os pedidos e cada etapa da movimentação de bens.</p>
         </div>
-        {/* Gestor de Patrimônio também precisa chegar aqui pra abrir uma
-            Cessão de Uso, que é exclusiva dele. */}
         {(usuario?.perfil === 'UNIDADE' || usuario?.perfil === 'GESTOR_PATRIMONIO') && (
-          <button className="btn btn-primary" onClick={() => navigate('/solicitacoes/nova')}>
-            + Nova Solicitação
-          </button>
+          <div className="page-actions">
+            <button className="btn btn-primary" onClick={() => navigate('/solicitacoes/nova')}>
+              + Nova Solicitação
+            </button>
+          </div>
         )}
       </div>
 
       {mensagem && <div className="success-banner toast-sucesso">{mensagem}</div>}
-      {erro && <div className="error-banner">{erro}</div>}
+      {erro && (
+        <div className="error-banner" role="alert">
+          {erro}
+        </div>
+      )}
 
-      <div className="card">
-        <div className="toolbar">
-          <input
-            className="search"
-            placeholder="Buscar por item, tombamento ou unidade..."
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
+      <div className="gestao-resumo-label">Resumo da seleção atual</div>
+      <div className="gestao-resumo" aria-label="Resumo da seleção atual">
+        {resumos.map((resumo) => (
+          <div className="card gestao-indicador" key={resumo.rotulo}>
+            <span className={`gestao-indicador-icone tom-${resumo.cor}`}>{resumo.icone}</span>
+            <div>
+              <span className="gestao-indicador-label">{resumo.rotulo}</span>
+              <strong>
+                {carregando || falhaCarregamento ? '—' : resumo.valor.toLocaleString('pt-BR')}
+              </strong>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card gestao-lista solicitacoes-lista">
+        <div className="gestao-status" role="group" aria-label="Filtrar por tipo de solicitação">
+          {[['', 'Todas'], ...Object.entries(ROTULO_TIPO_SOLICITACAO)].map(([valor, rotulo]) => (
+            <button
+              type="button"
+              key={valor}
+              aria-pressed={filtroTipo === valor}
+              onClick={() => selecionarTipo(valor)}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+        <div className="toolbar gestao-filtros">
+          <div className="gestao-busca">
+            <IconeBusca />
+            <input
+              className="search"
+              aria-label="Buscar solicitações"
+              placeholder="Buscar por item, tombamento ou unidade..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
           <select
-            value={filtroTipo}
-            onChange={(e) => {
-              const novoTipo = e.target.value;
-              setFiltroTipo(novoTipo);
-              const statusValidos = novoTipo ? STATUS_POR_TIPO[novoTipo] : null;
-              if (statusValidos && filtroStatus && !statusValidos.includes(filtroStatus)) {
-                setFiltroStatus('');
-              }
-            }}
+            aria-label="Filtrar por status"
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value)}
           >
-            <option value="">Todos os tipos</option>
-            {Object.entries(ROTULO_TIPO_SOLICITACAO).map(([valor, rotulo]) => (
-              <option key={valor} value={valor}>
-                {rotulo}
-              </option>
-            ))}
-          </select>
-          <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
             <option value="">Todos os status</option>
             {Object.entries(ROTULO_STATUS_SOLICITACAO)
               .filter(([valor]) => !filtroTipo || STATUS_POR_TIPO[filtroTipo]?.includes(valor))
@@ -204,55 +335,147 @@ export function Solicitacoes() {
               </option>
             ))}
           </select>
-        </div>
-        <div className="request-list">
-          {solicitacoesExibidas.map((s) => (
-            <div key={s.id} className="request-item" onClick={() => setDetalheId(s.id)}>
-              <div>
-                <div className="request-title">
-                  <Badge valor={s.tipo}>{ROTULO_TIPO_SOLICITACAO[s.tipo]}</Badge>
-                  {s.equipamento
-                    ? s.equipamento.tipoEquipamento?.nome || s.equipamento.descricao
-                    : s.tipoEquipamento?.nome ?? 'Item'}
-                  {s.equipamento && <span className="tomb">#{s.equipamento.tombamento}</span>}
-                  {s.origemRecurso === 'EMENDA_PARLAMENTAR' && (
-                    <span className="badge badge-purple">Emenda</span>
-                  )}
-                  {s.automatica && <span className="badge badge-gray">Automática</span>}
-                </div>
-                <div className="request-sub">
-                  Origem: {s.unidadeOrigem.nome}
-                  {/* Recolha sempre vai pro galpão padrão — não é informação
-                      relevante pra mostrar (feedback do cliente 27/08) */}
-                  {s.unidadeDestino && s.tipo !== 'RECOLHA' && <> ⇆ Destino: {s.unidadeDestino.nome}</>}
-                  {s.entidadeExternaNome && <> ⇆ Destino: {s.entidadeExternaNome} (externo)</>}
-                  {/* Cessão de Uso sempre reserva 1 unidade por item — não é
-                      informação relevante pra mostrar */}
-                  {s.quantidade && s.tipo !== 'CESSAO_USO' && <> · Qtd: {s.quantidade}</>}
-                </div>
-                <div className="request-desc">{s.justificativa}</div>
-                <div className="request-meta">
-                  <span>Solicitado em {formatarData(s.criadoEm)}</span>
-                  {s.criadoPor && <span>Por {s.criadoPor.nome}</span>}
-                  {s.dataRetornoPrevista && (
-                    <span style={{ color: '#b45309' }}>
-                      Retorno previsto: {formatarData(s.dataRetornoPrevista)}
-                    </span>
-                  )}
-                  {s.ata && <span>Ata: {s.ata.numero}</span>}
-                </div>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                <Badge valor={statusExibido(s).valor}>{statusExibido(s).texto}</Badge>
-                {s.prioridade && (
-                  <span className="badge badge-purple">Prioridade {s.prioridade}</span>
-                )}
-              </div>
-            </div>
-          ))}
-          {solicitacoesExibidas.length === 0 && (
-            <div className="empty-state">Nenhuma solicitação encontrada</div>
+          {(busca || filtroTipo || filtroStatus) && (
+            <button
+              className="btn btn-outline"
+              onClick={() => {
+                setBusca('');
+                setFiltroTipo('');
+                setFiltroStatus('');
+              }}
+            >
+              Limpar filtros
+            </button>
           )}
+        </div>
+        <div className="solicitacoes-resultados" aria-busy={carregando}>
+          {!carregando &&
+            !falhaCarregamento &&
+            solicitacoesExibidas.slice(inicio, inicio + porPagina).map((s) => (
+              <article key={s.id} className="solicitacao-card" onClick={() => setDetalheId(s.id)}>
+                <div className="solicitacao-icone" aria-hidden>
+                  {ICONES_TIPO[s.tipo]}
+                </div>
+                <div className="solicitacao-conteudo">
+                  <div className="solicitacao-etiquetas">
+                    <span className="solicitacao-tipo">{ROTULO_TIPO_SOLICITACAO[s.tipo]}</span>
+                    {s.equipamento && <span className="tomb">#{s.equipamento.tombamento}</span>}
+                    {s.origemRecurso === 'EMENDA_PARLAMENTAR' && (
+                      <span className="badge badge-purple">Emenda</span>
+                    )}
+                    {s.automatica && <span className="badge badge-gray">Automática</span>}
+                  </div>
+                  <h3>{nomeItem(s)}</h3>
+                  <div className="solicitacao-trajeto">
+                    <span>
+                      <span className="solicitacao-legenda">Origem</span>
+                      {s.unidadeOrigem.nome}
+                    </span>
+                    {s.unidadeDestino && s.tipo !== 'RECOLHA' && (
+                      <span>
+                        <span className="solicitacao-legenda">Destino</span>
+                        {s.unidadeDestino.nome}
+                      </span>
+                    )}
+                    {s.entidadeExternaNome && (
+                      <span>
+                        <span className="solicitacao-legenda">Destino externo</span>
+                        {s.entidadeExternaNome}
+                      </span>
+                    )}
+                    {!!s.quantidade && s.tipo !== 'CESSAO_USO' && (
+                      <span>
+                        <span className="solicitacao-legenda">Quantidade</span>
+                        {s.quantidade}
+                      </span>
+                    )}
+                  </div>
+                  <p className="solicitacao-descricao">{s.justificativa}</p>
+                  <div className="solicitacao-meta">
+                    <span>Solicitado em {formatarData(s.criadoEm)}</span>
+                    {s.criadoPor && <span>Por {s.criadoPor.nome}</span>}
+                    {s.dataRetornoPrevista && (
+                      <span className="solicitacao-retorno">
+                        Retorno previsto: {formatarData(s.dataRetornoPrevista)}
+                      </span>
+                    )}
+                    {s.ata && <span>Ata: {s.ata.numero}</span>}
+                  </div>
+                </div>
+                <div className="solicitacao-acoes">
+                  <Badge valor={statusExibido(s).valor}>{statusExibido(s).texto}</Badge>
+                  {s.prioridade && (
+                    <span className="badge badge-purple">Prioridade {s.prioridade}</span>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    aria-label={`Ver solicitação de ${nomeItem(s)}`}
+                  >
+                    <IconeDetalhes /> Ver detalhes
+                  </button>
+                </div>
+              </article>
+            ))}
+          {(carregando || falhaCarregamento || solicitacoesExibidas.length === 0) && (
+            <div className="empty-state" role="status">
+              {carregando
+                ? 'Carregando solicitações…'
+                : falhaCarregamento
+                  ? 'Não foi possível carregar as solicitações.'
+                  : 'Nenhuma solicitação encontrada'}
+              {!carregando && falhaCarregamento && (
+                <button className="btn btn-outline" onClick={carregar}>
+                  Tentar novamente
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="gestao-rodape">
+          <span role="status">
+            {carregando ? (
+              'Atualizando seleção…'
+            ) : falhaCarregamento ? (
+              'Solicitações indisponíveis'
+            ) : (
+              <>
+                <strong>
+                  {solicitacoesExibidas.length} solicitaç
+                  {solicitacoesExibidas.length === 1 ? 'ão' : 'ões'} encontrada
+                  {solicitacoesExibidas.length === 1 ? '' : 's'}
+                </strong>
+                {solicitacoesExibidas.length > 0 && (
+                  <span>
+                    {' '}
+                    · Mostrando {inicio + 1}–
+                    {Math.min(inicio + porPagina, solicitacoesExibidas.length)}
+                  </span>
+                )}
+              </>
+            )}
+          </span>
+          <div className="gestao-paginacao" role="group" aria-label="Paginação das solicitações">
+            <button
+              className="btn btn-outline"
+              disabled={carregando || falhaCarregamento || paginaAtual === 1}
+              onClick={() => setPagina(paginaAtual - 1)}
+              aria-label="Página anterior"
+            >
+              Anterior
+            </button>
+            <span>
+              Página {paginaAtual} de {totalPaginas}
+            </span>
+            <button
+              className="btn btn-outline"
+              disabled={carregando || falhaCarregamento || paginaAtual === totalPaginas}
+              onClick={() => setPagina(paginaAtual + 1)}
+              aria-label="Próxima página"
+            >
+              Próxima
+            </button>
+          </div>
         </div>
       </div>
 
@@ -268,7 +491,7 @@ export function Solicitacoes() {
           }}
         />
       )}
-    </>
+    </section>
   );
 }
 
