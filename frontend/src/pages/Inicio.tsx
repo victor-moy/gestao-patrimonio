@@ -121,20 +121,19 @@ export function Inicio() {
 
       {erro && <div className="error-banner">{erro}</div>}
 
-      <div className="grid-2">
-        <div className="card card-pad">
-          <h3>⚠️ Alertas Importantes</h3>
-          {alertas.length === 0 && <div className="empty-state">Nenhum alerta no momento</div>}
-          {alertas.map((a, i) => (
-            <div
-              key={i}
-              className={`alert-item ${a.severidade === 'CRITICO' ? 'alert-critico' : 'alert-aviso'}`}
-            >
-              • {a.mensagem}
-            </div>
-          ))}
-        </div>
-        <AcoesRapidas acoes={acoes} location={location} />
+      <AcoesRapidas acoes={acoes} location={location} />
+
+      <div className="card card-pad" style={{ marginTop: 20 }}>
+        <h3>⚠️ Alertas Importantes</h3>
+        {alertas.length === 0 && <div className="empty-state">Nenhum alerta no momento</div>}
+        {alertas.map((a, i) => (
+          <div
+            key={i}
+            className={`alert-item ${a.severidade === 'CRITICO' ? 'alert-critico' : 'alert-aviso'}`}
+          >
+            • {a.mensagem}
+          </div>
+        ))}
       </div>
     </>
   );
