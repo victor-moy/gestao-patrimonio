@@ -242,6 +242,23 @@ export function Estoque() {
           </div>
 
           <div className="card gestao-lista">
+            <div className="gestao-status estoque-status" role="group" aria-label="Filtrar por status do estoque">
+              {[
+                ['', 'Todos os itens'],
+                ['OK', 'Estoque coberto'],
+                ['BAIXO', 'Estoque baixo'],
+                ['ESGOTADO', 'Estoque zero'],
+              ].map(([valor, rotulo]) => (
+                <button
+                  key={valor}
+                  type="button"
+                  aria-pressed={filtroStatus === valor}
+                  onClick={() => setFiltroStatus(valor as FiltroStatus)}
+                >
+                  {rotulo}
+                </button>
+              ))}
+            </div>
             <div className="estoque-toolbar">
               <div className="estoque-search">
                 <IconeBusca />
@@ -262,16 +279,6 @@ export function Estoque() {
                     {c}
                   </option>
                 ))}
-              </select>
-              <select
-                className="estoque-select"
-                value={filtroStatus}
-                onChange={(e) => setFiltroStatus(e.target.value as FiltroStatus)}
-              >
-                <option value="">Todos os status</option>
-                <option value="OK">Estoque coberto</option>
-                <option value="BAIXO">Estoque baixo</option>
-                <option value="ESGOTADO">Estoque zero</option>
               </select>
               <select
                 className="estoque-select"
