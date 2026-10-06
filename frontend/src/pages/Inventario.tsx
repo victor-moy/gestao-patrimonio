@@ -3,6 +3,16 @@ import { api } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
 import { useAuth } from '../auth/AuthContext';
+import './Inventario.css';
+import {
+  IconeBusca,
+  IconeCheck,
+  IconeDetalhes,
+  IconeInventario,
+  IconeManutencoes,
+  IconeUpload,
+  IconeAtas,
+} from '../components/icons';
 import { Badge } from '../components/Badge';
 import { Modal } from '../components/Modal';
 import type { Categoria, Equipamento, Unidade } from '../types';
@@ -26,26 +36,55 @@ export function Inventario() {
   const [cadastroAberto, setCadastroAberto] = useState(false);
   const [mensagem, setMensagem] = useMensagemTemporaria();
   const [erro, setErro] = useState<string | null>(null);
+  const [pagina, setPagina] = useState(1);
+  const [carregando, setCarregando] = useState(true);
+  const [falhaCarregamento, setFalhaCarregamento] = useState(false);
+  const requisicao = useRef(0);
   const inputCsv = useRef<HTMLInputElement>(null);
 
   const carregar = useCallback(() => {
+    const idRequisicao = ++requisicao.current;
+    setCarregando(true);
+    setFalhaCarregamento(false);
+    setErro(null);
     const params = new URLSearchParams();
     if (busca) params.set('busca', busca);
     if (filtroUnidade) params.set('unidadeId', filtroUnidade);
     if (filtroStatus) params.set('status', filtroStatus);
     api
       .get<Equipamento[]>(`/equipamentos?${params}`)
-      .then(setEquipamentos)
-      .catch((e) => setErro(e.message));
+      .then((dados) => {
+        if (idRequisicao !== requisicao.current) return;
+        setEquipamentos(dados);
+        setPagina(1);
+      })
+      .catch((e) => {
+        if (idRequisicao !== requisicao.current) return;
+        setFalhaCarregamento(true);
+        setEquipamentos([]);
+        setErro(e.message);
+      })
+      .finally(() => {
+        if (idRequisicao === requisicao.current) setCarregando(false);
+      });
   }, [busca, filtroUnidade, filtroStatus]);
 
   useEffect(() => {
     carregar();
+    return () => {
+      requisicao.current += 1;
+    };
   }, [carregar]);
 
   useEffect(() => {
-    api.get<Unidade[]>('/unidades').then(setUnidades).catch(() => {});
-    api.get<Categoria[]>('/categorias').then(setCategorias).catch(() => {});
+    api
+      .get<Unidade[]>('/unidades')
+      .then(setUnidades)
+      .catch(() => {});
+    api
+      .get<Categoria[]>('/categorias')
+      .then(setCategorias)
+      .catch(() => {});
   }, []);
 
   async function abrirDetalhe(id: string) {
@@ -78,14 +117,44 @@ export function Inventario() {
     }
   }
 
+  const porPagina = 10;
+  const totalPaginas = Math.max(1, Math.ceil(equipamentos.length / porPagina));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const inicio = (paginaAtual - 1) * porPagina;
+  const equipamentosVisiveis = equipamentos.slice(inicio, inicio + porPagina);
+  const resumos = [
+    {
+      rotulo: 'Total de bens',
+      valor: equipamentos.length,
+      cor: 'blue',
+      icone: <IconeInventario />,
+    },
+    {
+      rotulo: 'Ativos',
+      valor: equipamentos.filter((eq) => eq.status === 'ATIVO').length,
+      cor: 'green',
+      icone: <IconeCheck />,
+    },
+    {
+      rotulo: 'Em manutenção',
+      valor: equipamentos.filter((eq) => eq.status === 'EM_MANUTENCAO').length,
+      cor: 'yellow',
+      icone: <IconeManutencoes />,
+    },
+    {
+      rotulo: 'Baixados',
+      valor: equipamentos.filter((eq) => eq.status === 'BAIXADO').length,
+      cor: 'gray',
+      icone: <IconeAtas />,
+    },
+  ];
+
   return (
-    <>
+    <section className="inventario-page" aria-labelledby="inventario-titulo">
       <div className="page-header">
         <div>
-          <h2>Inventário de Equipamentos</h2>
-          <p className="count-sub">
-            {equipamentos.length} equipamento{equipamentos.length === 1 ? '' : 's'}
-          </p>
+          <h2 id="inventario-titulo">Inventário de Equipamentos</h2>
+          <p className="subtitle">Acompanhe e organize os bens da sua unidade.</p>
         </div>
         {podeEditar && (
           <div className="page-actions">
@@ -101,7 +170,7 @@ export function Inventario() {
               }}
             />
             <button className="btn btn-outline" onClick={() => inputCsv.current?.click()}>
-              ⬆️ Importar CSV
+              <IconeUpload /> Importar CSV
             </button>
             <button className="btn btn-primary" onClick={() => setCadastroAberto(true)}>
               + Cadastrar Equipamento
@@ -113,16 +182,56 @@ export function Inventario() {
       {mensagem && <div className="success-banner toast-sucesso">{mensagem}</div>}
       {erro && <div className="error-banner">{erro}</div>}
 
-      <div className="card">
-        <div className="toolbar">
-          <input
-            className="search"
-            placeholder="Buscar por tombamento, tipo ou unidade..."
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
+      <div className="inventario-resumo-label">Resumo da seleção atual</div>
+      <div className="inventario-resumo" aria-label="Resumo da seleção atual">
+        {resumos.map((resumo) => (
+          <div className="card inventario-indicador" key={resumo.rotulo}>
+            <span className={`inventario-indicador-icone tom-${resumo.cor}`}>{resumo.icone}</span>
+            <div>
+              <span className="inventario-indicador-label">{resumo.rotulo}</span>
+              <strong>
+                {carregando || falhaCarregamento ? '—' : resumo.valor.toLocaleString('pt-BR')}
+              </strong>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card inventario-lista">
+        <div className="inventario-status" role="group" aria-label="Atalhos de status">
+          {[
+            ['', 'Todos os bens'],
+            ['ATIVO', 'Ativos'],
+            ['EM_MANUTENCAO', 'Em manutenção'],
+            ['BAIXADO', 'Baixados'],
+          ].map(([valor, rotulo]) => (
+            <button
+              key={valor}
+              type="button"
+              aria-pressed={filtroStatus === valor}
+              onClick={() => setFiltroStatus(valor)}
+            >
+              {rotulo}
+            </button>
+          ))}
+        </div>
+        <div className="toolbar inventario-filtros">
+          <div className="inventario-busca">
+            <IconeBusca />
+            <input
+              className="search"
+              aria-label="Buscar equipamentos"
+              placeholder="Buscar por tombamento, tipo ou unidade..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
           {usuario?.perfil !== 'UNIDADE' && (
-            <select value={filtroUnidade} onChange={(e) => setFiltroUnidade(e.target.value)}>
+            <select
+              aria-label="Filtrar por unidade"
+              value={filtroUnidade}
+              onChange={(e) => setFiltroUnidade(e.target.value)}
+            >
               <option value="">Todas as unidades</option>
               {unidades.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -131,7 +240,11 @@ export function Inventario() {
               ))}
             </select>
           )}
-          <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
+          <select
+            aria-label="Filtrar por status"
+            value={filtroStatus}
+            onChange={(e) => setFiltroStatus(e.target.value)}
+          >
             <option value="">Todos os status</option>
             {Object.entries(ROTULO_STATUS_EQUIPAMENTO).map(([valor, rotulo]) => (
               <option key={valor} value={valor}>
@@ -140,70 +253,149 @@ export function Inventario() {
             ))}
           </select>
         </div>
-        <div style={{ overflowX: 'auto' }}>
+        <div
+          className="inventario-tabela-scroll"
+          role="region"
+          aria-label="Equipamentos"
+          tabIndex={0}
+          aria-busy={carregando}
+        >
           <table>
+            <caption className="inventario-sr-only">Bens patrimoniais da seleção atual</caption>
             <thead>
               <tr>
-                <th>Tombamento</th>
-                <th>Tipo</th>
-                <th>Unidade</th>
-                <th>Status</th>
-                <th>Conservação</th>
-                <th>Aquisição</th>
-                <th>Ações</th>
+                <th scope="col">Tombamento</th>
+                <th scope="col">Equipamento</th>
+                <th scope="col">Unidade</th>
+                <th scope="col">Status</th>
+                <th scope="col">Conservação</th>
+                <th scope="col">Aquisição</th>
+                <th scope="col">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {equipamentos.map((eq) => (
-                <tr key={eq.id} className="clickable" onClick={() => abrirDetalhe(eq.id)}>
-                  <td style={{ fontWeight: 600 }}>{eq.tombamento}</td>
-                  <td>
-                    {eq.tipoEquipamento.nome}
-                    {eq.emendaParlamentar && (
-                      <span className="badge badge-purple" style={{ marginLeft: 8 }}>
-                        Emenda
-                      </span>
-                    )}
-                  </td>
-                  <td>
-                    {eq.unidade.nome}
-                    {eq.unidadeTemporaria && (
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                        temporariamente em {eq.unidadeTemporaria.nome}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <Badge valor={eq.status}>{ROTULO_STATUS_EQUIPAMENTO[eq.status]}</Badge>
-                  </td>
-                  <td>
-                    <Badge valor={eq.estadoConservacao}>
-                      {ROTULO_ESTADO[eq.estadoConservacao]}
-                    </Badge>
-                  </td>
-                  <td>{formatarData(eq.dataAquisicao)}</td>
-                  <td>
-                    <button
-                      className="link"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        abrirDetalhe(eq.id);
-                      }}
-                    >
-                      👁️
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {equipamentos.length === 0 && (
-                <tr>
-                  <td colSpan={7}>
-                    <div className="empty-state">Nenhum equipamento encontrado</div>
-                  </td>
-                </tr>
-              )}
+              {!carregando &&
+                !falhaCarregamento &&
+                equipamentosVisiveis.map((eq) => (
+                  <tr key={eq.id} className="clickable" onClick={() => abrirDetalhe(eq.id)}>
+                    <td style={{ fontWeight: 600 }}>{eq.tombamento}</td>
+                    <td className="inventario-equipamento">
+                      <strong>{eq.tipoEquipamento.nome}</strong>
+                      {eq.descricao && eq.descricao !== eq.tipoEquipamento.nome && (
+                        <div className="celula-equipamento-sub">{eq.descricao}</div>
+                      )}
+                      {eq.emendaParlamentar && (
+                        <span className="badge badge-purple" style={{ marginLeft: 8 }}>
+                          Emenda
+                        </span>
+                      )}
+                    </td>
+                    <td>
+                      {eq.unidade.nome}
+                      {eq.unidadeTemporaria && (
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                          temporariamente em {eq.unidadeTemporaria.nome}
+                        </div>
+                      )}
+                    </td>
+                    <td className={`inventario-situacao status-${eq.status}`}>
+                      <Badge valor={eq.status}>{ROTULO_STATUS_EQUIPAMENTO[eq.status]}</Badge>
+                    </td>
+                    <td>
+                      <Badge valor={eq.estadoConservacao}>
+                        {ROTULO_ESTADO[eq.estadoConservacao]}
+                      </Badge>
+                    </td>
+                    <td>{formatarData(eq.dataAquisicao)}</td>
+                    <td>
+                      <button
+                        className="inventario-detalhes"
+                        aria-label={`Ver detalhes de ${eq.tombamento}`}
+                        title="Ver detalhes"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          abrirDetalhe(eq.id);
+                        }}
+                      >
+                        <IconeDetalhes />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
+        </div>
+        {(carregando || falhaCarregamento || equipamentos.length === 0) && (
+          <div className="empty-state" role="status">
+            {carregando
+              ? 'Carregando equipamentos…'
+              : falhaCarregamento
+                ? 'Não foi possível carregar o inventário.'
+                : 'Nenhum equipamento encontrado'}
+            {!carregando &&
+              (falhaCarregamento ? (
+                <button className="btn btn-outline" onClick={carregar}>
+                  Tentar novamente
+                </button>
+              ) : (
+                (busca || filtroUnidade || filtroStatus) && (
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => {
+                      setBusca('');
+                      setFiltroUnidade('');
+                      setFiltroStatus('');
+                    }}
+                  >
+                    Limpar filtros
+                  </button>
+                )
+              ))}
+          </div>
+        )}
+        <div className="inventario-rodape">
+          <span role="status">
+            {carregando ? (
+              'Atualizando seleção…'
+            ) : falhaCarregamento ? (
+              'Inventário indisponível'
+            ) : (
+              <>
+                <strong>
+                  {equipamentos.length} equipamento{equipamentos.length === 1 ? '' : 's'}
+                </strong>
+                {equipamentos.length > 0 && (
+                  <span>
+                    {' '}
+                    · Mostrando {inicio + 1}–{Math.min(inicio + porPagina, equipamentos.length)}
+                  </span>
+                )}
+              </>
+            )}
+          </span>
+          <div className="inventario-paginacao" role="group" aria-label="Paginação do inventário">
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled={carregando || falhaCarregamento || paginaAtual === 1}
+              onClick={() => setPagina(paginaAtual - 1)}
+              aria-label="Página anterior"
+            >
+              Anterior
+            </button>
+            <span>
+              Página {paginaAtual} de {totalPaginas}
+            </span>
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled={carregando || falhaCarregamento || paginaAtual === totalPaginas}
+              onClick={() => setPagina(paginaAtual + 1)}
+              aria-label="Próxima página"
+            >
+              Próxima
+            </button>
+          </div>
         </div>
       </div>
 
@@ -220,7 +412,7 @@ export function Inventario() {
           }}
         />
       )}
-    </>
+    </section>
   );
 }
 
@@ -247,7 +439,8 @@ function DetalheEquipamento({
           <div className="info-label">📍 Unidade Atual</div>
           <div className="info-value">
             {equipamento.unidade.nome}
-            {equipamento.unidadeTemporaria && ` (emprestado a ${equipamento.unidadeTemporaria.nome})`}
+            {equipamento.unidadeTemporaria &&
+              ` (emprestado a ${equipamento.unidadeTemporaria.nome})`}
           </div>
         </div>
         <div className="info-box">
@@ -431,11 +624,7 @@ function CadastroEquipamento({
           <button type="button" className="btn btn-outline" onClick={onFechar}>
             Cancelar
           </button>
-          <button
-            type="submit"
-            className="btn btn-primary"
-            disabled={semAlteracoes(inicial, form)}
-          >
+          <button type="submit" className="btn btn-primary" disabled={semAlteracoes(inicial, form)}>
             Cadastrar
           </button>
         </div>

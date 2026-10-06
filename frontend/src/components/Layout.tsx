@@ -48,10 +48,12 @@ export function Layout() {
 
   const tabs = TABS.filter((t) => t.perfis.includes(usuario.perfil));
 
+  const noInventario = location.pathname === '/inventario';
+
   const fecharSidebar = () => setSidebarAberta(false);
 
   return (
-    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}`}>
+    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${noInventario ? ' app-shell--inventario' : ''}`}>
       {impersonando && (
         <div className="impersonar-banner">
           Você está entrando como <strong>{usuario.nome}</strong> ({usuario.email})
@@ -73,6 +75,7 @@ export function Layout() {
             <IconeFechar />
           </button>
         </div>
+        {noInventario && <div className="inventario-marca">Gestão de patrimônio</div>}
         <nav className="sidebar-nav">
           {tabs.map((tab) => (
             <NavLink
@@ -147,6 +150,13 @@ export function Layout() {
             src={logoPrefeitura}
             alt="Prefeitura de Joinville - Secretaria da Saúde"
           />
+          {noInventario && (
+            <div className="inventario-caminho">
+              <span>Patrimônio</span>
+              <span aria-hidden>/</span>
+              <strong>Inventário</strong>
+            </div>
+          )}
         </header>
         <main className="page">
           <Outlet />
