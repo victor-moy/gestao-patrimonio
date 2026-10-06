@@ -146,36 +146,6 @@ describe('Estoque do galpão (RF31/RF32)', () => {
 });
 
 describe('Dashboard (UC21, RF36/RF37)', () => {
-  it('retorna indicadores consolidados para o gestor', async () => {
-    prismaMock.equipamento.count.mockResolvedValueOnce(280).mockResolvedValueOnce(18);
-    prismaMock.manutencao.findMany
-      .mockResolvedValueOnce([
-        {
-          dataEnvio: new Date('2026-06-01'),
-          dataConclusao: new Date('2026-06-13'),
-          custoFinal: new Prisma.Decimal(1500),
-        },
-      ] as never)
-      .mockResolvedValueOnce([
-        { custoFinal: new Prisma.Decimal(1500), dataConclusao: new Date() },
-      ] as never);
-    (prismaMock.equipamento.groupBy as unknown as jest.Mock).mockResolvedValue([
-      { unidadeId: 'u-1', _count: { id: 45 } },
-    ]);
-    (prismaMock.solicitacao.groupBy as unknown as jest.Mock).mockResolvedValue([
-      { unidadeOrigemId: 'u-1', _count: { id: 23 } },
-    ]);
-    prismaMock.unidade.findMany.mockResolvedValue([{ id: 'u-1', nome: 'UBS Norte' }] as never);
-
-    const res = await request(app).get('/dashboard').set(auth('GESTOR_PATRIMONIO'));
-    expect(res.status).toBe(200);
-    expect(res.body.totalEquipamentos).toBe(280);
-    expect(res.body.emManutencao).toBe(18);
-    expect(res.body.tempoMedioManutencaoDias).toBe(12);
-    expect(res.body.custoSemestral).toHaveLength(6);
-    expect(res.body.rankingSolicitacoes[0].unidade).toBe('UBS Norte');
-  });
-
   it('inclui empréstimos atrasados nos alertas (FA05)', async () => {
     prismaMock.ata.findMany.mockResolvedValue([] as never);
     prismaMock.solicitacao.findMany.mockResolvedValue([

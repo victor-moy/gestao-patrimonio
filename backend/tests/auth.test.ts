@@ -143,7 +143,7 @@ describe('RBAC (RNF05, RN03, RN04)', () => {
 
   it('impede que a Unidade acesse o dashboard gerencial', async () => {
     const res = await request(app)
-      .get('/dashboard')
+      .get('/dashboard/alertas')
       .set(auth('UNIDADE', { unidadeId: 'u-1' }));
     expect(res.status).toBe(403);
   });

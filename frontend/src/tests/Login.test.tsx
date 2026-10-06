@@ -31,17 +31,8 @@ describe('Login (RF01)', () => {
           },
         },
       },
-      '/dashboard/alertas': { body: [] },
-      '/dashboard': {
-        body: {
-          totalEquipamentos: 280,
-          emManutencao: 18,
-          tempoMedioManutencaoDias: 12,
-          custoMesAtual: 19400,
-          custoSemestral: [],
-          equipamentosPorUnidade: [],
-          rankingSolicitacoes: [],
-        },
+      '/dashboard/alertas': {
+        body: [{ tipo: 'ATA_VENCIMENTO', severidade: 'AVISO', mensagem: 'Ata 067/2026 vence em 12 dias' }],
       },
     });
     render(<App />);
@@ -52,8 +43,8 @@ describe('Login (RF01)', () => {
     await waitFor(() => {
       expect(screen.getByText('Painel Gerencial')).toBeInTheDocument();
     });
-    expect(screen.getByText('Total de Equipamentos')).toBeInTheDocument();
-    expect(screen.getByText('280')).toBeInTheDocument();
+    expect(screen.getByText('Ata 067/2026 vence em 12 dias', { exact: false })).toBeInTheDocument();
+    expect(screen.getByText('Ações Rápidas')).toBeInTheDocument();
     expect(localStorage.getItem('sgp_token')).toBe('token-teste');
   });
 

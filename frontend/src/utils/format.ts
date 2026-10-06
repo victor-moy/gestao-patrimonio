@@ -13,11 +13,6 @@ export function formatarMoeda(valor: number | string | null | undefined) {
   return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function formatarMoedaCompacta(valor: number) {
-  if (valor >= 1000) return `R$ ${(valor / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`;
-  return formatarMoeda(valor);
-}
-
 // Converte um bucket "AAAA-MM" (usado nos relatórios agrupados por mês) em
 // rótulo curto pra eixo de gráfico, ex.: "2026-07" -> "Jul/26"
 export function formatarMes(mes: string) {

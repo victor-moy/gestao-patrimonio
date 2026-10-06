@@ -261,16 +261,6 @@ export interface MovimentacaoEstoque {
   usuario: { id: string; nome: string } | null;
 }
 
-export interface DashboardData {
-  totalEquipamentos: number;
-  emManutencao: number;
-  tempoMedioManutencaoDias: number;
-  custoMesAtual: number;
-  custoSemestral: Array<{ mes: string; custo: number }>;
-  equipamentosPorUnidade: Array<{ unidadeId: string; unidade: string; quantidade: number }>;
-  rankingSolicitacoes: Array<{ unidadeId: string; unidade: string; quantidade: number }>;
-}
-
 export interface Alerta {
   tipo: string;
   severidade: 'AVISO' | 'CRITICO';
