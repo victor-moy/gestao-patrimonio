@@ -1,23 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import type { Alerta, DashboardData } from '../types';
-import { formatarMes, formatarMoedaCompacta } from '../utils/format';
 import './Inicio.css';
-
-const CORES_PIZZA = ['#0e4e6e', '#1d6fa3', '#3b93c5', '#7bb8dc', '#aed3ea', '#d3e7f4'];
 
 const ACOES_RAPIDAS = [
   {
@@ -121,15 +107,8 @@ export function Inicio() {
     );
   }
 
-  const pizza = dados
-    ? (() => {
-        const top = dados.equipamentosPorUnidade.slice(0, 5);
-        const outros = dados.equipamentosPorUnidade.slice(5).reduce((s, u) => s + u.quantidade, 0);
-        return [...top.map((u) => ({ name: u.unidade, value: u.quantidade })), ...(outros > 0 ? [{ name: 'Outros', value: outros }] : [])];
-      })()
-    : [];
-
-  const maxRanking = Math.max(1, ...(dados?.rankingSolicitacoes.map((r) => r.quantidade) ?? [1]));
+  const totalSolicitacoes = dados?.rankingSolicitacoes.reduce((total, item) => total + item.quantidade, 0) ?? 0;
+  const unidadesAtendidas = dados?.equipamentosPorUnidade.length ?? 0;
 
   return (
     <section className="gestao-page inicio-page" aria-labelledby="inicio-titulo">
@@ -153,28 +132,17 @@ export function Inicio() {
         </div>
         <div className="card stat-card">
           <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--yellow-bg)' }}>🔧</div>
-            <span className="badge badge-yellow">{dados?.emManutencao ?? 0} ativas</span>
+            <div className="stat-icon" style={{ background: 'var(--green-bg)' }}>🏥</div>
           </div>
-          <div className="stat-label">Em Manutenção</div>
-          <div className="stat-value">{dados?.emManutencao ?? '—'}</div>
+          <div className="stat-label">Unidades atendidas</div>
+          <div className="stat-value">{dados ? unidadesAtendidas : '—'}</div>
         </div>
         <div className="card stat-card">
           <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--purple-bg)' }}>🕐</div>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Média 6 meses</span>
+            <div className="stat-icon" style={{ background: 'var(--blue-bg)' }}>↔</div>
           </div>
-          <div className="stat-label">Tempo Médio Manutenção</div>
-          <div className="stat-value">
-            {dados?.tempoMedioManutencaoDias ?? '—'} <small>dias</small>
-          </div>
-        </div>
-        <div className="card stat-card">
-          <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--green-bg)' }}>💲</div>
-          </div>
-          <div className="stat-label">Custo Mensal Manutenção</div>
-          <div className="stat-value">{dados ? formatarMoedaCompacta(dados.custoMesAtual) : '—'}</div>
+          <div className="stat-label">Solicitações registradas</div>
+          <div className="stat-value">{dados ? totalSolicitacoes : '—'}</div>
         </div>
       </div>
 
@@ -212,43 +180,8 @@ export function Inicio() {
         </div>
       </div>
 
-      <div className="grid-2-even inicio-graficos">
-        <div className="card card-pad">
-          <h3>Equipamentos por Unidade</h3>
-          {pizza.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <PieChart>
-                <Pie data={pizza} dataKey="value" nameKey="name" label={(e) => `${e.name}: ${e.value}`}>
-                  {pizza.map((_, i) => (
-                    <Cell key={i} fill={CORES_PIZZA[i % CORES_PIZZA.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="empty-state">Sem dados</div>
-          )}
-        </div>
-        <div className="card card-pad">
-          <h3>Custo Semestral de Manutenção</h3>
-          {dados ? (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={dados.custoSemestral.map((c) => ({ ...c, mes: formatarMes(c.mes) }))}>
-                <XAxis dataKey="mes" fontSize={13} />
-                <YAxis fontSize={12} />
-                <Tooltip formatter={(v) => formatarMoedaCompacta(Number(v))} />
-                <Bar dataKey="custo" fill="#0e4e6e" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="empty-state">Sem dados</div>
-          )}
-        </div>
-      </div>
-
       <div className="card card-pad">
-        <h3>Ranking - Unidades que Mais Solicitam</h3>
+        <h3>Unidades com mais solicitações</h3>
         {dados?.rankingSolicitacoes.length === 0 && (
           <div className="empty-state">Sem solicitações registradas</div>
         )}
@@ -260,7 +193,7 @@ export function Inicio() {
               <div className="ranking-bar">
                 <div
                   className="ranking-bar-fill"
-                  style={{ width: `${(r.quantidade / maxRanking) * 100}%` }}
+                  style={{ width: `${(r.quantidade / Math.max(1, ...(dados?.rankingSolicitacoes.map((item) => item.quantidade) ?? [1]))) * 100}%` }}
                 />
               </div>
             </div>
