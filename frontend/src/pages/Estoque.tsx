@@ -5,6 +5,7 @@ import { Modal } from '../components/Modal';
 import { IconeBusca, IconeCaixa, IconeEntrada, IconeSaida, IconeUpload } from '../components/icons';
 import type { Categoria, EstoqueItem, Unidade } from '../types';
 import { capitalizarPalavras } from '../utils/format';
+import './Estoque.css';
 
 interface ResultadoImportacaoEstoque {
   totalLinhas: number;
@@ -166,10 +167,10 @@ export function Estoque() {
   const itensDaPagina = filtradosOrdenados.slice(inicio, inicio + TAMANHO_PAGINA);
 
   return (
-    <>
+      <section className="gestao-page estoque-page" aria-labelledby="estoque-titulo">
       <div className="page-header">
         <div>
-          <h2>Gestão de Estoque</h2>
+          <h2 id="estoque-titulo">Gestão de Estoque</h2>
           <p className="subtitle">Controle do estoque disponível para distribuição</p>
         </div>
         <div className="page-actions">
@@ -209,7 +210,8 @@ export function Estoque() {
       {mensagem && <div className="success-banner toast-sucesso">{mensagem}</div>}
       {erro && <div className="error-banner toast-erro">{erro}</div>}
 
-      <div className="estoque-stats">
+      <div className="gestao-resumo-label">Resumo do galpão selecionado</div>
+      <div className="estoque-stats gestao-resumo">
             <div className="estoque-stat">
               <div className="estoque-stat-icone estoque-stat-icone--azul">
                 <IconeCaixa />
@@ -239,7 +241,7 @@ export function Estoque() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="card gestao-lista">
             <div className="estoque-toolbar">
               <div className="estoque-search">
                 <IconeBusca />
@@ -489,7 +491,7 @@ export function Estoque() {
           }}
         />
       )}
-    </>
+    </section>
   );
 }
 
