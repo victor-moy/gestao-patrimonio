@@ -63,11 +63,10 @@ export function Inicio() {
   const ehGestor = usuario?.perfil === 'GESTOR_PATRIMONIO' || usuario?.perfil === 'GESTOR_MANUTENCAO';
   const [dados, setDados] = useState<DashboardData | null>(null);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
-  const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     if (!ehGestor) return;
-    api.get<DashboardData>('/dashboard').then(setDados).catch((e) => setErro(e.message));
+    api.get<DashboardData>('/dashboard').then(setDados).catch(() => {});
     api.get<Alerta[]>('/dashboard/alertas').then(setAlertas).catch(() => {});
   }, [ehGestor]);
 
@@ -118,8 +117,6 @@ export function Inicio() {
           <p className="subtitle">Visão consolidada do patrimônio da rede municipal de saúde</p>
         </div>
       </div>
-
-      {erro && <div className="error-banner">{erro}</div>}
 
       <div className="gestao-resumo-label">Resumo da operação</div>
       <div className="stats-grid inicio-resumo">
@@ -180,30 +177,6 @@ export function Inicio() {
         </div>
       </div>
 
-      <div className="card card-pad">
-        <h3>Unidades com mais solicitações</h3>
-        {dados?.rankingSolicitacoes.length === 0 && (
-          <div className="empty-state">Sem solicitações registradas</div>
-        )}
-        {dados?.rankingSolicitacoes.map((r, i) => (
-          <div key={r.unidadeId} className="ranking-row">
-            <div className="ranking-pos">{i + 1}</div>
-            <div className="ranking-body">
-              <div className="ranking-name">{r.unidade}</div>
-              <div className="ranking-bar">
-                <div
-                  className="ranking-bar-fill"
-                  style={{ width: `${(r.quantidade / Math.max(1, ...(dados?.rankingSolicitacoes.map((item) => item.quantidade) ?? [1]))) * 100}%` }}
-                />
-              </div>
-            </div>
-            <div className="ranking-count">
-              <div className="n">{r.quantidade}</div>
-              <div className="l">solicitações</div>
-            </div>
-          </div>
-        ))}
-      </div>
     </section>
   );
 }
