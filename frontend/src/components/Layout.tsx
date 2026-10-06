@@ -49,7 +49,9 @@ export function Layout() {
   const tabs = TABS.filter((t) => t.perfis.includes(usuario.perfil));
 
   const tituloGestao =
-    location.pathname === '/inventario'
+    location.pathname === '/'
+      ? 'Painel'
+      : location.pathname === '/inventario'
       ? 'Inventário'
       : location.pathname === '/solicitacoes'
         ? 'Solicitações'

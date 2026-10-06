@@ -15,6 +15,7 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import type { Alerta, DashboardData } from '../types';
 import { formatarMes, formatarMoedaCompacta } from '../utils/format';
+import './Inicio.css';
 
 const CORES_PIZZA = ['#0e4e6e', '#1d6fa3', '#3b93c5', '#7bb8dc', '#aed3ea', '#d3e7f4'];
 
@@ -88,7 +89,7 @@ export function Inicio() {
 
   if (!ehGestor) {
     return (
-      <>
+      <section className="gestao-page inicio-page" aria-labelledby="inicio-titulo">
         <div className="page-header">
           <div>
             <h2>Bem-vindo, {usuario?.nome}</h2>
@@ -97,7 +98,7 @@ export function Inicio() {
             </p>
           </div>
         </div>
-        <div className="card card-pad">
+        <div className="card card-pad inicio-acoes-unidade">
           <h3>Ações Rápidas</h3>
           <div className="quick-actions">
             {acoes.map((a) => (
@@ -116,7 +117,7 @@ export function Inicio() {
             ))}
           </div>
         </div>
-      </>
+      </section>
     );
   }
 
@@ -131,17 +132,18 @@ export function Inicio() {
   const maxRanking = Math.max(1, ...(dados?.rankingSolicitacoes.map((r) => r.quantidade) ?? [1]));
 
   return (
-    <>
+    <section className="gestao-page inicio-page" aria-labelledby="inicio-titulo">
       <div className="page-header">
         <div>
-          <h2>Painel Gerencial</h2>
+          <h2 id="inicio-titulo">Painel Gerencial</h2>
           <p className="subtitle">Visão consolidada do patrimônio da rede municipal de saúde</p>
         </div>
       </div>
 
       {erro && <div className="error-banner">{erro}</div>}
 
-      <div className="stats-grid">
+      <div className="gestao-resumo-label">Resumo da operação</div>
+      <div className="stats-grid inicio-resumo">
         <div className="card stat-card">
           <div className="stat-top">
             <div className="stat-icon" style={{ background: 'var(--blue-bg)' }}>📦</div>
@@ -176,7 +178,7 @@ export function Inicio() {
         </div>
       </div>
 
-      <div className="grid-2">
+      <div className="grid-2 inicio-primeira-linha">
         <div className="card card-pad">
           <h3>⚠️ Alertas Importantes</h3>
           {alertas.length === 0 && <div className="empty-state">Nenhum alerta no momento</div>}
@@ -210,7 +212,7 @@ export function Inicio() {
         </div>
       </div>
 
-      <div className="grid-2-even">
+      <div className="grid-2-even inicio-graficos">
         <div className="card card-pad">
           <h3>Equipamentos por Unidade</h3>
           {pizza.length > 0 ? (
@@ -269,6 +271,6 @@ export function Inicio() {
           </div>
         ))}
       </div>
-    </>
+    </section>
   );
 }
