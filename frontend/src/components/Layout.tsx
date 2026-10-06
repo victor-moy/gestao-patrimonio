@@ -1,9 +1,9 @@
 import { useState } from 'react';
+import './Gestao.css';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
-import logoPrefeitura from '../assets/logo-prefeitura-saude.png';
 import { AssistenteFlutuante } from './AssistenteFlutuante';
 import { SeletorImpersonar } from './SeletorImpersonar';
 import {
@@ -48,12 +48,17 @@ export function Layout() {
 
   const tabs = TABS.filter((t) => t.perfis.includes(usuario.perfil));
 
-  const noInventario = location.pathname === '/inventario';
+  const tituloGestao =
+    location.pathname === '/inventario'
+      ? 'Inventário'
+      : location.pathname === '/solicitacoes'
+        ? 'Solicitações'
+        : null;
 
   const fecharSidebar = () => setSidebarAberta(false);
 
   return (
-    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${noInventario ? ' app-shell--inventario' : ''}`}>
+    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${tituloGestao ? ' app-shell--gestao' : ''}`}>
       {impersonando && (
         <div className="impersonar-banner">
           Você está entrando como <strong>{usuario.nome}</strong> ({usuario.email})
@@ -64,18 +69,18 @@ export function Layout() {
       {sidebarAberta && <div className="sidebar-backdrop" onClick={fecharSidebar} />}
       <aside className={`sidebar${sidebarAberta ? ' aberta' : ''}`}>
         <div className="sidebar-brand">
-          <div className="sidebar-logo-plate">
-            <img
-              className="sidebar-logo"
-              src={logoPrefeitura}
-              alt="Prefeitura de Joinville - Secretaria da Saúde"
-            />
+          <div className="sidebar-wordmark" aria-label="Sistema de Gestão de Patrimônio">
+            <span className="sidebar-wordmark-mark" aria-hidden>SGP</span>
+            <span className="sidebar-wordmark-copy">
+              <strong>Patrimônio</strong>
+              <small>Secretaria da Saúde</small>
+            </span>
           </div>
           <button className="sidebar-fechar" onClick={fecharSidebar} aria-label="Fechar menu">
             <IconeFechar />
           </button>
         </div>
-        {noInventario && <div className="inventario-marca">Gestão de patrimônio</div>}
+        {tituloGestao && <div className="gestao-marca">Gestão de patrimônio</div>}
         <nav className="sidebar-nav">
           {tabs.map((tab) => (
             <NavLink
@@ -145,16 +150,15 @@ export function Layout() {
           >
             <IconeMenu />
           </button>
-          <img
-            className="app-topbar-logo"
-            src={logoPrefeitura}
-            alt="Prefeitura de Joinville - Secretaria da Saúde"
-          />
-          {noInventario && (
-            <div className="inventario-caminho">
+          <div className="app-topbar-wordmark" aria-label="Sistema de Gestão de Patrimônio">
+            <span className="sidebar-wordmark-mark" aria-hidden>SGP</span>
+            <strong>Patrimônio</strong>
+          </div>
+          {tituloGestao && (
+            <div className="gestao-caminho">
               <span>Patrimônio</span>
               <span aria-hidden>/</span>
-              <strong>Inventário</strong>
+              <strong>{tituloGestao}</strong>
             </div>
           )}
         </header>
