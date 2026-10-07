@@ -107,6 +107,7 @@
 .app-shell--gestao .sidebar-recolher:hover { color: #fff; }
 .app-shell--sidebar-recolhida .sidebar { width: 78px; }
 .app-shell--sidebar-recolhida .sidebar-brand { padding-left: 12px; padding-right: 12px; }
+.app-shell--sidebar-recolhida .sidebar-wordmark { justify-content: center; }
 .app-shell--sidebar-recolhida .sidebar-wordmark-copy { display: none; }
 .app-shell--sidebar-recolhida .gestao-marca,
 .app-shell--sidebar-recolhida .sidebar-link { font-size: 0; }
@@ -115,7 +116,13 @@
 .app-shell--sidebar-recolhida .user-button { justify-content: center; padding-left: 0; padding-right: 0; }
 .app-shell--sidebar-recolhida .user-meta,
 .app-shell--sidebar-recolhida .user-button .chevron { display: none; }
-.app-shell--sidebar-recolhida .sidebar-recolher { margin-left: auto; }
+.app-shell--sidebar-recolhida .sidebar-recolher { margin-left: 0; }
+.app-shell--sidebar-recolhida .user-menu {
+  left: calc(100% + 8px);
+  right: auto;
+  bottom: 12px;
+  width: 224px;
+}
 .app-shell--gestao .sidebar-fechar {
   color: #fff;
   background: #102f4e;
