@@ -84,19 +84,11 @@ export function Layout() {
               <strong>Joinville</strong>
               <small>Secretaria da Saúde</small>
             </span>
+            <button className="sidebar-recolher" type="button" onClick={() => setSidebarRecolhida((v) => !v)} aria-label={sidebarRecolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'} aria-pressed={sidebarRecolhida}>
+              <IconeRecolherMenu expandido={!sidebarRecolhida} />
+            </button>
+            <button className="sidebar-fechar" onClick={fecharSidebar} aria-label="Fechar menu"><IconeFechar /></button>
           </div>
-          <button className="sidebar-fechar" onClick={fecharSidebar} aria-label="Fechar menu">
-            <IconeFechar />
-          </button>
-          <button
-            className="sidebar-recolher"
-            type="button"
-            onClick={() => setSidebarRecolhida((v) => !v)}
-            aria-label={sidebarRecolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
-            aria-pressed={sidebarRecolhida}
-          >
-            <IconeRecolherMenu expandido={!sidebarRecolhida} />
-          </button>
         </div>
         {tituloGestao && <div className="gestao-marca">Gestão de patrimônio</div>}
         <nav className="sidebar-nav">
