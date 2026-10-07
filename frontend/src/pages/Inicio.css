@@ -2,6 +2,8 @@
 .inicio-acao-icone { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 9px; color: var(--blue-text); background: var(--blue-bg); }
 .inicio-alertas-titulo { display: flex; align-items: center; gap: 10px; }
 .inicio-alertas-titulo svg { color: var(--yellow-text); }
+.inicio-icone--verde { color: var(--green-text); background: var(--green-bg); }
+.inicio-icone--violeta { color: var(--purple-text); background: var(--purple-bg); }
 .inicio-page .stats-grid { margin-top: 0; }
 .inicio-page .stat-card { min-height: 150px; border-radius: var(--radius); }
 .inicio-page .stat-value { font-variant-numeric: tabular-nums; }

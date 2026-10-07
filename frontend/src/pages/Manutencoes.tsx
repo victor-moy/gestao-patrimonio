@@ -1,7 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import './Manutencoes.css';
 import './Solicitacoes.css';
-import { IconeManutencoes } from '../components/icons';
+import { IconeBusca, IconeManutencoes } from '../components/icons';
 import { api, urlArquivo } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
@@ -64,14 +63,16 @@ export function Manutencoes() {
       {mensagem && <div className="success-banner toast-sucesso">{mensagem}</div>}
       {erro && <div className="error-banner">{erro}</div>}
 
-      <div className="gestao-lista solicitacoes-lista">
+      <div className="card gestao-lista solicitacoes-lista">
         <div className="gestao-status" role="group" aria-label="Filtrar manutenção por status">
           <button type="button" aria-pressed={!filtroStatus} onClick={() => setFiltroStatus('')}>Todas</button>
           {Object.entries(ROTULO_STATUS_MANUTENCAO).map(([valor, rotulo]) => (
             <button type="button" key={valor} aria-pressed={filtroStatus === valor} onClick={() => setFiltroStatus(valor)}>{rotulo}</button>
           ))}
         </div>
-        <div className="toolbar">
+        <div className="toolbar gestao-filtros">
+          <div className="gestao-busca">
+          <IconeBusca />
           <input
             className="search"
             aria-label="Buscar manutenções"
@@ -79,6 +80,7 @@ export function Manutencoes() {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
+          </div>
         </div>
         <div className="solicitacoes-resultados">
           {manutencoes.map((m) => (

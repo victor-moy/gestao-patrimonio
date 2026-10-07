@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import type { Alerta, DashboardData } from '../types';
 import './Inicio.css';
-import { IconeAlerta, IconeAtas, IconeEstoque, IconeInventario, IconeManutencoes, IconeSolicitacoes, IconeUnidades } from '../components/icons';
+import { IconeSino, IconeAtas, IconeEstoque, IconeInventario, IconeManutencoes, IconeSolicitacoes, IconeUnidades } from '../components/icons';
 
 const ACOES_RAPIDAS = [
   {
@@ -129,14 +129,14 @@ export function Inicio() {
         </div>
         <div className="card stat-card">
           <div className="stat-top">
-            <div className="stat-icon inicio-acao-icone"><IconeUnidades /></div>
+            <div className="stat-icon inicio-acao-icone inicio-icone--verde"><IconeUnidades /></div>
           </div>
           <div className="stat-label">Unidades atendidas</div>
           <div className="stat-value">{dados ? unidadesAtendidas : '—'}</div>
         </div>
         <div className="card stat-card">
           <div className="stat-top">
-            <div className="stat-icon inicio-acao-icone"><IconeSolicitacoes /></div>
+            <div className="stat-icon inicio-acao-icone inicio-icone--violeta"><IconeSolicitacoes /></div>
           </div>
           <div className="stat-label">Solicitações registradas</div>
           <div className="stat-value">{dados ? totalSolicitacoes : '—'}</div>
@@ -145,7 +145,7 @@ export function Inicio() {
 
       <div className="grid-2 inicio-primeira-linha">
         <div className="card card-pad">
-          <h3 className="inicio-alertas-titulo"><IconeAlerta /> Alertas Importantes</h3>
+          <h3 className="inicio-alertas-titulo"><IconeSino /> Alertas Importantes</h3>
           {alertas.length === 0 && <div className="empty-state">Nenhum alerta no momento</div>}
           {alertas.map((a, i) => (
             <div

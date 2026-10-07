@@ -910,7 +910,7 @@ tr:last-child td {
 }
 
 tr.clickable:hover {
-  background: #fafbfc;
+  background: var(--gray-bg);
   cursor: pointer;
 }
 
@@ -1419,7 +1419,7 @@ tr.clickable:hover {
 }
 
 .request-item:hover {
-  background: #fafbfc;
+  background: var(--gray-bg);
   cursor: pointer;
 }
 
