@@ -86,7 +86,8 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
       },
     });
     await abrirRelatorios();
-    await userEvent.selectOptions(screen.getByDisplayValue('Visão Geral'), 'Empréstimos');
+    await userEvent.click(screen.getByRole('button', { name: 'Empréstimos' }));
+    expect(screen.getByRole('button', { name: 'Empréstimos' })).toHaveAttribute('aria-pressed', 'true');
 
     await waitFor(() => {
       expect(screen.getByText('Prazos e devoluções')).toBeInTheDocument();
@@ -130,7 +131,7 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
       },
     });
     await abrirRelatorios();
-    await userEvent.selectOptions(screen.getByDisplayValue('Visão Geral'), 'Cessões de Uso');
+    await userEvent.click(screen.getByRole('button', { name: 'Cessões de Uso' }));
 
     await waitFor(() => {
       expect(screen.getByText('Prestação de contas')).toBeInTheDocument();
@@ -179,7 +180,7 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
       },
     });
     await abrirRelatorios();
-    await userEvent.selectOptions(screen.getByDisplayValue('Visão Geral'), 'Itens e Estoque');
+    await userEvent.click(screen.getByRole('button', { name: 'Itens e Estoque' }));
 
     await waitFor(() => {
       expect(screen.getByText('Itens aguardando estoque')).toBeInTheDocument();

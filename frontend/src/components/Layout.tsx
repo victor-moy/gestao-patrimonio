@@ -57,6 +57,8 @@ export function Layout() {
         ? 'Solicitações'
         : location.pathname === '/estoque'
           ? 'Estoque'
+        : location.pathname === '/relatorios'
+          ? 'Relatórios'
         : null;
 
   const fecharSidebar = () => setSidebarAberta(false);
