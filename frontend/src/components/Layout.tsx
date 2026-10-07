@@ -71,7 +71,10 @@ export function Layout() {
     <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${tituloGestao ? ' app-shell--gestao' : ''}${sidebarRecolhida ? ' app-shell--sidebar-recolhida' : ''}`}>
       {impersonando && (
         <div className="impersonar-banner">
-          Você está entrando como <strong>{usuario.nome}</strong> ({usuario.email})
+          <span className="impersonar-sinal" aria-hidden>●</span>
+          <span>Visualizando como</span>
+          <strong>{usuario.nome}</strong>
+          <span className="impersonar-email">{usuario.email}</span>
           <button onClick={voltarAoMestre}>Voltar ao meu usuário</button>
         </div>
       )}
