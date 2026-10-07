@@ -8,12 +8,11 @@ describe('Login (RF01)', () => {
   it('renderiza a tela de login institucional', () => {
     mockFetch({});
     render(<App />);
-    expect(screen.getByText('Prefeitura de Joinville')).toBeInTheDocument();
-    expect(screen.getByText('Sistema de Gestão de Patrimônio')).toBeInTheDocument();
-    expect(screen.getByLabelText('E-mail *')).toBeInTheDocument();
-    expect(screen.getByLabelText('Senha *')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /acessar sistema/i })).toBeInTheDocument();
-    expect(screen.getByText('Acesso restrito a servidores autorizados')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
+    expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
+    expect(screen.getByLabelText('Senha')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /esqueci minha senha/i })).toBeInTheDocument();
   });
 
   it('faz login e entra no painel gerencial do gestor', async () => {
@@ -45,9 +44,9 @@ describe('Login (RF01)', () => {
       },
     });
     render(<App />);
-    await userEvent.type(screen.getByLabelText('E-mail *'), 'gestor@joinville.sc.gov.br');
-    await userEvent.type(screen.getByLabelText('Senha *'), 'sgp12345');
-    await userEvent.click(screen.getByRole('button', { name: /acessar sistema/i }));
+    await userEvent.type(screen.getByLabelText('E-mail'), 'gestor@joinville.sc.gov.br');
+    await userEvent.type(screen.getByLabelText('Senha'), 'sgp12345');
+    await userEvent.click(screen.getByRole('button', { name: /entrar/i }));
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /^Bem-vindo,/ })).toBeInTheDocument();
@@ -62,10 +61,10 @@ describe('Login (RF01)', () => {
       '/auth/login': { status: 401, body: { mensagem: 'E-mail ou senha inválidos.' } },
     });
     render(<App />);
-    await waitFor(() => expect(screen.getByLabelText('E-mail *')).toBeInTheDocument());
-    await userEvent.type(screen.getByLabelText('E-mail *'), 'x@joinville.sc.gov.br');
-    await userEvent.type(screen.getByLabelText('Senha *'), 'errada');
-    await userEvent.click(screen.getByRole('button', { name: /acessar sistema/i }));
+    await waitFor(() => expect(screen.getByLabelText('E-mail')).toBeInTheDocument());
+    await userEvent.type(screen.getByLabelText('E-mail'), 'x@joinville.sc.gov.br');
+    await userEvent.type(screen.getByLabelText('Senha'), 'errada');
+    await userEvent.click(screen.getByRole('button', { name: /entrar/i }));
 
     await waitFor(() => {
       expect(screen.getByText('E-mail ou senha inválidos.')).toBeInTheDocument();
