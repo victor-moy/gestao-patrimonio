@@ -74,7 +74,7 @@ export function Layout() {
           <span className="impersonar-sinal" aria-hidden>●</span>
           <span>Visualizando como</span>
           <strong>{usuario.nome}</strong>
-          <span className="impersonar-email">{usuario.email}</span>
+          <span className="impersonar-email">({usuario.email})</span>
           <button onClick={voltarAoMestre}>Voltar ao meu usuário</button>
         </div>
       )}
