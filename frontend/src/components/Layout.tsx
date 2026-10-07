@@ -42,6 +42,7 @@ export function Layout() {
   const location = useLocation();
   const [menuAberto, setMenuAberto] = useState(false);
   const [sidebarAberta, setSidebarAberta] = useState(false);
+  const [sidebarRecolhida, setSidebarRecolhida] = useState(false);
   const [seletorAberto, setSeletorAberto] = useState(false);
 
   if (!usuario) return null;
@@ -66,7 +67,7 @@ export function Layout() {
   const fecharSidebar = () => setSidebarAberta(false);
 
   return (
-    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${tituloGestao ? ' app-shell--gestao' : ''}`}>
+    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${tituloGestao ? ' app-shell--gestao' : ''}${sidebarRecolhida ? ' app-shell--sidebar-recolhida' : ''}`}>
       {impersonando && (
         <div className="impersonar-banner">
           Você está entrando como <strong>{usuario.nome}</strong> ({usuario.email})
@@ -85,6 +86,15 @@ export function Layout() {
           </div>
           <button className="sidebar-fechar" onClick={fecharSidebar} aria-label="Fechar menu">
             <IconeFechar />
+          </button>
+          <button
+            className="sidebar-recolher"
+            type="button"
+            onClick={() => setSidebarRecolhida((v) => !v)}
+            aria-label={sidebarRecolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
+            aria-pressed={sidebarRecolhida}
+          >
+            {sidebarRecolhida ? '›' : '‹'}
           </button>
         </div>
         {tituloGestao && <div className="gestao-marca">Gestão de patrimônio</div>}
