@@ -103,7 +103,7 @@
   display: grid;
   place-items: center;
 }
-.app-shell--gestao .sidebar-recolher svg { width: 16px; height: 16px; }
+.app-shell--gestao .sidebar-recolher svg { width: 22px; height: 22px; }
 .app-shell--gestao .sidebar-recolher:hover { color: #fff; }
 .app-shell--sidebar-recolhida .sidebar { width: 78px; }
 .app-shell--sidebar-recolhida .sidebar-brand { padding-left: 12px; padding-right: 12px; }

@@ -89,7 +89,6 @@ export const IconeMenu = () => (
 
 export const IconeRecolherMenu = ({ expandido = true }: { expandido?: boolean }) => (
   <Icone>
-    <path d="M4 5h16M4 19h16" />
     {expandido ? <path d="m14 8-4 4 4 4" /> : <path d="m10 8 4 4-4 4" />}
   </Icone>
 );
