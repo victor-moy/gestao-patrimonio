@@ -15,6 +15,7 @@ import {
   IconeManutencoes,
   IconeMenu,
   IconeRelatorios,
+  IconeRecolherMenu,
   IconeSolicitacoes,
 } from './icons';
 
@@ -94,7 +95,7 @@ export function Layout() {
             aria-label={sidebarRecolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'}
             aria-pressed={sidebarRecolhida}
           >
-            {sidebarRecolhida ? '›' : '‹'}
+            <IconeRecolherMenu expandido={!sidebarRecolhida} />
           </button>
         </div>
         {tituloGestao && <div className="gestao-marca">Gestão de patrimônio</div>}

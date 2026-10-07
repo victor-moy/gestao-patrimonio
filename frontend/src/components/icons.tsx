@@ -87,6 +87,13 @@ export const IconeMenu = () => (
   </Icone>
 );
 
+export const IconeRecolherMenu = ({ expandido = true }: { expandido?: boolean }) => (
+  <Icone>
+    <path d="M4 5h16M4 19h16" />
+    {expandido ? <path d="m14 8-4 4 4 4" /> : <path d="m10 8 4 4-4 4" />}
+  </Icone>
+);
+
 export const IconeFechar = () => (
   <Icone>
     <path d="M18 6L6 18M6 6l12 12" />
