@@ -53,7 +53,7 @@ export function Layout() {
       ? 'Início'
       : location.pathname === '/inventario'
       ? 'Inventário'
-      : location.pathname === '/solicitacoes'
+      : location.pathname.startsWith('/solicitacoes')
         ? 'Solicitações'
         : location.pathname === '/estoque'
           ? 'Estoque'

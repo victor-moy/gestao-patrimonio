@@ -31,6 +31,7 @@
 .estoque-page .estoque-paginacao { border-top: 1px solid var(--border); padding: 18px 20px; }
 .estoque-page .estoque-paginacao-pagina.active { background: var(--accent); }
 .estoque-page .estoque-acoes-linha { flex-wrap: wrap; }
+.estoque-page .estoque-acoes-linha .btn { width: 104px; min-height: 38px; justify-content: center; flex-shrink: 0; }
 .estoque-page .estoque-vazio { padding: 52px 20px; }
 @media (max-width: 900px) {
   .estoque-page .page-header .page-actions { width: 100%; }

@@ -4,7 +4,7 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import type { Alerta } from '../types';
 import './Inicio.css';
-import { IconeSino, IconeAtas, IconeEstoque, IconeInventario, IconeManutencoes, IconeSolicitacoes, IconeUnidades } from '../components/icons';
+import { IconeSino, IconeRelatorios, IconeEstoque, IconeInventario, IconeManutencoes, IconeSolicitacoes, IconeUnidades } from '../components/icons';
 
 const ACOES_RAPIDAS = [
   {
@@ -29,17 +29,17 @@ const ACOES_RAPIDAS = [
     perfis: ['UNIDADE'],
   },
   {
-    para: '/solicitacoes',
-    icone: <IconeSolicitacoes />,
-    titulo: 'Cessões e Empréstimos',
-    sub: 'Transferências entre unidades',
-    perfis: ['GESTOR_PATRIMONIO', 'UNIDADE'],
+    para: '/manutencoes',
+    icone: <IconeManutencoes />,
+    titulo: 'Manutenções',
+    sub: 'Acompanhar manutenção dos equipamentos',
+    perfis: ['GESTOR_PATRIMONIO'],
   },
   {
-    para: '/configuracoes?secao=atas',
-    icone: <IconeAtas />,
-    titulo: 'Controle de Atas',
-    sub: 'Gestão de registro de preços',
+    para: '/solicitacoes',
+    icone: <IconeSolicitacoes />,
+    titulo: 'Solicitações',
+    sub: 'Consultar pedidos e movimentações',
     perfis: ['GESTOR_PATRIMONIO'],
   },
   {
@@ -47,7 +47,14 @@ const ACOES_RAPIDAS = [
     icone: <IconeEstoque />,
     titulo: 'Gestão de Estoque',
     sub: 'Entradas e saídas do galpão',
-    perfis: ['GALPAO', 'GESTOR_PATRIMONIO'],
+    perfis: ['GALPAO'],
+  },
+  {
+    para: '/relatorios',
+    icone: <IconeRelatorios />,
+    titulo: 'Relatórios',
+    sub: 'Consultar indicadores e relatórios',
+    perfis: ['GESTOR_PATRIMONIO'],
   },
   {
     para: '/solicitacoes',
