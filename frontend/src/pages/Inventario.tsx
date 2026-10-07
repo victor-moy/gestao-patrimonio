@@ -11,6 +11,10 @@ import {
   IconeManutencoes,
   IconeUpload,
   IconeAtas,
+  IconePin,
+  IconeCalendario,
+  IconeRelogio,
+  IconeFechar,
 } from '../components/icons';
 import { Badge } from '../components/Badge';
 import { Modal } from '../components/Modal';
@@ -428,14 +432,20 @@ function DetalheEquipamento({
       subtitulo={`Tombamento: ${equipamento.tombamento}`}
       onFechar={onFechar}
     >
-      <div className="section-title">Informações Básicas</div>
+      <div className="equipamento-detalhe">
+      <div className="equipamento-destaque">
+        <span className="solicitacao-icone"><IconeInventario /></span>
+        <div><h4>{equipamento.tipoEquipamento.nome}</h4><span>Patrimônio {equipamento.tombamento}</span></div>
+        <Badge valor={equipamento.status}>{ROTULO_STATUS_EQUIPAMENTO[equipamento.status]}</Badge>
+      </div>
+      <div className="section-title">Informações básicas</div>
       <div className="info-grid">
         <div className="info-box">
           <div className="info-label">Tipo de Equipamento</div>
           <div className="info-value">{equipamento.tipoEquipamento.nome}</div>
         </div>
         <div className="info-box">
-          <div className="info-label">📍 Unidade Atual</div>
+          <div className="info-label"><IconePin /> Unidade atual</div>
           <div className="info-value">
             {equipamento.unidade.nome}
             {equipamento.unidadeTemporaria &&
@@ -451,7 +461,7 @@ function DetalheEquipamento({
           <div className="info-value">{ROTULO_ESTADO[equipamento.estadoConservacao]}</div>
         </div>
         <div className="info-box">
-          <div className="info-label">📅 Data de Aquisição</div>
+          <div className="info-label"><IconeCalendario /> Data de aquisição</div>
           <div className="info-value">{formatarData(equipamento.dataAquisicao)}</div>
         </div>
         <div className="info-box">
@@ -469,7 +479,7 @@ function DetalheEquipamento({
           </div>
         </>
       )}
-      <div className="section-title">🕐 Histórico de Movimentações</div>
+      <div className="section-title"><IconeRelogio /> Histórico de movimentações</div>
       <div className="card card-pad" style={{ boxShadow: 'none' }}>
         {(equipamento.movimentacoes ?? []).length === 0 && (
           <div className="empty-state">Sem movimentações registradas</div>
@@ -477,7 +487,7 @@ function DetalheEquipamento({
         {(equipamento.movimentacoes ?? []).map((m) => (
           <div key={m.id} className="timeline-item">
             <div className="timeline-icon" aria-hidden>
-              {m.tipo === 'BAIXA' ? '❌' : m.tipo.includes('MANUTENCAO') ? '🔧' : '📦'}
+              {m.tipo === 'BAIXA' ? <IconeFechar /> : m.tipo.includes('MANUTENCAO') ? <IconeManutencoes /> : <IconeInventario />}
             </div>
             <div className="timeline-body">
               <div className="timeline-title">{ROTULO_MOVIMENTACAO[m.tipo] ?? m.tipo}</div>
@@ -486,6 +496,7 @@ function DetalheEquipamento({
             <div className="timeline-date">{formatarData(m.criadoEm)}</div>
           </div>
         ))}
+      </div>
       </div>
     </Modal>
   );

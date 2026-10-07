@@ -79,7 +79,7 @@ export function Layout() {
         <div className="sidebar-brand">
           <div className="sidebar-wordmark" aria-label="Sistema de Gestão de Patrimônio">
             <span className="sidebar-wordmark-copy">
-              <strong>Patrimônio</strong>
+              <strong>Joinville</strong>
               <small>Secretaria da Saúde</small>
             </span>
           </div>

@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import './Solicitacoes.css';
-import { IconeBusca, IconeManutencoes } from '../components/icons';
+import { IconeBusca, IconeManutencoes, IconeDetalhes, IconeRelogio, IconeCheck } from '../components/icons';
 import { api, urlArquivo } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
@@ -48,10 +48,6 @@ export function Manutencoes() {
         <div>
           <h2 id="manutencoes-titulo">Manutenções</h2>
           <p className="subtitle">Acompanhe as solicitações de manutenção dos equipamentos.</p>
-          <p className="count-sub">
-            {manutencoes.length} solicitaç{manutencoes.length === 1 ? 'ão' : 'ões'} encontrada
-            {manutencoes.length === 1 ? '' : 's'}
-          </p>
         </div>
         {usuario?.perfil === 'UNIDADE' && (
           <button className="btn btn-primary" onClick={() => setNovaAberta(true)}>
@@ -62,6 +58,20 @@ export function Manutencoes() {
 
       {mensagem && <div className="success-banner toast-sucesso">{mensagem}</div>}
       {erro && <div className="error-banner">{erro}</div>}
+
+      <div className="gestao-resumo-label">Resumo da seleção atual</div>
+      <div className="gestao-resumo manutencoes-resumo">
+        {[
+          { rotulo: 'Total de solicitações', valor: manutencoes.length, cor: 'blue', icone: <IconeManutencoes /> },
+          { rotulo: 'Pendentes', valor: manutencoes.filter((m) => m.status === 'PENDENTE_APROVACAO').length, cor: 'yellow', icone: <IconeRelogio /> },
+          { rotulo: 'Concluídas', valor: manutencoes.filter((m) => m.status === 'CONCLUIDA').length, cor: 'green', icone: <IconeCheck /> },
+        ].map((resumo) => (
+          <div className="card gestao-indicador" key={resumo.rotulo}>
+            <span className={`gestao-indicador-icone tom-${resumo.cor}`}>{resumo.icone}</span>
+            <div><span className="gestao-indicador-label">{resumo.rotulo}</span><strong>{erro ? '—' : resumo.valor}</strong></div>
+          </div>
+        ))}
+      </div>
 
       <div className="card gestao-lista solicitacoes-lista">
         <div className="gestao-status" role="group" aria-label="Filtrar manutenção por status">
@@ -84,7 +94,7 @@ export function Manutencoes() {
         </div>
         <div className="solicitacoes-resultados">
           {manutencoes.map((m) => (
-            <article key={m.id} className="solicitacao-card">
+            <article key={m.id} className="solicitacao-card" onClick={() => setDetalheId(m.id)}>
               <div className="solicitacao-icone"><IconeManutencoes /></div>
               <div className="solicitacao-conteudo">
                 <div className="solicitacao-etiquetas"><span className="solicitacao-tipo">Manutenção</span><span>Patrimônio #{m.equipamento.tombamento}</span></div>
@@ -101,7 +111,7 @@ export function Manutencoes() {
               </div>
               <div className="solicitacao-acoes">
                 <Badge valor={m.status}>{ROTULO_STATUS_MANUTENCAO[m.status]}</Badge>
-                <button type="button" className="btn btn-outline" onClick={() => setDetalheId(m.id)}>Ver detalhes</button>
+                <button type="button" className="btn btn-outline" aria-label={`Ver manutenção de ${m.equipamento.tipoEquipamento?.nome ?? m.equipamento.descricao}`}><IconeDetalhes /> Ver detalhes</button>
               </div>
             </article>
           ))}

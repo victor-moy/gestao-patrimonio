@@ -1,4 +1,20 @@
 /* Identidade compartilhada pelas telas de inventário e solicitações. */
+.gestao-resumo.manutencoes-resumo { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.equipamento-destaque { display: flex; align-items: center; gap: 16px; padding: 20px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); }
+.equipamento-destaque h4 { margin: 0 0 6px; font-size: 18px; }
+.equipamento-destaque > div { flex: 1; min-width: 0; }
+.equipamento-destaque > div > span { font-size: 13px; color: var(--text-secondary); }
+.equipamento-detalhe .info-label, .equipamento-detalhe .section-title { display: flex; align-items: center; gap: 8px; }
+.equipamento-detalhe .info-label svg { width: 16px; height: 16px; }
+.equipamento-detalhe .info-value { overflow-wrap: anywhere; }
+.equipamento-detalhe .timeline-icon { color: var(--blue-text); background: var(--blue-bg); }
+.equipamento-detalhe .timeline-item { gap: 14px; padding: 18px 0; }
+@media (max-width: 600px) {
+  .gestao-resumo.manutencoes-resumo { grid-template-columns: 1fr; }
+  .equipamento-destaque { flex-wrap: wrap; padding: 16px; }
+  .equipamento-detalhe .timeline-item { flex-wrap: wrap; }
+  .equipamento-detalhe .timeline-date { margin-left: 48px; }
+}
 .app-shell--gestao .sidebar {
   width: 240px;
   background: #102f4e;
@@ -73,15 +89,6 @@
   box-shadow: none;
   color: #fff;
   border-radius: 8px;
-}
-.app-shell--gestao .sidebar-link.active::after {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: #a9d4ef;
-  margin-left: auto;
-  flex-shrink: 0;
 }
 .app-shell--gestao .sidebar-fechar {
   color: #fff;

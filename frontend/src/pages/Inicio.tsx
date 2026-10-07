@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import type { Alerta, DashboardData } from '../types';
+import type { Alerta } from '../types';
 import './Inicio.css';
 import { IconeSino, IconeAtas, IconeEstoque, IconeInventario, IconeManutencoes, IconeSolicitacoes, IconeUnidades } from '../components/icons';
 
@@ -62,12 +62,13 @@ export function Inicio() {
   const { usuario } = useAuth();
   const location = useLocation();
   const ehGestor = usuario?.perfil === 'GESTOR_PATRIMONIO' || usuario?.perfil === 'GESTOR_MANUTENCAO';
-  const [dados, setDados] = useState<DashboardData | null>(null);
+  const [dados, setDados] = useState<{ totalEquipamentos: number; unidadesAtendidas: number; totalSolicitacoes: number } | null>(null);
+  const [falhaResumo, setFalhaResumo] = useState(false);
   const [alertas, setAlertas] = useState<Alerta[]>([]);
 
   useEffect(() => {
     if (!ehGestor) return;
-    api.get<DashboardData>('/dashboard').then(setDados).catch(() => {});
+    api.get<{ totalEquipamentos: number; unidadesAtendidas: number; totalSolicitacoes: number }>('/dashboard/resumo').then(setDados).catch(() => setFalhaResumo(true));
     api.get<Alerta[]>('/dashboard/alertas').then(setAlertas).catch(() => {});
   }, [ehGestor]);
 
@@ -107,8 +108,6 @@ export function Inicio() {
     );
   }
 
-  const totalSolicitacoes = dados?.rankingSolicitacoes.reduce((total, item) => total + item.quantidade, 0) ?? 0;
-  const unidadesAtendidas = dados?.equipamentosPorUnidade.length ?? 0;
 
   return (
     <section className="gestao-page inicio-page" aria-labelledby="inicio-titulo">
@@ -119,6 +118,7 @@ export function Inicio() {
       </div>
 
       <div className="gestao-resumo-label">Resumo da operação</div>
+      {falhaResumo && <p role="status" className="subtitle">Não foi possível carregar o resumo. Atualize a página para tentar novamente.</p>}
       <div className="stats-grid inicio-resumo">
         <div className="card stat-card">
           <div className="stat-top">
@@ -132,14 +132,14 @@ export function Inicio() {
             <div className="stat-icon inicio-acao-icone inicio-icone--verde"><IconeUnidades /></div>
           </div>
           <div className="stat-label">Unidades atendidas</div>
-          <div className="stat-value">{dados ? unidadesAtendidas : '—'}</div>
+          <div className="stat-value">{dados?.unidadesAtendidas ?? '—'}</div>
         </div>
         <div className="card stat-card">
           <div className="stat-top">
             <div className="stat-icon inicio-acao-icone inicio-icone--violeta"><IconeSolicitacoes /></div>
           </div>
           <div className="stat-label">Solicitações registradas</div>
-          <div className="stat-value">{dados ? totalSolicitacoes : '—'}</div>
+          <div className="stat-value">{dados?.totalSolicitacoes ?? '—'}</div>
         </div>
       </div>
 
