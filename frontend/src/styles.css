@@ -132,6 +132,7 @@ label {
   width: 100%;
   max-width: 448px;
   background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
@@ -203,18 +204,18 @@ label {
   font-size: 20px;
   font-weight: 500;
   line-height: 28px;
-  color: #101828;
+  color: var(--text);
 }
 
 .login-body .login-instrucao {
   margin: 0 0 24px;
   font-size: 14px;
   line-height: 20px;
-  color: #4a5565;
+  color: var(--text-secondary);
 }
 
 .login-body label {
-  color: #364153;
+  color: var(--text);
   font-weight: 500;
   line-height: 20px;
 }
@@ -245,8 +246,34 @@ label {
 }
 
 .login-card .link {
-  color: var(--primary);
+  color: var(--blue-text);
 }
+.login-card .btn-ghost { color: var(--blue-text); }
+.login-card input::placeholder { color: var(--text-secondary); opacity: 1; }
+.login-card input:autofill {
+  box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+}
+.login-card input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+}
+.login-card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+:root[data-theme='dark'] .login-page {
+  color-scheme: dark;
+  background: radial-gradient(ellipse at top, #193552, var(--bg) 70%);
+}
+:root[data-theme='dark'] .login-header {
+  background: var(--bg);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+:root[data-theme='dark'] .login-header p,
+:root[data-theme='dark'] .login-header .subtitle,
+:root[data-theme='dark'] .login-copy { color: var(--text-secondary); }
+:root[data-theme='dark'] .login-header .divider { border-color: var(--border); }
 
 .login-sucesso {
   text-align: center;
@@ -257,8 +284,8 @@ label {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #dcfce7;
-  color: #16a34a;
+  background: var(--green-bg);
+  color: var(--green-text);
   font-size: 30px;
   display: flex;
   align-items: center;
@@ -274,17 +301,17 @@ label {
   margin: 0 auto 24px;
   font-size: 16px;
   line-height: 1.5;
-  color: #4a5565;
+  color: var(--text-secondary);
   max-width: 384px;
 }
 
 .login-footer {
   border-top: 1px solid var(--border);
-  background: #f9fafb;
+  background: var(--bg);
   text-align: center;
   padding: 16px;
   font-size: 12px;
-  color: #4a5565;
+  color: var(--text-secondary);
 }
 
 .login-copy {
