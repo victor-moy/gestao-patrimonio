@@ -48,7 +48,7 @@ export function SeletorImpersonar({ onFechar }: { onFechar: () => void }) {
   }
 
   return (
-    <Modal titulo="Entrar como..." subtitulo="Só pra testar — dá pra voltar depois" onFechar={onFechar}>
+    <Modal titulo="Entrar como..." subtitulo="Visualize o sistema como outro usuário" onFechar={onFechar}>
       {erro && <div className="error-banner toast-erro">{erro}</div>}
       <input
         className="search"
