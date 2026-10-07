@@ -172,11 +172,11 @@ export function Inventario() {
                 e.target.value = '';
               }}
             />
-            <button className="btn btn-outline" onClick={() => inputCsv.current?.click()}>
-              <IconeUpload /> Importar CSV
-            </button>
             <button className="btn btn-primary" onClick={() => setCadastroAberto(true)}>
               + Cadastrar Equipamento
+            </button>
+            <button className="btn btn-outline btn-leve" onClick={() => inputCsv.current?.click()}>
+              <IconeUpload /> Importar CSV
             </button>
           </div>
         )}
