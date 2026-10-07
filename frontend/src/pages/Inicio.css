@@ -1,4 +1,7 @@
 .inicio-page .page-header { margin-bottom: 28px; }
+.inicio-acao-icone { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 9px; color: var(--blue-text); background: var(--blue-bg); }
+.inicio-alertas-titulo { display: flex; align-items: center; gap: 10px; }
+.inicio-alertas-titulo svg { color: var(--yellow-text); }
 .inicio-page .stats-grid { margin-top: 0; }
 .inicio-page .stat-card { min-height: 150px; border-radius: var(--radius); }
 .inicio-page .stat-value { font-variant-numeric: tabular-nums; }

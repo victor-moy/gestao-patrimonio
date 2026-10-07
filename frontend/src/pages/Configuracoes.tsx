@@ -72,6 +72,7 @@ export function Configuracoes() {
               <button
                 key={s.id}
                 className={`config-sidebar-item${secao === s.id ? ' active' : ''}`}
+                aria-pressed={secao === s.id}
                 onClick={() => trocarSecao(s.id)}
               >
                 {s.icone}
@@ -764,7 +765,7 @@ function SecaoEquipamentos() {
                   <th>Tipo / Categoria</th>
                   <th>Descrição</th>
                   <th>Preço</th>
-                  <th>QTD</th>
+                  <th>Qtd.</th>
                   <th>Ações</th>
                 </tr>
               </thead>

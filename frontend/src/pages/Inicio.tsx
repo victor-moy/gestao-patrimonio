@@ -4,53 +4,54 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import type { Alerta, DashboardData } from '../types';
 import './Inicio.css';
+import { IconeAlerta, IconeAtas, IconeEstoque, IconeInventario, IconeManutencoes, IconeSolicitacoes, IconeUnidades } from '../components/icons';
 
 const ACOES_RAPIDAS = [
   {
     para: '/inventario',
-    icone: '📦',
+    icone: <IconeInventario />,
     titulo: 'Consultar Inventário',
     sub: 'Visualizar equipamentos por unidade',
     perfis: ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO', 'UNIDADE', 'GALPAO'],
   },
   {
     para: '/manutencoes',
-    icone: '🔧',
+    icone: <IconeManutencoes />,
     titulo: 'Aprovar Manutenções',
     sub: 'Gerenciar solicitações pendentes',
     perfis: ['GESTOR_MANUTENCAO'],
   },
   {
     para: '/manutencoes',
-    icone: '🔧',
+    icone: <IconeManutencoes />,
     titulo: 'Solicitar Manutenção',
     sub: 'Abrir solicitação para um equipamento',
     perfis: ['UNIDADE'],
   },
   {
     para: '/solicitacoes',
-    icone: '📈',
+    icone: <IconeSolicitacoes />,
     titulo: 'Cessões e Empréstimos',
     sub: 'Transferências entre unidades',
     perfis: ['GESTOR_PATRIMONIO', 'UNIDADE'],
   },
   {
     para: '/configuracoes?secao=atas',
-    icone: '📋',
+    icone: <IconeAtas />,
     titulo: 'Controle de Atas',
     sub: 'Gestão de registro de preços',
     perfis: ['GESTOR_PATRIMONIO'],
   },
   {
     para: '/estoque',
-    icone: '🗃️',
+    icone: <IconeEstoque />,
     titulo: 'Gestão de Estoque',
     sub: 'Entradas e saídas do galpão',
     perfis: ['GALPAO', 'GESTOR_PATRIMONIO'],
   },
   {
     para: '/solicitacoes',
-    icone: '⇆',
+    icone: <IconeSolicitacoes />,
     titulo: 'Minhas Solicitações',
     sub: 'Acompanhar status dos pedidos',
     perfis: ['UNIDADE', 'GALPAO'],
@@ -93,7 +94,7 @@ export function Inicio() {
                 state={a.para.startsWith('/configuracoes') ? { background: location } : undefined}
                 className="quick-action"
               >
-                <span style={{ fontSize: 22 }} aria-hidden>
+                <span className="inicio-acao-icone" aria-hidden>
                   {a.icone}
                 </span>
                 <div className="qa-title">{a.titulo}</div>
@@ -121,21 +122,21 @@ export function Inicio() {
       <div className="stats-grid inicio-resumo">
         <div className="card stat-card">
           <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--blue-bg)' }}>📦</div>
+            <div className="stat-icon inicio-acao-icone"><IconeInventario /></div>
           </div>
           <div className="stat-label">Total de Equipamentos</div>
           <div className="stat-value">{dados?.totalEquipamentos ?? '—'}</div>
         </div>
         <div className="card stat-card">
           <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--green-bg)' }}>🏥</div>
+            <div className="stat-icon inicio-acao-icone"><IconeUnidades /></div>
           </div>
           <div className="stat-label">Unidades atendidas</div>
           <div className="stat-value">{dados ? unidadesAtendidas : '—'}</div>
         </div>
         <div className="card stat-card">
           <div className="stat-top">
-            <div className="stat-icon" style={{ background: 'var(--blue-bg)' }}>↔</div>
+            <div className="stat-icon inicio-acao-icone"><IconeSolicitacoes /></div>
           </div>
           <div className="stat-label">Solicitações registradas</div>
           <div className="stat-value">{dados ? totalSolicitacoes : '—'}</div>
@@ -144,7 +145,7 @@ export function Inicio() {
 
       <div className="grid-2 inicio-primeira-linha">
         <div className="card card-pad">
-          <h3>⚠️ Alertas Importantes</h3>
+          <h3 className="inicio-alertas-titulo"><IconeAlerta /> Alertas Importantes</h3>
           {alertas.length === 0 && <div className="empty-state">Nenhum alerta no momento</div>}
           {alertas.map((a, i) => (
             <div
@@ -165,7 +166,7 @@ export function Inicio() {
                 state={a.para.startsWith('/configuracoes') ? { background: location } : undefined}
                 className="quick-action"
               >
-                <span style={{ fontSize: 22 }} aria-hidden>
+                <span className="inicio-acao-icone" aria-hidden>
                   {a.icone}
                 </span>
                 <div className="qa-title">{a.titulo}</div>

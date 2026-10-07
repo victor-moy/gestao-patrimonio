@@ -1,5 +1,7 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import './Manutencoes.css';
+import './Solicitacoes.css';
+import { IconeManutencoes } from '../components/icons';
 import { api, urlArquivo } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
@@ -62,7 +64,13 @@ export function Manutencoes() {
       {mensagem && <div className="success-banner toast-sucesso">{mensagem}</div>}
       {erro && <div className="error-banner">{erro}</div>}
 
-      <div className="card">
+      <div className="gestao-lista solicitacoes-lista">
+        <div className="gestao-status" role="group" aria-label="Filtrar manutenção por status">
+          <button type="button" aria-pressed={!filtroStatus} onClick={() => setFiltroStatus('')}>Todas</button>
+          {Object.entries(ROTULO_STATUS_MANUTENCAO).map(([valor, rotulo]) => (
+            <button type="button" key={valor} aria-pressed={filtroStatus === valor} onClick={() => setFiltroStatus(valor)}>{rotulo}</button>
+          ))}
+        </div>
         <div className="toolbar">
           <input
             className="search"
@@ -71,35 +79,29 @@ export function Manutencoes() {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-          <select aria-label="Status da manutenção" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
-            <option value="">Todos os status</option>
-            {Object.entries(ROTULO_STATUS_MANUTENCAO).map(([valor, rotulo]) => (
-              <option key={valor} value={valor}>
-                {rotulo}
-              </option>
-            ))}
-          </select>
         </div>
-        <div className="request-list">
+        <div className="solicitacoes-resultados">
           {manutencoes.map((m) => (
-            <button type="button" key={m.id} className="request-item" onClick={() => setDetalheId(m.id)}>
-              <div>
-                <div className="request-title">
+            <article key={m.id} className="solicitacao-card">
+              <div className="solicitacao-icone"><IconeManutencoes /></div>
+              <div className="solicitacao-conteudo">
+                <div className="solicitacao-etiquetas"><span className="solicitacao-tipo">Manutenção</span><span>Patrimônio #{m.equipamento.tombamento}</span></div>
+                <h3>
                   {m.equipamento.tipoEquipamento?.nome ?? m.equipamento.descricao}
-                  <span className="tomb">#{m.equipamento.tombamento}</span>
-                </div>
-                <div className="request-sub">{m.unidade.nome}</div>
-                <div className="request-desc">{m.descricaoProblema}</div>
-                <div className="request-meta">
+                </h3>
+                <div className="solicitacao-trajeto"><div><span className="solicitacao-legenda">Unidade</span>{m.unidade.nome}</div></div>
+                <p className="solicitacao-descricao">{m.descricaoProblema}</p>
+                <div className="solicitacao-meta">
                   <span>Solicitado em {formatarData(m.criadoEm)}</span>
                   <span>Por {m.solicitante.nome}</span>
                   {m.orcamentoValor && <span>Orçamento: {formatarMoeda(m.orcamentoValor)}</span>}
                 </div>
               </div>
-              <div>
+              <div className="solicitacao-acoes">
                 <Badge valor={m.status}>{ROTULO_STATUS_MANUTENCAO[m.status]}</Badge>
+                <button type="button" className="btn btn-outline" onClick={() => setDetalheId(m.id)}>Ver detalhes</button>
               </div>
-            </button>
+            </article>
           ))}
           {manutencoes.length === 0 && (
             <div className="empty-state">Nenhuma manutenção encontrada</div>
