@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import './Solicitacoes.css';
 import { IconeBusca, IconeManutencoes, IconeDetalhes, IconeRelogio, IconeCheck } from '../components/icons';
 import { api, urlArquivo } from '../api/client';
@@ -25,15 +25,21 @@ export function Manutencoes() {
   const [novaAberta, setNovaAberta] = useState(false);
   const [mensagem, setMensagem] = useMensagemTemporaria();
   const [erro, setErro] = useState<string | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const consulta = useRef(0);
 
   const carregar = useCallback(() => {
+    const atual = ++consulta.current;
+    setCarregando(true);
+    setErro(null);
     const params = new URLSearchParams();
     if (busca) params.set('busca', busca);
     if (filtroStatus) params.set('status', filtroStatus);
     api
       .get<Manutencao[]>(`/manutencoes?${params}`)
-      .then(setManutencoes)
-      .catch((e) => setErro(e.message));
+      .then((dados) => { if (consulta.current === atual) setManutencoes(dados); })
+      .catch((e) => { if (consulta.current === atual) setErro(e.message); })
+      .finally(() => { if (consulta.current === atual) setCarregando(false); });
   }, [busca, filtroStatus]);
 
   useEffect(() => {
@@ -63,12 +69,12 @@ export function Manutencoes() {
       <div className="gestao-resumo manutencoes-resumo">
         {[
           { rotulo: 'Total de solicitações', valor: manutencoes.length, cor: 'blue', icone: <IconeManutencoes /> },
-          { rotulo: 'Pendentes', valor: manutencoes.filter((m) => m.status === 'PENDENTE_APROVACAO').length, cor: 'yellow', icone: <IconeRelogio /> },
+          { rotulo: 'Pendentes de aprovação', valor: manutencoes.filter((m) => m.status === 'PENDENTE_APROVACAO').length, cor: 'yellow', icone: <IconeRelogio /> },
           { rotulo: 'Concluídas', valor: manutencoes.filter((m) => m.status === 'CONCLUIDA').length, cor: 'green', icone: <IconeCheck /> },
         ].map((resumo) => (
           <div className="card gestao-indicador" key={resumo.rotulo}>
             <span className={`gestao-indicador-icone tom-${resumo.cor}`}>{resumo.icone}</span>
-            <div><span className="gestao-indicador-label">{resumo.rotulo}</span><strong>{erro ? '—' : resumo.valor}</strong></div>
+            <div><span className="gestao-indicador-label">{resumo.rotulo}</span><strong>{erro || carregando ? '—' : resumo.valor}</strong></div>
           </div>
         ))}
       </div>
@@ -92,8 +98,8 @@ export function Manutencoes() {
           />
           </div>
         </div>
-        <div className="solicitacoes-resultados">
-          {manutencoes.map((m) => (
+        <div className="solicitacoes-resultados" aria-busy={carregando}>
+          {!carregando && !erro && manutencoes.map((m) => (
             <article key={m.id} className="solicitacao-card" onClick={() => setDetalheId(m.id)}>
               <div className="solicitacao-icone"><IconeManutencoes /></div>
               <div className="solicitacao-conteudo">
@@ -115,7 +121,9 @@ export function Manutencoes() {
               </div>
             </article>
           ))}
-          {manutencoes.length === 0 && (
+          {carregando && <div className="empty-state" role="status">Carregando manutenções…</div>}
+          {!carregando && erro && <div className="empty-state"><button type="button" className="btn btn-outline" onClick={carregar}>Tentar novamente</button></div>}
+          {!carregando && !erro && manutencoes.length === 0 && (
             <div className="empty-state">Nenhuma manutenção encontrada</div>
           )}
         </div>

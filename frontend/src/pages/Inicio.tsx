@@ -138,7 +138,7 @@ export function Inicio() {
           <div className="stat-top">
             <div className="stat-icon inicio-acao-icone inicio-icone--verde"><IconeUnidades /></div>
           </div>
-          <div className="stat-label">Unidades atendidas</div>
+          <div className="stat-label">Unidades com equipamentos</div>
           <div className="stat-value">{dados?.unidadesAtendidas ?? '—'}</div>
         </div>
         <div className="card stat-card">

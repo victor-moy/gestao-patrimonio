@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, urlArquivo } from '../api/client';
 import { Modal } from '../components/Modal';
+import { useDialog } from '../hooks/useDialog';
 import { TextoTruncado } from '../components/TextoTruncado';
 import {
   IconeAlerta,
@@ -53,10 +54,11 @@ export function Configuracoes() {
     if (background) navigate(-1);
     else navigate('/');
   }
+  const dialog = useDialog(fechar);
 
   return (
     <div className="config-overlay" onClick={fechar} role="presentation">
-      <div className="config-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Configurações do Sistema">
+      <div ref={dialog} tabIndex={-1} className="config-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="Configurações do Sistema">
         <div className="config-header">
           <div>
             <h2>Configurações do Sistema</h2>

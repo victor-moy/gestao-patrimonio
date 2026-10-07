@@ -3,7 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
 import './Login.css';
 
-type Tela = 'login' | 'recuperar' | 'email-enviado';
+type Tela = 'login' | 'recuperar';
 
 // Frames do Figma: "Acesso", "Recuperar senha" e "E-mail enviado"
 export function Login() {
@@ -22,11 +22,9 @@ export function Login() {
         {tela === 'login' && <FormLogin onRecuperar={() => setTela('recuperar')} />}
         {tela === 'recuperar' && (
           <FormRecuperar
-            onEnviado={() => setTela('email-enviado')}
             onVoltar={() => setTela('login')}
           />
         )}
-        {tela === 'email-enviado' && <EmailEnviado onVoltar={() => setTela('login')} />}
         <div className="login-visual" aria-hidden>
           <div className="login-apresentacao"><span>Patrimônio · Saúde</span><h2>Organização que apoia<br />o cuidado.</h2><p>Equipamentos, solicitações e unidades.<br />Tudo conectado em um só lugar.</p></div>
           <div className="login-visual-window">
@@ -108,62 +106,16 @@ function FormLogin({ onRecuperar }: { onRecuperar: () => void }) {
   );
 }
 
-function FormRecuperar({
-  onEnviado,
-  onVoltar,
-}: {
-  onEnviado: () => void;
-  onVoltar: () => void;
-}) {
-  const [email, setEmail] = useState('');
-
-  function aoEnviar(e: FormEvent) {
-    e.preventDefault();
-    // O envio real depende do SMTP institucional; a confirmação é exibida
-    // sem revelar se o e-mail existe na base (RNF11).
-    onEnviado();
-  }
-
+function FormRecuperar({ onVoltar }: { onVoltar: () => void }) {
   return (
-    <form className="login-body" onSubmit={aoEnviar}>
-      <h2>Recuperar Senha</h2>
+    <div className="login-body">
+      <h2>Recuperar senha</h2>
       <p className="login-instrucao">
-        Informe seu e-mail para receber as instruções de recuperação de senha.
+        A recuperação automática por e-mail ainda não está disponível.
+        Entre em contato com o responsável pelo sistema na sua unidade para recuperar o acesso.
       </p>
-      <div className="field">
-        <label htmlFor="email-recuperar">E-mail *</label>
-        <input
-          id="email-recuperar"
-          type="email"
-          placeholder="Digite seu e-mail"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-      </div>
-      <button className="btn btn-primary btn-block" type="submit">
-        Enviar Instruções
-      </button>
-      <button type="button" className="btn btn-ghost btn-block" onClick={onVoltar}>
-        ← Voltar para o Login
-      </button>
-    </form>
-  );
-}
-
-function EmailEnviado({ onVoltar }: { onVoltar: () => void }) {
-  return (
-    <div className="login-body login-sucesso">
-      <div className="icone-sucesso" aria-hidden>
-        ✓
-      </div>
-      <h2>E-mail enviado com sucesso</h2>
-      <p>
-        Enviamos as instruções para recuperação de senha para o e-mail informado. Verifique sua
-        caixa de entrada e spam.
-      </p>
-      <button className="btn btn-primary btn-block" onClick={onVoltar}>
-        Voltar para o Login
+      <button type="button" className="btn btn-primary btn-block" onClick={onVoltar}>
+        Voltar para o login
       </button>
     </div>
   );

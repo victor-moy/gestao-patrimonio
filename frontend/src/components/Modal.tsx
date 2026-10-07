@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useDialog } from '../hooks/useDialog';
 
 interface ModalProps {
   titulo: string;
@@ -9,9 +10,10 @@ interface ModalProps {
 }
 
 export function Modal({ titulo, subtitulo, onFechar, children, acaoHeader }: ModalProps) {
+  const dialog = useDialog(onFechar);
   return (
     <div className="modal-overlay" onClick={onFechar} role="presentation">
-      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={titulo}>
+      <div ref={dialog} tabIndex={-1} className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={titulo}>
         <div className="modal-header">
           <div>
             <h3>{titulo}</h3>
@@ -19,7 +21,7 @@ export function Modal({ titulo, subtitulo, onFechar, children, acaoHeader }: Mod
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             {acaoHeader}
-            <button className="modal-close" onClick={onFechar} aria-label="Fechar">
+            <button type="button" className="modal-close" onClick={onFechar} aria-label="Fechar">
               ✕
             </button>
           </div>

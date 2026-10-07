@@ -5,6 +5,15 @@ import { App } from '../App';
 import { mockFetch } from './mock-fetch';
 
 describe('Login (RF01)', () => {
+  it('explica a indisponibilidade da recuperação sem confirmar um envio inexistente', async () => {
+    mockFetch({});
+    render(<App />);
+    await userEvent.click(screen.getByRole('button', { name: 'Esqueci minha senha' }));
+    expect(screen.getByText(/recuperação automática por e-mail ainda não está disponível/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /enviar instruções/i })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /voltar para o login/i }));
+    expect(screen.getByLabelText('Senha *')).toBeInTheDocument();
+  });
   it('renderiza a tela de login institucional', () => {
     mockFetch({});
     render(<App />);

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './Gestao.css';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -45,6 +45,25 @@ export function Layout() {
   const [sidebarAberta, setSidebarAberta] = useState(false);
   const [sidebarRecolhida, setSidebarRecolhida] = useState(false);
   const [seletorAberto, setSeletorAberto] = useState(false);
+  const perfilRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menuAberto) return;
+    const outside = (event: MouseEvent) => {
+      if (!perfilRef.current?.contains(event.target as Node)) setMenuAberto(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuAberto(false);
+        perfilRef.current?.querySelector<HTMLButtonElement>('.user-button')?.focus();
+      }
+    };
+    document.addEventListener('click', outside);
+    document.addEventListener('keydown', escape);
+    return () => {
+      document.removeEventListener('click', outside);
+      document.removeEventListener('keydown', escape);
+    };
+  }, [menuAberto]);
 
   if (!usuario) return null;
 
@@ -91,6 +110,8 @@ export function Layout() {
               key={tab.para}
               to={tab.para}
               end={tab.para === '/'}
+              title={tab.rotulo}
+              aria-label={tab.rotulo}
               onClick={fecharSidebar}
               className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
             >
@@ -98,11 +119,12 @@ export function Layout() {
             </NavLink>
           ))}
         </nav>
-        <div className="sidebar-footer">
+        <div className="sidebar-footer" ref={perfilRef}>
           <button
             className="user-button"
             onClick={() => setMenuAberto((v) => !v)}
             aria-label="Menu do usuário"
+            aria-expanded={menuAberto}
           >
             <span className="avatar">{usuario.nome.charAt(0).toUpperCase()}</span>
             <div className="user-meta">
@@ -114,7 +136,7 @@ export function Layout() {
             </span>
           </button>
           {menuAberto && (
-            <div className="user-menu" onMouseLeave={() => setMenuAberto(false)}>
+            <div className="user-menu">
               {usuario.perfil === 'GESTOR_PATRIMONIO' && (
                 <NavLink
                   to="/configuracoes"

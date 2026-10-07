@@ -425,8 +425,11 @@
   }
 }
 @media (max-width: 900px) {
+  .app-shell .sidebar-recolher { display: none; }
+  .app-shell--sidebar-recolhida .sidebar-wordmark { justify-content: flex-start; }
+  .app-shell--sidebar-recolhida .sidebar-wordmark-copy { display: flex; }
+  .app-shell--sidebar-recolhida .user-menu { left: 12px; right: 12px; bottom: 68px; width: auto; }
   .app-shell--sidebar-recolhida .sidebar { width: 240px; }
-  .app-shell--sidebar-recolhida .sidebar-wordmark-copy,
   .app-shell--sidebar-recolhida .gestao-marca,
   .app-shell--sidebar-recolhida .user-meta,
   .app-shell--sidebar-recolhida .user-button .chevron { display: initial; }
@@ -436,11 +439,14 @@
     min-height: 60px;
     padding: 12px 20px;
     gap: 16px;
-    position: relative;
+    position: sticky;
+    top: 0;
     width: 100%;
     flex-wrap: nowrap;
   }
   .app-shell--gestao .impersonar-action { margin-left: auto; flex-shrink: 0; }
+  .gestao-caminho { min-width: 0; gap: 8px; }
+  .gestao-caminho strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .app-shell--gestao .sidebar-toggle {
     display: flex;
     color: var(--text);
@@ -453,6 +459,9 @@
   }
 }
 @media (max-width: 540px) {
+  .app-shell--gestao .app-topbar { padding: 12px 14px; gap: 12px; }
+  .gestao-caminho > span { display: none; }
+  .impersonar-action { padding: 8px; }
   .app-shell--gestao .page {
     padding: 24px 14px 90px;
   }
