@@ -1,9 +1,9 @@
 import { useState } from 'react';
+import './Gestao.css';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useTheme } from '../theme/ThemeContext';
-import logoPrefeitura from '../assets/logo-prefeitura-saude.png';
 import { AssistenteFlutuante } from './AssistenteFlutuante';
 import { SeletorImpersonar } from './SeletorImpersonar';
 import {
@@ -15,6 +15,7 @@ import {
   IconeManutencoes,
   IconeMenu,
   IconeRelatorios,
+  IconeRecolherMenu,
   IconeSolicitacoes,
 } from './icons';
 
@@ -42,37 +43,48 @@ export function Layout() {
   const location = useLocation();
   const [menuAberto, setMenuAberto] = useState(false);
   const [sidebarAberta, setSidebarAberta] = useState(false);
+  const [sidebarRecolhida, setSidebarRecolhida] = useState(false);
   const [seletorAberto, setSeletorAberto] = useState(false);
 
   if (!usuario) return null;
 
   const tabs = TABS.filter((t) => t.perfis.includes(usuario.perfil));
 
+  const tituloGestao =
+    location.pathname === '/'
+      ? 'Início'
+      : location.pathname === '/inventario'
+      ? 'Inventário'
+      : location.pathname.startsWith('/solicitacoes')
+        ? 'Solicitações'
+        : location.pathname === '/estoque'
+          ? 'Estoque'
+        : location.pathname === '/relatorios'
+          ? 'Relatórios'
+        : location.pathname === '/manutencoes'
+          ? 'Manutenções'
+        : null;
+
   const fecharSidebar = () => setSidebarAberta(false);
 
   return (
-    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}`}>
-      {impersonando && (
-        <div className="impersonar-banner">
-          Você está entrando como <strong>{usuario.nome}</strong> ({usuario.email})
-          <button onClick={voltarAoMestre}>Voltar ao meu usuário</button>
-        </div>
-      )}
+    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${tituloGestao ? ' app-shell--gestao' : ''}${sidebarRecolhida ? ' app-shell--sidebar-recolhida' : ''}`}>
       {seletorAberto && <SeletorImpersonar onFechar={() => setSeletorAberto(false)} />}
       {sidebarAberta && <div className="sidebar-backdrop" onClick={fecharSidebar} />}
       <aside className={`sidebar${sidebarAberta ? ' aberta' : ''}`}>
         <div className="sidebar-brand">
-          <div className="sidebar-logo-plate">
-            <img
-              className="sidebar-logo"
-              src={logoPrefeitura}
-              alt="Prefeitura de Joinville - Secretaria da Saúde"
-            />
+          <div className="sidebar-wordmark" aria-label="Sistema de Gestão de Patrimônio">
+            <span className="sidebar-wordmark-copy">
+              <strong>Joinville</strong>
+              <small>Secretaria da Saúde</small>
+            </span>
+            <button className="sidebar-recolher" type="button" onClick={() => setSidebarRecolhida((v) => !v)} aria-label={sidebarRecolhida ? 'Expandir menu lateral' : 'Recolher menu lateral'} aria-pressed={sidebarRecolhida}>
+              <IconeRecolherMenu expandido={!sidebarRecolhida} />
+            </button>
+            <button className="sidebar-fechar" onClick={fecharSidebar} aria-label="Fechar menu"><IconeFechar /></button>
           </div>
-          <button className="sidebar-fechar" onClick={fecharSidebar} aria-label="Fechar menu">
-            <IconeFechar />
-          </button>
         </div>
+        {tituloGestao && <div className="gestao-marca">Gestão de patrimônio</div>}
         <nav className="sidebar-nav">
           {tabs.map((tab) => (
             <NavLink
@@ -142,11 +154,14 @@ export function Layout() {
           >
             <IconeMenu />
           </button>
-          <img
-            className="app-topbar-logo"
-            src={logoPrefeitura}
-            alt="Prefeitura de Joinville - Secretaria da Saúde"
-          />
+          {tituloGestao && (
+            <div className="gestao-caminho">
+              <span>Patrimônio</span>
+              <span aria-hidden>/</span>
+              <strong>{tituloGestao}</strong>
+            </div>
+          )}
+          {impersonando && <button className="impersonar-action" onClick={voltarAoMestre}>Redefinir usuário</button>}
         </header>
         <main className="page">
           <Outlet />

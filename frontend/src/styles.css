@@ -132,6 +132,7 @@ label {
   width: 100%;
   max-width: 448px;
   background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
@@ -203,18 +204,18 @@ label {
   font-size: 20px;
   font-weight: 500;
   line-height: 28px;
-  color: #101828;
+  color: var(--text);
 }
 
 .login-body .login-instrucao {
   margin: 0 0 24px;
   font-size: 14px;
   line-height: 20px;
-  color: #4a5565;
+  color: var(--text-secondary);
 }
 
 .login-body label {
-  color: #364153;
+  color: var(--text);
   font-weight: 500;
   line-height: 20px;
 }
@@ -245,8 +246,34 @@ label {
 }
 
 .login-card .link {
-  color: var(--primary);
+  color: var(--blue-text);
 }
+.login-card .btn-ghost { color: var(--blue-text); }
+.login-card input::placeholder { color: var(--text-secondary); opacity: 1; }
+.login-card input:autofill {
+  box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+}
+.login-card input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+}
+.login-card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+:root[data-theme='dark'] .login-page {
+  color-scheme: dark;
+  background: radial-gradient(ellipse at top, #193552, var(--bg) 70%);
+}
+:root[data-theme='dark'] .login-header {
+  background: var(--bg);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+}
+:root[data-theme='dark'] .login-header p,
+:root[data-theme='dark'] .login-header .subtitle,
+:root[data-theme='dark'] .login-copy { color: var(--text-secondary); }
+:root[data-theme='dark'] .login-header .divider { border-color: var(--border); }
 
 .login-sucesso {
   text-align: center;
@@ -257,8 +284,8 @@ label {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #dcfce7;
-  color: #16a34a;
+  background: var(--green-bg);
+  color: var(--green-text);
   font-size: 30px;
   display: flex;
   align-items: center;
@@ -274,17 +301,17 @@ label {
   margin: 0 auto 24px;
   font-size: 16px;
   line-height: 1.5;
-  color: #4a5565;
+  color: var(--text-secondary);
   max-width: 384px;
 }
 
 .login-footer {
   border-top: 1px solid var(--border);
-  background: #f9fafb;
+  background: var(--bg);
   text-align: center;
   padding: 16px;
   font-size: 12px;
-  color: #4a5565;
+  color: var(--text-secondary);
 }
 
 .login-copy {
@@ -667,40 +694,55 @@ label {
   top: 0;
   left: 0;
   right: 0;
-  height: 44px;
+  min-height: 48px;
+  padding: 7px 20px;
   z-index: 1000;
-  background: #b45309;
-  color: #fff;
+  background: #e8f2fb;
+  color: #244866;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  font-size: 13px;
-  font-weight: 500;
+  justify-content: flex-end;
 }
 
+.impersonar-action {
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.impersonar-action:hover { color: var(--text); background: var(--bg); }
+
 .impersonar-banner button {
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: #fff;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12.5px;
-  font-weight: 500;
+  margin-left: 0;
+  background: rgba(255, 255, 255, 0.58);
+  border: 1px solid rgba(36, 72, 102, 0.18);
+  color: #315978;
+  padding: 6px 11px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .impersonar-banner button:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.9);
+}
+@media (max-width: 700px) {
+  .impersonar-banner { justify-content: center; padding: 8px 14px; }
 }
 
 .app-shell--impersonando .sidebar {
-  top: 44px;
-  height: calc(100vh - 44px);
+  top: 0;
+  height: 100vh;
 }
 
 .app-shell--impersonando .app-content {
-  margin-top: 44px;
+  margin-top: 0;
 }
 
 .app-topbar {
@@ -714,6 +756,7 @@ label {
 }
 
 @media (max-width: 900px) {
+  .app-shell--gestao .sidebar-recolher { display: none !important; }
   .sidebar {
     position: fixed;
     top: 0;
@@ -754,7 +797,7 @@ label {
   }
 
   .app-shell--impersonando .app-topbar {
-    top: 44px;
+    top: 0;
   }
 
   .sidebar-toggle {
@@ -910,7 +953,7 @@ tr:last-child td {
 }
 
 tr.clickable:hover {
-  background: #fafbfc;
+  background: var(--gray-bg);
   cursor: pointer;
 }
 
@@ -1419,7 +1462,7 @@ tr.clickable:hover {
 }
 
 .request-item:hover {
-  background: #fafbfc;
+  background: var(--gray-bg);
   cursor: pointer;
 }
 
@@ -1462,7 +1505,8 @@ tr.clickable:hover {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(10, 26, 43, 0.48);
+  backdrop-filter: blur(4px);
   display: flex;
   padding: 24px 16px;
   overflow-y: auto;
@@ -1471,10 +1515,13 @@ tr.clickable:hover {
 
 .modal {
   background: var(--surface);
-  border-radius: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 80px rgba(10, 26, 43, 0.24);
   width: 100%;
   max-width: 760px;
-  padding: 26px 28px;
+  padding: 0;
+  overflow: hidden;
   /* margin auto centraliza nos dois eixos; a altura é limitada à viewport
      (descontando o padding vertical do overlay) e quem rola é o corpo, não
      o modal inteiro — assim o cabeçalho fica sempre visível */
@@ -1488,13 +1535,17 @@ tr.clickable:hover {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 18px;
+  margin-bottom: 0;
+  padding: 24px 28px;
+  gap: 20px;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .modal-corpo {
   overflow-y: auto;
   min-height: 0;
+  padding: 24px 28px 28px;
 }
 
 .modal-header h3 {
@@ -1509,11 +1560,31 @@ tr.clickable:hover {
 }
 
 .modal-close {
-  background: none;
-  border: none;
-  font-size: 22px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
   color: var(--text-secondary);
   line-height: 1;
+}
+.modal-close:hover { background: var(--surface-hover, var(--border)); color: var(--text); }
+.modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.modal .info-box { border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.modal .section-title { font-size: 13px; letter-spacing: 0; margin-top: 24px; }
+.modal .actions-box { border: 1px solid var(--border); background: var(--bg); border-radius: 12px; padding: 20px; }
+.modal .actions-row { flex-wrap: wrap; gap: 10px; }
+.modal input, .modal select, .modal textarea { border-radius: 8px; }
+@media (max-width: 640px) {
+  .modal-overlay { padding: 12px; }
+  .modal { max-height: calc(100dvh - 24px); border-radius: 14px; }
+  .modal-header { padding: 20px; gap: 12px; }
+  .modal-header h3 { font-size: 18px; }
+  .modal-corpo { padding: 20px; }
 }
 
 .info-grid {
@@ -1727,6 +1798,8 @@ tr.clickable:hover {
 }
 
 .config-modal {
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 80px rgba(10, 26, 43, 0.24);
   width: 100%;
   max-width: 1056px;
   background: var(--surface);
@@ -1739,8 +1812,9 @@ tr.clickable:hover {
 }
 
 .config-header {
-  background: var(--primary);
-  color: #fff;
+  background: var(--surface);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
   padding: 20px 28px;
   display: flex;
   justify-content: space-between;
@@ -1757,11 +1831,11 @@ tr.clickable:hover {
 .config-header p {
   margin: 4px 0 0;
   font-size: 14px;
-  color: #dbeafe;
+  color: var(--text-secondary);
 }
 
 .config-header .modal-close {
-  color: #fff;
+  color: var(--text-secondary);
   font-size: 20px;
 }
 
@@ -1774,7 +1848,7 @@ tr.clickable:hover {
 .config-sidebar {
   width: 256px;
   flex-shrink: 0;
-  background: #f9fafb;
+  background: var(--bg);
   border-right: 1px solid var(--border);
   padding: 24px 16px;
   display: flex;
@@ -1797,7 +1871,7 @@ tr.clickable:hover {
 
 .config-sidebar-item svg {
   margin-top: 2px;
-  color: #4a5565;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
@@ -1817,13 +1891,13 @@ tr.clickable:hover {
 }
 
 .config-sidebar-item.active {
-  background: var(--primary);
-  color: #fff;
+  background: var(--blue-bg);
+  color: var(--blue-text);
 }
 
 .config-sidebar-item.active svg,
 .config-sidebar-item.active .csi-sub {
-  color: #dbeafe;
+  color: var(--blue-text);
 }
 
 .config-conteudo {
@@ -1837,6 +1911,19 @@ tr.clickable:hover {
 
 .config-conteudo > * {
   flex-shrink: 0;
+}
+.config-conteudo th { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.config-sidebar-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 700px) {
+  .config-overlay { padding: 12px; }
+  .config-modal { height: calc(100dvh - 24px); }
+  .config-header { padding: 20px; gap: 12px; }
+  .config-corpo { flex-direction: column; }
+  .config-sidebar { width: 100%; flex-direction: row; overflow-x: auto; padding: 12px; border-right: 0; border-bottom: 1px solid var(--border); }
+  .config-sidebar-item { width: auto; flex-shrink: 0; align-items: center; padding: 10px 12px; }
+  .config-sidebar-item .csi-sub, .config-sidebar-item br { display: none; }
+  .config-sidebar-item svg { margin: 0; }
+  .config-conteudo { padding: 20px; }
 }
 
 /* Tabelas do modal: rolagem interna (vertical e horizontal), colunas com
@@ -1856,7 +1943,7 @@ tr.clickable:hover {
 .tabela-scroll thead th {
   position: sticky;
   top: 0;
-  background: #f9fafb;
+  background: var(--bg);
   z-index: 1;
   white-space: nowrap;
   overflow: hidden;
@@ -2183,9 +2270,9 @@ tr.clickable:hover {
 }
 
 .ata-alerta {
-  border: 1px solid #fde68a;
-  background: #fffbeb;
-  color: #92400e;
+  border: 1px solid var(--yellow-text);
+  background: var(--yellow-bg);
+  color: var(--yellow-text);
   border-radius: 8px;
   padding: 10px 14px;
   font-size: 13.5px;
@@ -2208,7 +2295,7 @@ tr.clickable:hover {
 }
 
 .btn-icone.perigo {
-  color: #dc2626;
+  color: var(--red-text);
 }
 
 /* Formulários dos modais de configuração (2 colunas nos contratos) */
@@ -2552,9 +2639,17 @@ tr.clickable:hover {
 .pagina-cabecalho-decorada {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(120deg, #ffffff 0%, #f5f9ff 45%, #dbeafe 100%);
+  background: linear-gradient(120deg, var(--surface) 0%, var(--bg) 45%, var(--blue-bg) 100%);
+  border: 1px solid var(--border);
+  color: var(--text);
   border-radius: 16px;
   padding: 24px 28px;
+}
+.pagina-cabecalho-decorada > div { position: relative; z-index: 1; padding-right: 160px; }
+.pagina-cabecalho-decorada h2 { color: var(--text); }
+.pagina-cabecalho-decorada .subtitle { color: var(--text-secondary); }
+@media (max-width: 880px) {
+  .pagina-cabecalho-decorada > div { padding-right: 0; }
 }
 
 .pagina-ilustracao {

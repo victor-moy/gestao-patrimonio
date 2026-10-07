@@ -20,6 +20,13 @@ function Icone({ children, ...props }: SVGProps<SVGSVGElement>) {
   );
 }
 
+export const IconeSino = () => (
+  <Icone>
+    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+    <path d="M10 21h4" />
+  </Icone>
+);
+
 export const IconeInicio = () => (
   <Icone>
     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -77,6 +84,12 @@ export const IconeChevron = () => (
 export const IconeMenu = () => (
   <Icone>
     <path d="M3 12h18M3 6h18M3 18h18" />
+  </Icone>
+);
+
+export const IconeRecolherMenu = ({ expandido = true }: { expandido?: boolean }) => (
+  <Icone>
+    {expandido ? <path d="m14 8-4 4 4 4" /> : <path d="m10 8 4 4-4 4" />}
   </Icone>
 );
 

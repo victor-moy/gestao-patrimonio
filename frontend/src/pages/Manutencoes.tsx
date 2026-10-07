@@ -1,4 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import './Solicitacoes.css';
+import { IconeBusca, IconeManutencoes, IconeDetalhes, IconeRelogio, IconeCheck } from '../components/icons';
 import { api, urlArquivo } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
@@ -41,14 +43,11 @@ export function Manutencoes() {
   const detalhe = manutencoes.find((m) => m.id === detalheId) ?? null;
 
   return (
-    <>
+    <section className="gestao-page manutencoes-page" aria-labelledby="manutencoes-titulo">
       <div className="page-header">
         <div>
-          <h2>Manutenções</h2>
-          <p className="count-sub">
-            {manutencoes.length} solicitaç{manutencoes.length === 1 ? 'ão' : 'ões'} encontrada
-            {manutencoes.length === 1 ? '' : 's'}
-          </p>
+          <h2 id="manutencoes-titulo">Manutenções</h2>
+          <p className="subtitle">Acompanhe as solicitações de manutenção dos equipamentos.</p>
         </div>
         {usuario?.perfil === 'UNIDADE' && (
           <button className="btn btn-primary" onClick={() => setNovaAberta(true)}>
@@ -60,43 +59,61 @@ export function Manutencoes() {
       {mensagem && <div className="success-banner toast-sucesso">{mensagem}</div>}
       {erro && <div className="error-banner">{erro}</div>}
 
-      <div className="card">
-        <div className="toolbar">
+      <div className="gestao-resumo-label">Resumo da seleção atual</div>
+      <div className="gestao-resumo manutencoes-resumo">
+        {[
+          { rotulo: 'Total de solicitações', valor: manutencoes.length, cor: 'blue', icone: <IconeManutencoes /> },
+          { rotulo: 'Pendentes', valor: manutencoes.filter((m) => m.status === 'PENDENTE_APROVACAO').length, cor: 'yellow', icone: <IconeRelogio /> },
+          { rotulo: 'Concluídas', valor: manutencoes.filter((m) => m.status === 'CONCLUIDA').length, cor: 'green', icone: <IconeCheck /> },
+        ].map((resumo) => (
+          <div className="card gestao-indicador" key={resumo.rotulo}>
+            <span className={`gestao-indicador-icone tom-${resumo.cor}`}>{resumo.icone}</span>
+            <div><span className="gestao-indicador-label">{resumo.rotulo}</span><strong>{erro ? '—' : resumo.valor}</strong></div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card gestao-lista solicitacoes-lista">
+        <div className="gestao-status" role="group" aria-label="Filtrar manutenção por status">
+          <button type="button" aria-pressed={!filtroStatus} onClick={() => setFiltroStatus('')}>Todas</button>
+          {Object.entries(ROTULO_STATUS_MANUTENCAO).map(([valor, rotulo]) => (
+            <button type="button" key={valor} aria-pressed={filtroStatus === valor} onClick={() => setFiltroStatus(valor)}>{rotulo}</button>
+          ))}
+        </div>
+        <div className="toolbar gestao-filtros">
+          <div className="gestao-busca">
+          <IconeBusca />
           <input
             className="search"
+            aria-label="Buscar manutenções"
             placeholder="Buscar por equipamento, unidade, problema..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-          <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
-            <option value="">Todos os status</option>
-            {Object.entries(ROTULO_STATUS_MANUTENCAO).map(([valor, rotulo]) => (
-              <option key={valor} value={valor}>
-                {rotulo}
-              </option>
-            ))}
-          </select>
+          </div>
         </div>
-        <div className="request-list">
+        <div className="solicitacoes-resultados">
           {manutencoes.map((m) => (
-            <div key={m.id} className="request-item" onClick={() => setDetalheId(m.id)}>
-              <div>
-                <div className="request-title">
+            <article key={m.id} className="solicitacao-card" onClick={() => setDetalheId(m.id)}>
+              <div className="solicitacao-icone"><IconeManutencoes /></div>
+              <div className="solicitacao-conteudo">
+                <div className="solicitacao-etiquetas"><span className="solicitacao-tipo">Manutenção</span><span>Patrimônio #{m.equipamento.tombamento}</span></div>
+                <h3>
                   {m.equipamento.tipoEquipamento?.nome ?? m.equipamento.descricao}
-                  <span className="tomb">#{m.equipamento.tombamento}</span>
-                </div>
-                <div className="request-sub">{m.unidade.nome}</div>
-                <div className="request-desc">{m.descricaoProblema}</div>
-                <div className="request-meta">
+                </h3>
+                <div className="solicitacao-trajeto"><div><span className="solicitacao-legenda">Unidade</span>{m.unidade.nome}</div></div>
+                <p className="solicitacao-descricao">{m.descricaoProblema}</p>
+                <div className="solicitacao-meta">
                   <span>Solicitado em {formatarData(m.criadoEm)}</span>
                   <span>Por {m.solicitante.nome}</span>
                   {m.orcamentoValor && <span>Orçamento: {formatarMoeda(m.orcamentoValor)}</span>}
                 </div>
               </div>
-              <div>
+              <div className="solicitacao-acoes">
                 <Badge valor={m.status}>{ROTULO_STATUS_MANUTENCAO[m.status]}</Badge>
+                <button type="button" className="btn btn-outline" aria-label={`Ver manutenção de ${m.equipamento.tipoEquipamento?.nome ?? m.equipamento.descricao}`}><IconeDetalhes /> Ver detalhes</button>
               </div>
-            </div>
+            </article>
           ))}
           {manutencoes.length === 0 && (
             <div className="empty-state">Nenhuma manutenção encontrada</div>
@@ -125,7 +142,7 @@ export function Manutencoes() {
           }}
         />
       )}
-    </>
+    </section>
   );
 }
 

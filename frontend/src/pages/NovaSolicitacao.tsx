@@ -40,11 +40,11 @@ const CATALOGO_TIPOS: Array<{
 function IlustracaoFormulario() {
   return (
     <svg className="pagina-ilustracao" viewBox="0 0 200 150" fill="none" aria-hidden>
-      <circle cx="150" cy="45" r="58" fill="#dbeafe" />
-      <circle cx="35" cy="110" r="30" fill="#eff6ff" />
-      <rect x="92" y="22" width="72" height="96" rx="12" fill="#fff" stroke="#93c5fd" strokeWidth="3" />
-      <rect x="114" y="14" width="28" height="16" rx="4" fill="#93c5fd" />
-      <path d="M106 58h48M106 76h48M106 94h32" stroke="#bfdbfe" strokeWidth="5" strokeLinecap="round" />
+      <circle cx="150" cy="45" r="58" fill="var(--blue-bg)" />
+      <circle cx="35" cy="110" r="30" fill="var(--bg)" />
+      <rect x="92" y="22" width="72" height="96" rx="12" fill="var(--surface)" stroke="var(--blue-text)" strokeWidth="3" />
+      <rect x="114" y="14" width="28" height="16" rx="4" fill="var(--blue-text)" />
+      <path d="M106 58h48M106 76h48M106 94h32" stroke="var(--border)" strokeWidth="5" strokeLinecap="round" />
       <circle cx="150" cy="46" r="14" fill="#2563eb" />
       <path d="M150 39v14M143 46h14" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
     </svg>

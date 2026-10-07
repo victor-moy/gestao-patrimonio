@@ -1,0 +1,54 @@
+.estoque-page .page-header .estoque-select {
+  min-width: 210px;
+  height: 44px;
+}
+.estoque-page .estoque-stats { margin-top: 0; }
+.estoque-page .estoque-stat {
+  min-height: 96px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.estoque-page .estoque-stat-icone { border-radius: 12px; }
+.estoque-page .estoque-toolbar {
+  padding: 20px;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.estoque-page .estoque-status { margin: 0; }
+.estoque-page .estoque-toolbar .estoque-search { flex: 1 1 320px; }
+.estoque-page .estoque-toolbar .estoque-select { height: 44px; min-width: 175px; }
+.estoque-page .estoque-tabela-scroll { padding: 0 20px; }
+.estoque-page .estoque-tabela-scroll table { min-width: 980px; }
+.estoque-page .estoque-tabela-scroll th {
+  background: var(--bg);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+.estoque-page .estoque-tabela-scroll td { padding: 18px 16px; }
+.estoque-page .estoque-produto-thumb { border: 1px solid var(--border); }
+.estoque-page .estoque-paginacao { border-top: 1px solid var(--border); padding: 18px 20px; }
+.estoque-page .estoque-paginacao-pagina.active { background: var(--accent); }
+.estoque-page .estoque-acoes-linha { flex-wrap: wrap; }
+.estoque-page .estoque-acoes-linha .btn { width: 104px; min-height: 38px; justify-content: center; flex-shrink: 0; }
+.estoque-page .estoque-vazio { padding: 52px 20px; }
+@media (max-width: 900px) {
+  .estoque-page .page-header .page-actions { width: 100%; }
+  .estoque-page .page-header .estoque-select { flex: 1; }
+}
+@media (max-width: 540px) {
+  .estoque-page .page-header .page-actions { display: grid; grid-template-columns: 1fr; }
+  .estoque-page .page-header .estoque-select { width: 100%; }
+  .estoque-page .estoque-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .estoque-page .estoque-stat { padding: 14px 12px; gap: 10px; }
+  .estoque-page .estoque-stat-icone { width: 36px; height: 36px; }
+  .estoque-page .estoque-stat-valor { font-size: 24px; }
+  .estoque-page .estoque-toolbar { padding: 14px; }
+  .estoque-page .estoque-toolbar .estoque-select { width: 100%; }
+  .estoque-page .estoque-status { gap: 4px; padding: 0 8px; }
+  .estoque-page .estoque-status button { padding: 16px 10px 13px; font-size: 13px; }
+  .estoque-page .estoque-tabela-scroll { padding: 0 14px; }
+  .estoque-page .estoque-paginacao { padding: 16px 14px; flex-direction: column; align-items: stretch; }
+  .estoque-page .estoque-paginacao-botoes { justify-content: center; }
+}

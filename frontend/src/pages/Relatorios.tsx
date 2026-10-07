@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import './Relatorios.css';
 import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api } from '../api/client';
 import { Badge } from '../components/Badge';
@@ -39,8 +40,7 @@ const OPCOES: Array<{ valor: OpcaoRelatorio; rotulo: string }> = [
   { valor: 'itens-estoque', rotulo: 'Itens e Estoque' },
 ];
 
-// Título + subtítulo do cabeçalho mudam com o relatório selecionado — o
-// dropdown "Relatório" já diz qual é, a breadcrumb só ecoa esse rótulo.
+// Cada relatório mantém seu contexto abaixo da navegação compartilhada.
 const METADADOS_RELATORIO: Record<OpcaoRelatorio, { titulo: string; subtitulo: string }> = {
   'visao-geral': {
     titulo: 'Visão geral de solicitações',
@@ -110,34 +110,32 @@ function calcularPeriodo(preset: string): { dataInicio: string; dataFim: string 
 
 export function Relatorios() {
   const [relatorio, setRelatorio] = useState<OpcaoRelatorio>('visao-geral');
-  const opcaoAtual = OPCOES.find((o) => o.valor === relatorio) ?? OPCOES[0];
   const metadados = METADADOS_RELATORIO[relatorio];
 
   return (
-    <>
+    <section className={`gestao-page relatorios-page relatorios-page--${relatorio}`} aria-labelledby="relatorios-titulo">
       <div className="page-header">
         <div>
-          <div className="breadcrumb">Relatórios / {opcaoAtual.rotulo}</div>
-          <h2>{metadados.titulo}</h2>
-          <p className="subtitle">{metadados.subtitulo}</p>
-        </div>
-        <div className="field" style={{ marginBottom: 0, minWidth: 220 }}>
-          <label>Relatório</label>
-          <select value={relatorio} onChange={(e) => setRelatorio(e.target.value as OpcaoRelatorio)}>
-            {OPCOES.map((o) => (
-              <option key={o.valor} value={o.valor}>
-                {o.rotulo}
-              </option>
-            ))}
-          </select>
+          <h2 id="relatorios-titulo">Relatórios</h2>
+          <p className="subtitle">Consulte os dados de solicitações, empréstimos e estoque.</p>
         </div>
       </div>
-
+      <div className="gestao-status relatorios-navegacao" role="group" aria-label="Tipo de relatório">
+        {OPCOES.map((o) => (
+          <button key={o.valor} type="button" aria-pressed={relatorio === o.valor} onClick={() => setRelatorio(o.valor)}>
+            {o.rotulo}
+          </button>
+        ))}
+      </div>
+      <div className="relatorios-contexto">
+        <h3>{metadados.titulo}</h3>
+        <p>{metadados.subtitulo}</p>
+      </div>
       {relatorio === 'visao-geral' && <RelatorioVisaoGeral />}
       {relatorio === 'emprestimos' && <RelatorioEmprestimos />}
       {relatorio === 'cessoes' && <RelatorioCessoes />}
       {relatorio === 'itens-estoque' && <RelatorioItensEstoque />}
-    </>
+    </section>
   );
 }
 
@@ -401,8 +399,8 @@ function RelatorioVisaoGeral() {
     <>
       {erro && <div className="error-banner">{erro}</div>}
       <div className="card card-pad" style={{ marginTop: 20 }}>
-        <div className="toolbar">
-          <div style={{ flex: 1.3, minWidth: 240 }}>
+        <div className="relatorios-filtros-gerais">
+          <div>
             <label style={{ fontSize: 12 }}>Período</label>
             <SeletorPeriodo
               dataInicio={filtros.dataInicio}
@@ -410,7 +408,7 @@ function RelatorioVisaoGeral() {
               onChange={(dataInicio, dataFim) => setFiltros({ ...filtros, dataInicio, dataFim })}
             />
           </div>
-          <div style={{ flex: 1, minWidth: 200 }}>
+          <div>
             <label style={{ fontSize: 12 }}>Unidade de origem</label>
             <SeletorMultiploUnidades
               unidades={unidades}
@@ -418,7 +416,7 @@ function RelatorioVisaoGeral() {
               onChange={(ids) => setFiltros({ ...filtros, unidadeIds: ids })}
             />
           </div>
-          <div style={{ flex: 1, minWidth: 200 }}>
+          <div>
             <label style={{ fontSize: 12 }}>Item</label>
             <SeletorTipoEquipamento
               categorias={categorias}
@@ -507,7 +505,7 @@ function RelatorioVisaoGeral() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: 18, marginTop: 20 }}>
+      <div className="relatorios-graficos">
         <div className="card card-pad">
           <h3>Solicitações por tipo</h3>
           <p className="subtitle" style={{ marginTop: -10, marginBottom: 16 }}>
@@ -1103,7 +1101,7 @@ function RelatorioItensEstoque() {
       {erro && <div className="error-banner">{erro}</div>}
 
       <div className="card" style={{ marginTop: 20 }}>
-        <div className="relatorio-filtros" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+        <div className="relatorio-filtros relatorio-filtros--duplo">
           <div className="field">
             <label style={{ fontSize: 12 }}>Período</label>
             <SeletorPeriodo

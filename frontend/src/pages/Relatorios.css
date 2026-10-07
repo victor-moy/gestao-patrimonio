@@ -1,0 +1,50 @@
+.relatorios-page { min-width: 0; }
+.relatorios-navegacao {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.relatorios-contexto { margin-top: 28px; }
+.relatorios-contexto h3 { margin: 0 0 6px; font-size: 20px; }
+.relatorios-contexto p { margin: 0; color: var(--text-secondary); font-size: 14px; }
+.relatorios-page .card {
+  min-width: 0;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgb(16 47 78 / 3%);
+}
+.relatorios-page .card-pad { padding: 24px; }
+.relatorios-filtros-gerais {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.relatorios-filtros-gerais > div { min-width: 0; }
+.relatorios-page .relatorio-filtros { padding: 24px 24px 0; gap: 20px; }
+.relatorios-page .relatorio-filtros--duplo { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.relatorios-page .relatorio-busca { padding: 18px 24px 24px; }
+.relatorios-page .stats-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.relatorios-page--emprestimos .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.relatorios-page .stat-card { padding: 22px; }
+.relatorios-page .stat-label { font-size: 12px; font-weight: 600; min-height: 32px; }
+.relatorios-page .stat-value { font-size: clamp(22px, 2.4vw, 32px); letter-spacing: -0.8px; overflow-wrap: anywhere; }
+.relatorios-graficos { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; margin-top: 20px; }
+.relatorios-page .card h3 { font-size: 16px; margin-top: 0; margin-bottom: 18px; }
+.relatorios-page table { font-size: 13px; }
+.relatorios-page th { background: var(--bg); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; padding: 15px 16px; }
+.relatorios-page td { padding: 18px 16px; }
+.relatorios-page .empty-state { padding: 48px 20px; }
+.relatorios-page button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 1100px) {
+  .relatorios-page .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .relatorios-graficos { grid-template-columns: 1fr; }
+}
+@media (max-width: 700px) {
+  .relatorios-filtros-gerais,
+  .relatorios-page .relatorio-filtros,
+  .relatorios-page .relatorio-filtros--duplo { grid-template-columns: 1fr; gap: 16px; }
+  .relatorios-page .card-pad, .relatorios-page .stat-card { padding: 16px; }
+  .relatorios-page .relatorio-filtros { padding: 16px 16px 0; }
+  .relatorios-page .relatorio-busca { padding: 16px; }
+  .relatorios-page .stats-grid { gap: 10px; }
+  .relatorios-contexto { margin-top: 22px; }
+}
