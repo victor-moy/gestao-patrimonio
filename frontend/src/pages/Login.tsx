@@ -1,20 +1,23 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
+import { useTheme } from '../theme/ThemeContext';
+import './Login.css';
 
 type Tela = 'login' | 'recuperar' | 'email-enviado';
 
 // Frames do Figma: "Acesso", "Recuperar senha" e "E-mail enviado"
 export function Login() {
   const [tela, setTela] = useState<Tela>('login');
+  const { tema, alternarTema } = useTheme();
 
   return (
     <div className="login-page">
       <div className="login-card">
         <div className="login-header">
-          <h1>Prefeitura de Joinville</h1>
+          <div><h1>Prefeitura de Joinville</h1>
           <p>Secretaria da Saúde</p>
-          <div className="divider" />
-          <div className="subtitle">Sistema de Gestão de Patrimônio</div>
+          </div>
+          <button type="button" className="login-tema" onClick={alternarTema} aria-label={tema === 'dark' ? 'Ativar tema claro' : 'Ativar tema escuro'}>{tema === 'dark' ? 'Tema claro' : 'Tema escuro'}</button>
         </div>
         {tela === 'login' && <FormLogin onRecuperar={() => setTela('recuperar')} />}
         {tela === 'recuperar' && (
@@ -25,9 +28,10 @@ export function Login() {
         )}
         {tela === 'email-enviado' && <EmailEnviado onVoltar={() => setTela('login')} />}
         <div className="login-visual" aria-hidden>
+          <div className="login-apresentacao"><span>Patrimônio · Saúde</span><h2>Organização que apoia<br />o cuidado.</h2><p>Equipamentos, solicitações e unidades.<br />Tudo conectado em um só lugar.</p></div>
           <div className="login-visual-window">
             <div className="login-visual-bar"><i /><i /><i /><span>Patrimônio · Painel</span></div>
-            <div className="login-visual-card"><small>INVENTÁRIO</small><strong>Gestão de patrimônio</strong><span>✓ Dados organizados em um só lugar</span></div>
+            <div className="login-visual-card"><small>VISÃO GERAL</small><strong>Um patrimônio bem cuidado.</strong><span>Inventário · Solicitações · Relatórios</span></div>
             <div className="login-visual-lines"><b /><b /><b /><b /></div>
           </div>
         </div>
@@ -64,12 +68,16 @@ function FormLogin({ onRecuperar }: { onRecuperar: () => void }) {
 
   return (
     <form className="login-body" onSubmit={aoEnviar}>
+      <span className="login-eyebrow">Sistema de Gestão de Patrimônio</span>
+      <h2>Bem-vindo de volta.</h2>
+      <p className="login-instrucao">Entre com sua conta para continuar.</p>
       {erro && <div className="error-banner toast-erro">{erro}</div>}
       <div className="field">
         <label htmlFor="email">E-mail *</label>
         <input
           id="email"
           type="email"
+          autoComplete="username"
           placeholder="Digite seu e-mail"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -81,6 +89,7 @@ function FormLogin({ onRecuperar }: { onRecuperar: () => void }) {
         <input
           id="senha"
           type="password"
+          autoComplete="current-password"
           placeholder="Digite sua senha"
           value={senha}
           onChange={(e) => setSenha(e.target.value)}
