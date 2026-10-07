@@ -77,7 +77,7 @@ export function Inicio() {
       <section className="gestao-page inicio-page" aria-labelledby="inicio-titulo">
         <div className="page-header">
           <div>
-            <h2>Bem-vindo, {usuario?.nome}</h2>
+            <h2 id="inicio-titulo">Bem-vindo, {usuario?.nome}</h2>
             <p className="subtitle">
               {usuario?.unidadeNome ? `Unidade: ${usuario.unidadeNome}` : 'Acesso ao sistema de patrimônio'}
             </p>
@@ -113,8 +113,7 @@ export function Inicio() {
     <section className="gestao-page inicio-page" aria-labelledby="inicio-titulo">
       <div className="page-header">
         <div>
-          <h2 id="inicio-titulo">Painel Gerencial</h2>
-          <p className="subtitle">Visão consolidada do patrimônio da rede municipal de saúde</p>
+          <h2 id="inicio-titulo">Bem-vindo, {usuario?.nome}</h2>
         </div>
       </div>
 

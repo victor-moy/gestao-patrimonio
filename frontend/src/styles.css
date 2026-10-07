@@ -1462,7 +1462,8 @@ tr.clickable:hover {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(10, 26, 43, 0.48);
+  backdrop-filter: blur(4px);
   display: flex;
   padding: 24px 16px;
   overflow-y: auto;
@@ -1471,10 +1472,13 @@ tr.clickable:hover {
 
 .modal {
   background: var(--surface);
-  border-radius: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  box-shadow: 0 24px 80px rgba(10, 26, 43, 0.24);
   width: 100%;
   max-width: 760px;
-  padding: 26px 28px;
+  padding: 0;
+  overflow: hidden;
   /* margin auto centraliza nos dois eixos; a altura é limitada à viewport
      (descontando o padding vertical do overlay) e quem rola é o corpo, não
      o modal inteiro — assim o cabeçalho fica sempre visível */
@@ -1488,13 +1492,17 @@ tr.clickable:hover {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 18px;
+  margin-bottom: 0;
+  padding: 24px 28px;
+  gap: 20px;
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .modal-corpo {
   overflow-y: auto;
   min-height: 0;
+  padding: 24px 28px 28px;
 }
 
 .modal-header h3 {
@@ -1509,11 +1517,31 @@ tr.clickable:hover {
 }
 
 .modal-close {
-  background: none;
-  border: none;
-  font-size: 22px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
   color: var(--text-secondary);
   line-height: 1;
+}
+.modal-close:hover { background: var(--surface-hover, var(--border)); color: var(--text); }
+.modal-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.modal .info-box { border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.modal .section-title { font-size: 13px; letter-spacing: 0; margin-top: 24px; }
+.modal .actions-box { border: 1px solid var(--border); background: var(--bg); border-radius: 12px; padding: 20px; }
+.modal .actions-row { flex-wrap: wrap; gap: 10px; }
+.modal input, .modal select, .modal textarea { border-radius: 8px; }
+@media (max-width: 640px) {
+  .modal-overlay { padding: 12px; }
+  .modal { max-height: calc(100dvh - 24px); border-radius: 14px; }
+  .modal-header { padding: 20px; gap: 12px; }
+  .modal-header h3 { font-size: 18px; }
+  .modal-corpo { padding: 20px; }
 }
 
 .info-grid {
@@ -1739,8 +1767,9 @@ tr.clickable:hover {
 }
 
 .config-header {
-  background: var(--primary);
-  color: #fff;
+  background: var(--surface);
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
   padding: 20px 28px;
   display: flex;
   justify-content: space-between;
@@ -1757,11 +1786,11 @@ tr.clickable:hover {
 .config-header p {
   margin: 4px 0 0;
   font-size: 14px;
-  color: #dbeafe;
+  color: var(--text-secondary);
 }
 
 .config-header .modal-close {
-  color: #fff;
+  color: var(--text-secondary);
   font-size: 20px;
 }
 

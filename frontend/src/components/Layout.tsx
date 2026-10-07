@@ -50,7 +50,7 @@ export function Layout() {
 
   const tituloGestao =
     location.pathname === '/'
-      ? 'Painel'
+      ? 'Início'
       : location.pathname === '/inventario'
       ? 'Inventário'
       : location.pathname === '/solicitacoes'
@@ -59,6 +59,8 @@ export function Layout() {
           ? 'Estoque'
         : location.pathname === '/relatorios'
           ? 'Relatórios'
+        : location.pathname === '/manutencoes'
+          ? 'Manutenções'
         : null;
 
   const fecharSidebar = () => setSidebarAberta(false);
@@ -76,7 +78,6 @@ export function Layout() {
       <aside className={`sidebar${sidebarAberta ? ' aberta' : ''}`}>
         <div className="sidebar-brand">
           <div className="sidebar-wordmark" aria-label="Sistema de Gestão de Patrimônio">
-            <span className="sidebar-wordmark-mark" aria-hidden>SGP</span>
             <span className="sidebar-wordmark-copy">
               <strong>Patrimônio</strong>
               <small>Secretaria da Saúde</small>
@@ -156,10 +157,6 @@ export function Layout() {
           >
             <IconeMenu />
           </button>
-          <div className="app-topbar-wordmark" aria-label="Sistema de Gestão de Patrimônio">
-            <span className="sidebar-wordmark-mark" aria-hidden>SGP</span>
-            <strong>Patrimônio</strong>
-          </div>
           {tituloGestao && (
             <div className="gestao-caminho">
               <span>Patrimônio</span>

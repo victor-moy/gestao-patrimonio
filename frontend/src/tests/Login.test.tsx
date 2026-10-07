@@ -50,7 +50,7 @@ describe('Login (RF01)', () => {
     await userEvent.click(screen.getByRole('button', { name: /acessar sistema/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('Painel Gerencial')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Bem-vindo,/ })).toBeInTheDocument();
     });
     expect(screen.getByText('Total de Equipamentos')).toBeInTheDocument();
     expect(screen.getByText('280')).toBeInTheDocument();

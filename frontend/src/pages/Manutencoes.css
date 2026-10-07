@@ -1,0 +1,17 @@
+.manutencoes-page > .card { border-radius: 12px; overflow: hidden; }
+.manutencoes-page .toolbar { padding: 22px; gap: 16px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.manutencoes-page .count-sub { margin-top: 12px; font-size: 12px; color: var(--text-secondary); }
+.manutencoes-page .request-list { padding: 8px 22px; }
+.manutencoes-page .request-item { width: 100%; background: transparent; color: var(--text); text-align: left; font: inherit; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; padding: 24px 4px; }
+.manutencoes-page .request-item:last-child { border-bottom: 0; }
+.manutencoes-page .request-item:hover { background: var(--bg); }
+.manutencoes-page .request-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.manutencoes-page .request-title { font-size: 15px; }
+.manutencoes-page .request-desc { margin: 12px 0; }
+.manutencoes-page .request-meta { font-size: 12px; }
+@media (max-width: 700px) {
+  .manutencoes-page .toolbar { flex-direction: column; align-items: stretch; padding: 16px; }
+  .manutencoes-page .toolbar > * { width: 100%; min-width: 0; }
+  .manutencoes-page .request-list { padding: 0 16px; }
+  .manutencoes-page .request-item { flex-direction: column; align-items: flex-start; gap: 16px; }
+}

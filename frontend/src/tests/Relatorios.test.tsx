@@ -42,7 +42,7 @@ async function abrirRelatorios() {
   localStorage.setItem('sgp_token', 'token-teste');
   render(<App />);
   await waitFor(() => {
-    expect(screen.getByText('Painel Gerencial')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Bem-vindo,/ })).toBeInTheDocument();
   });
   await userEvent.click(within(screen.getByRole('navigation')).getByRole('link', { name: /relatórios/i }));
   await waitFor(() => {

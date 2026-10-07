@@ -82,7 +82,7 @@ describe('Inventário (UC03/UC04)', () => {
     });
     render(<App />);
     await waitFor(() => {
-      expect(screen.getByText('Painel Gerencial')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: /^Bem-vindo,/ })).toBeInTheDocument();
     });
     await userEvent.click(
       within(screen.getByRole('navigation')).getByRole('link', { name: /inventário/i }),

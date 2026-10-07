@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import './Manutencoes.css';
 import { api, urlArquivo } from '../api/client';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
@@ -41,10 +42,11 @@ export function Manutencoes() {
   const detalhe = manutencoes.find((m) => m.id === detalheId) ?? null;
 
   return (
-    <>
+    <section className="gestao-page manutencoes-page" aria-labelledby="manutencoes-titulo">
       <div className="page-header">
         <div>
-          <h2>Manutenções</h2>
+          <h2 id="manutencoes-titulo">Manutenções</h2>
+          <p className="subtitle">Acompanhe as solicitações de manutenção dos equipamentos.</p>
           <p className="count-sub">
             {manutencoes.length} solicitaç{manutencoes.length === 1 ? 'ão' : 'ões'} encontrada
             {manutencoes.length === 1 ? '' : 's'}
@@ -64,11 +66,12 @@ export function Manutencoes() {
         <div className="toolbar">
           <input
             className="search"
+            aria-label="Buscar manutenções"
             placeholder="Buscar por equipamento, unidade, problema..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />
-          <select value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
+          <select aria-label="Status da manutenção" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
             <option value="">Todos os status</option>
             {Object.entries(ROTULO_STATUS_MANUTENCAO).map(([valor, rotulo]) => (
               <option key={valor} value={valor}>
@@ -79,7 +82,7 @@ export function Manutencoes() {
         </div>
         <div className="request-list">
           {manutencoes.map((m) => (
-            <div key={m.id} className="request-item" onClick={() => setDetalheId(m.id)}>
+            <button type="button" key={m.id} className="request-item" onClick={() => setDetalheId(m.id)}>
               <div>
                 <div className="request-title">
                   {m.equipamento.tipoEquipamento?.nome ?? m.equipamento.descricao}
@@ -96,7 +99,7 @@ export function Manutencoes() {
               <div>
                 <Badge valor={m.status}>{ROTULO_STATUS_MANUTENCAO[m.status]}</Badge>
               </div>
-            </div>
+            </button>
           ))}
           {manutencoes.length === 0 && (
             <div className="empty-state">Nenhuma manutenção encontrada</div>
@@ -125,7 +128,7 @@ export function Manutencoes() {
           }}
         />
       )}
-    </>
+    </section>
   );
 }
 

@@ -69,8 +69,19 @@
   padding: 14px 12px;
 }
 .app-shell--gestao .sidebar-link.active {
-  background: #18588c;
-  box-shadow: inset 3px 0 #52b4ff;
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: none;
+  color: #fff;
+  border-radius: 8px;
+}
+.app-shell--gestao .sidebar-link.active::after {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #a9d4ef;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .app-shell--gestao .sidebar-fechar {
   color: #fff;
