@@ -123,24 +123,26 @@ label {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1c398e 0%, #193cb8 50%, #1c398e 100%);
+  background: radial-gradient(circle at 12% 15%, #2f75b5 0, transparent 32%), linear-gradient(135deg, #082944 0%, #0d4f7e 58%, #123f62 100%);
   padding: 24px;
   flex-direction: column;
 }
 
 .login-card {
   width: 100%;
-  max-width: 448px;
+  max-width: 900px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 22px;
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
   /* Altura fixa (a da maior tela) para o card não "pular" entre
      Acesso, Recuperar Senha e E-mail enviado */
   display: flex;
   flex-direction: column;
-  min-height: 616px;
+  min-height: 560px;
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
 }
 
 .login-card .login-body {
@@ -152,10 +154,15 @@ label {
 }
 
 .login-header {
-  background: var(--primary);
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  background: linear-gradient(160deg, #0d4f7e, #082944);
   color: #fff;
   text-align: center;
-  padding: 32px 32px 0;
+  padding: 54px 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .login-header h1 {
@@ -188,6 +195,12 @@ label {
 
 .login-body {
   padding: 32px;
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  width: 100%;
+  max-width: 430px;
+  justify-self: center;
 }
 
 /* Espaçamentos do frame "Acesso": gap 24px entre campos, label→input 8px */
@@ -306,6 +319,8 @@ label {
 }
 
 .login-footer {
+  grid-column: 2;
+  grid-row: 2;
   border-top: 1px solid var(--border);
   background: var(--bg);
   text-align: center;
@@ -319,6 +334,16 @@ label {
   font-size: 12px;
   margin-top: 24px;
   text-align: center;
+}
+@media (max-width: 700px) {
+  .login-page { padding: 16px; }
+  .login-card { display: flex; max-width: 448px; min-height: 0; border-radius: 18px; }
+  .login-header { padding: 30px 24px 24px; }
+  .login-header h1 { font-size: 21px; }
+  .login-header p { font-size: 16px; margin-bottom: 16px; }
+  .login-header .subtitle { padding: 18px 0 0; }
+  .login-body { max-width: none; padding: 28px 24px; }
+  .login-footer { padding: 14px; }
 }
 
 .btn {
