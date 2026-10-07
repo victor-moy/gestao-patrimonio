@@ -13,7 +13,6 @@ describe('Login (RF01)', () => {
     expect(screen.getByLabelText('E-mail *')).toBeInTheDocument();
     expect(screen.getByLabelText('Senha *')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /acessar sistema/i })).toBeInTheDocument();
-    expect(screen.getByText('Acesso restrito a servidores autorizados')).toBeInTheDocument();
   });
 
   it('faz login e entra no painel gerencial do gestor', async () => {
