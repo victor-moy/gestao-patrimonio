@@ -701,14 +701,11 @@ label {
   color: #244866;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 500;
+  justify-content: flex-end;
 }
 
 .impersonar-banner button {
-  margin-left: 8px;
+  margin-left: 0;
   background: rgba(255, 255, 255, 0.58);
   border: 1px solid rgba(36, 72, 102, 0.18);
   color: #315978;
@@ -722,13 +719,8 @@ label {
 .impersonar-banner button:hover {
   background: rgba(255, 255, 255, 0.9);
 }
-.impersonar-banner strong { color: #173b5b; font-weight: 700; }
-.impersonar-email { color: #54728b; font-size: 12px; }
-.impersonar-sinal { color: #2d8ac7; font-size: 10px; }
 @media (max-width: 700px) {
-  .impersonar-banner { justify-content: flex-start; flex-wrap: wrap; padding: 8px 14px; }
-  .impersonar-email { display: none; }
-  .impersonar-banner button { margin-left: auto; }
+  .impersonar-banner { justify-content: center; padding: 8px 14px; }
 }
 
 .app-shell--impersonando .sidebar {
