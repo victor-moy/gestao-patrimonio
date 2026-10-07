@@ -161,7 +161,7 @@ export function Layout() {
               <strong>{tituloGestao}</strong>
             </div>
           )}
-          {impersonando && <button className="impersonar-action" onClick={voltarAoMestre}>Voltar ao meu usuário</button>}
+          {impersonando && <button className="impersonar-action" onClick={voltarAoMestre}>Redefinir usuário</button>}
         </header>
         <main className="page">
           <Outlet />

@@ -713,6 +713,7 @@ label {
   padding: 7px 12px;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
 }
 .impersonar-action:hover { color: var(--text); background: var(--bg); }
 
