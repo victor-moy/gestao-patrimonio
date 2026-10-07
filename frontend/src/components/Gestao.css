@@ -107,7 +107,7 @@
 .app-shell--gestao .sidebar-recolher:hover { color: #fff; }
 .app-shell--sidebar-recolhida .sidebar { width: 78px; }
 .app-shell--sidebar-recolhida .sidebar-brand { padding-left: 12px; padding-right: 12px; }
-.app-shell--sidebar-recolhida .sidebar-wordmark-copy,
+.app-shell--sidebar-recolhida .sidebar-wordmark-copy { display: none; }
 .app-shell--sidebar-recolhida .gestao-marca,
 .app-shell--sidebar-recolhida .sidebar-link { font-size: 0; }
 .app-shell--sidebar-recolhida .sidebar-link { justify-content: center; padding-left: 8px; padding-right: 8px; gap: 0; }
