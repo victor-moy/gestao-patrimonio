@@ -348,7 +348,8 @@ label {
 
 /* Login moderno: área de acesso clara + painel visual de apoio. */
 @media (min-width: 701px) {
-  .login-card { grid-template-columns: 1fr 1fr; position: relative; overflow: hidden; }
+  .login-page { padding: 0; align-items: stretch; }
+  .login-card { grid-template-columns: 1fr 1fr; position: relative; overflow: hidden; width: 100%; max-width: none; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
   .login-header { grid-column: 1; grid-row: 1; background: transparent; text-align: left; padding: 42px 56px 12px; align-items: flex-start; }
   .login-header h1 { font-size: 19px; font-weight: 700; }
   .login-header p { margin: 0; font-size: 13px; color: var(--text-secondary); }
@@ -370,6 +371,10 @@ label {
   .login-visual-lines b:nth-child(1) { height: 42%; }.login-visual-lines b:nth-child(2) { height: 68%; }.login-visual-lines b:nth-child(3) { height: 52%; }.login-visual-lines b:nth-child(4) { height: 88%; }
 }
 @media (max-width: 700px) { .login-visual { display: none; } }
+@media (max-width: 700px) {
+  .login-page { padding: 0; align-items: stretch; }
+  .login-card { width: 100%; max-width: none; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
+}
 
 .btn {
   display: inline-flex;
