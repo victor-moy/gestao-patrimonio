@@ -69,11 +69,6 @@ export function Layout() {
 
   return (
     <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${tituloGestao ? ' app-shell--gestao' : ''}${sidebarRecolhida ? ' app-shell--sidebar-recolhida' : ''}`}>
-      {impersonando && (
-        <div className="impersonar-banner">
-          <button onClick={voltarAoMestre}>Voltar ao meu usuário</button>
-        </div>
-      )}
       {seletorAberto && <SeletorImpersonar onFechar={() => setSeletorAberto(false)} />}
       {sidebarAberta && <div className="sidebar-backdrop" onClick={fecharSidebar} />}
       <aside className={`sidebar${sidebarAberta ? ' aberta' : ''}`}>
@@ -166,6 +161,7 @@ export function Layout() {
               <strong>{tituloGestao}</strong>
             </div>
           )}
+          {impersonando && <button className="impersonar-action" onClick={voltarAoMestre}>Voltar ao meu usuário</button>}
         </header>
         <main className="page">
           <Outlet />

@@ -704,6 +704,18 @@ label {
   justify-content: flex-end;
 }
 
+.impersonar-action {
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.impersonar-action:hover { color: var(--text); background: var(--bg); }
+
 .impersonar-banner button {
   margin-left: 0;
   background: rgba(255, 255, 255, 0.58);
@@ -724,12 +736,12 @@ label {
 }
 
 .app-shell--impersonando .sidebar {
-  top: 48px;
-  height: calc(100vh - 48px);
+  top: 0;
+  height: 100vh;
 }
 
 .app-shell--impersonando .app-content {
-  margin-top: 48px;
+  margin-top: 0;
 }
 
 .app-topbar {
@@ -743,6 +755,7 @@ label {
 }
 
 @media (max-width: 900px) {
+  .app-shell--gestao .sidebar-recolher { display: none !important; }
   .sidebar {
     position: fixed;
     top: 0;
