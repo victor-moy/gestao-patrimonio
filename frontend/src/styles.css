@@ -3069,7 +3069,7 @@ tr.clickable:hover {
   justify-content: center;
   box-shadow: 0 8px 24px rgba(16, 24, 40, 0.28);
   cursor: pointer;
-  z-index: 60;
+  z-index: 25;
 }
 
 .assistente-flutuante-botao:hover {
@@ -3089,7 +3089,7 @@ tr.clickable:hover {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  z-index: 60;
+  z-index: 25;
 }
 
 .assistente-flutuante-cabecalho {
