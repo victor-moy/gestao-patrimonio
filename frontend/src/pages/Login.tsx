@@ -25,6 +25,13 @@ export function Login() {
         )}
         {tela === 'email-enviado' && <EmailEnviado onVoltar={() => setTela('login')} />}
         <div className="login-footer">Acesso restrito a servidores autorizados</div>
+        <div className="login-visual" aria-hidden>
+          <div className="login-visual-window">
+            <div className="login-visual-bar"><i /><i /><i /><span>Patrimônio · Painel</span></div>
+            <div className="login-visual-card"><small>INVENTÁRIO</small><strong>Gestão de patrimônio</strong><span>✓ Dados organizados em um só lugar</span></div>
+            <div className="login-visual-lines"><b /><b /><b /><b /></div>
+          </div>
+        </div>
       </div>
       <div className="login-copy">
         © 2026 Prefeitura Municipal de Joinville - Todos os direitos reservados
