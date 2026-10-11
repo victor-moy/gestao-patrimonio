@@ -16,18 +16,30 @@ import { estoqueRouter } from './modules/estoque/estoque.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
 import { relatoriosRouter } from './modules/relatorios/relatorios.routes';
 import { importacaoRouter } from './modules/importacao/importacao.routes';
-import { assistenteRouter } from './modules/assistente/assistente.routes';
+import { conversasRouter, criarMensagensRouter } from './modules/mensagens/mensagens.routes';
+import { configuracoesRouter } from './modules/configuracoes/configuracoes.routes';
 import { tratarErros } from './middlewares/error';
 import { prisma } from './lib/prisma';
-import { UPLOADS_DIR } from './lib/uploads';
+import { env } from './config/env';
+import { TIPOS_DIR } from './lib/uploads';
+import { arquivosRouter } from './modules/arquivos/arquivos.routes';
 
 export function criarApp() {
   const app = express();
 
+  // Atrás do Nginx (1 salto): o IP real vem de X-Forwarded-For e alimenta o limite de frequência
+  app.set('trust proxy', 1);
   app.use(helmet());
-  app.use(cors());
+  app.use(
+    cors({
+      // Sem origens configuradas: aceita qualquer uma só em desenvolvimento
+      origin: env.corsOrigins.length > 0 ? env.corsOrigins : env.nodeEnv !== 'production',
+    }),
+  );
   app.use(express.json({ limit: '2mb' }));
-  app.use('/uploads', express.static(UPLOADS_DIR));
+  // Só as imagens do catálogo de tipos são públicas; anexos e laudos passam por autenticação e autorização
+  app.use('/uploads/tipos', express.static(TIPOS_DIR));
+  app.use('/uploads', arquivosRouter);
 
   // Observabilidade (RFC 5.5.4)
   const register = new client.Registry();
@@ -66,6 +78,10 @@ export function criarApp() {
   app.use('/categorias', categoriasRouter);
   app.use('/equipamentos', equipamentosRouter);
   app.use('/manutencoes', manutencoesRouter);
+  app.use('/configuracoes', configuracoesRouter);
+  app.use('/conversas', conversasRouter);
+  app.use('/solicitacoes/:id/mensagens', criarMensagensRouter('solicitacao'));
+  app.use('/manutencoes/:id/mensagens', criarMensagensRouter('manutencao'));
   app.use('/solicitacoes', solicitacoesRouter);
   app.use('/atas', atasRouter);
   app.use('/contratos', contratosRouter);
@@ -73,7 +89,6 @@ export function criarApp() {
   app.use('/dashboard', dashboardRouter);
   app.use('/relatorios', relatoriosRouter);
   app.use('/importacao', importacaoRouter);
-  app.use('/assistente', assistenteRouter);
 
   app.use(tratarErros);
 

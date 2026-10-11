@@ -98,34 +98,54 @@ describe('Estoque do galpão (RF31/RF32)', () => {
   });
 
   it('bloqueia saída acima do disponível', async () => {
-    prismaMock.estoqueGalpao.findUnique.mockResolvedValue({
-      id: 'est-1',
-      quantidade: 1,
-      tipoEquipamento: {},
-    } as never);
+    prismaMock.estoqueGalpao.findUnique.mockResolvedValue({ id: 'est-1', quantidade: 1 } as never);
+    (prismaMock.estoqueGalpao.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
     const res = await request(app)
       .post('/estoque/saida')
       .set(auth('GALPAO', { unidadeId: 'galpao-1' }))
       .send({ tipoEquipamentoId: UUID, quantidade: 3, unidadeDestinoId: UUID });
     expect(res.status).toBe(422);
     expect(res.body.mensagem).toContain('indisponível');
+    expect(prismaMock.movimentacaoEstoque.create).not.toHaveBeenCalled();
   });
 
-  it('alterna o status de reconciliação com o Branet por movimentação (RF31)', async () => {
-    prismaMock.movimentacaoEstoque.findUnique.mockResolvedValue({
-      id: 'mov-1',
-      atualizadoNoBranet: false,
-    } as never);
-    prismaMock.movimentacaoEstoque.update.mockResolvedValue({
-      id: 'mov-1',
-      atualizadoNoBranet: true,
-    } as never);
+  it('saída debita de forma condicional (quantidade >= pedido) para não ficar negativa sob concorrência', async () => {
+    prismaMock.estoqueGalpao.findUnique.mockResolvedValue({ id: 'est-1', quantidade: 5 } as never);
     const res = await request(app)
-      .patch('/estoque/movimentacoes/mov-1')
+      .post('/estoque/saida')
+      .set(auth('GALPAO', { unidadeId: 'galpao-1' }))
+      .send({ tipoEquipamentoId: UUID, quantidade: 3, unidadeDestinoId: UUID });
+    expect(res.status).toBe(200);
+    expect(prismaMock.estoqueGalpao.updateMany).toHaveBeenCalledWith({
+      where: { id: 'est-1', quantidade: { gte: 3 } },
+      data: { quantidade: { decrement: 3 } },
+    });
+  });
+
+  it('galpão ignora o unidadeId do corpo e opera sempre o próprio estoque', async () => {
+    prismaMock.estoqueGalpao.findUnique.mockResolvedValue({ id: 'est-1', quantidade: 5 } as never);
+    const OUTRO = '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8c0';
+    const res = await request(app)
+      .post('/estoque/saida')
+      .set(auth('GALPAO', { unidadeId: 'galpao-1' }))
+      .send({ tipoEquipamentoId: UUID, quantidade: 1, unidadeDestinoId: UUID, unidadeId: OUTRO });
+    expect(res.status).toBe(200);
+    expect(prismaMock.estoqueGalpao.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId: UUID, unidadeId: 'galpao-1' } },
+      }),
+    );
+  });
+
+  it('galpão não consegue listar o estoque de outro galpão pela query', async () => {
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([]);
+    (prismaMock.solicitacao.groupBy as jest.Mock).mockResolvedValue([]);
+    const res = await request(app)
+      .get('/estoque?unidadeId=galpao-2')
       .set(auth('GALPAO', { unidadeId: 'galpao-1' }));
     expect(res.status).toBe(200);
-    expect(prismaMock.movimentacaoEstoque.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { atualizadoNoBranet: true } }),
+    expect(prismaMock.estoqueGalpao.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { unidadeId: 'galpao-1' } }),
     );
   });
 

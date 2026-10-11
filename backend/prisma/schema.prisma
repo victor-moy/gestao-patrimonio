@@ -147,6 +147,7 @@ model Usuario {
   manutencoesSolicitadas  Manutencao[]   @relation("ManutencaoSolicitante")
   manutencoesDecididas    Manutencao[]   @relation("ManutencaoDecididaPor")
   logsAuditoria           LogAuditoria[]
+  mensagensChat           MensagemChat[]
   unidadesResponsavel     Unidade[]      @relation("UnidadeResponsavel")
 
   @@map("usuario")
@@ -270,6 +271,8 @@ model Movimentacao {
 
 model Manutencao {
   id                  String           @id @default(uuid())
+  // Número sequencial legível para referenciar a manutenção (MAN-0001)
+  numero              Int              @unique @default(autoincrement())
   equipamentoId       String           @map("equipamento_id")
   equipamento         Equipamento      @relation(fields: [equipamentoId], references: [id])
   unidadeId           String           @map("unidade_id")
@@ -277,7 +280,8 @@ model Manutencao {
   solicitanteId       String           @map("solicitante_id")
   solicitante         Usuario          @relation("ManutencaoSolicitante", fields: [solicitanteId], references: [id])
   descricaoProblema   String           @map("descricao_problema")
-  justificativa       String
+  // Legado: a abertura não pede mais justificativa; mantida para os chamados antigos
+  justificativa       String?
   status              StatusManutencao @default(PENDENTE_APROVACAO)
   motivoNegacao       String?          @map("motivo_negacao")
   decididoPorId       String?          @map("decidido_por_id")
@@ -298,11 +302,15 @@ model Manutencao {
   criadoEm            DateTime         @default(now()) @map("criado_em")
   atualizadoEm        DateTime         @updatedAt @map("atualizado_em")
 
+  mensagens MensagemChat[]
+
   @@map("manutencao")
 }
 
 model Solicitacao {
   id                  String            @id @default(uuid())
+  // Número sequencial legível para referenciar a solicitação (SOL-0001)
+  numero              Int               @unique @default(autoincrement())
   tipo                TipoSolicitacao
   status              StatusSolicitacao @default(PENDENTE_APROVACAO)
   unidadeOrigemId     String            @map("unidade_origem_id")
@@ -359,6 +367,7 @@ model Solicitacao {
   atualizadoEm        DateTime          @updatedAt @map("atualizado_em")
 
   itensGerados        Equipamento[]     @relation("EquipamentoCriadoPorSolicitacao")
+  mensagens           MensagemChat[]
 
   @@map("solicitacao")
 }
@@ -457,6 +466,33 @@ model LogAuditoria {
   criadoEm    DateTime @default(now()) @map("criado_em")
 
   @@map("log_auditoria")
+}
+
+// Conversa dentro de uma solicitação ou de uma manutenção (exatamente uma das duas).
+// Mensagens são imutáveis: não há edição nem exclusão, só o registro cronológico.
+model MensagemChat {
+  id            String       @id @default(uuid())
+  solicitacaoId String?      @map("solicitacao_id")
+  solicitacao   Solicitacao? @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+  manutencaoId  String?      @map("manutencao_id")
+  manutencao    Manutencao?  @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+  autorId       String       @map("autor_id")
+  autor         Usuario      @relation(fields: [autorId], references: [id])
+  texto         String
+  criadoEm      DateTime     @default(now()) @map("criado_em")
+
+  @@index([solicitacaoId, criadoEm])
+  @@index([manutencaoId, criadoEm])
+  @@map("mensagem_chat")
+}
+
+// Configurações editáveis pelo Gestor de Patrimônio (chave/valor), sem mexer em código
+model ConfiguracaoSistema {
+  chave        String   @id
+  valor        String
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@map("configuracao_sistema")
 }
 
 // Registro de cada envio de notificação (seção 5.3 do RFC)

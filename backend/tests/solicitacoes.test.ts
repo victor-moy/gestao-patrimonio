@@ -89,8 +89,11 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     expect(res.body.ids).toEqual(['sol-1']);
     // Sem aprovação — já reserva do estoque e nasce RESERVADO — a origem é
     // o galpão que tinha saldo (o Gestor não tem unidade própria).
-    expect(prismaMock.estoqueGalpao.update).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: 'est-1' }, data: { quantidade: { decrement: 1 } } }),
+    expect(prismaMock.estoqueGalpao.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'est-1', quantidade: { gte: 1 } },
+        data: { quantidade: { decrement: 1 } },
+      }),
     );
     expect(prismaMock.solicitacao.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -601,7 +604,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
       .send({ prioridade: 2 });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('AGUARDANDO_DISPONIBILIDADE');
-    expect(prismaMock.estoqueGalpao.update).not.toHaveBeenCalled();
+    expect(prismaMock.estoqueGalpao.updateMany).not.toHaveBeenCalled();
   });
 
   it('bloqueia aprovar ampliação/substituição sem prioridade (feedback 18/08)', async () => {
@@ -632,9 +635,9 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
       .send({ prioridade: 3 });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('RESERVADO');
-    expect(prismaMock.estoqueGalpao.update).toHaveBeenCalledWith(
+    expect(prismaMock.estoqueGalpao.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: 'est-2' },
+        where: { id: 'est-2', quantidade: { gte: 1 } },
         data: { quantidade: { decrement: 1 } },
       }),
     );
@@ -793,7 +796,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
       .send({ ataId: UUID, valorVinculado: 5000 });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('RESERVADO');
-    expect(prismaMock.estoqueGalpao.update).not.toHaveBeenCalled();
+    expect(prismaMock.estoqueGalpao.updateMany).not.toHaveBeenCalled();
   });
 
   it('tenta reservar do estoque de novo quando ainda não há disponibilidade', async () => {
@@ -1143,7 +1146,12 @@ describe('Solicitações — Gestor lança no Branet (tombamento + nº do pedido
         itens: [{ tombamento: '20005/2026', descricao: 'Autoclave nova' }],
       });
     expect(res.status).toBe(200);
-    expect(prismaMock.ata.update).toHaveBeenCalledWith(expect.objectContaining({ data: { saldo: 95000 } }));
+    expect(prismaMock.ata.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'ata-1', saldo: { gte: new Prisma.Decimal(5000) } },
+        data: { saldo: { decrement: new Prisma.Decimal(5000) } },
+      }),
+    );
     expect(prismaMock.estoqueGalpao.upsert).not.toHaveBeenCalled();
   });
 
@@ -1516,5 +1524,141 @@ describe('Solicitações — anexo (PDF ou imagem, feedback 17/08)', () => {
       .post('/solicitacoes/sol-1/anexo')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }));
     expect(res.status).toBe(422);
+  });
+});
+
+describe('GET /solicitacoes/:id/historico', () => {
+  const abertura = new Date('2026-10-01T10:00:00.000Z');
+
+  it('lista a abertura e os eventos da solicitação em ordem cronológica, sem expor dados internos', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({ ...solicitacaoBase, criadoEm: abertura } as never);
+    prismaMock.logAuditoria.findMany.mockResolvedValue([
+      {
+        id: 'log-1',
+        acao: 'APROVAR_SOLICITACAO',
+        criadoEm: new Date('2026-10-02T09:00:00.000Z'),
+        dadosDepois: { status: 'RESERVADO', reservadoDoEstoque: true },
+        usuario: { nome: 'Samuel' },
+      },
+      {
+        id: 'log-2',
+        acao: 'CONFIRMAR_RECEBIMENTO_ITEM',
+        criadoEm: new Date('2026-10-03T09:00:00.000Z'),
+        dadosDepois: { recebimentoOk: false, observacaoRecebimento: 'segredo' },
+        usuario: null,
+      },
+    ] as never);
+
+    const res = await request(app).get('/solicitacoes/sol-1/historico').set(auth('GESTOR_PATRIMONIO'));
+
+    expect(res.status).toBe(200);
+    expect(prismaMock.logAuditoria.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { entidade: 'solicitacao', entidadeId: 'sol-1' },
+        orderBy: { criadoEm: 'asc' },
+      }),
+    );
+    expect(res.body.map((e: { acao: string }) => e.acao)).toEqual([
+      'ABRIR_SOLICITACAO',
+      'APROVAR_SOLICITACAO',
+      'CONFIRMAR_RECEBIMENTO_ITEM',
+    ]);
+    expect(res.body[0]).toMatchObject({ usuario: 'Carlos', criadoEm: abertura.toISOString() });
+    expect(res.body[1]).toMatchObject({ usuario: 'Samuel' });
+    expect(res.body[2]).toMatchObject({ usuario: null, recebimentoOk: false });
+    expect(JSON.stringify(res.body)).not.toContain('segredo');
+    expect(JSON.stringify(res.body)).not.toContain('dadosDepois');
+  });
+
+  it('bloqueia unidade que não participa da solicitação', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue(solicitacaoBase as never);
+    const res = await request(app)
+      .get('/solicitacoes/sol-1/historico')
+      .set(auth('UNIDADE', { unidadeId: 'outra-unidade' }));
+    expect(res.status).toBe(403);
+    expect(prismaMock.logAuditoria.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('Solicitações — proteção contra corrida em estoque e saldo de ata', () => {
+  const ampliacao = {
+    ...solicitacaoBase,
+    tipo: 'AMPLIACAO',
+    equipamentoId: null,
+    equipamento: null,
+    tipoEquipamentoId: 'tipo-1',
+    quantidade: 1,
+  };
+  const ataValida = {
+    id: 'ata-1',
+    numero: '045/2025',
+    saldo: new Prisma.Decimal(10000),
+    valorTotal: new Prisma.Decimal(10000),
+    vencimento: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+    ativo: true,
+  };
+
+  it('não reserva quando outra transação consumiu o estoque entre a leitura e a escrita', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({ ...ampliacao, status: 'AGUARDANDO_DISPONIBILIDADE' } as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([{ id: 'est-1', unidadeId: 'galpao-1', quantidade: 1 }] as never);
+    (prismaMock.estoqueGalpao.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/tentar-reservar-estoque')
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
+  });
+
+  it('tenta o próximo galpão quando o primeiro perdeu a corrida', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({ ...ampliacao, status: 'AGUARDANDO_DISPONIBILIDADE' } as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([
+      { id: 'est-1', unidadeId: 'galpao-1', quantidade: 3 },
+      { id: 'est-2', unidadeId: 'galpao-2', quantidade: 2 },
+    ] as never);
+    (prismaMock.estoqueGalpao.updateMany as jest.Mock)
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+    prismaMock.solicitacao.update.mockResolvedValue({ ...ampliacao, status: 'RESERVADO' } as never);
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/tentar-reservar-estoque')
+      .set(auth('GESTOR_PATRIMONIO'));
+    expect(res.status).toBe(200);
+    expect(prismaMock.estoqueGalpao.updateMany).toHaveBeenCalledTimes(2);
+  });
+
+  it('vínculo à ata desconta o que já está comprometido em outras solicitações reservadas', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({ ...ampliacao, status: 'AGUARDANDO_DISPONIBILIDADE' } as never);
+    prismaMock.estoqueGalpao.findMany.mockResolvedValue([]);
+    prismaMock.ata.findUnique.mockResolvedValue(ataValida as never);
+    (prismaMock.solicitacao.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { valorVinculado: new Prisma.Decimal(8000) },
+    });
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/vincular-ata')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ ataId: UUID, valorVinculado: 3000 });
+    expect(res.status).toBe(422);
+    expect(res.body.mensagem).toContain('Saldo insuficiente');
+    expect(res.body.mensagem).toContain('2000.00');
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
+  });
+
+  it('lançamento no Branet falha, sem mascarar com saldo zero, quando a ata não cobre o valor', async () => {
+    prismaMock.solicitacao.findUnique.mockResolvedValue({
+      ...ampliacao,
+      status: 'RESERVADO',
+      ataId: 'ata-1',
+      valorVinculado: new Prisma.Decimal(5000),
+    } as never);
+    prismaMock.equipamento.findMany.mockResolvedValue([] as never);
+    prismaMock.equipamento.create.mockResolvedValue({ id: 'eq-novo', unidadeId: 'unidade-1' } as never);
+    (prismaMock.ata.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+    const res = await request(app)
+      .post('/solicitacoes/sol-1/lancar-branet')
+      .set(auth('GESTOR_PATRIMONIO'))
+      .send({ numeroPedidoBranet: 'PED-1', itens: [{ tombamento: '20005/2026', descricao: 'Autoclave' }] });
+    expect(res.status).toBe(422);
+    expect(res.body.mensagem).toContain('Saldo insuficiente');
+    expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
   });
 });

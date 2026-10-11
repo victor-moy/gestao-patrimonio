@@ -14,7 +14,7 @@ export interface FiltrosInventario {
 }
 
 // RF08 (unidade vê o próprio inventário) / RF09 (gestor vê tudo com filtros)
-export function montarFiltroVisibilidade(usuario: AuthPayload): Prisma.EquipamentoWhereInput {
+function montarFiltroVisibilidade(usuario: AuthPayload): Prisma.EquipamentoWhereInput {
   if (usuario.perfil === 'UNIDADE' || usuario.perfil === 'GALPAO') {
     if (!usuario.unidadeId) {
       throw new AppError('Usuário não está vinculado a uma unidade.', 403);

@@ -5,7 +5,7 @@ import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
-import { uploadLaudoPdf } from '../../lib/uploads';
+import { assinaturaPdf, uploadLaudoPdf } from '../../lib/uploads';
 import * as service from './manutencoes.service';
 
 export const manutencoesRouter = Router();
@@ -24,10 +24,13 @@ manutencoesRouter.get('/:id', async (req, res) => {
   res.json(await service.buscarPorId(req.usuario!, req.params.id));
 });
 
+manutencoesRouter.get('/:id/historico', async (req, res) => {
+  res.json(await service.historico(req.usuario!, req.params.id));
+});
+
 const solicitarSchema = z.object({
   equipamentoId: z.string().uuid(),
   descricaoProblema: z.string().min(5, 'descreva o problema'),
-  justificativa: z.string().min(5, 'informe a justificativa'),
 });
 
 // UC05 — a Unidade solicita manutenção
@@ -83,6 +86,7 @@ manutencoesRouter.post(
   '/:id/validar-orcamento',
   permitir(Perfil.GESTOR_MANUTENCAO),
   uploadLaudoPdf.single('laudo'),
+  assinaturaPdf,
   validarBody(z.object({ aprovado: booleanFlexivel })),
   async (req, res) => {
     const laudoUrl = req.file ? `/uploads/laudos/${req.file.filename}` : undefined;
@@ -99,6 +103,7 @@ manutencoesRouter.post(
   '/:id/baixa',
   permitir(Perfil.GESTOR_MANUTENCAO),
   uploadLaudoPdf.single('laudo'),
+  assinaturaPdf,
   async (req, res) => {
     if (!req.file) {
       throw new AppError('Envie o laudo técnico da baixa em PDF no campo "laudo".', 422);

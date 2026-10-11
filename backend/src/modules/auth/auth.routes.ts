@@ -7,20 +7,49 @@ import { permitir } from '../../middlewares/rbac';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
+import { limitarFrequencia } from '../../middlewares/rateLimit';
+import { env } from '../../config/env';
 import * as authService from './auth.service';
 
 export const authRouter = Router();
+
+// Freia tentativa de adivinhar senha. A chave é IP + e-mail (uma conta por origem), porque
+// muitos servidores da Secretaria saem pelo mesmo IP e um teto só por IP bloquearia todos;
+// o teto por IP, bem mais alto, só barra varredura de várias contas.
+const limiteLoginPorConta = limitarFrequencia({
+  janelaMs: 15 * 60 * 1000,
+  max: 10,
+  chave: (req) => `${req.ip}|${String(req.body?.email ?? '').toLowerCase()}`,
+  mensagem: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.',
+});
+const limiteLoginPorIp = limitarFrequencia({
+  janelaMs: 15 * 60 * 1000,
+  max: 300,
+  mensagem: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.',
+});
+const limiteImpersonacao = limitarFrequencia({
+  janelaMs: 15 * 60 * 1000,
+  max: 30,
+  chave: (req) => req.usuario?.sub ?? req.ip ?? 'desconhecido',
+});
+const passa = (_req: unknown, _res: unknown, next: () => void) => next();
 
 const loginSchema = z.object({
   email: z.string().email('informe um e-mail válido'),
   senha: z.string().min(1, 'informe a senha'),
 });
 
-authRouter.post('/login', validarBody(loginSchema), async (req, res) => {
-  const { email, senha } = req.body;
-  const resultado = await authService.login(email, senha);
-  res.json(resultado);
-});
+authRouter.post(
+  '/login',
+  env.rateLimitAtivo ? limiteLoginPorIp : passa,
+  validarBody(loginSchema),
+  env.rateLimitAtivo ? limiteLoginPorConta : passa,
+  async (req, res) => {
+    const { email, senha } = req.body;
+    const resultado = await authService.login(email, senha);
+    res.json(resultado);
+  },
+);
 
 authRouter.get('/me', autenticar, async (req, res) => {
   const usuario = await prisma.usuario.findUnique({
@@ -45,6 +74,7 @@ authRouter.post(
   '/impersonar/:id',
   autenticar,
   permitir(Perfil.GESTOR_PATRIMONIO),
+  env.rateLimitAtivo ? limiteImpersonacao : passa,
   async (req, res) => {
     const resultado = await authService.impersonar(req.params.id);
     await registrarAuditoria({
