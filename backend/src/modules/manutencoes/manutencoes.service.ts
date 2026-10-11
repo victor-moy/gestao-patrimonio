@@ -28,6 +28,7 @@ export async function listar(usuario: AuthPayload, filtros: { status?: string; b
             { equipamento: { descricao: { contains: filtros.busca, mode: 'insensitive' as const } } },
             { unidade: { nome: { contains: filtros.busca, mode: 'insensitive' as const } } },
             { descricaoProblema: { contains: filtros.busca, mode: 'insensitive' as const } },
+            { titulo: { contains: filtros.busca, mode: 'insensitive' as const } },
           ],
         }
       : {}),
@@ -89,7 +90,7 @@ export async function historico(usuario: AuthPayload, id: string) {
 // UC05/RF11 — a Unidade abre solicitação de manutenção
 export async function solicitar(
   usuario: AuthPayload,
-  dados: { equipamentoId: string; descricaoProblema: string },
+  dados: { equipamentoId: string; descricaoProblema: string; titulo: string },
 ) {
   const equipamento = await prisma.equipamento.findUnique({
     where: { id: dados.equipamentoId },
@@ -111,6 +112,7 @@ export async function solicitar(
       equipamentoId: equipamento.id,
       unidadeId: equipamento.unidadeId,
       solicitanteId: usuario.sub,
+      titulo: dados.titulo.trim(),
       descricaoProblema: dados.descricaoProblema,
     },
     include: includePadrao,

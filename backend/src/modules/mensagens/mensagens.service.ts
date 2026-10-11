@@ -1,4 +1,5 @@
-import { Perfil } from '@prisma/client';
+import { randomUUID } from 'crypto';
+import { Perfil, Prisma, StatusManutencao, StatusSolicitacao } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 import { notificar } from '../../services/notificacao.service';
@@ -89,33 +90,109 @@ export interface ConversaResumo {
   contexto: ContextoChat;
   id: string;
   numero: number;
+  titulo: string | null;
   tipoSolicitacao: string | null;
   item: string | null;
   unidade: string | null;
   ultimaEm: Date;
   ultimoTexto: string;
   ultimoAutor: string;
+  // Mensagens de outras pessoas que o usuário ainda não leu nesta conversa
+  naoLidas: number;
 }
 
 const LIMITE_CONVERSAS = 50;
 
+// Quais conversas o usuário enxerga na lista e conta como "não lidas". O acesso direto a uma conversa
+// (pelo botão Conversar do pedido) segue a regra de `verificarAcesso`; aqui é só a listagem.
+//  - Unidade: as da própria unidade.
+//  - Galpão: as solicitações que enxerga.
+//  - Gestores (Patrimônio e Manutenção): só as em que estão envolvidos — escreveram nela, criaram o
+//    pedido ou decidiram o pedido. Enquanto um pedido está pendente e sem decisão, ele é uma fila: todos
+//    os gestores que o decidem (Patrimônio nas solicitações, Manutenção nas manutenções) o enxergam.
+function filtrosDeVisibilidade(usuario: AuthPayload) {
+  const uid = usuario.sub;
+  const unidadeId = usuario.unidadeId ?? '';
+  const ehUnidade = usuario.perfil === Perfil.UNIDADE;
+  const ehGestor = usuario.perfil === Perfil.GESTOR_PATRIMONIO || usuario.perfil === Perfil.GESTOR_MANUTENCAO;
+
+  const solicitacao: Prisma.SolicitacaoWhereInput | null = PERFIS.solicitacao.includes(usuario.perfil)
+    ? {
+        mensagens: { some: {} },
+        ...(ehUnidade ? { OR: [{ unidadeOrigemId: unidadeId }, { unidadeDestinoId: unidadeId }] } : {}),
+        ...(ehGestor
+          ? {
+              OR: [
+                { mensagens: { some: { autorId: uid } } },
+                { criadoPorId: uid },
+                { decididoPorId: uid },
+                ...(usuario.perfil === Perfil.GESTOR_PATRIMONIO
+                  ? [{ status: StatusSolicitacao.PENDENTE_APROVACAO, decididoPorId: null }]
+                  : []),
+              ],
+            }
+          : {}),
+      }
+    : null;
+
+  const manutencao: Prisma.ManutencaoWhereInput | null = PERFIS.manutencao.includes(usuario.perfil)
+    ? {
+        mensagens: { some: {} },
+        ...(ehUnidade ? { unidadeId } : {}),
+        ...(ehGestor
+          ? {
+              OR: [
+                { mensagens: { some: { autorId: uid } } },
+                { solicitanteId: uid },
+                { decididoPorId: uid },
+                ...(usuario.perfil === Perfil.GESTOR_MANUTENCAO
+                  ? [{ status: StatusManutencao.PENDENTE_APROVACAO, decididoPorId: null }]
+                  : []),
+              ],
+            }
+          : {}),
+      }
+    : null;
+
+  return { solicitacao, manutencao };
+}
+
+// Mensagens de outras pessoas mais novas que a última leitura do usuário (ou todas, se nunca leu), por conversa.
+async function naoLidasPorConversa(uid: string, solicitacaoIds: string[], manutencaoIds: string[]) {
+  const mapa = new Map<string, number>();
+  const contar = async (contexto: ContextoChat, ids: string[]) => {
+    if (ids.length === 0) return;
+    const coluna = Prisma.raw(contexto === 'solicitacao' ? '"solicitacao_id"' : '"manutencao_id"');
+    const linhas = await prisma.$queryRaw<{ id: string; n: number }[]>(Prisma.sql`
+      SELECT m.${coluna} AS id, COUNT(*)::int AS n
+      FROM "mensagem_chat" m
+      LEFT JOIN "conversa_leitura" l ON l."usuario_id" = ${uid} AND l.${coluna} = m.${coluna}
+      WHERE m.${coluna} IN (${Prisma.join(ids)})
+        AND m."autor_id" <> ${uid}
+        AND (l."lida_ate" IS NULL OR m."criado_em" > l."lida_ate")
+      GROUP BY m.${coluna}
+    `);
+    for (const { id, n } of linhas ?? []) mapa.set(`${contexto}:${id}`, n);
+  };
+  await Promise.all([contar('solicitacao', solicitacaoIds), contar('manutencao', manutencaoIds)]);
+  return mapa;
+}
+
 // Conversas com ao menos uma mensagem que o usuário pode ver, da mais recente para a mais antiga.
 export async function listarConversas(usuario: AuthPayload): Promise<ConversaResumo[]> {
-  const ehUnidade = usuario.perfil === Perfil.UNIDADE;
   const ultimas = {
     mensagens: { orderBy: { criadoEm: 'desc' as const }, take: 1, select: { texto: true, criadoEm: true, autor: { select: { nome: true } } } },
   };
+  const filtros = filtrosDeVisibilidade(usuario);
 
   const [solicitacoes, manutencoes] = await Promise.all([
-    PERFIS.solicitacao.includes(usuario.perfil)
+    filtros.solicitacao
       ? prisma.solicitacao.findMany({
-          where: {
-            mensagens: { some: {} },
-            ...(ehUnidade ? { OR: [{ unidadeOrigemId: usuario.unidadeId ?? '' }, { unidadeDestinoId: usuario.unidadeId ?? '' }] } : {}),
-          },
+          where: filtros.solicitacao,
           select: {
             id: true,
             numero: true,
+            titulo: true,
             tipo: true,
             unidadeOrigem: { select: { nome: true } },
             equipamento: { select: { descricao: true } },
@@ -125,12 +202,13 @@ export async function listarConversas(usuario: AuthPayload): Promise<ConversaRes
           take: 200,
         })
       : [],
-    PERFIS.manutencao.includes(usuario.perfil)
+    filtros.manutencao
       ? prisma.manutencao.findMany({
-          where: { mensagens: { some: {} }, ...(ehUnidade ? { unidadeId: usuario.unidadeId ?? '' } : {}) },
+          where: filtros.manutencao,
           select: {
             id: true,
             numero: true,
+            titulo: true,
             unidade: { select: { nome: true } },
             equipamento: { select: { descricao: true } },
             ...ultimas,
@@ -139,6 +217,12 @@ export async function listarConversas(usuario: AuthPayload): Promise<ConversaRes
         })
       : [],
   ]);
+
+  const naoLidas = await naoLidasPorConversa(
+    usuario.sub,
+    solicitacoes.map((s) => s.id),
+    manutencoes.map((m) => m.id),
+  );
 
   const resumo = (m: { texto: string; criadoEm: Date; autor: { nome: string } } | undefined) => ({
     ultimaEm: m?.criadoEm ?? new Date(0),
@@ -151,21 +235,57 @@ export async function listarConversas(usuario: AuthPayload): Promise<ConversaRes
       contexto: 'solicitacao' as const,
       id: s.id,
       numero: s.numero,
+      titulo: s.titulo,
       tipoSolicitacao: s.tipo as string,
       item: s.tipoEquipamento?.nome ?? s.equipamento?.descricao ?? null,
       unidade: s.unidadeOrigem?.nome ?? null,
       ...resumo(s.mensagens[0]),
+      naoLidas: naoLidas.get(`solicitacao:${s.id}`) ?? 0,
     })),
     ...manutencoes.map((m) => ({
       contexto: 'manutencao' as const,
       id: m.id,
       numero: m.numero,
+      titulo: m.titulo,
       tipoSolicitacao: null,
       item: m.equipamento?.descricao ?? null,
       unidade: m.unidade?.nome ?? null,
       ...resumo(m.mensagens[0]),
+      naoLidas: naoLidas.get(`manutencao:${m.id}`) ?? 0,
     })),
   ]
     .sort((a, b) => b.ultimaEm.getTime() - a.ultimaEm.getTime())
     .slice(0, LIMITE_CONVERSAS);
+}
+
+// Total de mensagens não lidas e de conversas com não lidas (alimenta os indicadores da interface).
+export async function contarNaoLidas(usuario: AuthPayload) {
+  const filtros = filtrosDeVisibilidade(usuario);
+  const [solicitacoes, manutencoes] = await Promise.all([
+    filtros.solicitacao ? prisma.solicitacao.findMany({ where: filtros.solicitacao, select: { id: true }, take: 500 }) : [],
+    filtros.manutencao ? prisma.manutencao.findMany({ where: filtros.manutencao, select: { id: true }, take: 500 }) : [],
+  ]);
+  const mapa = await naoLidasPorConversa(
+    usuario.sub,
+    solicitacoes.map((s) => s.id),
+    manutencoes.map((m) => m.id),
+  );
+  let total = 0;
+  for (const n of mapa.values()) total += n;
+  return { total, conversas: mapa.size };
+}
+
+// Marca a conversa como lida até `ate` (a data da última mensagem que a pessoa viu). Só avança: uma
+// leitura mais antiga nunca desfaz uma mais nova, e o upsert é atômico mesmo com abas concorrentes.
+export async function marcarLida(usuario: AuthPayload, contexto: ContextoChat, id: string, ate: Date) {
+  await verificarAcesso(usuario, contexto, id);
+  const agora = new Date();
+  const lidaAte = ate.getTime() > agora.getTime() ? agora : ate;
+  const coluna = Prisma.raw(contexto === 'solicitacao' ? '"solicitacao_id"' : '"manutencao_id"');
+  await prisma.$executeRaw(Prisma.sql`
+    INSERT INTO "conversa_leitura" ("id", "usuario_id", ${coluna}, "lida_ate")
+    VALUES (${randomUUID()}, ${usuario.sub}, ${id}, ${lidaAte})
+    ON CONFLICT ("usuario_id", ${coluna})
+    DO UPDATE SET "lida_ate" = GREATEST("conversa_leitura"."lida_ate", EXCLUDED."lida_ate")
+  `);
 }

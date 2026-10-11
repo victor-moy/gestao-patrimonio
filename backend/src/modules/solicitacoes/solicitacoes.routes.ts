@@ -31,6 +31,12 @@ solicitacoesRouter.get('/:id/historico', async (req, res) => {
 
 const criarSchema = z.object({
   tipo: z.nativeEnum(TipoSolicitacao),
+  // Nome obrigatório para reconhecer o pedido nas listas; vale para todas as solicitações criadas juntas.
+  titulo: z
+    .string({ required_error: 'Informe o título.' })
+    .trim()
+    .min(1, 'Informe o título.')
+    .max(80, 'O título pode ter no máximo 80 caracteres.'),
   // Obrigatória pra todos os tipos, exceto Substituição (que valida a
   // justificativa por item, no service) — feedback do cliente 25/08.
   justificativa: z.string().min(5, 'informe a justificativa').optional(),

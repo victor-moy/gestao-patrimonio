@@ -123,6 +123,7 @@ export async function emprestimos(
       busca
         ? {
             OR: [
+              { titulo: { contains: busca, mode: 'insensitive' } },
               { equipamento: { tombamento: { contains: busca, mode: 'insensitive' } } },
               { equipamento: { descricao: { contains: busca, mode: 'insensitive' } } },
             ],
@@ -151,6 +152,8 @@ export async function emprestimos(
         s.atualizadoEm > s.dataRetornoPrevista);
     return {
       id: s.id,
+      numero: s.numero,
+      titulo: s.titulo,
       equipamento: s.equipamento?.descricao ?? null,
       tombamento: s.equipamento?.tombamento ?? null,
       unidadeOrigem: s.unidadeOrigem.nome,
@@ -319,6 +322,7 @@ export async function cessoes(
   const filtrados = busca
     ? registros.filter(
         (s) =>
+          s.titulo?.toLowerCase().includes(busca) ||
           s.numerosPatrimonio.some((n) => n.toLowerCase().includes(busca)) ||
           s.entidadeExternaNome?.toLowerCase().includes(busca) ||
           s.tipoEquipamento?.nome.toLowerCase().includes(busca),
@@ -337,6 +341,8 @@ export async function cessoes(
     valorTotal,
     itens: filtrados.map((s) => ({
       id: s.id,
+      numero: s.numero,
+      titulo: s.titulo,
       entidadeExternaNome: s.entidadeExternaNome,
       tipoEquipamento: s.tipoEquipamento?.nome ?? null,
       numerosPatrimonio: s.numerosPatrimonio,

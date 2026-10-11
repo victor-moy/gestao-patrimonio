@@ -148,6 +148,7 @@ model Usuario {
   manutencoesDecididas    Manutencao[]   @relation("ManutencaoDecididaPor")
   logsAuditoria           LogAuditoria[]
   mensagensChat           MensagemChat[]
+  leiturasConversa        LeituraConversa[]
   unidadesResponsavel     Unidade[]      @relation("UnidadeResponsavel")
 
   @@map("usuario")
@@ -280,6 +281,8 @@ model Manutencao {
   solicitanteId       String           @map("solicitante_id")
   solicitante         Usuario          @relation("ManutencaoSolicitante", fields: [solicitanteId], references: [id])
   descricaoProblema   String           @map("descricao_problema")
+  // Nome dado por quem abre o pedido, para reconhecê-lo nas listas (opcional; sem ele vale o nome do equipamento)
+  titulo              String?          @db.VarChar(80)
   // Legado: a abertura não pede mais justificativa; mantida para os chamados antigos
   justificativa       String?
   status              StatusManutencao @default(PENDENTE_APROVACAO)
@@ -303,6 +306,7 @@ model Manutencao {
   atualizadoEm        DateTime         @updatedAt @map("atualizado_em")
 
   mensagens MensagemChat[]
+  leituras  LeituraConversa[]
 
   @@map("manutencao")
 }
@@ -322,6 +326,8 @@ model Solicitacao {
   tipoEquipamentoId   String?           @map("tipo_equipamento_id")
   tipoEquipamento     TipoEquipamento?  @relation(fields: [tipoEquipamentoId], references: [id])
   quantidade          Int?
+  // Nome dado por quem abre o pedido, para reconhecê-lo nas listas (opcional; sem ele vale o nome do item)
+  titulo              String?           @db.VarChar(80)
   justificativa       String
   origemRecurso       OrigemRecurso?    @map("origem_recurso")
   ataId               String?           @map("ata_id")
@@ -368,6 +374,7 @@ model Solicitacao {
 
   itensGerados        Equipamento[]     @relation("EquipamentoCriadoPorSolicitacao")
   mensagens           MensagemChat[]
+  leituras            LeituraConversa[]
 
   @@map("solicitacao")
 }
@@ -484,6 +491,23 @@ model MensagemChat {
   @@index([solicitacaoId, criadoEm])
   @@index([manutencaoId, criadoEm])
   @@map("mensagem_chat")
+}
+
+// Até quando cada usuário já leu cada conversa. Mensagens de outras pessoas mais novas que `lidaAte`
+// (ou todas, se não há registro) contam como não lidas. Um registro por usuário e conversa.
+model LeituraConversa {
+  id            String       @id @default(uuid())
+  usuarioId     String       @map("usuario_id")
+  usuario       Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  solicitacaoId String?      @map("solicitacao_id")
+  solicitacao   Solicitacao? @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+  manutencaoId  String?      @map("manutencao_id")
+  manutencao    Manutencao?  @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+  lidaAte       DateTime     @map("lida_ate")
+
+  @@unique([usuarioId, solicitacaoId])
+  @@unique([usuarioId, manutencaoId])
+  @@map("conversa_leitura")
 }
 
 // Configurações editáveis pelo Gestor de Patrimônio (chave/valor), sem mexer em código

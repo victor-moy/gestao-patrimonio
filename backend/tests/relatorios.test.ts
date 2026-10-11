@@ -63,6 +63,46 @@ describe('Relatórios — Fase 1 (visão geral, ranking, empréstimos, cessões)
     );
   });
 
+  it('empréstimos e cessões trazem o número e o título da solicitação', async () => {
+    prismaMock.solicitacao.findMany.mockResolvedValue([
+      {
+        id: 'sol-1',
+        numero: 12,
+        titulo: 'Empréstimo de autoclave para a UBS Centro',
+        status: 'AGUARDANDO_RETORNO',
+        dataRetornoPrevista: new Date('2030-01-01'),
+        criadoEm: new Date('2029-12-01'),
+        atualizadoEm: new Date('2029-12-02'),
+        equipamento: { tombamento: '123', descricao: 'Autoclave' },
+        unidadeOrigem: { nome: 'UBS Sul' },
+        unidadeDestino: { nome: 'UBS Centro' },
+      },
+    ] as never);
+    const emprestimos = await request(app).get('/relatorios/emprestimos').set(auth('GESTOR_PATRIMONIO'));
+    expect(emprestimos.body.itens[0]).toMatchObject({ numero: 12, titulo: 'Empréstimo de autoclave para a UBS Centro' });
+
+    prismaMock.solicitacao.findMany.mockResolvedValue([
+      {
+        id: 'sol-2',
+        numero: 15,
+        titulo: 'Cessão de microscópio',
+        status: 'RESERVADO',
+        numerosPatrimonio: ['999'],
+        entidadeExternaNome: 'Hospital Regional',
+        tipoEquipamento: { nome: 'Microscópio', preco: null },
+        unidadeOrigem: { nome: 'Galpão' },
+        numeroPedidoBranet: null,
+        pedidoEntregaRegistradoEm: null,
+        criadoEm: new Date('2026-01-01'),
+      },
+    ] as never);
+    const cessoes = await request(app).get('/relatorios/cessoes?busca=microsc').set(auth('GESTOR_PATRIMONIO'));
+    expect(cessoes.body.itens[0]).toMatchObject({ numero: 15, titulo: 'Cessão de microscópio' });
+    // a busca também procura no título
+    const porTitulo = await request(app).get('/relatorios/cessoes?busca=cessão de micro').set(auth('GESTOR_PATRIMONIO'));
+    expect(porTitulo.body.itens).toHaveLength(1);
+  });
+
   it('empréstimos: sinaliza atraso de quem está aguardando retorno além do prazo', async () => {
     prismaMock.solicitacao.findMany.mockResolvedValue([
       {
@@ -190,6 +230,7 @@ describe('Relatórios — feedback do stakeholder (filtro por item, busca, drill
           AND: expect.arrayContaining([
             {
               OR: [
+                { titulo: { contains: 'autoclave', mode: 'insensitive' } },
                 { equipamento: { tombamento: { contains: 'autoclave', mode: 'insensitive' } } },
                 { equipamento: { descricao: { contains: 'autoclave', mode: 'insensitive' } } },
               ],

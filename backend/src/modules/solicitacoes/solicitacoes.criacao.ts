@@ -9,6 +9,8 @@ import { tentarReservarDoEstoque } from './solicitacoes.comum';
 
 export interface DadosCriacao {
   tipo: TipoSolicitacao;
+  // Nome do pedido, obrigatório (todas as solicitações criadas juntas recebem o mesmo)
+  titulo: string;
   // Obrigatória pra todos os tipos, exceto Substituição — que carrega uma
   // justificativa por item (feedback do cliente 25/08: cada equipamento
   // trocado pode ter um motivo diferente de defeito).
@@ -55,6 +57,8 @@ async function buscarEquipamentoDaUnidade(equipamentoId: string, unidadeOrigemId
 // seleção de múltiplos itens numa única tela, uma Solicitacao por item
 // internamente).
 export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<string[]> {
+  const titulo = dados.titulo?.trim();
+  if (!titulo) throw new AppError('Informe o título.', 422);
   // CESSAO_USO — exclusiva do Gestor de Patrimônio (envolve entidade externa
   // à secretaria). Não sai do inventário de uma unidade específica: reserva
   // do estoque de galpão por tipo, sempre 1 unidade por item (cada item já
@@ -101,6 +105,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
         const criada = await tx.solicitacao.create({
           data: {
             tipo: 'CESSAO_USO',
+            titulo,
             status: 'RESERVADO',
             unidadeOrigemId: pool.unidadeId,
             tipoEquipamentoId: item.tipoEquipamentoId!,
@@ -139,6 +144,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
         prisma.solicitacao.create({
           data: {
             tipo: 'AMPLIACAO',
+            titulo,
             unidadeOrigemId,
             tipoEquipamentoId: item.tipoEquipamentoId!,
             quantidade: item.quantidade!,
@@ -186,6 +192,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
         prisma.solicitacao.create({
           data: {
             tipo: 'SUBSTITUICAO',
+            titulo,
             unidadeOrigemId,
             equipamentoId: equipamentosValidados[i].id,
             tipoEquipamentoId: item.tipoEquipamentoId!,
@@ -235,6 +242,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
         prisma.solicitacao.create({
           data: {
             tipo: 'RECOLHA',
+            titulo,
             unidadeOrigemId,
             equipamentoId: equipamento.id,
             justificativa: justificativaRecolha,
@@ -291,6 +299,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
         prisma.solicitacao.create({
           data: {
             tipo: 'EMPRESTIMO',
+            titulo,
             unidadeOrigemId,
             unidadeDestinoId: dados.unidadeDestinoId,
             equipamentoId: equipamento.id,

@@ -24,6 +24,7 @@ export async function listar(usuario: AuthPayload, filtros: { tipo?: string; sta
           OR: [
             ...(numeroDaBusca(filtros.busca, 'SOL') !== null ? [{ numero: numeroDaBusca(filtros.busca, 'SOL') as number }] : []),
             { justificativa: { contains: filtros.busca, mode: 'insensitive' as const } },
+            { titulo: { contains: filtros.busca, mode: 'insensitive' as const } },
             { equipamento: { tombamento: { contains: filtros.busca, mode: 'insensitive' as const } } },
             { equipamento: { descricao: { contains: filtros.busca, mode: 'insensitive' as const } } },
             { tipoEquipamento: { nome: { contains: filtros.busca, mode: 'insensitive' as const } } },
