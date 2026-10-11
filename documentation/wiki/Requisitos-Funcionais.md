@@ -7,9 +7,9 @@ Extraído da seção 2.3–2.5 do [RFC v1.0](https://github.com/victor-moy/gesta
 | ID | Requisito |
 |---|---|
 | RF01 | O sistema deve permitir que o usuário realize login com e-mail e senha. |
-| RF02 | O sistema deve permitir que o administrador cadastre usuários e atribua perfis (Gestor Patrimônio, Gestor Manutenção, Unidade, Galpão). |
+| RF02 | O sistema deve permitir que o administrador (Gestor de Patrimônio) cadastre usuários, atribua perfis e redefina senhas, em Configurações. Não há tela de "esqueci a senha" nem envio automático por e-mail: a redefinição é sempre feita por ele. |
 | RF03 | O sistema deve restringir o acesso a funcionalidades de acordo com o perfil do usuário autenticado. |
-| RF04 | O sistema deve manter sessão autenticada com expiração automática por inatividade. |
+| RF04 | O sistema deve manter sessão autenticada com expiração automática (duração configurável, 30 minutos por padrão); ao expirar, o usuário entra novamente. |
 
 ## Gestão de Patrimônio
 
@@ -26,7 +26,7 @@ Extraído da seção 2.3–2.5 do [RFC v1.0](https://github.com/victor-moy/gesta
 
 | ID | Requisito |
 |---|---|
-| RF11 | O sistema deve permitir que a Unidade abra uma solicitação de manutenção para um equipamento, informando a descrição do problema e justificativa. |
+| RF11 | O sistema deve permitir que a Unidade abra uma solicitação de manutenção para um equipamento, informando apenas a descrição do problema (sem justificativa). |
 | RF12 | O sistema deve permitir que o Gestor de Manutenção aprove ou negue uma solicitação de manutenção, com registro de justificativa. |
 | RF13 | O sistema deve alterar o status do equipamento para "em manutenção" após aprovação da solicitação. |
 | RF14 | O sistema deve permitir que o Gestor de Manutenção registre o orçamento retornado pela empresa terceirizada. |
@@ -69,15 +69,27 @@ Extraído da seção 2.3–2.5 do [RFC v1.0](https://github.com/victor-moy/gesta
 | ID | Requisito |
 |---|---|
 | RF31 | O sistema deve permitir que o Gestor de Patrimônio cadastre atas de registro de preços, informando valor total, saldo disponível e data de vencimento. |
-| RF32 | O sistema deve atualizar automaticamente o saldo da ata a cada aprovação de solicitação vinculada a ela. |
+| RF32 | O sistema deve atualizar automaticamente o saldo da ata quando o pedido da solicitação vinculada é lançado no Branet. Ao vincular, o saldo disponível já desconta os valores comprometidos em outras solicitações reservadas, e o saldo nunca fica negativo. |
 | RF33 | O sistema deve alertar o Gestor de Patrimônio quando uma ata estiver com vencimento em até 30 dias ou com saldo inferior a 10% do valor total. |
 
-## Dashboards
+## Conversa
 
 | ID | Requisito |
 |---|---|
-| RF34 | O sistema deve exibir para o Gestor de Patrimônio um dashboard com os seguintes indicadores: quantidade de equipamentos por unidade, quantidade de itens em manutenção, tempo médio de manutenção, histórico de custo semestral e ranking de unidades por volume de solicitações. |
-| RF35 | O sistema deve permitir que o usuário filtre os dados dos dashboards por período, unidade e tipo de equipamento. |
+| RF38 | O sistema deve permitir que os participantes de uma solicitação ou de uma manutenção conversem dentro dela por mensagens de texto (até 2.000 caracteres), em ordem cronológica, sem edição ou exclusão. Participam os perfis que já enxergam o registro (solicitação: Gestor de Patrimônio, Unidade e Galpão; manutenção: Gestor de Patrimônio, Gestor de Manutenção e Unidade), e a Unidade só vê conversas da própria unidade. |
+| RF39 | Quando uma mensagem é enviada por quem não é da unidade, o sistema deve avisar a unidade por e-mail, sem incluir o conteúdo da mensagem. |
+| RF40 | O sistema deve oferecer o menu Conversas, com a lista das conversas que o usuário pode ver (ordenadas pela mensagem mais recente) e uma tela dedicada para cada conversa. |
+| RF41 | O sistema deve atribuir a cada solicitação e a cada manutenção um número sequencial legível e imutável (formato SOL-0001 e MAN-0001), exibi-lo nas listas, nos detalhes e nas conversas e permitir buscar por ele. |
+| RF42 | O sistema deve gerar para cada equipamento um QR Code que leva direto à sua tela de detalhes (impresso como etiqueta, por um ícone ao lado do tombamento, com tombamento, descrição e unidade). O QR contém apenas o endereço; quem o lê precisa estar autenticado e ter permissão para ver o equipamento. |
+| RF43 | O detalhe do equipamento deve oferecer à unidade dona, enquanto o item está ativo, os botões "Abrir manutenção" e "Abrir solicitação", que levam aos respectivos formulários com o equipamento já escolhido. |
+| RF44 | Ao abrir manutenção ou solicitação, quem não encontrar o equipamento na lista deve ter um link "Fale com o atendimento" que abre o WhatsApp do atendimento com a mensagem pré-escrita; o número é configurado pelo Gestor de Patrimônio em Configurações › Atendimento e o link some se não houver número. |
+
+## Relatórios
+
+| ID | Requisito |
+|---|---|
+| RF34 | O sistema deve exibir para o Gestor de Patrimônio, em Relatórios, quatro relatórios: visão geral (funil de solicitações por tipo e ranking de unidades por volume), empréstimos (prazos e devoluções), cessões de uso (prestação de contas) e itens e estoque (itens aguardando disponibilidade). |
+| RF35 | O sistema deve permitir que o usuário filtre os relatórios por período, unidade e item (tipo de equipamento). |
 
 ## Requisitos Não Funcionais (RNF)
 

@@ -94,6 +94,14 @@ cd backend && npm run test:coverage
 cd frontend && npm run test:coverage
 ```
 
+## Contribuição e revisão
+
+- [Instruções para agentes](AGENTS.md)
+- [Guia de contribuição](CONTRIBUTING.md)
+- [Política de segurança](SECURITY.md)
+- [Sistema visual e critérios de UX](documentation/DESIGN-SYSTEM.md)
+- [Auditoria inicial do projeto](documentation/reviews/2026-10-09-auditoria-inicial.md)
+
 ## Deploy
 
 O deploy é automatizado via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — não é feito manualmente via SSH/FTP. A cada push/merge na `main`, depois que o job de qualidade (lint + testes + cobertura dos dois lados) passa, dois ambientes são atualizados por runners self-hosted:
