@@ -53,8 +53,14 @@ services:
   prometheus:
     image: prom/prometheus:v2.53.0
     restart: unless-stopped
+    # Histórico das métricas: sobrevive a recriações do container; o Prometheus apaga o que passar da retenção
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-90d}
     volumes:
       - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
     depends_on:
       - api
     profiles: ['observability']
@@ -62,10 +68,22 @@ services:
   grafana:
     image: grafana/grafana:11.1.0
     restart: unless-stopped
+    # O acesso normal é por /grafana/ no Nginx; a porta local serve para túnel SSH e testes
     ports:
-      - '3000:3000'
+      - '127.0.0.1:3000:3000'
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      # Servido pelo Nginx em /grafana/; GRAFANA_URL é o endereço público completo (ex.: https://sgp.yomlabs.io/grafana/)
+      GF_SERVER_ROOT_URL: ${GRAFANA_URL:-http://localhost:${WEB_PORT:-8080}/grafana/}
+      GF_SERVER_SERVE_FROM_SUB_PATH: 'true'
+    # Sem senha padrão: o Grafana só sobe se GRAFANA_PASSWORD estiver definida. Não usamos `:?` porque
+    # o Compose valida a variável mesmo com o profile desligado e quebraria o deploy normal.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'test -n "$$GF_SECURITY_ADMIN_PASSWORD" || { echo "Defina GRAFANA_PASSWORD no .env" >&2; exit 1; }; exec /run.sh'
     volumes:
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
@@ -76,4 +94,5 @@ services:
 volumes:
   pgdata:
   grafana-data:
+  prometheus-data:
   api-uploads:
