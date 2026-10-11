@@ -177,7 +177,7 @@ export function Inventario() {
               style={{ display: 'none' }}
               onChange={(e) => {
                 const arquivo = e.target.files?.[0];
-                if (arquivo) importarCsv(arquivo);
+                if (arquivo) void importarCsv(arquivo);
                 e.target.value = '';
               }}
             />

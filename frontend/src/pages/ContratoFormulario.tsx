@@ -81,12 +81,12 @@ export function ContratoFormulario() {
   if (!permitido) return <Navigate to="/" replace />;
 
   function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/contratos');
+    if (location.key !== 'default') void navigate(-1);
+    else void navigate('/contratos');
   }
 
   function concluir() {
-    navigate('/contratos', { replace: true });
+    void navigate('/contratos', { replace: true });
   }
 
   async function aoEnviar(e: FormEvent) {

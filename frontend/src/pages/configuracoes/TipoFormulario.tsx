@@ -59,12 +59,12 @@ export function TipoFormulario() {
   }, [dados, editando, id]);
 
   function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/configuracoes/tipos');
+    if (location.key !== 'default') void navigate(-1);
+    else void navigate('/configuracoes/tipos');
   }
 
   function concluir() {
-    navigate('/configuracoes/tipos', { replace: true });
+    void navigate('/configuracoes/tipos', { replace: true });
   }
 
   function selecionarImagem(arquivo: File) {

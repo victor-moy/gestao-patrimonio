@@ -3,8 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { StatusPill } from '../../components/StatusPill';
 import { IconeBusca } from '../../components/icons';
-import { SelectTipoEquipamento } from '../../components/SelectItem';
-import { FiltroPeriodo, FiltroUnidade, useOpcoesFiltro } from './filtros';
+import { FiltrosGerais, paramsFiltros, useOpcoesFiltro } from './filtros';
 import type { EmprestimoRelatorio, RelatorioEmprestimos } from '../../types';
 import { codigoSolicitacao, formatarData, ROTULO_STATUS_SOLICITACAO } from '../../utils/format';
 
@@ -27,12 +26,7 @@ export function RelatorioEmprestimos() {
   });
 
   const carregar = useCallback(() => {
-    const params = new URLSearchParams();
-    if (filtros.dataInicio) params.set('dataInicio', filtros.dataInicio);
-    if (filtros.dataFim) params.set('dataFim', filtros.dataFim);
-    if (filtros.unidadeIds.length > 0) params.set('unidadeId', filtros.unidadeIds.join(','));
-    if (filtros.tipoEquipamentoId) params.set('tipoEquipamentoId', filtros.tipoEquipamentoId);
-    if (filtros.busca) params.set('busca', filtros.busca);
+    const params = paramsFiltros(filtros);
     api
       .get<RelatorioEmprestimos>(`/relatorios/emprestimos?${params}`)
       .then(setDados)
@@ -53,34 +47,7 @@ export function RelatorioEmprestimos() {
     <>
       {(erro ?? erroOpcoes) && <div className="error-banner" role="alert">{erro ?? erroOpcoes}</div>}
       <div className="card card-pad rel-filtros">
-        <div className="relatorios-filtros-gerais">
-          <div>
-            <label>Período</label>
-            <FiltroPeriodo
-              dataInicio={filtros.dataInicio}
-              dataFim={filtros.dataFim}
-              onChange={(dataInicio, dataFim) => setFiltros({ ...filtros, dataInicio, dataFim })}
-            />
-          </div>
-          <div>
-            <label>Unidade de origem</label>
-            <FiltroUnidade
-              unidades={unidades}
-              selecionados={filtros.unidadeIds}
-              onChange={(ids) => setFiltros({ ...filtros, unidadeIds: ids })}
-            />
-          </div>
-          <div>
-            <label>Item</label>
-            <SelectTipoEquipamento
-              label="Item"
-              categorias={categorias}
-              value={filtros.tipoEquipamentoId}
-              onChange={(id) => setFiltros({ ...filtros, tipoEquipamentoId: id })}
-              placeholder="Todos os itens"
-            />
-          </div>
-        </div>
+        <FiltrosGerais filtros={filtros} onChange={setFiltros} unidades={unidades} categorias={categorias} />
         <label className="rel-busca">
           <IconeBusca />
           <input

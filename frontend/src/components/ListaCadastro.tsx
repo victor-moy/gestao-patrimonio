@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { IconeBusca, IconeCheck, IconeChevron } from './icons';
 import '../pages/Cadastros.css';
 import { EsqueletoTabela } from './Esqueletos';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
+import { BarraConsulta } from './BarraConsulta';
 
 export interface ColunaCadastro<T> {
   titulo: string;
@@ -55,28 +55,10 @@ export function ListaCadastro<T>({
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState(visualizacoes?.[0]?.valor ?? '');
   const [pagina, setPagina] = useState(1);
-  const [menuAberto, setMenuAberto] = useState(false);
-  const controles = useRef<HTMLDivElement>(null);
   const falha = Boolean(erro);
   useAlertaNativo(erro, () => undefined);
 
 
-  useEffect(() => {
-    function fechar(evento: PointerEvent | KeyboardEvent) {
-      if (evento instanceof KeyboardEvent) {
-        if (evento.key !== 'Escape') return;
-      } else if (controles.current?.contains(evento.target as Node)) {
-        return;
-      }
-      setMenuAberto(false);
-    }
-    document.addEventListener('pointerdown', fechar);
-    document.addEventListener('keydown', fechar);
-    return () => {
-      document.removeEventListener('pointerdown', fechar);
-      document.removeEventListener('keydown', fechar);
-    };
-  }, []);
 
   const filtroPadrao = visualizacoes?.[0]?.valor ?? '';
   const visiveis = useMemo(() => {
@@ -95,7 +77,6 @@ export function ListaCadastro<T>({
   const totalPaginas = Math.max(1, Math.ceil(visiveis.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
   const inicio = (paginaAtual - 1) * POR_PAGINA;
-  const visualizacao = visualizacoes?.find((v) => v.valor === filtro);
   const filtrando = Boolean(busca) || filtro !== filtroPadrao;
 
   return (
@@ -109,56 +90,16 @@ export function ListaCadastro<T>({
 
 
       <div className="gestao-lista inventario-lista">
-        <div className="inventario-controles" ref={controles}>
-          <div className="inventario-indexbar">
-            <div className="inventario-consulta" role="search" aria-label={`Pesquisar ${nomes.plural}`}>
-              {visualizacoes && (
-                <div className="inventario-visualizacao">
-                  <button
-                    type="button"
-                    className="inventario-visualizacao-botao"
-                    aria-haspopup="menu"
-                    aria-expanded={menuAberto}
-                    onClick={() => setMenuAberto((aberto) => !aberto)}
-                  >
-                    <span className="inventario-visualizacao-rotulo">{visualizacao?.rotulo}</span>
-                    <IconeChevron />
-                  </button>
-                  {menuAberto && (
-                    <div className="inventario-visualizacao-menu" role="menu" aria-label={`Visualizações: ${nomes.plural}`}>
-                      {visualizacoes.map(({ valor, rotulo }) => (
-                        <button
-                          key={valor}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={filtro === valor}
-                          onClick={() => {
-                            setFiltro(valor);
-                            setMenuAberto(false);
-                          }}
-                        >
-                          <span className="inventario-visualizacao-check" aria-hidden>
-                            {filtro === valor && <IconeCheck />}
-                          </span>
-                          <span>{rotulo}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="inventario-consulta-busca">
-                <IconeBusca />
-                <input
-                  aria-label={`Buscar ${nomes.plural}`}
-                  placeholder="Buscar e filtrar"
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <BarraConsulta
+          pesquisa={`Pesquisar ${nomes.plural}`}
+          menu={`Visualizações: ${nomes.plural}`}
+          campoBusca={`Buscar ${nomes.plural}`}
+          visualizacoes={visualizacoes}
+          filtro={filtro}
+          onFiltro={setFiltro}
+          busca={busca}
+          onBusca={setBusca}
+        />
 
         <div className="gestao-tabela-scroll lista-cartoes lista-cartoes--fluxo" role="region" aria-label={titulo} tabIndex={0} aria-busy={carregando}>
           <table>

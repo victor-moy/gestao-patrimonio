@@ -44,12 +44,12 @@ export function CategoriaFormulario() {
   }, [dados, editando, id]);
 
   function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/configuracoes/categorias');
+    if (location.key !== 'default') void navigate(-1);
+    else void navigate('/configuracoes/categorias');
   }
 
   function concluir() {
-    navigate('/configuracoes/categorias', { replace: true });
+    void navigate('/configuracoes/categorias', { replace: true });
   }
 
   async function aoEnviar(e: FormEvent) {
@@ -87,7 +87,7 @@ export function CategoriaFormulario() {
   return (
     <PaginaCadastro
       id="categoria"
-      titulo={editando ? (categoria?.nome ?? 'Categorias de itens') : 'Nova categorias de itens'}
+      titulo={editando ? (categoria?.nome ?? 'Categorias de itens') : 'Nova categoria de itens'}
       formId="form-categoria"
       onCancelar={voltar}
       onEnviar={aoEnviar}

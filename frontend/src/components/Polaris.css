@@ -626,7 +626,8 @@
   font-weight: 650;
 }
 .nova-solicitacao .field { margin: 0 0 16px; }
-.nova-solicitacao .field label {
+.nova-solicitacao .field label,
+.nova-solicitacao .field .campo-rotulo {
   display: block;
   margin-bottom: 6px;
   color: var(--text-secondary);

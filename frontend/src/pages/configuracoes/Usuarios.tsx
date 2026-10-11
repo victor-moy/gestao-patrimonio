@@ -49,7 +49,7 @@ export function Usuarios() {
     setEntrandoId(alvo.id);
     try {
       await entrarComo(alvo.id);
-      navigate('/');
+      void navigate('/');
     } catch (e) {
       setErroEntrar(e instanceof Error ? e.message : 'Não foi possível entrar como este usuário.');
       setEntrandoId(null);

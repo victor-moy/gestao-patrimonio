@@ -66,9 +66,9 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
   useEffect(() => {
     setMensagens(null);
     ultima.current = null;
-    carregar(false);
+    void carregar(false);
     const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') carregar(true);
+      if (document.visibilityState === 'visible') void carregar(true);
     }, INTERVALO_ATUALIZACAO_MS);
     return () => clearInterval(timer);
   }, [carregar]);
@@ -139,7 +139,7 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
   function aoTeclar(e: KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
-      enviar();
+      void enviar();
     }
   }
 
