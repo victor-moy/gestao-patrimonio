@@ -127,7 +127,7 @@ Tela de acesso com formulário central em um card e a mensagem de suporte no pr�
 
 ## Responsividade e validação
 
-Verificar em 1440 px, 900 px e 390 px, nos temas claro e escuro. Em mudanças visuais, registrar capturas de Início e da tela alterada. Gate mínimo: lint, testes e build do frontend. Para validar localmente com dados reais use o Docker Compose (`web` em `8081` no ambiente de desenvolvimento do Conductor).
+Verificar em 1440 px, 900 px e 390 px, nos temas claro e escuro. Em mudanças visuais, registrar capturas de Início e da tela alterada. Gate mínimo: lint, testes e build do frontend. Para validar localmente com dados reais use o Docker Compose (a porta do `web` é definida por `WEB_PORT`).
 
 ## Convenções de código ligadas à UX
 

@@ -2,7 +2,7 @@
 
 ## Escopo
 
-Primeira revisão transversal do SGP, cobrindo arquitetura, código, segurança, testes, UX/acessibilidade, desempenho, documentação e operação no Conductor.
+Primeira revisão transversal do SGP, cobrindo arquitetura, código, segurança, testes, UX/acessibilidade, desempenho, documentação e operação.
 
 Foram executados lint, build, testes com cobertura, `npm audit` completo e restrito às dependências de produção, inspeção das rotas/serviços e análise da interface no navegador integrado. Não houve pentest contra produção nem teste destrutivo.
 

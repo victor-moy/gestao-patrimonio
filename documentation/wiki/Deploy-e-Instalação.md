@@ -27,6 +27,20 @@ Copie `.env.example` para `.env` na raiz do repositório e ajuste os valores:
 
 O `.env` nunca é versionado (está no `.gitignore`) — segredos reais (JWT, SMTP) não devem ser commitados.
 
+## Onde configurar as variáveis
+
+| Situação | Onde fica a configuração |
+|---|---|
+| Rodando local com Docker Compose | Arquivo `.env` na raiz (copie de `.env.example`). Nunca é versionado. |
+| Deploy automático (GitHub Actions) | No GitHub: **Settings › Secrets and variables › Actions**. Valores sensíveis (`JWT_SECRET`, `POSTGRES_PASSWORD`, `SMTP_PASS`, `GRAFANA_PASSWORD`) vão na aba **Secrets**; os demais (`WEB_PORT`, `JWT_EXPIRES_IN`, `CORS_ORIGINS`, `SMTP_*`, `POSTGRES_USER`, `POSTGRES_DB`) na aba **Variables**. |
+| Desenvolvimento sem Docker (`npm run dev`) | Não é preciso definir `JWT_SECRET`: fora de produção a API usa um valor de desenvolvimento. |
+
+O job de deploy copia os segredos e variáveis do GitHub para o ambiente antes de rodar `docker compose`. O que não estiver cadastrado no GitHub é ignorado e vale o `.env` do servidor (se existir) ou o padrão do Compose, então dá para migrar aos poucos.
+
+**`JWT_SECRET` é obrigatório em produção** (a API recusa iniciar sem um valor de pelo menos 32 caracteres). Gere um com `openssl rand -hex 32` e cadastre como secret `JWT_SECRET` no GitHub.
+
+Cuidado ao trocar `POSTGRES_PASSWORD`: o Postgres só lê a senha na primeira criação do volume. Mudar o valor depois, sem alterar a senha dentro do banco, faz a API perder a conexão.
+
 ## Rodando com Docker Compose
 
 ```bash

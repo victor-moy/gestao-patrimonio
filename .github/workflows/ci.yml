@@ -94,11 +94,35 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     # Self-hosted runner instalado como serviço na VM — sem SSH externo
     runs-on: [self-hosted, producao]
+    # Configuração vinda do GitHub: segredos em Settings › Secrets and variables › Actions › Secrets,
+    # demais valores na aba Variables. Valores não cadastrados chegam vazios e são descartados abaixo.
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+      WEB_PORT: ${{ vars.WEB_PORT }}
+      JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
+      CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+      SMTP_ENABLED: ${{ vars.SMTP_ENABLED }}
+      SMTP_HOST: ${{ vars.SMTP_HOST }}
+      SMTP_PORT: ${{ vars.SMTP_PORT }}
+      SMTP_SECURE: ${{ vars.SMTP_SECURE }}
+      SMTP_USER: ${{ vars.SMTP_USER }}
+      SMTP_FROM: ${{ vars.SMTP_FROM }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Subir containers
+        shell: bash
         run: |
+          # Variável vazia (não cadastrada no GitHub) sobrescreveria o .env do servidor: remove para
+          # o Compose usar o .env existente ou o valor padrão.
+          for v in JWT_SECRET POSTGRES_PASSWORD SMTP_PASS GRAFANA_PASSWORD POSTGRES_USER POSTGRES_DB WEB_PORT JWT_EXPIRES_IN CORS_ORIGINS SMTP_ENABLED SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_USER SMTP_FROM; do
+            [ -n "${!v}" ] || unset "$v"
+          done
           docker compose build
           docker compose up -d
       - name: Verificação de saúde
@@ -111,6 +135,24 @@ jobs:
     needs: ci
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: [self-hosted, demo]
+    # Configuração vinda do GitHub: segredos em Settings › Secrets and variables › Actions › Secrets,
+    # demais valores na aba Variables. Valores não cadastrados chegam vazios e são descartados abaixo.
+    env:
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
+      POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+      POSTGRES_DB: ${{ vars.POSTGRES_DB }}
+      WEB_PORT: ${{ vars.WEB_PORT }}
+      JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
+      CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+      SMTP_ENABLED: ${{ vars.SMTP_ENABLED }}
+      SMTP_HOST: ${{ vars.SMTP_HOST }}
+      SMTP_PORT: ${{ vars.SMTP_PORT }}
+      SMTP_SECURE: ${{ vars.SMTP_SECURE }}
+      SMTP_USER: ${{ vars.SMTP_USER }}
+      SMTP_FROM: ${{ vars.SMTP_FROM }}
     defaults:
       run:
         working-directory: /app/gestao-patrimonio
@@ -118,7 +160,13 @@ jobs:
       - name: Atualizar código
         run: git pull origin main
       - name: Rebuild e subir containers
+        shell: bash
         run: |
+          # Variável vazia (não cadastrada no GitHub) sobrescreveria o .env do servidor: remove para
+          # o Compose usar o .env existente ou o valor padrão.
+          for v in JWT_SECRET POSTGRES_PASSWORD SMTP_PASS GRAFANA_PASSWORD POSTGRES_USER POSTGRES_DB WEB_PORT JWT_EXPIRES_IN CORS_ORIGINS SMTP_ENABLED SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_USER SMTP_FROM; do
+            [ -n "${!v}" ] || unset "$v"
+          done
           docker compose build
           docker compose up -d
       - name: Verificação de saúde
