@@ -39,7 +39,14 @@ O job de deploy copia os segredos e variáveis do GitHub para o ambiente antes d
 
 **`JWT_SECRET` é obrigatório em produção** (a API recusa iniciar sem um valor de pelo menos 32 caracteres). Gere um com `openssl rand -hex 32` e cadastre como secret `JWT_SECRET` no GitHub.
 
-Cuidado ao trocar `POSTGRES_PASSWORD`: o Postgres só lê a senha na primeira criação do volume. Mudar o valor depois, sem alterar a senha dentro do banco, faz a API perder a conexão.
+### Credenciais do banco no GitHub
+
+`POSTGRES_USER` e `POSTGRES_DB` ficam em **Variables** e `POSTGRES_PASSWORD` em **Secrets** de cada ambiente. A API monta a URL de conexão a partir deles (não é preciso cadastrar `DATABASE_URL`). A senha só pode ter letras, números e `. _ ~ -` (o deploy recusa outros caracteres, que quebrariam a URL); gere com `openssl rand -hex 24`.
+
+O Postgres só lê usuário, senha e nome do banco na **primeira criação do volume**. Por isso:
+
+- **Servidor novo (banco vazio):** cadastre os três valores no GitHub antes do primeiro deploy.
+- **Servidor com banco já em uso (mantendo os dados):** `POSTGRES_USER` e `POSTGRES_DB` devem repetir o que o banco já tem (hoje `sgp` e `sgp`). Antes do deploy, troque a senha dentro do banco para o valor que vai cadastrar: `docker compose exec db psql -U sgp -d sgp -c "ALTER USER sgp WITH PASSWORD '<nova senha>'"`. Só depois cadastre o secret e faça o deploy; se o secret mudar sem a troca no banco, a API perde a conexão.
 
 ## Rodando com Docker Compose
 

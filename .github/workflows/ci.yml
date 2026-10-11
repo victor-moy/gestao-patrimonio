@@ -119,6 +119,11 @@ jobs:
       - name: Subir containers
         shell: bash
         run: |
+          # A senha entra na URL de conexão do banco: caracteres como @ : / # ? a quebrariam
+          if [ -n "$POSTGRES_PASSWORD" ] && ! [[ "$POSTGRES_PASSWORD" =~ ^[A-Za-z0-9._~-]+$ ]]; then
+            echo "::error::POSTGRES_PASSWORD só pode ter letras, números e . _ ~ - (gere com: openssl rand -hex 24)"
+            exit 1
+          fi
           # Variável vazia (não cadastrada no GitHub) sobrescreveria o .env do servidor: remove para
           # o Compose usar o .env existente ou o valor padrão.
           for v in JWT_SECRET POSTGRES_PASSWORD SMTP_PASS GRAFANA_PASSWORD POSTGRES_USER POSTGRES_DB WEB_PORT JWT_EXPIRES_IN CORS_ORIGINS SMTP_ENABLED SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_USER SMTP_FROM; do
@@ -163,6 +168,11 @@ jobs:
       - name: Rebuild e subir containers
         shell: bash
         run: |
+          # A senha entra na URL de conexão do banco: caracteres como @ : / # ? a quebrariam
+          if [ -n "$POSTGRES_PASSWORD" ] && ! [[ "$POSTGRES_PASSWORD" =~ ^[A-Za-z0-9._~-]+$ ]]; then
+            echo "::error::POSTGRES_PASSWORD só pode ter letras, números e . _ ~ - (gere com: openssl rand -hex 24)"
+            exit 1
+          fi
           # Variável vazia (não cadastrada no GitHub) sobrescreveria o .env do servidor: remove para
           # o Compose usar o .env existente ou o valor padrão.
           for v in JWT_SECRET POSTGRES_PASSWORD SMTP_PASS GRAFANA_PASSWORD POSTGRES_USER POSTGRES_DB WEB_PORT JWT_EXPIRES_IN CORS_ORIGINS SMTP_ENABLED SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_USER SMTP_FROM; do
