@@ -1,12 +1,14 @@
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import './Gestao.css';
 import './Polaris.css';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
-import { useConversas } from '../hooks/useConversas';
-import { caminhoConversa, tituloConversa } from '../utils/conversas';
+import { useConversas, useNaoLidas } from '../hooks/useConversas';
+import { caminhoConversa, codigoConversa, tituloConversa } from '../utils/conversas';
 import { caminhoRelatorio, SUBMENUS_RELATORIOS } from '../utils/relatorios';
+import { ContagemNaoLidas } from './ContagemNaoLidas';
+import { LogoSistema } from './LogoSistema';
 import {
   IconeChevron,
   IconeAtas,
@@ -77,6 +79,7 @@ export function Layout() {
   const emConfiguracoes = location.pathname.startsWith('/configuracoes');
   const emConversas = location.pathname.startsWith('/conversas');
   const { conversas } = useConversas(emConversas);
+  const naoLidas = useNaoLidas();
 
   const tituloGestao =
     location.pathname === '/'
@@ -103,6 +106,23 @@ export function Layout() {
 
   const fecharSidebar = () => setSidebarAberta(false);
 
+  // Mensagens não lidas no título da aba, para quem está em outra janela
+  useEffect(() => {
+    document.title = naoLidas > 0 ? `(${naoLidas > 99 ? '99+' : naoLidas}) Gestão Patrimonial` : 'Gestão Patrimonial';
+    return () => {
+      document.title = 'Gestão Patrimonial';
+    };
+  }, [naoLidas]);
+
+  useEffect(() => {
+    if (!sidebarAberta) return;
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSidebarAberta(false);
+    };
+    document.addEventListener('keydown', aoTeclar);
+    return () => document.removeEventListener('keydown', aoTeclar);
+  }, [sidebarAberta]);
+
   // Sair com um fade-out do app antes de voltar ao login, em vez de trocar a tela de uma vez
   function sair() {
     if (saindo) return;
@@ -116,7 +136,6 @@ export function Layout() {
     <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${tituloGestao ? ' app-shell--gestao' : ''}${saindo ? ' app-shell--saindo' : ''}`}>
       {sidebarAberta && <div className="sidebar-backdrop" onClick={fecharSidebar} />}
       <aside className={`sidebar${sidebarAberta ? ' aberta' : ''}`}>
-        <button className="sidebar-fechar" type="button" onClick={fecharSidebar} aria-label="Fechar menu"><IconeFechar /></button>
         {emConversas ? (
         <nav className="sidebar-nav" aria-label="Conversas">
           {conversas === null && <span className="sidebar-vazio" role="status">Carregando…</span>}
@@ -127,9 +146,12 @@ export function Layout() {
               to={caminhoConversa(c.contexto, c.id)}
               onClick={fecharSidebar}
               title={tituloConversa(c)}
-              className={({ isActive }) => `sidebar-link sidebar-conversa${isActive ? ' active' : ''}`}
+              className={({ isActive }) =>
+                `sidebar-link sidebar-conversa${isActive ? ' active' : ''}${c.naoLidas > 0 ? ' sidebar-conversa--nao-lida' : ''}`
+              }
             >
-              <span>{tituloConversa(c)}</span>
+              <span>{codigoConversa(c)}</span>
+              {c.naoLidas > 0 && <ContagemNaoLidas total={c.naoLidas} />}
             </NavLink>
           ))}
         </nav>
@@ -185,6 +207,7 @@ export function Layout() {
               className={({ isActive }) => `sidebar-link sidebar-conversas${isActive ? ' active' : ''}`}
             >
               <IconeConversas /> Conversas
+              {naoLidas > 0 && <ContagemNaoLidas total={naoLidas} />}
             </NavLink>
             {usuario.perfil === 'GESTOR_PATRIMONIO' && (
               <NavLink to="/configuracoes" onClick={fecharSidebar} className="sidebar-link sidebar-configuracoes">
@@ -199,12 +222,13 @@ export function Layout() {
           <button
             className="sidebar-toggle"
             onClick={() => setSidebarAberta(true)}
-            aria-label="Abrir menu"
+            aria-label={naoLidas > 0 ? `Abrir menu (${naoLidas} mensagens não lidas)` : 'Abrir menu'}
             aria-expanded={sidebarAberta}
           >
             <IconeMenu />
           </button>
           <Link to="/" className="app-topbar-wordmark" aria-label="Gestão Patrimonial — ir para o Início">
+            <LogoSistema />
             <strong>Gestão Patrimonial</strong>
           </Link>
           <div className="topbar-actions">

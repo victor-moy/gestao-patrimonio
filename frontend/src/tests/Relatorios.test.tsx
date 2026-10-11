@@ -77,6 +77,8 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
           itens: [
             {
               id: 's1',
+              numero: 12,
+              titulo: 'Empréstimo de autoclave para a Farmácia',
               equipamento: 'Autoclave Vertical 75L',
               tombamento: '12345/2024',
               unidadeOrigem: 'UBS Norte',
@@ -98,8 +100,11 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
       expect(screen.getByRole('heading', { name: 'Empréstimos', level: 2 })).toBeInTheDocument();
     });
     expect(screen.getByText('Total de empréstimos')).toBeInTheDocument();
-    // A primeira coluna mostra só o tombamento
+    // A primeira coluna mostra o número da solicitação e, embaixo, o título; o tombamento tem coluna própria
+    expect(screen.getByRole('columnheader', { name: 'Solicitação' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Tombamento' })).toBeInTheDocument();
+    expect(screen.getByText('SOL-0012')).toBeInTheDocument();
+    expect(screen.getByText('Empréstimo de autoclave para a Farmácia')).toBeInTheDocument();
     expect(screen.getByText('12345/2024')).toBeInTheDocument();
     expect(screen.queryByText('Autoclave Vertical 75L')).not.toBeInTheDocument();
     expect(screen.queryByText(/registro/)).not.toBeInTheDocument();
@@ -124,6 +129,8 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
           itens: [
             {
               id: 'c1',
+              numero: 15,
+              titulo: 'Cessão de autoclave ao Hospital Regional',
               entidadeExternaNome: 'Hospital Regional',
               tipoEquipamento: 'Autoclave Vertical 75L',
               numerosPatrimonio: ['12345/2024'],
@@ -146,6 +153,8 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
     });
     expect(screen.getByText('Valor total cedido')).toBeInTheDocument();
     expect(screen.getByText('Hospital Regional')).toBeInTheDocument();
+    expect(screen.getByText('SOL-0015')).toBeInTheDocument();
+    expect(screen.getByText('Cessão de autoclave ao Hospital Regional')).toBeInTheDocument();
     expect(screen.getByText('Patrimônio 12345/2024')).toBeInTheDocument();
   });
 
@@ -183,7 +192,7 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
     });
 
     // ordena por quantidade — clique inicial é desc (maior quantidade primeiro)
-    await userEvent.click(screen.getByRole('button', { name: 'Quantidade' }));
+    await userEvent.click(within(screen.getByRole('columnheader', { name: 'Quantidade' })).getByRole('button'));
     expect(screen.getByRole('columnheader', { name: 'Quantidade' })).toHaveAttribute('aria-sort', 'descending');
     const linhas = screen.getAllByRole('row').slice(1); // pula o cabeçalho
     expect(within(linhas[0]).getByText('Purificador De Água')).toBeInTheDocument();

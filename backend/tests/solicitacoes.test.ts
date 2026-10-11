@@ -80,7 +80,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({
-        tipo: 'CESSAO_USO',
+        titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [{ tipoEquipamentoId: UUID, numerosPatrimonio: ['12345/2026'] }],
         entidadeExternaNome: 'Hospital Regional (outro município)',
         justificativa: 'Necessidade urgente de equipamento adicional',
@@ -122,7 +122,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({
-        tipo: 'CESSAO_USO',
+        titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [
           { tipoEquipamentoId: UUID, numerosPatrimonio: ['12345/2026'] },
           { tipoEquipamentoId: EQUIP_UUID, numerosPatrimonio: ['12346/2026'] },
@@ -139,7 +139,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({
-        tipo: 'CESSAO_USO',
+        titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [{ tipoEquipamentoId: UUID }],
         entidadeExternaNome: 'Hospital Regional (outro município)',
         justificativa: 'Faltando o nº de patrimônio',
@@ -153,7 +153,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'CESSAO_USO',
+        titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [{ tipoEquipamentoId: UUID, quantidade: 1 }],
         entidadeExternaNome: 'Hospital Regional (outro município)',
         justificativa: 'Necessidade urgente de equipamento adicional',
@@ -167,7 +167,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({
-        tipo: 'CESSAO_USO',
+        titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         entidadeExternaNome: 'Hospital Regional (outro município)',
         justificativa: 'Necessidade urgente de equipamento adicional',
       });
@@ -180,7 +180,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({
-        tipo: 'CESSAO_USO',
+        titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [{ tipoEquipamentoId: UUID, quantidade: 1 }],
         justificativa: 'Necessidade urgente de equipamento adicional',
       });
@@ -196,7 +196,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('GESTOR_PATRIMONIO'))
       .send({
-        tipo: 'CESSAO_USO',
+        titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [{ tipoEquipamentoId: UUID, numerosPatrimonio: ['12345/2026'] }],
         entidadeExternaNome: 'Hospital Regional',
         justificativa: 'Justificativa qualquer',
@@ -218,7 +218,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'EMPRESTIMO',
+        titulo: 'Título do pedido', tipo: 'EMPRESTIMO',
         unidadeDestinoId: UUID2,
         dataRetornoPrevista: '2026-12-01',
         itens: [{ equipamentoId: UUID }],
@@ -236,7 +236,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'EMPRESTIMO',
+        titulo: 'Título do pedido', tipo: 'EMPRESTIMO',
         unidadeDestinoId: UUID2,
         itens: [{ equipamentoId: UUID }],
         justificativa: 'Empréstimo sem informar a data final',
@@ -258,7 +258,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'EMPRESTIMO',
+        titulo: 'Título do pedido', tipo: 'EMPRESTIMO',
         unidadeDestinoId: UUID2,
         dataRetornoPrevista: '2026-12-01',
         itens: [{ equipamentoId: UUID }, { equipamentoId: EQUIP_UUID }],
@@ -273,7 +273,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'EMPRESTIMO',
+        titulo: 'Título do pedido', tipo: 'EMPRESTIMO',
         unidadeDestinoId: UUID2,
         itens: [{ equipamentoId: UUID }, { equipamentoId: UUID }],
         justificativa: 'Equipamento duplicado',
@@ -296,7 +296,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'AMPLIACAO',
+        titulo: 'Título do pedido', tipo: 'AMPLIACAO',
         itens: [{ tipoEquipamentoId: UUID, quantidade: 2 }],
         origemRecurso: 'EMENDA_PARLAMENTAR',
         justificativa: 'Ampliação da capacidade de atendimento',
@@ -313,7 +313,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'AMPLIACAO',
+        titulo: 'Título do pedido', tipo: 'AMPLIACAO',
         itens: [
           { tipoEquipamentoId: UUID, quantidade: 1 },
           { tipoEquipamentoId: UUID2, quantidade: 3 },
@@ -325,11 +325,65 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     expect(prismaMock.solicitacao.create).toHaveBeenCalledTimes(2);
   });
 
+  it('o título é obrigatório: vai aparado para todas as solicitações criadas juntas e é recusado se faltar', async () => {
+    prismaMock.solicitacao.create
+      .mockResolvedValueOnce({ ...solicitacaoBase, id: 'sol-a', tipo: 'AMPLIACAO' } as never)
+      .mockResolvedValueOnce({ ...solicitacaoBase, id: 'sol-b', tipo: 'AMPLIACAO' } as never);
+    const corpo = {
+      tipo: 'AMPLIACAO',
+      itens: [
+        { tipoEquipamentoId: UUID, quantidade: 1 },
+        { tipoEquipamentoId: UUID2, quantidade: 3 },
+      ],
+      justificativa: 'Ampliação da capacidade de atendimento',
+    };
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({ ...corpo, titulo: '  Consultório novo da UBS Norte  ' });
+    expect(res.status).toBe(201);
+    expect(prismaMock.solicitacao.create).toHaveBeenCalledTimes(2);
+    for (const chamada of prismaMock.solicitacao.create.mock.calls) {
+      expect((chamada[0] as { data: { titulo: string } }).data.titulo).toBe('Consultório novo da UBS Norte');
+    }
+
+    prismaMock.solicitacao.create.mockClear();
+    const ausente = await request(app).post('/solicitacoes').set(auth('UNIDADE', { unidadeId: 'unidade-1' })).send(corpo);
+    const emBranco = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({ ...corpo, titulo: '   ' });
+    expect(ausente.status).toBe(422);
+    expect(emBranco.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+  });
+
+  it('recusa título com mais de 80 caracteres', async () => {
+    const res = await request(app)
+      .post('/solicitacoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({
+        titulo: 'Título do pedido', tipo: 'AMPLIACAO',
+        titulo: 'a'.repeat(81),
+        itens: [{ tipoEquipamentoId: UUID, quantidade: 1 }],
+        justificativa: 'Ampliação da capacidade de atendimento',
+      });
+    expect(res.status).toBe(422);
+    expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
+  });
+
+  it('a busca da lista também procura no título', async () => {
+    prismaMock.solicitacao.findMany.mockResolvedValue([]);
+    await request(app).get('/solicitacoes?busca=consultorio').set(auth('GESTOR_PATRIMONIO'));
+    const where = (prismaMock.solicitacao.findMany.mock.calls[0][0] as { where: { OR: unknown[] } }).where;
+    expect(where.OR).toContainEqual({ titulo: { contains: 'consultorio', mode: 'insensitive' } });
+  });
+
   it('ampliação sem itens selecionados é rejeitada', async () => {
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
-      .send({ tipo: 'AMPLIACAO', itens: [], justificativa: 'Ampliação sem itens' });
+      .send({ titulo: 'Título do pedido', tipo: 'AMPLIACAO', itens: [], justificativa: 'Ampliação sem itens' });
     expect(res.status).toBe(422);
     expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
@@ -349,7 +403,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'AMPLIACAO',
+        titulo: 'Título do pedido', tipo: 'AMPLIACAO',
         itens: [{ tipoEquipamentoId: UUID, quantidade: 2 }],
         justificativa: 'Ampliação da capacidade de atendimento',
       });
@@ -374,7 +428,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'SUBSTITUICAO',
+        titulo: 'Título do pedido', tipo: 'SUBSTITUICAO',
         itens: [
           {
             equipamentoId: EQUIP_UUID,
@@ -404,7 +458,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'SUBSTITUICAO',
+        titulo: 'Título do pedido', tipo: 'SUBSTITUICAO',
         itens: [
           {
             equipamentoId: EQUIP_UUID,
@@ -429,7 +483,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'SUBSTITUICAO',
+        titulo: 'Título do pedido', tipo: 'SUBSTITUICAO',
         itens: [
           {
             equipamentoId: UUID,
@@ -454,7 +508,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
-      .send({ tipo: 'SUBSTITUICAO', itens: [], justificativa: 'Substituição sem itens' });
+      .send({ titulo: 'Título do pedido', tipo: 'SUBSTITUICAO', itens: [], justificativa: 'Substituição sem itens' });
     expect(res.status).toBe(422);
     expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
@@ -464,7 +518,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'SUBSTITUICAO',
+        titulo: 'Título do pedido', tipo: 'SUBSTITUICAO',
         itens: [{ tipoEquipamentoId: UUID2, quantidade: 1 }],
         justificativa: 'Substituição sem equipamento informado',
       });
@@ -477,7 +531,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'SUBSTITUICAO',
+        titulo: 'Título do pedido', tipo: 'SUBSTITUICAO',
         itens: [{ equipamentoId: UUID, tipoEquipamentoId: UUID2, quantidade: 1 }],
       });
     expect(res.status).toBe(422);
@@ -489,7 +543,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'SUBSTITUICAO',
+        titulo: 'Título do pedido', tipo: 'SUBSTITUICAO',
         itens: [
           { equipamentoId: UUID, tipoEquipamentoId: UUID2, quantidade: 1 },
           { equipamentoId: UUID, tipoEquipamentoId: UUID2, quantidade: 1 },
@@ -504,7 +558,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     const res = await request(app)
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
-      .send({ tipo: 'RECOLHA', itens: [], justificativa: 'Recolha sem itens' });
+      .send({ titulo: 'Título do pedido', tipo: 'RECOLHA', itens: [], justificativa: 'Recolha sem itens' });
     expect(res.status).toBe(422);
     expect(prismaMock.solicitacao.create).not.toHaveBeenCalled();
   });
@@ -520,7 +574,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'RECOLHA',
+        titulo: 'Título do pedido', tipo: 'RECOLHA',
         itens: [{ equipamentoId: UUID }, { equipamentoId: EQUIP_UUID }],
         justificativa: 'Equipamentos sem uso',
       });
@@ -539,7 +593,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
       .post('/solicitacoes')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
-        tipo: 'RECOLHA',
+        titulo: 'Título do pedido', tipo: 'RECOLHA',
         itens: [{ equipamentoId: UUID }, { equipamentoId: UUID }],
         justificativa: 'Equipamento sem uso',
       });

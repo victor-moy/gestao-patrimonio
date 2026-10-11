@@ -14,12 +14,26 @@
 .conversa-vazio { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 28px 20px; color: var(--text-secondary); font-size: 13px; }
 .conversa-lista { margin: 0; padding: 0; list-style: none; }
 .conversa-lista li + li { border-top: 1px solid var(--border); }
-.conversa-lista a { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; padding: 12px 16px; color: var(--text); text-decoration: none; }
+.conversa-lista a { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 16px; align-items: start; padding: 12px 16px; color: var(--text); text-decoration: none; }
 .conversa-lista a:hover { background: var(--surface-subtle); }
-.conversa-lista strong { display: flex; align-items: baseline; gap: 10px; min-width: 0; font-size: 13px; font-weight: 600; }
-.conversa-lista strong .req-numero { margin-right: 0; }
-.conversa-lista span { grid-column: 1; color: var(--text-secondary); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.conversa-lista time { grid-row: 1; grid-column: 2; color: var(--text-muted); font-size: 11px; }
+.conversa-titulo { display: flex; align-items: baseline; gap: 10px; min-width: 0; font-size: 13px; font-weight: 600; }
+.conversa-titulo .req-numero { flex: none; margin-right: 0; }
+.conversa-titulo-texto { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.conversa-previa { grid-column: 1; min-width: 0; overflow: hidden; color: var(--text-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.conversa-meta { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 6px; align-self: stretch; }
+.conversa-meta time { color: var(--text-muted); font-size: 11px; white-space: nowrap; }
+.conversa-meta .contagem-nao-lidas { margin-left: 0; }
+
+/* Conversa com mensagens não lidas: título e prévia em destaque */
+.conversa-nao-lida .conversa-titulo { font-weight: 700; }
+.conversa-nao-lida .conversa-previa { color: var(--text); font-weight: 600; }
+
+@media (max-width: 600px) {
+  .conversa-lista a { gap: 3px 12px; padding: 12px 14px; }
+  .conversa-titulo { gap: 8px; }
+  .conversa-titulo .req-numero { min-width: 0; }
+  .conversa-meta time { font-size: 10.5px; }
+}
 
 /* Tela de uma conversa: o painel inteiro é branco e o chat ocupa a altura disponível (sem rolagem da página) */
 .app-shell--gestao .app-content--branco { background: var(--surface); }
@@ -65,3 +79,15 @@
 .chat-enviar:disabled { background: #e1e1e1; cursor: not-allowed; }
 .chat-enviar svg { width: 14px; height: 14px; }
 .chat-contador { width: 100%; max-width: 680px; padding-right: 12px; text-align: right; color: var(--text-muted); font-size: 11px; }
+
+/* Sem conversa aberta: no celular a lista; no computador (menu lateral fixo) o convite para escolher uma */
+.conversa-indice-computador { display: block; }
+.conversa-indice-celular { display: none; }
+.conversa-indice-computador:has(.conversa-selecione) { border: 0; background: transparent; }
+.conversa-selecione { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 72px 20px; color: var(--text-secondary); text-align: center; }
+.conversa-selecione strong { color: var(--text); font-size: 14px; font-weight: 600; }
+.conversa-selecione span { font-size: 12px; }
+@media (max-width: 900px) {
+  .conversa-indice-computador { display: none; }
+  .conversa-indice-celular { display: block; }
+}

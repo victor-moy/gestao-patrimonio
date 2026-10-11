@@ -22,6 +22,15 @@ const limiteEnvio = limitarFrequencia({
   mensagem: 'Você está enviando mensagens rápido demais. Aguarde um instante.',
 });
 
+const lidaSchema = z.object({ ate: z.string().datetime({ message: 'Informe a data da última mensagem lida.' }) });
+
+const limiteLeitura = limitarFrequencia({
+  janelaMs: 60 * 1000,
+  max: 120,
+  chave: (req) => req.usuario?.sub ?? req.ip ?? 'desconhecido',
+  mensagem: 'Muitas atualizações seguidas. Aguarde um instante.',
+});
+
 // Montado em /solicitacoes/:id/mensagens e /manutencoes/:id/mensagens
 export function criarMensagensRouter(contexto: service.ContextoChat) {
   const router = Router({ mergeParams: true });
@@ -46,12 +55,26 @@ export function criarMensagensRouter(contexto: service.ContextoChat) {
     },
   );
 
+  // A pessoa leu a conversa até a data informada (a da última mensagem exibida na tela)
+  router.post(
+    '/lida',
+    env.rateLimitAtivo ? limiteLeitura : (_req, _res, next) => next(),
+    validarBody(lidaSchema),
+    async (req, res) => {
+      await service.marcarLida(req.usuario!, contexto, idDe(req), new Date(req.body.ate));
+      res.status(204).end();
+    },
+  );
+
   return router;
 }
 
 // Lista das conversas do usuário (alimenta o menu "Conversas")
 export const conversasRouter = Router();
 conversasRouter.use(autenticar);
+conversasRouter.get('/nao-lidas', async (req, res) => {
+  res.json(await service.contarNaoLidas(req.usuario!));
+});
 conversasRouter.get('/', async (req, res) => {
   res.json(await service.listarConversas(req.usuario!));
 });

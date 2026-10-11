@@ -8,6 +8,8 @@ import { useAlertaNativo } from '../hooks/useAlertaNativo';
 export interface ColunaCadastro<T> {
   titulo: string;
   celula: (item: T) => ReactNode;
+  // No celular ocupa a largura toda do cartão (textos longos, como endereço e e-mail)
+  larga?: boolean;
 }
 
 interface Visualizacao {
@@ -119,7 +121,7 @@ export function ListaCadastro<T>({
                     aria-expanded={menuAberto}
                     onClick={() => setMenuAberto((aberto) => !aberto)}
                   >
-                    {visualizacao?.rotulo}
+                    <span className="inventario-visualizacao-rotulo">{visualizacao?.rotulo}</span>
                     <IconeChevron />
                   </button>
                   {menuAberto && (
@@ -158,7 +160,7 @@ export function ListaCadastro<T>({
           </div>
         </div>
 
-        <div className="gestao-tabela-scroll" role="region" aria-label={titulo} tabIndex={0} aria-busy={carregando}>
+        <div className="gestao-tabela-scroll lista-cartoes lista-cartoes--fluxo" role="region" aria-label={titulo} tabIndex={0} aria-busy={carregando}>
           <table>
             <caption className="gestao-sr-only">{titulo}</caption>
             <thead>
@@ -177,7 +179,11 @@ export function ListaCadastro<T>({
                 visiveis.slice(inicio, inicio + POR_PAGINA).map((item) => (
                   <tr key={chave(item)}>
                     {colunas.map((c, indice) => (
-                      <td key={c.titulo} className={indice === 0 ? 'gestao-equipamento' : undefined}>
+                      <td
+                        key={c.titulo}
+                        className={indice === 0 ? 'gestao-equipamento cartao-nome' : c.larga ? 'cartao-larga' : undefined}
+                        data-label={indice === 0 ? undefined : c.titulo}
+                      >
                         {c.celula(item)}
                       </td>
                     ))}

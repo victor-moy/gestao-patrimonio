@@ -28,6 +28,11 @@ export function statusExibido(s: Solicitacao) {
 }
 
 
+/** Como a solicitação é chamada nas listas e no detalhe: o título dado a ela ou, sem título, o nome do item. */
+export function tituloSolicitacao(s: Solicitacao) {
+  return s.titulo?.trim() || nomeItem(s);
+}
+
 export function nomeItem(s: Solicitacao) {
   return s.equipamento
     ? s.equipamento.tipoEquipamento?.nome || s.equipamento.descricao

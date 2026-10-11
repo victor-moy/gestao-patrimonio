@@ -1,12 +1,12 @@
 import '../Relatorios.css';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
-import { corDoStatus } from '../../components/Badge';
+import { StatusPill } from '../../components/StatusPill';
 import { IconeBusca } from '../../components/icons';
 import { SelectTipoEquipamento } from '../../components/SelectItem';
 import { FiltroPeriodo, FiltroUnidade, useOpcoesFiltro } from './filtros';
 import type { EmprestimoRelatorio, RelatorioEmprestimos } from '../../types';
-import { formatarData, ROTULO_STATUS_SOLICITACAO } from '../../utils/format';
+import { codigoSolicitacao, formatarData, ROTULO_STATUS_SOLICITACAO } from '../../utils/format';
 
 function percentualDoTotal(dados: RelatorioEmprestimos | null, valor: number | undefined) {
   if (!dados || !valor || dados.total === 0) return 0;
@@ -46,7 +46,7 @@ export function RelatorioEmprestimos() {
   const kpis = [
     { rotulo: 'Em andamento', valor: dados?.emAndamento, classe: 'andamento' },
     { rotulo: 'Concluídos', valor: dados?.concluida, classe: 'concluida' },
-    { rotulo: 'Negados / cancelados', valor: dados?.negadaCancelada, classe: 'negada' },
+    { rotulo: 'Cancelados', valor: dados?.negadaCancelada, classe: 'negada' },
   ];
 
   return (
@@ -93,7 +93,7 @@ export function RelatorioEmprestimos() {
         </label>
       </div>
 
-      <div className="stats-grid rel-kpis rel-kpis--seis">
+      <div className="stats-grid rel-kpis rel-kpis--cinco">
         <div className="card stat-card">
           <div className="stat-label">Total de empréstimos</div>
           <div className="stat-linha">
@@ -130,10 +130,11 @@ export function RelatorioEmprestimos() {
           <h3>Empréstimos</h3>
         </div>
         {dados && dados.itens.length > 0 ? (
-          <div className="rel-tabela-scroll">
+          <div className="rel-tabela-scroll rel-cartoes rel-cartoes--emprestimos">
             <table>
               <thead>
                 <tr>
+                  <th scope="col">Solicitação</th>
                   <th scope="col">Tombamento</th>
                   <th scope="col">Origem</th>
                   <th scope="col">Destino</th>
@@ -144,22 +145,18 @@ export function RelatorioEmprestimos() {
               <tbody>
                 {dados.itens.map((e: EmprestimoRelatorio) => (
                   <tr key={e.id}>
-                    <td className="rel-tabela-principal">{e.tombamento ?? '—'}</td>
-                    <td>{e.unidadeOrigem}</td>
-                    <td>{e.unidadeDestino ?? '—'}</td>
-                    <td>{e.dataRetornoPrevista ? formatarData(e.dataRetornoPrevista) : '—'}</td>
-                    <td>
+                    <td className="rc-principal">
+                      <span className="rel-numero">{codigoSolicitacao(e.numero)}</span>
+                      <div className="rel-tabela-principal">{e.titulo?.trim() || e.equipamento || '—'}</div>
+                    </td>
+                    <td className="rc-t" data-label="Tombamento">{e.tombamento ?? '—'}</td>
+                    <td className="rc-a" data-label="Origem">{e.unidadeOrigem}</td>
+                    <td className="rc-b" data-label="Destino">{e.unidadeDestino ?? '—'}</td>
+                    <td className="rc-c" data-label="Retorno previsto">{e.dataRetornoPrevista ? formatarData(e.dataRetornoPrevista) : '—'}</td>
+                    <td className="rc-status">
                       <div className="rel-tabela-status">
-                        <span className={`inventario-status inventario-status--tom-${corDoStatus(e.status)}`}>
-                          <span aria-hidden />
-                          {ROTULO_STATUS_SOLICITACAO[e.status]}
-                        </span>
-                        {e.atrasado && (
-                          <span className="inventario-status inventario-status--tom-red">
-                            <span aria-hidden />
-                            Atrasado
-                          </span>
-                        )}
+                        <StatusPill valor={e.status}>{ROTULO_STATUS_SOLICITACAO[e.status]}</StatusPill>
+                        {e.atrasado && <StatusPill valor="ATRASADO">Atrasado</StatusPill>}
                       </div>
                     </td>
                   </tr>

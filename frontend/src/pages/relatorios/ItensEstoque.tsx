@@ -84,6 +84,24 @@ export function RelatorioItensEstoque() {
       {erro && <div className="error-banner" role="alert">{erro}</div>}
 
       <div className="card card-pad rel-filtros">
+        <label className="rel-ordenar-select">
+          <span>Ordenar por</span>
+          <select
+            data-padrao={ordenacao.campo === 'quantidade' && ordenacao.direcao === 'desc' ? '' : undefined}
+            value={`${ordenacao.campo}:${ordenacao.direcao}`}
+            onChange={(e) => {
+              const [campo, direcao] = e.target.value.split(':') as [typeof ordenacao.campo, typeof ordenacao.direcao];
+              setOrdenacao({ campo, direcao });
+            }}
+          >
+            <option value="quantidade:desc">Quantidade: maior primeiro</option>
+            <option value="quantidade:asc">Quantidade: menor primeiro</option>
+            <option value="antiguidade:desc">Aguardando há: mais antigo primeiro</option>
+            <option value="antiguidade:asc">Aguardando há: mais recente primeiro</option>
+            <option value="nome:asc">Equipamento: A a Z</option>
+            <option value="nome:desc">Equipamento: Z a A</option>
+          </select>
+        </label>
         <label className="rel-busca rel-busca--sozinha">
           <IconeBusca />
           <input
@@ -126,7 +144,7 @@ export function RelatorioItensEstoque() {
         ) : itensFiltrados.length === 0 ? (
           <div className="empty-state">Nenhum item aguardando estoque bate com essa busca</div>
         ) : (
-          <div className="rel-tabela-scroll">
+          <div className="rel-tabela-scroll rel-cartoes rel-cartoes--itens">
             <table>
               <thead>
                 <tr>
@@ -147,13 +165,13 @@ export function RelatorioItensEstoque() {
                   const nome = capitalizarPalavras(item.tipoEquipamento.nome);
                   return (
                     <tr key={item.tipoEquipamento.id}>
-                      <td className="rel-tabela-principal">{nome}</td>
-                      <td>#{item.tipoEquipamento.codigo}</td>
-                      <td>{item.tipoEquipamento.categoria?.nome ?? '—'}</td>
-                      <td>{item.quantidade}</td>
-                      <td>{dias === null ? '—' : `${dias} dia${dias === 1 ? '' : 's'}`}</td>
-                      <td>{formatarMoeda(preco)}</td>
-                      <td>{subtotal === null ? '—' : formatarMoeda(subtotal)}</td>
+                      <td className="rel-tabela-principal rc-principal">{nome}</td>
+                      <td className="rc-status">#{item.tipoEquipamento.codigo}</td>
+                      <td className="rc-equip">{item.tipoEquipamento.categoria?.nome ?? '—'}</td>
+                      <td className="rc-a" data-label="Quantidade">{item.quantidade}</td>
+                      <td className="rc-b" data-label="Aguardando há">{dias === null ? '—' : `${dias} dia${dias === 1 ? '' : 's'}`}</td>
+                      <td className="rc-c" data-label="Preço ref.">{formatarMoeda(preco)}</td>
+                      <td className="rc-d" data-label="Previsão de verba">{subtotal === null ? '—' : formatarMoeda(subtotal)}</td>
                     </tr>
                   );
                 })}

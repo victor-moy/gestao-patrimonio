@@ -4,11 +4,12 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { IconeBusca, IconeCheck, IconeChevron } from '../components/icons';
 import type { Ata } from '../types';
-import { analisarAta, ROTULO_SITUACAO_ATA, TOM_SITUACAO_ATA, type SituacaoAta } from '../utils/cadastros';
+import { analisarAta, ROTULO_SITUACAO_ATA, type SituacaoAta } from '../utils/cadastros';
 import { formatarData, formatarMoeda } from '../utils/format';
 import './Cadastros.css';
 import { EsqueletoTabela } from '../components/Esqueletos';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
+import { StatusPill } from '../components/StatusPill';
 
 const POR_PAGINA = 10;
 const VISUALIZACOES: Array<{ valor: '' | SituacaoAta; rotulo: string }> = [
@@ -115,7 +116,7 @@ export function Atas() {
                   aria-expanded={menuAberto}
                   onClick={() => setMenuAberto((aberto) => !aberto)}
                 >
-                  {visualizacao?.rotulo}
+                  <span className="inventario-visualizacao-rotulo">{visualizacao?.rotulo}</span>
                   <IconeChevron />
                 </button>
                 {menuAberto && (
@@ -153,7 +154,7 @@ export function Atas() {
           </div>
         </div>
 
-        <div className="gestao-tabela-scroll" role="region" aria-label="Atas" tabIndex={0} aria-busy={carregando}>
+        <div className="gestao-tabela-scroll lista-cartoes lista-cartoes--atas" role="region" aria-label="Atas" tabIndex={0} aria-busy={carregando}>
           <table>
             <caption className="gestao-sr-only">Atas de registro de preços</caption>
             <thead>
@@ -174,7 +175,7 @@ export function Atas() {
                   const a = analisarAta(ata);
                   return (
                     <tr key={ata.id}>
-                      <td className="gestao-equipamento">
+                      <td className="gestao-equipamento cartao-nome">
                         <Link
                           className="inventario-equipamento-link"
                           to={`/atas/${ata.id}`}
@@ -187,27 +188,19 @@ export function Atas() {
                           {ata.unidadeEspecifica ? ` · exclusiva ${ata.unidadeEspecifica.nome}` : ''}
                         </div>
                       </td>
-                      <td className="inventario-data">{formatarMoeda(a.valorTotal)}</td>
-                      <td className="inventario-data">{formatarMoeda(a.saldo)}</td>
-                      <td>
+                      <td className="inventario-data cartao-valor" data-label="Valor total">{formatarMoeda(a.valorTotal)}</td>
+                      <td className="inventario-data cartao-saldo" data-label="Saldo">{formatarMoeda(a.saldo)}</td>
+                      <td className="cartao-uso" data-label="Utilizado">
                         <div className="cadastro-progresso" aria-label={`${a.utilizado.toFixed(0)}% do saldo utilizado`}>
                           <div className="cadastro-progresso-fill" style={{ width: `${Math.min(100, a.utilizado)}%` }} />
                         </div>
                         <span className="cadastro-sub">{a.utilizado.toFixed(0)}%</span>
                       </td>
-                      <td className="inventario-data">{formatarData(ata.vencimento)}</td>
-                      <td>
+                      <td className="inventario-data cartao-vencimento" data-label="Vencimento">{formatarData(ata.vencimento)}</td>
+                      <td className="cartao-status">
                         <div className="cadastro-selos">
-                          <span className={`inventario-status inventario-status--tom-${TOM_SITUACAO_ATA[a.situacao]}`}>
-                            <span aria-hidden />
-                            {ROTULO_SITUACAO_ATA[a.situacao]}
-                          </span>
-                          {a.saldoBaixo && (
-                            <span className="inventario-status inventario-status--tom-red">
-                              <span aria-hidden />
-                              Saldo baixo
-                            </span>
-                          )}
+                          <StatusPill valor={a.situacao}>{ROTULO_SITUACAO_ATA[a.situacao]}</StatusPill>
+                          {a.saldoBaixo && <StatusPill valor="SALDO_BAIXO">Saldo baixo</StatusPill>}
                         </div>
                       </td>
                     </tr>

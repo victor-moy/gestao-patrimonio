@@ -30,39 +30,6 @@
   --shadow: 0 1px 0 rgba(0, 0, 0, .05), 0 1px 3px rgba(0, 0, 0, .08);
 }
 
-/* Tema escuro — ativado via ThemeContext (toggle no menu do usuário).
-   O menu lateral já é escuro nos dois temas (--primary/--primary-dark), só
-   a área de conteúdo (fundo, cards, texto, badges) muda aqui. */
-:root[data-theme='dark'] {
-  --primary: #153f4b;
-  --primary-dark: #081d24;
-  --accent: #5eead4;
-  --accent-hover: #99f6e4;
-  --accent-soft: #123b39;
-  --bg: #171816;
-  --surface: #1e201d;
-  --surface-subtle: #252723;
-  --border: #353832;
-  --border-strong: #474a43;
-  --text: #eeece7;
-  --text-secondary: #b4b0a8;
-  --text-muted: #85827b;
-  --green: #22c55e;
-  --green-bg: #0f3d2c;
-  --green-text: #6ee7b7;
-  --yellow-bg: #4a2e05;
-  --yellow-text: #fcd34d;
-  --blue-bg: #1c3555;
-  --blue-text: #93c5fd;
-  --red-bg: #4c1414;
-  --red-text: #fca5a5;
-  --gray-bg: #1b2740;
-  --gray-text: #cbd5e1;
-  --purple-bg: #341257;
-  --purple-text: #d8b4fe;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.25), 0 10px 30px rgba(0, 0, 0, 0.16);
-}
-
 * {
   box-sizing: border-box;
 }
@@ -153,6 +120,7 @@ label {
   min-height: 56px;
   display: flex;
   align-items: center;
+  gap: 10px;
   padding: 0 28px;
   color: #f1f1f1;
 }
@@ -273,17 +241,18 @@ label {
   text-align: center;
 }
 
-:root[data-theme='dark'] .login-page { color-scheme: dark; }
-:root[data-theme='dark'] .login-body input:focus {
-  border-color: #f1f1f1;
-  outline-color: #f1f1f1;
-}
-
 @media (max-width: 600px) {
-  .login-topbar { min-height: 54px; padding: 0 18px; }
+  .login-topbar {
+    flex-direction: column;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px 18px 0;
+  }
+  .login-topbar .logo-sistema { width: 64px; height: 64px; }
+  .login-topbar strong { font-size: 18px; }
   .login-main {
-    justify-content: flex-start;
-    padding: 24px 14px;
+    justify-content: center;
+    padding: 24px 14px 40px;
   }
   .login-card { height: 430px; padding: 24px 20px; border-radius: 12px; }
   .login-body .login-titulo { font-size: 22px; }
@@ -416,17 +385,6 @@ label {
   height: 100vh;
 }
 
-.sidebar-fechar {
-  display: none;
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  padding: 2px;
-  flex-shrink: 0;
-}
 
 .sidebar-nav {
   flex: 1;
@@ -584,6 +542,8 @@ label {
   .sidebar {
     position: fixed;
     top: 0;
+    bottom: 0;
+    height: auto;
     left: -280px;
     z-index: 40;
     width: 264px;
@@ -596,9 +556,6 @@ label {
     box-shadow: 0 0 0 100vw rgba(15, 23, 42, 0);
   }
 
-  .sidebar-fechar {
-    display: flex;
-  }
 
   .sidebar-backdrop {
     display: block;
@@ -699,29 +656,53 @@ tr:last-child td {
   gap: 14px;
 }
 
-.imagem-upload-preview {
-  width: 64px;
-  height: 64px;
-  border-radius: 8px;
-  background: var(--gray-bg);
-  color: var(--text-secondary);
+.imagem-upload-quadro {
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
-.imagem-upload-preview img {
+.imagem-upload-quadro:has(img) {
+  border-style: solid;
+  border-color: var(--border);
+}
+
+.imagem-upload-quadro:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.imagem-upload-quadro:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.imagem-upload-quadro:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.imagem-upload-quadro img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
+  background: var(--surface);
 }
 
-.imagem-upload-acoes {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.imagem-upload-dica {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 .badge.badge-leve {

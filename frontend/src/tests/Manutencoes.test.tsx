@@ -67,6 +67,9 @@ describe('Manutenções', () => {
 
     await userEvent.click(screen.getByRole('link', { name: 'Ver manutenção de Autoclave Vertical' }));
     expect(await screen.findByRole('heading', { name: 'Autoclave Vertical' })).toBeInTheDocument();
+    // Informações: o nome do equipamento em cima e o tombamento embaixo
+    const informacoes = screen.getByRole('heading', { name: 'Informações da manutenção' }).closest('section') as HTMLElement;
+    expect(within(informacoes).getByText('Item').nextElementSibling).toHaveTextContent('Autoclave Vertical12345/2024');
     expect(screen.getByLabelText('Número MAN-0007')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByText('Não atinge a temperatura adequada')).toBeInTheDocument();
@@ -76,6 +79,62 @@ describe('Manutenções', () => {
     await userEvent.click(within(historico).getByRole('button', { name: 'Expandir histórico' }));
     expect(within(historico).getByText('Manutenção solicitada')).toBeVisible();
     expect(within(historico).getByText('Retorno confirmado pela unidade')).toBeInTheDocument();
+  });
+
+  it('a lista e o detalhe mostram o número e o título do pedido, sem repetir o nome do equipamento', async () => {
+    const comTitulo = { ...manutencao, titulo: 'Autoclave da sala 2 não aquece' };
+    mockFetch({
+      ...entrarComo('GESTOR_MANUTENCAO'),
+      '/manutencoes/m1/historico': { body: [] },
+      '/manutencoes/m1': { body: comTitulo },
+      '/manutencoes': { body: [comTitulo] },
+      '/contratos': { body: [] },
+    });
+    render(<App />);
+
+    const link = await screen.findByRole('link', { name: 'Ver manutenção de Autoclave da sala 2 não aquece' });
+    expect(link).toHaveTextContent('Autoclave da sala 2 não aquece');
+    expect(screen.getByText('MAN-0007')).toBeInTheDocument();
+    // só número e título: o nome do equipamento não aparece na lista
+    expect(screen.queryByText('Autoclave Vertical')).not.toBeInTheDocument();
+
+    await userEvent.click(link);
+    expect(await screen.findByRole('heading', { name: 'Autoclave da sala 2 não aquece' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Número MAN-0007')).toBeInTheDocument();
+  });
+
+  it('sem título, a lista e o detalhe seguem usando o nome do equipamento', async () => {
+    mockFetch({
+      ...entrarComo('GESTOR_MANUTENCAO'),
+      '/manutencoes': { body: [{ ...manutencao, titulo: null }] },
+      '/contratos': { body: [] },
+    });
+    render(<App />);
+    expect(await screen.findByRole('link', { name: 'Ver manutenção de Autoclave Vertical' })).toBeInTheDocument();
+  });
+
+  it('unidade informa um título na nova manutenção e ele vai no pedido', async () => {
+    const chamadas = mockFetch({
+      ...entrarComo('UNIDADE'),
+      '/manutencoes': (init) => (init?.method === 'POST' ? { status: 201, body: { id: 'novo' } } : { body: [] }),
+      '/equipamentos': {
+        body: [{ id: 'e1', tombamento: '12345/2024', tipoEquipamento: { nome: 'Autoclave Vertical' }, unidade: { id: 'u1', nome: 'UBS Centro' } }],
+      },
+    });
+    render(<App />);
+    await userEvent.click(await screen.findByRole('link', { name: 'Nova solicitação' }));
+    await waitFor(() => expect(screen.getByLabelText('Equipamento')).toBeEnabled());
+    await userEvent.type(screen.getByLabelText('Título'), '  Autoclave da sala 2  ');
+    await userEvent.selectOptions(screen.getByLabelText('Equipamento'), 'e1');
+    await userEvent.type(screen.getByLabelText('Descrição do problema'), 'Não aquece');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+    await screen.findByRole('heading', { name: 'Manutenções' });
+    const post = chamadas.find((c) => c.init?.method === 'POST' && c.url.endsWith('/manutencoes'));
+    expect(JSON.parse(String(post?.init?.body))).toEqual({
+      equipamentoId: 'e1',
+      titulo: 'Autoclave da sala 2',
+      descricaoProblema: 'Não aquece',
+    });
   });
 
   it('erro ao aprovar aparece no alerta nativo do navegador', async () => {
@@ -147,19 +206,24 @@ describe('Manutenções', () => {
     await userEvent.click(await screen.findByRole('link', { name: 'Nova solicitação' }));
     expect(await screen.findByRole('heading', { name: 'Nova manutenção' })).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    const enviar = screen.getByRole('button', { name: 'Enviar solicitação' });
+    const enviar = screen.getByRole('button', { name: 'Enviar' });
     expect(enviar).toBeDisabled();
 
     await waitFor(() => expect(screen.getByLabelText('Equipamento')).toBeEnabled());
     await userEvent.selectOptions(screen.getByLabelText('Equipamento'), 'e1');
     await userEvent.type(screen.getByLabelText('Descrição do problema'), 'Não aquece');
     expect(screen.queryByLabelText('Justificativa')).not.toBeInTheDocument();
+    // sem título o envio fica bloqueado: ele é obrigatório
+    expect(enviar).toBeDisabled();
+    await userEvent.type(screen.getByLabelText('Título'), 'Autoclave da sala 2');
+    expect(enviar).toBeEnabled();
     await userEvent.click(enviar);
 
     expect(await screen.findByRole('heading', { name: 'Manutenções' })).toBeInTheDocument();
     const post = chamadas.find((c) => c.init?.method === 'POST' && c.url.endsWith('/manutencoes'));
     expect(JSON.parse(String(post?.init?.body))).toEqual({
       equipamentoId: 'e1',
+      titulo: 'Autoclave da sala 2',
       descricaoProblema: 'Não aquece',
     });
   });

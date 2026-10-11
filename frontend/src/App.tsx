@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthContext';
-import { ThemeProvider } from './theme/ThemeContext';
 import { BarraCarregamento } from './components/BarraCarregamento';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
@@ -102,13 +101,11 @@ function RotasProtegidas() {
 
 export function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <BarraCarregamento />
-          <RotasProtegidas />
-        </BrowserRouter>
-      </AuthProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <BrowserRouter>
+        <BarraCarregamento />
+        <RotasProtegidas />
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

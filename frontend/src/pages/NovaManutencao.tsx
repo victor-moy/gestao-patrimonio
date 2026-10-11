@@ -7,7 +7,7 @@ import type { Equipamento } from '../types';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
 import { ItemAusente } from '../components/ItemAusente';
 
-const inicial = { equipamentoId: '', descricaoProblema: '' };
+const inicial = { equipamentoId: '', titulo: '', descricaoProblema: '' };
 
 // Solicitação de manutenção em página própria (mesmo padrão das demais telas de cadastro).
 export function NovaManutencao() {
@@ -60,7 +60,7 @@ export function NovaManutencao() {
     setErro(null);
     setEnviando(true);
     try {
-      await api.post('/manutencoes', form);
+      await api.post('/manutencoes', { ...form, titulo: form.titulo.trim() });
       navigate('/manutencoes', { replace: true });
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao registrar a solicitação.');
@@ -84,9 +84,9 @@ export function NovaManutencao() {
             type="submit"
             form="form-nova-manutencao"
             className="btn btn-primary"
-            disabled={enviando || bloqueado || !form.equipamentoId || form.descricaoProblema.trim().length < 5}
+            disabled={enviando || bloqueado || !form.titulo.trim() || !form.equipamentoId || form.descricaoProblema.trim().length < 5}
           >
-            {enviando ? 'Enviando…' : 'Enviar solicitação'}
+            {enviando ? 'Enviando…' : 'Enviar'}
           </button>
         </div>
       </div>
@@ -102,6 +102,18 @@ export function NovaManutencao() {
         <section className="equipamento-secao">
           <h3>Dados da solicitação</h3>
           <div className="novo-equipamento-grade">
+            <div className="field novo-equipamento-largura-total">
+              <label htmlFor="nm-titulo">Título</label>
+              <input
+                id="nm-titulo"
+                placeholder="Ex.: Autoclave da sala 2 não aquece"
+                maxLength={80}
+                value={form.titulo}
+                onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+                disabled={bloqueado}
+                required
+              />
+            </div>
             <div className="field novo-equipamento-largura-total">
               <label htmlFor="nm-equipamento">Equipamento</label>
               <select

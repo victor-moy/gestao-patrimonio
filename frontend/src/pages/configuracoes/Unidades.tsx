@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { ListaCadastro } from '../../components/ListaCadastro';
 import type { Unidade } from '../../types';
 import { ROTULO_TIPO_UNIDADE } from '../../utils/format';
+import { StatusPill } from '../../components/StatusPill';
 
 const VISUALIZACOES = [
   { valor: '', rotulo: 'Todas' },
@@ -67,16 +68,13 @@ export function Unidades() {
             </>
           ),
         },
-        { titulo: 'Endereço', celula: (u) => u.endereco ?? '—' },
+        { titulo: 'Endereço', celula: (u) => u.endereco ?? '—', larga: true },
         { titulo: 'Responsável', celula: (u) => u.responsavel?.nome ?? '—' },
-        { titulo: 'E-mail', celula: (u) => u.emailBase ?? '—' },
+        { titulo: 'E-mail', celula: (u) => u.emailBase ?? '—', larga: true },
         {
           titulo: 'Status',
           celula: (u) => (
-            <span className={`inventario-status inventario-status--tom-${u.ativo ? 'green' : 'gray'}`}>
-              <span aria-hidden />
-              {u.ativo ? 'Ativa' : 'Inativa'}
-            </span>
+            <StatusPill valor={u.ativo ? 'ATIVA' : 'INATIVA'}>{u.ativo ? 'Ativa' : 'Inativa'}</StatusPill>
           ),
         },
       ]}

@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
+import { ContagemNaoLidas } from '../components/ContagemNaoLidas';
+import { useConversas } from '../hooks/useConversas';
 import type { Alerta } from '../types';
+import { caminhoConversa, codigoConversa, tituloConversa } from '../utils/conversas';
 import './Inicio.css';
 
 function rotuloDoAlerta(tipo: string) {
@@ -17,6 +21,9 @@ export function Inicio() {
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [carregandoAlertas, setCarregandoAlertas] = useState(false);
   const [falhaAlertas, setFalhaAlertas] = useState(false);
+  const { conversas, erro: erroConversas, recarregar: recarregarConversas } = useConversas();
+  const conversasNaoLidas = (conversas ?? []).filter((c) => c.naoLidas > 0);
+  const totalNaoLidas = conversasNaoLidas.reduce((soma, c) => soma + c.naoLidas, 0);
 
   const carregarAlertas = useCallback(async () => {
     if (!ehGestor) return;
@@ -107,14 +114,44 @@ export function Inicio() {
                 <p>Atualizações enviadas diretamente para você.</p>
               </div>
             </div>
-            <span className="inicio-contagem inicio-contagem--neutra" aria-label="0 mensagens não lidas">0</span>
+            <span className="inicio-contagem" aria-label={`${totalNaoLidas} mensagens não lidas`}>
+              {totalNaoLidas}
+            </span>
           </header>
 
           <div className="inicio-painel-conteudo">
-            <div className="inicio-estado-vazio inicio-estado-vazio--mensagens">
-              <strong>Nenhuma mensagem não lida</strong>
-              <span>Novas mensagens aparecerão aqui.</span>
-            </div>
+            {erroConversas && !conversas ? (
+              <div className="inicio-estado-vazio inicio-estado-vazio--mensagens" role="alert">
+                <strong>Não foi possível carregar as mensagens</strong>
+                <button type="button" className="btn btn-outline" onClick={recarregarConversas}>
+                  Tentar novamente
+                </button>
+              </div>
+            ) : !conversas ? (
+              <p className="inicio-estado-texto" role="status">Carregando mensagens…</p>
+            ) : conversasNaoLidas.length === 0 ? (
+              <div className="inicio-estado-vazio inicio-estado-vazio--mensagens">
+                <strong>Nenhuma mensagem não lida</strong>
+                <span>Novas mensagens aparecerão aqui.</span>
+              </div>
+            ) : (
+              <ul className="inicio-nao-lidas">
+                {conversasNaoLidas.slice(0, 5).map((c) => (
+                  <li key={`${c.contexto}-${c.id}`}>
+                    <Link to={caminhoConversa(c.contexto, c.id)}>
+                      <strong>
+                        <span className="req-numero">{codigoConversa(c)}</span>
+                        {tituloConversa(c)}
+                      </strong>
+                      <span className="inicio-nao-lidas-texto">
+                        {c.ultimoAutor}: {c.ultimoTexto}
+                      </span>
+                      <ContagemNaoLidas total={c.naoLidas} />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
       </div>

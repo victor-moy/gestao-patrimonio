@@ -52,7 +52,7 @@ Extraído da seção 2.2 do [RFC v1.0](https://github.com/victor-moy/gestao-patr
 
 ## Módulo de Conversa
 
-- **UC26 — Conversar dentro de uma solicitação ou manutenção**: os participantes trocam mensagens de texto no próprio registro (por exemplo, o Gestor pede um esclarecimento e a Unidade responde). A conversa abre em uma tela dedicada, pelo botão **Conversar** do próprio registro ou pelo menu **Conversas** (com a lista de todas as conversas do usuário) e a unidade é avisada por e-mail quando o Gestor escreve.
+- **UC26 — Conversar dentro de uma solicitação ou manutenção**: os participantes trocam mensagens de texto no próprio registro (por exemplo, o Gestor pede um esclarecimento e a Unidade responde). A conversa abre em uma tela dedicada, pelo botão **Conversar** do próprio registro ou pelo menu **Conversas** (com a lista de todas as conversas do usuário) e a unidade é avisada por e-mail quando o Gestor escreve. Mensagens ainda não lidas aparecem como contador no menu, no título da aba e no Início; para os Gestores, a lista mostra só as conversas em que estão envolvidos.
 
 ## Módulo de Relatórios
 

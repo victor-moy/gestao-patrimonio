@@ -7,6 +7,8 @@ import { capitalizarPalavras } from '../utils/format';
 import './Estoque.css';
 import { EsqueletoTabela } from '../components/Esqueletos';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
+import { MiniaturaItem } from '../components/MiniaturaItem';
+import { StatusPill } from '../components/StatusPill';
 
 interface ResultadoImportacaoEstoque {
   totalLinhas: number;
@@ -33,8 +35,6 @@ const ROTULO_STATUS: Record<StatusItem, string> = {
   BAIXO: 'Estoque baixo',
   ESGOTADO: 'Estoque zero',
 };
-
-const TOM_STATUS: Record<StatusItem, string> = { OK: 'green', BAIXO: 'yellow', ESGOTADO: 'red' };
 
 const VISUALIZACOES: Array<{ valor: '' | StatusItem; rotulo: string }> = [
   { valor: '', rotulo: 'Todos' },
@@ -265,7 +265,7 @@ export function Estoque() {
                     setFiltrosAbertos(false);
                   }}
                 >
-                  {visualizacaoAtual?.rotulo}
+                  <span className="inventario-visualizacao-rotulo">{visualizacaoAtual?.rotulo}</span>
                   <IconeChevron />
                 </button>
                 {visualizacoesAberto && (
@@ -351,7 +351,7 @@ export function Estoque() {
           )}
         </div>
 
-        <div className="gestao-tabela-scroll" role="region" aria-label="Itens em estoque" tabIndex={0} aria-busy={carregando}>
+        <div className="gestao-tabela-scroll lista-cartoes lista-cartoes--estoque" role="region" aria-label="Itens em estoque" tabIndex={0} aria-busy={carregando}>
           <table>
             <caption className="gestao-sr-only">Itens em estoque do galpão selecionado</caption>
             <thead>
@@ -380,23 +380,25 @@ export function Estoque() {
                   const nome = capitalizarPalavras(item.tipoEquipamento.nome);
                   return (
                     <tr key={item.id}>
-                      <td className="gestao-equipamento">
-                        <span className="estoque-equipamento">{nome}</span>
-                        <span className="estoque-codigo">#{item.tipoEquipamento.codigo}</span>
-                        <div className="inventario-mobile-meta">
-                          {item.tipoEquipamento.categoria?.nome ?? 'Sem categoria'} · {ROTULO_STATUS[status]}
+                      <td className="gestao-equipamento cartao-nome">
+                        <div className="inventario-equipamento-celula">
+                          <MiniaturaItem imagemUrl={item.tipoEquipamento.imagemUrl} />
+                          <div>
+                            <span className="estoque-equipamento">{nome}</span>
+                            <span className="estoque-codigo">#{item.tipoEquipamento.codigo}</span>
+                            <div className="inventario-mobile-meta">
+                              {item.tipoEquipamento.categoria?.nome ?? 'Sem categoria'} · {ROTULO_STATUS[status]}
+                            </div>
+                          </div>
                         </div>
                       </td>
-                      <td className="inventario-data">{item.tipoEquipamento.categoria?.nome ?? '—'}</td>
-                      <td className="inventario-data">{item.quantidade} un.</td>
-                      <td className="inventario-data">{item.reservado > 0 ? `${item.reservado} un.` : '—'}</td>
-                      <td>
-                        <span className={`inventario-status inventario-status--tom-${TOM_STATUS[status]}`}>
-                          <span aria-hidden />
-                          {ROTULO_STATUS[status]}
-                        </span>
+                      <td className="inventario-data cartao-categoria">{item.tipoEquipamento.categoria?.nome ?? '—'}</td>
+                      <td className="inventario-data cartao-disp" data-label="Disponível">{item.quantidade} un.</td>
+                      <td className="inventario-data cartao-res" data-label="Reservado">{item.reservado > 0 ? `${item.reservado} un.` : '—'}</td>
+                      <td className="cartao-status">
+                        <StatusPill valor={status}>{ROTULO_STATUS[status]}</StatusPill>
                       </td>
-                      <td className="estoque-acoes">
+                      <td className="estoque-acoes cartao-acoes">
                         <Link
                           className="btn btn-outline"
                           to={movimentarPara(item.tipoEquipamento.id)}

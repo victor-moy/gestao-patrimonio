@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, urlArquivo } from '../../api/client';
 import { PaginaCadastro } from '../../components/PaginaCadastro';
-import { IconeCaixa } from '../../components/icons';
+import { IconeUpload } from '../../components/icons';
 import { useCarga } from '../../hooks/useCarga';
 import { useMensagemTemporaria } from '../../hooks/useMensagemTemporaria';
 import type { Categoria, TipoEquipamento } from '../../types';
@@ -72,16 +72,6 @@ export function TipoFormulario() {
     setPreviewImagem(URL.createObjectURL(arquivo));
   }
 
-  async function removerImagemAtual() {
-    if (!tipo || !window.confirm('Remover a imagem deste tipo de item?')) return;
-    try {
-      await api.delete(`/categorias/tipos/${tipo.id}/imagem`);
-      setImagemAtual(null);
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Erro ao remover a imagem.');
-    }
-  }
-
   async function aoEnviar(e: FormEvent) {
     e.preventDefault();
     if (enviando) return;
@@ -148,6 +138,39 @@ export function TipoFormulario() {
       <section className="equipamento-secao">
         <h3>Dados do tipo</h3>
         <div className="novo-equipamento-grade">
+          <div className="field novo-equipamento-largura-total">
+            <label htmlFor="tipo-imagem-botao">Imagem do item</label>
+            <div className="imagem-upload">
+              <input
+                id="tipo-imagem"
+                ref={inputImagem}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                hidden
+                onChange={(e) => {
+                  const arquivo = e.target.files?.[0];
+                  if (arquivo) selecionarImagem(arquivo);
+                  e.target.value = '';
+                }}
+              />
+              <button
+                id="tipo-imagem-botao"
+                type="button"
+                className="imagem-upload-quadro"
+                aria-label={imagemAtual || previewImagem ? 'Trocar imagem do item' : 'Selecionar imagem do item'}
+                title={imagemAtual || previewImagem ? 'Trocar imagem' : 'Selecionar imagem'}
+                disabled={bloqueado}
+                onClick={() => inputImagem.current?.click()}
+              >
+                {previewImagem || imagemAtual ? (
+                  <img src={previewImagem ?? urlArquivo(imagemAtual!)} alt="" />
+                ) : (
+                  <IconeUpload />
+                )}
+              </button>
+              <p className="imagem-upload-dica">PNG, JPG ou WebP até 5 MB</p>
+            </div>
+          </div>
           <div className="field">
             <label htmlFor="tipo-codigo">Código</label>
             <input
@@ -208,45 +231,6 @@ export function TipoFormulario() {
               onChange={(e) => setForm({ ...form, descricao: e.target.value })}
               disabled={bloqueado}
             />
-          </div>
-          <div className="field novo-equipamento-largura-total">
-            <label htmlFor="tipo-imagem">Imagem do item</label>
-            <div className="imagem-upload">
-              <div className="imagem-upload-preview">
-                {previewImagem || imagemAtual ? (
-                  <img src={previewImagem ?? urlArquivo(imagemAtual!)} alt="" />
-                ) : (
-                  <IconeCaixa />
-                )}
-              </div>
-              <div className="imagem-upload-acoes">
-                <input
-                  id="tipo-imagem"
-                  ref={inputImagem}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  hidden
-                  onChange={(e) => {
-                    const arquivo = e.target.files?.[0];
-                    if (arquivo) selecionarImagem(arquivo);
-                    e.target.value = '';
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  disabled={bloqueado}
-                  onClick={() => inputImagem.current?.click()}
-                >
-                  {imagemAtual || previewImagem ? 'Trocar imagem' : 'Selecionar imagem'}
-                </button>
-                {tipo && imagemAtual && !previewImagem && (
-                  <button type="button" className="btn btn-outline" onClick={removerImagemAtual}>
-                    Remover imagem
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
         </div>
       </section>

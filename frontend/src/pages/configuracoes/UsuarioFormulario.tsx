@@ -173,7 +173,7 @@ export function UsuarioFormulario() {
               disabled={bloqueado}
               required={form.perfil === 'UNIDADE' || form.perfil === 'GALPAO'}
             >
-              <option value="">Secretaria (sem unidade)</option>
+              <option value="">--</option>
               {(dados?.unidades ?? []).map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.nome}
@@ -182,16 +182,17 @@ export function UsuarioFormulario() {
             </select>
           </div>
           {editando && (
-            <div className="field novo-equipamento-largura-total">
-              <label className="campo-checkbox">
-                <input
-                  type="checkbox"
-                  checked={form.ativo}
-                  onChange={(e) => setForm({ ...form, ativo: e.target.checked })}
-                  disabled={bloqueado}
-                />
-                Usuário ativo
-              </label>
+            <div className="field">
+              <label htmlFor="usuario-status">Status</label>
+              <select
+                id="usuario-status"
+                value={form.ativo ? 'ativo' : 'inativo'}
+                onChange={(e) => setForm({ ...form, ativo: e.target.value === 'ativo' })}
+                disabled={bloqueado}
+              >
+                <option value="ativo">Ativo</option>
+                <option value="inativo">Inativo</option>
+              </select>
             </div>
           )}
         </div>

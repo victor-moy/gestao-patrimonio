@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { LinkArquivoProtegido } from '../components/ArquivoProtegido';
 import { useAuth } from '../auth/AuthContext';
-import { corDoStatus } from '../components/Badge';
+import { StatusPill } from '../components/StatusPill';
 import { CampoAnexo } from '../components/CampoAnexo';
 import { caminhoConversa } from '../utils/conversas';
 import { HistoricoRecolhivel } from '../components/HistoricoRecolhivel';
@@ -15,7 +15,7 @@ import {
   ROTULO_STATUS_MANUTENCAO,
   codigoManutencao,
 } from '../utils/format';
-import { nomeEquipamento, rotuloEventoManutencao } from '../utils/manutencao';
+import { nomeEquipamento, rotuloEventoManutencao, tituloManutencao } from '../utils/manutencao';
 import './Solicitacoes.css';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
 import { EsqueletoDetalhe } from '../components/Esqueletos';
@@ -130,7 +130,7 @@ function ConteudoManutencao({
 
   const ehGM = usuario?.perfil === 'GESTOR_MANUTENCAO';
   const ehUnidadeDona = usuario?.perfil === 'UNIDADE' && usuario.unidadeId === m.unidade.id;
-  const nome = nomeEquipamento(m);
+  const titulo = tituloManutencao(m);
   // Só mostra a confirmação enquanto o lado de quem está vendo ainda não confirmou
   const podeConfirmarRetorno = (ehGM && !m.confirmadoGestor) || (ehUnidadeDona && !m.confirmadoUnidade);
 
@@ -211,13 +211,12 @@ function ConteudoManutencao({
   return (
     <section className="gestao-page equipamento-pagina" aria-labelledby="manutencao-titulo">
       <div className="equipamento-pagina-cabecalho">
-        <div className="equipamento-titulo-linha">
-          <h2 id="manutencao-titulo">{nome}</h2>
-          <span className="req-numero req-numero--titulo" aria-label={`Número ${codigoManutencao(m.numero)}`}>{codigoManutencao(m.numero)}</span>
-          <span className={`inventario-status inventario-status--tom-${corDoStatus(m.status)}`}>
-            <span aria-hidden />
-            {ROTULO_STATUS_MANUTENCAO[m.status]}
-          </span>
+        <div>
+          <div className="equipamento-titulo-linha">
+            <h2 id="manutencao-titulo">{titulo}</h2>
+            <span className="req-numero req-numero--titulo" aria-label={`Número ${codigoManutencao(m.numero)}`}>{codigoManutencao(m.numero)}</span>
+            <StatusPill valor={m.status}>{ROTULO_STATUS_MANUTENCAO[m.status]}</StatusPill>
+          </div>
         </div>
         <div className="inventario-lista-acoes">
           <Link className="btn btn-outline" to={caminhoConversa('manutencao', m.id)}>
@@ -232,8 +231,11 @@ function ConteudoManutencao({
           <h3>Informações da manutenção</h3>
           <dl className="equipamento-dados">
             <div>
-              <dt>Tombamento</dt>
-              <dd>{m.equipamento.tombamento}</dd>
+              <dt>Item</dt>
+              <dd>
+                {nomeEquipamento(m)}
+                <span className="dado-apoio">{m.equipamento.tombamento}</span>
+              </dd>
             </div>
             <div>
               <dt>Solicitado em</dt>

@@ -51,6 +51,7 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
         equipamentoId: '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6',
+        titulo: 'Autoclave da sala 2',
         descricaoProblema: 'Não atinge a temperatura adequada',
       });
     expect(res.status).toBe(201);
@@ -60,6 +61,34 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
         data: expect.not.objectContaining({ justificativa: expect.anything() }),
       }),
     );
+  });
+
+  it('o título é obrigatório: grava aparado e recusa ausente ou em branco', async () => {
+    prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
+    prismaMock.manutencao.create.mockResolvedValue(manutencaoBase as never);
+    const corpo = { equipamentoId: '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6', descricaoProblema: 'Não atinge a temperatura adequada' };
+    const ok = await request(app).post('/manutencoes').set(auth('UNIDADE', { unidadeId: 'unidade-1' })).send({ ...corpo, titulo: '  Autoclave da sala 2  ' });
+    expect(ok.status).toBe(201);
+    expect((prismaMock.manutencao.create.mock.calls[0][0] as { data: { titulo: string } }).data.titulo).toBe('Autoclave da sala 2');
+
+    prismaMock.manutencao.create.mockClear();
+    const ausente = await request(app).post('/manutencoes').set(auth('UNIDADE', { unidadeId: 'unidade-1' })).send(corpo);
+    const emBranco = await request(app).post('/manutencoes').set(auth('UNIDADE', { unidadeId: 'unidade-1' })).send({ ...corpo, titulo: '   ' });
+    expect(ausente.status).toBe(422);
+    expect(emBranco.status).toBe(422);
+    expect(prismaMock.manutencao.create).not.toHaveBeenCalled();
+  });
+
+  it('recusa título longo demais e a busca procura no título', async () => {
+    const longo = await request(app)
+      .post('/manutencoes')
+      .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
+      .send({ equipamentoId: '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6', descricaoProblema: 'Não liga mais', titulo: 'a'.repeat(81) });
+    expect(longo.status).toBe(422);
+    prismaMock.manutencao.findMany.mockResolvedValue([]);
+    await request(app).get('/manutencoes?busca=autoclave').set(auth('GESTOR_MANUTENCAO'));
+    const where = (prismaMock.manutencao.findMany.mock.calls[0][0] as { where: { OR: unknown[] } }).where;
+    expect(where.OR).toContainEqual({ titulo: { contains: 'autoclave', mode: 'insensitive' } });
   });
 
   it('exige a descrição do problema', async () => {
@@ -81,6 +110,7 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
       .send({
         equipamentoId: '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6',
+        titulo: 'Autoclave da sala 2',
         descricaoProblema: 'Problema qualquer',
       });
     expect(res.status).toBe(403);

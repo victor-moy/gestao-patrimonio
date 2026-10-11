@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import { Badge } from '../components/Badge';
+import { StatusPill } from '../components/StatusPill';
 import {
   IconeBusca,
   IconeCheck,
@@ -10,7 +10,7 @@ import {
   IconeFiltros,
 } from '../components/icons';
 import './Solicitacoes.css';
-import { nomeItem, statusExibido } from '../utils/solicitacao';
+import { statusExibido, tituloSolicitacao } from '../utils/solicitacao';
 import type { Solicitacao } from '../types';
 import {
   formatarData,
@@ -228,7 +228,7 @@ export function Solicitacoes() {
                     setFiltrosAbertos(false);
                   }}
                 >
-                  {visualizacaoAtual?.[1] ?? 'Todas'}
+                  <span className="inventario-visualizacao-rotulo">{visualizacaoAtual?.[1] ?? 'Todas'}</span>
                   <IconeChevron />
                 </button>
                 {visualizacoesAberto && (
@@ -319,7 +319,7 @@ export function Solicitacoes() {
           )}
         </div>
         <div
-          className="gestao-tabela-scroll"
+          className="gestao-tabela-scroll lista-cartoes"
           role="region"
           aria-label="Solicitações"
           tabIndex={0}
@@ -342,34 +342,34 @@ export function Solicitacoes() {
                 !falhaCarregamento &&
                 solicitacoesExibidas.slice(inicio, inicio + porPagina).map((s) => (
                   <tr key={s.id}>
-                    <td className="gestao-equipamento">
+                    <td className="gestao-equipamento cartao-nome">
                       <span className="req-numero">{codigoSolicitacao(s.numero)}</span>
                       <Link
                         className="inventario-equipamento-link"
                         to={`/solicitacoes/${s.id}`}
-                        aria-label={`Ver solicitação de ${nomeItem(s)}`}
+                        aria-label={`Ver solicitação de ${tituloSolicitacao(s)}`}
                       >
-                        {nomeItem(s)}
+                        {tituloSolicitacao(s)}
                       </Link>
                       <div className="inventario-mobile-meta">
                         <span className="inventario-mobile-unidade">{s.unidadeOrigem.nome} · </span>
                         {formatarData(s.criadoEm)}
                       </div>
                     </td>
-                    <td>
+                    <td className="cartao-tipo">
                       <span className="inventario-data">{ROTULO_TIPO_SOLICITACAO[s.tipo]}</span>
                       {s.origemRecurso === 'EMENDA_PARLAMENTAR' && (
                         <span className="badge badge-purple solicitacoes-selo">Emenda</span>
                       )}
                       {s.automatica && <span className="badge badge-gray solicitacoes-selo">Automática</span>}
                     </td>
-                    <td className="inventario-unidade">
+                    <td className="inventario-unidade cartao-unidade">
                       <strong>{s.unidadeOrigem.nome}</strong>
                     </td>
-                    <td>
-                      <Badge valor={statusExibido(s).valor}>{statusExibido(s).texto}</Badge>
+                    <td className="cartao-status">
+                      <StatusPill valor={statusExibido(s).valor}>{statusExibido(s).texto}</StatusPill>
                     </td>
-                    <td className="inventario-data">{formatarData(s.criadoEm)}</td>
+                    <td className="inventario-data cartao-data">{formatarData(s.criadoEm)}</td>
                   </tr>
                 ))}
             </tbody>

@@ -24,6 +24,11 @@ export function rotuloEventoManutencao(evento: EventoManutencao) {
   return texto.charAt(0).toUpperCase() + texto.slice(1);
 }
 
+/** Como a manutenção é chamada nas listas e no detalhe: o título dado a ela ou, sem título, o nome do equipamento. */
+export function tituloManutencao(m: { titulo?: string | null; equipamento: { descricao: string; tipoEquipamento?: { nome: string } } }) {
+  return m.titulo?.trim() || nomeEquipamento(m);
+}
+
 export function nomeEquipamento(m: { equipamento: { descricao: string; tipoEquipamento?: { nome: string } } }) {
   return m.equipamento.tipoEquipamento?.nome ?? m.equipamento.descricao;
 }

@@ -49,12 +49,4 @@
 @media (max-width: 600px) {
   .estoque-page .inventario-lista-acoes { flex-wrap: wrap; }
   .estoque-page .estoque-galpao { flex: 1 1 100%; }
-  .estoque-page.inventario-page .gestao-lista table { min-width: 0; }
-  .estoque-page .gestao-lista .gestao-equipamento { min-width: 0; max-width: none; white-space: normal; }
-  .estoque-page.inventario-page .gestao-lista td,
-.estoque-page.inventario-page .gestao-lista th { padding-left: 8px; padding-right: 8px; }
-  .estoque-page .estoque-acoes { white-space: normal; width: 1%; }
-  .estoque-page .estoque-acoes .btn { display: flex; margin: 3px 0 3px auto; }
-  .estoque-page.inventario-page .gestao-lista th:nth-child(5),
-.estoque-page.inventario-page .gestao-lista td:nth-child(5) { display: none; }
 }

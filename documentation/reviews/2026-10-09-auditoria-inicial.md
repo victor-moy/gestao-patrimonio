@@ -1,5 +1,7 @@
 # Auditoria inicial do projeto — 09/10/2026
 
+> Atualizada pela [auditoria de 12/10/2026](2026-10-12-auditoria.md), que traz o estado atual dos achados abaixo e os novos.
+
 ## Escopo
 
 Primeira revisão transversal do SGP, cobrindo arquitetura, código, segurança, testes, UX/acessibilidade, desempenho, documentação e operação.

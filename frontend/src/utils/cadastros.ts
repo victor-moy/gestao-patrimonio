@@ -9,13 +9,6 @@ export const ROTULO_SITUACAO_ATA: Record<SituacaoAta, string> = {
   INATIVA: 'Inativa',
 };
 
-export const TOM_SITUACAO_ATA: Record<SituacaoAta, string> = {
-  ATIVA: 'green',
-  VENCENDO: 'yellow',
-  VENCIDA: 'red',
-  INATIVA: 'gray',
-};
-
 const DIA_MS = 24 * 60 * 60 * 1000;
 
 // Mesmas regras do alerta do backend (RF33): vence em até 30 dias ou saldo < 10%.
@@ -41,12 +34,6 @@ export const ROTULO_STATUS_CONTRATO: Record<string, string> = {
   ATIVO: 'Ativo',
   RENOVACAO_PENDENTE: 'Pendente',
   EXPIRADO: 'Expirado',
-};
-
-export const TOM_STATUS_CONTRATO: Record<string, string> = {
-  ATIVO: 'green',
-  RENOVACAO_PENDENTE: 'yellow',
-  EXPIRADO: 'red',
 };
 
 export const TIPOS_CONTRATO = [

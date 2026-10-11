@@ -150,3 +150,21 @@
   .inicio-painel-cabecalho { padding: 15px 16px; }
   .inicio-estado-vazio { padding: 24px 12px; }
 }
+
+.inicio-nao-lidas { margin: 0; padding: 0; list-style: none; }
+.inicio-nao-lidas li + li { border-top: 1px solid var(--border); }
+.inicio-nao-lidas a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 10px 8px;
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+.inicio-nao-lidas a:hover { background: var(--surface-subtle); }
+.inicio-nao-lidas strong { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: 12.5px; font-weight: 600; }
+.inicio-nao-lidas strong .req-numero { margin-right: 0; }
+.inicio-nao-lidas-texto { grid-column: 1; overflow: hidden; color: var(--text-secondary); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.inicio-nao-lidas .contagem-nao-lidas { grid-column: 2; grid-row: 1 / span 2; }

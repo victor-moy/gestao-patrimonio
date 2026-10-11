@@ -30,6 +30,11 @@ manutencoesRouter.get('/:id/historico', async (req, res) => {
 
 const solicitarSchema = z.object({
   equipamentoId: z.string().uuid(),
+  titulo: z
+    .string({ required_error: 'Informe o título.' })
+    .trim()
+    .min(1, 'Informe o título.')
+    .max(80, 'O título pode ter no máximo 80 caracteres.'),
   descricaoProblema: z.string().min(5, 'descreva o problema'),
 });
 

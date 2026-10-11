@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { mockFetch } from './mock-fetch';
+import { recarregarNoInicio } from '../utils/navegacao';
+
+// A troca de usuário recarrega a página; no jsdom só conferimos que o recarregamento foi pedido
+vi.mock('../utils/navegacao', () => ({ recarregarNoInicio: vi.fn() }));
 
 function usuarioLogado(perfil: string) {
   localStorage.setItem('sgp_token', 'token-teste');
@@ -36,6 +40,7 @@ describe('Configurações — entrar como outro usuário', () => {
   afterEach(() => {
     localStorage.clear();
     window.history.replaceState(null, '', '/');
+    vi.mocked(recarregarNoInicio).mockClear();
   });
 
   it('gestor de patrimônio entra como outro usuário com um clique no ícone ao lado do nome', async () => {
@@ -61,6 +66,27 @@ describe('Configurações — entrar como outro usuário', () => {
     const botoes = screen.getAllByRole('button').filter((b) => ['Redefinir usuário', 'Sair'].includes(b.textContent?.trim() ?? ''));
     expect(botoes.map((b) => b.textContent?.trim())).toEqual(['Redefinir usuário', 'Sair']);
     expect(window.location.pathname).toBe('/');
+    // trocar de usuário recarrega a aplicação para não sobrar estado do usuário anterior
+    expect(recarregarNoInicio).toHaveBeenCalledTimes(1);
+
+    // voltar ao próprio usuário também recarrega
+    await userEvent.click(screen.getByRole('button', { name: /Redefinir usuário/ }));
+    await waitFor(() => expect(recarregarNoInicio).toHaveBeenCalledTimes(2));
+  });
+
+  it('se não conseguir entrar como o usuário, não recarrega a página', async () => {
+    mockFetch({
+      ...usuarioLogado('GESTOR_PATRIMONIO'),
+      '/auth/impersonar/u2': { status: 404, body: { mensagem: 'Usuário não encontrado ou inativo.' } },
+      '/usuarios': { body: [outroUsuario] },
+      '/dashboard/alertas': { body: [] },
+    });
+    vi.spyOn(window, 'alert').mockImplementation(() => undefined);
+    window.history.replaceState(null, '', '/configuracoes/usuarios');
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Entrar como Rodrigo Unidade' }));
+    await waitFor(() => expect(window.alert).toHaveBeenCalled());
+    expect(recarregarNoInicio).not.toHaveBeenCalled();
   });
 
   it('não oferece o ícone para usuários inativos nem para o próprio gestor', async () => {
@@ -192,6 +218,29 @@ describe('Configurações — cadastros em páginas', () => {
       expect(chamadas.some((c) => c.url.endsWith('/unidades/un1') && c.init?.method === 'DELETE')).toBe(true),
     );
     expect(await screen.findByRole('heading', { name: 'Unidades' })).toBeInTheDocument();
+  });
+
+  it('o status da unidade é um seletor Ativa/Inativa e vai no PATCH', async () => {
+    const chamadas = mockFetch({
+      ...usuarioLogado('GESTOR_PATRIMONIO'),
+      '/unidades/un1': { body: {} },
+      '/unidades': { body: [unidade] },
+      '/usuarios': { body: [outroUsuario] },
+      '/dashboard/alertas': { body: [] },
+    });
+    window.history.replaceState(null, '', '/configuracoes/unidades/un1');
+    render(<App />);
+
+    const status = await screen.findByRole('combobox', { name: 'Status' });
+    expect(status).toHaveValue('ativo');
+    await userEvent.selectOptions(status, 'inativo');
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => {
+      const patch = chamadas.find((c) => c.url.endsWith('/unidades/un1') && c.init?.method === 'PATCH');
+      expect(patch).toBeTruthy();
+      expect(JSON.parse(String(patch!.init!.body))).toMatchObject({ ativo: false });
+    });
   });
 
   it('perfis sem acesso são redirecionados ao início', async () => {
