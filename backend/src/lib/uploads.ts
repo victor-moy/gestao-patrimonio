@@ -74,7 +74,7 @@ export const uploadLaudoPdf = multer({
     destination: LAUDOS_DIR,
     filename: (_req, _file, cb) => cb(null, `${crypto.randomUUID()}.pdf`),
   }),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  limits: { fileSize: 8_000_000 },
   fileFilter: (_req, file, cb) => {
     if (file.mimetype !== 'application/pdf') {
       cb(new AppError('Formato de laudo não suportado. Envie um arquivo PDF.', 422));

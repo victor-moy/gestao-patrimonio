@@ -14,12 +14,13 @@ export function EsqueletoTabela({ colunas, linhas = 6 }: { colunas: number; linh
       {Array.from({ length: linhas }, (_, linha) => (
         <tr key={linha} className="esqueleto-linha">
           {Array.from({ length: colunas }, (_, coluna) => (
-            <td key={coluna} aria-hidden="true">
+            <td key={coluna}>
               <span
                 className="esqueleto"
+                aria-hidden="true"
                 style={{ width: `${coluna === 0 ? 72 : LARGURAS[(linha + coluna) % LARGURAS.length]}%` }}
               />
-              {coluna === 0 && <span className="esqueleto esqueleto--sub" />}
+              {coluna === 0 && <span className="esqueleto esqueleto--sub" aria-hidden="true" />}
             </td>
           ))}
         </tr>
