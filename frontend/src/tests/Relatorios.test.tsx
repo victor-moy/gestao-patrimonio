@@ -44,11 +44,17 @@ async function abrirRelatorios() {
   await waitFor(() => {
       expect(screen.getByRole('heading', { name: /^Bem-vindo,/ })).toBeInTheDocument();
   });
-  await userEvent.click(within(screen.getByRole('navigation')).getByRole('link', { name: /relatórios/i }));
+  await userEvent.click(within(screen.getByRole('navigation')).getByRole('link', { name: 'Relatórios' }));
   await waitFor(() => {
-    // Visão Geral é o relatório padrão ao abrir a tela
-    expect(screen.getByRole('heading', { name: /visão geral/i })).toBeInTheDocument();
+    // Visão geral é o relatório padrão ao abrir a seção
+    expect(screen.getByRole('heading', { name: 'Visão geral' })).toBeInTheDocument();
   });
+}
+
+function irParaSubmenu(nome: string) {
+  return userEvent.click(
+    within(screen.getByRole('group', { name: 'Submenus de Relatórios' })).getByRole('link', { name: nome }),
+  );
 }
 
 describe('Relatórios (Gestor de Patrimônio)', () => {
@@ -68,7 +74,6 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
           concluida: 0,
           negadaCancelada: 0,
           percentualAtraso: 100,
-          duracaoMediaDias: 0,
           itens: [
             {
               id: 's1',
@@ -86,15 +91,18 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
       },
     });
     await abrirRelatorios();
-    await userEvent.click(screen.getByRole('button', { name: 'Empréstimos' }));
-    expect(screen.getByRole('button', { name: 'Empréstimos' })).toHaveAttribute('aria-pressed', 'true');
+    await irParaSubmenu('Empréstimos');
+    expect(screen.getByRole('link', { name: 'Empréstimos' })).toHaveClass('active');
 
     await waitFor(() => {
-      expect(screen.getByText('Prazos e devoluções')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Empréstimos', level: 2 })).toBeInTheDocument();
     });
     expect(screen.getByText('Total de empréstimos')).toBeInTheDocument();
-    expect(screen.getByText('Autoclave Vertical 75L')).toBeInTheDocument();
-    expect(screen.getByText('Patrimônio 12345/2024')).toBeInTheDocument();
+    // A primeira coluna mostra só o tombamento
+    expect(screen.getByRole('columnheader', { name: 'Tombamento' })).toBeInTheDocument();
+    expect(screen.getByText('12345/2024')).toBeInTheDocument();
+    expect(screen.queryByText('Autoclave Vertical 75L')).not.toBeInTheDocument();
+    expect(screen.queryByText(/registro/)).not.toBeInTheDocument();
     expect(screen.getByText('Atrasado')).toBeInTheDocument();
   });
 
@@ -131,17 +139,17 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
       },
     });
     await abrirRelatorios();
-    await userEvent.click(screen.getByRole('button', { name: 'Cessões de Uso' }));
+    await irParaSubmenu('Cessões de uso');
 
     await waitFor(() => {
-      expect(screen.getByText('Prestação de contas')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Cessões de uso', level: 2 })).toBeInTheDocument();
     });
     expect(screen.getByText('Valor total cedido')).toBeInTheDocument();
     expect(screen.getByText('Hospital Regional')).toBeInTheDocument();
     expect(screen.getByText('Patrimônio 12345/2024')).toBeInTheDocument();
   });
 
-  it('Itens e Estoque: ordena a tabela por quantidade e abre o detalhe das solicitações represadas', async () => {
+  it('Itens e Estoque: ordena a tabela por quantidade', async () => {
     mockFetch({
       ...me,
       ...dashboardVazio,
@@ -149,19 +157,6 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
       '/relatorios/visao-geral': { body: [] },
       '/relatorios/ranking-unidades': { body: [] },
       '/relatorios/resumo-item': { body: null, status: 404 },
-      '/relatorios/itens-por-unidade': { body: { unidades: [], linhas: [] } },
-      '/relatorios/itens-estoque/detalhe': {
-        body: [
-          {
-            id: 'sol-1',
-            tipo: 'AMPLIACAO',
-            unidadeOrigem: 'UBS Norte',
-            quantidade: 2,
-            prioridade: 1,
-            criadoEm: '2026-01-01T00:00:00.000Z',
-          },
-        ],
-      },
       '/relatorios/itens-estoque': {
         body: [
           {
@@ -180,23 +175,40 @@ describe('Relatórios (Gestor de Patrimônio)', () => {
       },
     });
     await abrirRelatorios();
-    await userEvent.click(screen.getByRole('button', { name: 'Itens e Estoque' }));
+    await irParaSubmenu('Itens e estoque');
 
     await waitFor(() => {
-      expect(screen.getByText('Itens aguardando estoque')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Itens aguardando estoque' })).toBeInTheDocument();
       expect(screen.getByText('Autoclave Vertical')).toBeInTheDocument();
     });
 
     // ordena por quantidade — clique inicial é desc (maior quantidade primeiro)
-    await userEvent.click(screen.getByText('Quantidade', { selector: 'th' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Quantidade' }));
+    expect(screen.getByRole('columnheader', { name: 'Quantidade' })).toHaveAttribute('aria-sort', 'descending');
     const linhas = screen.getAllByRole('row').slice(1); // pula o cabeçalho
     expect(within(linhas[0]).getByText('Purificador De Água')).toBeInTheDocument();
 
-    // clicar na linha abre o drill-down das solicitações represadas
-    await userEvent.click(linhas[0]);
-    await waitFor(() => {
-      expect(screen.getByText('Solicitações aguardando estoque desse item')).toBeInTheDocument();
+    // o nome do equipamento é só texto: não abre detalhe
+    expect(within(linhas[0]).queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('abrir a seção leva à Visão geral e uma rota inválida volta a ela', async () => {
+    mockFetch({
+      ...me,
+      ...dashboardVazio,
+      '/unidades': { body: unidades },
+      '/categorias': { body: [] },
+      '/relatorios/visao-geral': { body: [] },
+      '/relatorios/ranking-unidades': { body: [] },
+      '/relatorios/resumo-item': { body: null, status: 404 },
     });
-    expect(screen.getByText('Prioridade 1')).toBeInTheDocument();
+    await abrirRelatorios();
+    expect(window.location.pathname).toBe('/relatorios/visao-geral');
+    // Os quatro submenus aparecem sob "Relatórios"
+    const submenus = within(screen.getByRole('group', { name: 'Submenus de Relatórios' })).getAllByRole('link');
+    expect(submenus.map((l) => l.textContent)).toEqual(['Visão geral', 'Empréstimos', 'Cessões de uso', 'Itens e estoque']);
+    expect(screen.getByRole('link', { name: 'Visão geral' })).toHaveClass('active');
+    // O item pai não fica marcado junto com o submenu
+    expect(within(screen.getByRole('navigation')).getByRole('link', { name: 'Relatórios' })).not.toHaveClass('active');
   });
 });

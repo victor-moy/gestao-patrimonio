@@ -8,14 +8,17 @@ describe('Login (RF01)', () => {
   it('renderiza a tela de login institucional', () => {
     mockFetch({});
     render(<App />);
-    expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Acessar sua conta' })).toBeInTheDocument();
+    expect(screen.getByText('Gestão Patrimonial')).toBeInTheDocument();
     expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
     expect(screen.getByLabelText('Senha')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /esqueci minha senha/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /esqueceu a senha/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Acesso restrito')).not.toBeInTheDocument();
+    expect(screen.getByText(/em caso de dificuldade/i)).toBeInTheDocument();
   });
 
-  it('faz login e entra no painel gerencial do gestor', async () => {
+  it('faz login e entra na tela inicial do gestor', async () => {
     mockFetch({
       '/auth/login': {
         body: {
@@ -31,17 +34,6 @@ describe('Login (RF01)', () => {
         },
       },
       '/dashboard/alertas': { body: [] },
-      '/dashboard': {
-        body: {
-          totalEquipamentos: 280,
-          emManutencao: 18,
-          tempoMedioManutencaoDias: 12,
-          custoMesAtual: 19400,
-          custoSemestral: [],
-          equipamentosPorUnidade: [],
-          rankingSolicitacoes: [],
-        },
-      },
     });
     render(<App />);
     await userEvent.type(screen.getByLabelText('E-mail'), 'gestor@joinville.sc.gov.br');
@@ -51,8 +43,8 @@ describe('Login (RF01)', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /^Bem-vindo,/ })).toBeInTheDocument();
     });
-    expect(screen.getByText('Total de Equipamentos')).toBeInTheDocument();
-    expect(screen.getByText('280')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Alertas importantes' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Mensagens não lidas' })).toBeInTheDocument();
     expect(localStorage.getItem('sgp_token')).toBe('token-teste');
   });
 
@@ -67,7 +59,7 @@ describe('Login (RF01)', () => {
     await userEvent.click(screen.getByRole('button', { name: /entrar/i }));
 
     await waitFor(() => {
-      expect(screen.getByText('E-mail ou senha inválidos.')).toBeInTheDocument();
+      expect(window.alert).toHaveBeenCalledWith('E-mail ou senha inválidos.');
     });
   });
 });

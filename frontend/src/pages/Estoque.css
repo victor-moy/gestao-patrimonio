@@ -1,54 +1,60 @@
-.estoque-page .page-header .estoque-select {
-  min-width: 210px;
-  height: 44px;
+/* Estoque reaproveita o índice do Inventário (barra, tabela, rodapé); só ajusta o que é próprio. */
+.estoque-page .estoque-galpao {
+  width: auto;
+  flex: 0 0 auto;
+  height: 32px;
+  min-width: 190px;
+  padding: 0 32px 0 12px;
+  border: 1px solid #c9cccf;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 400;
 }
-.estoque-page .estoque-stats { margin-top: 0; }
-.estoque-page .estoque-stat {
-  min-height: 96px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-.estoque-page .estoque-stat-icone { border-radius: 12px; }
-.estoque-page .estoque-toolbar {
-  padding: 20px;
-  gap: 12px;
-  border-bottom: 1px solid var(--border);
-}
-.estoque-page .estoque-status { margin: 0; }
-.estoque-page .estoque-toolbar .estoque-search { flex: 1 1 320px; }
-.estoque-page .estoque-toolbar .estoque-select { height: 44px; min-width: 175px; }
-.estoque-page .estoque-tabela-scroll { padding: 0 20px; }
-.estoque-page .estoque-tabela-scroll table { min-width: 980px; }
-.estoque-page .estoque-tabela-scroll th {
-  background: var(--bg);
-  text-transform: none;
-  letter-spacing: 0;
+.estoque-page .estoque-equipamento { color: #303030; font-size: 12px; font-weight: 500; }
+.estoque-page .estoque-equipamento,
+.estoque-page .estoque-codigo { display: block; }
+.estoque-page .estoque-codigo { margin-top: 2px; color: var(--text-secondary); font-size: 11px; }
+.estoque-page .estoque-acoes { text-align: right; white-space: nowrap; }
+.estoque-page .estoque-acoes .btn {
+  min-height: 28px;
+  margin-left: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
   font-weight: 600;
+  border-color: #c9cccf;
+  background: #fff;
+  color: #303030;
 }
-.estoque-page .estoque-tabela-scroll td { padding: 18px 16px; }
-.estoque-page .estoque-produto-thumb { border: 1px solid var(--border); }
-.estoque-page .estoque-paginacao { border-top: 1px solid var(--border); padding: 18px 20px; }
-.estoque-page .estoque-paginacao-pagina.active { background: var(--accent); }
-.estoque-page .estoque-acoes-linha { flex-wrap: wrap; }
-.estoque-page .estoque-acoes-linha .btn { width: 104px; min-height: 38px; justify-content: center; flex-shrink: 0; }
-.estoque-page .estoque-vazio { padding: 52px 20px; }
+.estoque-page .inventario-lista-acoes .btn[aria-disabled='true'] { pointer-events: none; opacity: .5; }
+.estoque-page .gestao-lista table { min-width: 760px; }
+
+/* A tabela do Inventário esconde as colunas 3, 5 e 6 no mobile; aqui o que sai é Categoria e Reservado. */
 @media (max-width: 900px) {
-  .estoque-page .page-header .page-actions { width: 100%; }
-  .estoque-page .page-header .estoque-select { flex: 1; }
+  .estoque-page.inventario-page .gestao-lista th:nth-child(3),
+.estoque-page.inventario-page .gestao-lista td:nth-child(3),
+.estoque-page.inventario-page .gestao-lista th:nth-child(5),
+.estoque-page.inventario-page .gestao-lista td:nth-child(5),
+.estoque-page.inventario-page .gestao-lista th:nth-child(6),
+.estoque-page.inventario-page .gestao-lista td:nth-child(6) { display: table-cell; }
+  .estoque-page.inventario-page .gestao-lista th:nth-child(2),
+.estoque-page.inventario-page .gestao-lista td:nth-child(2),
+.estoque-page.inventario-page .gestao-lista th:nth-child(4),
+.estoque-page.inventario-page .gestao-lista td:nth-child(4) { display: none; }
 }
-@media (max-width: 540px) {
-  .estoque-page .page-header .page-actions { display: grid; grid-template-columns: 1fr; }
-  .estoque-page .page-header .estoque-select { width: 100%; }
-  .estoque-page .estoque-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .estoque-page .estoque-stat { padding: 14px 12px; gap: 10px; }
-  .estoque-page .estoque-stat-icone { width: 36px; height: 36px; }
-  .estoque-page .estoque-stat-valor { font-size: 24px; }
-  .estoque-page .estoque-toolbar { padding: 14px; }
-  .estoque-page .estoque-toolbar .estoque-select { width: 100%; }
-  .estoque-page .estoque-status { gap: 4px; padding: 0 8px; }
-  .estoque-page .estoque-status button { padding: 16px 10px 13px; font-size: 13px; }
-  .estoque-page .estoque-tabela-scroll { padding: 0 14px; }
-  .estoque-page .estoque-paginacao { padding: 16px 14px; flex-direction: column; align-items: stretch; }
-  .estoque-page .estoque-paginacao-botoes { justify-content: center; }
+@media (max-width: 900px) {
+  .estoque-page.inventario-page .gestao-lista table { min-width: 560px; }
+}
+@media (max-width: 600px) {
+  .estoque-page .inventario-lista-acoes { flex-wrap: wrap; }
+  .estoque-page .estoque-galpao { flex: 1 1 100%; }
+  .estoque-page.inventario-page .gestao-lista table { min-width: 0; }
+  .estoque-page .gestao-lista .gestao-equipamento { min-width: 0; max-width: none; white-space: normal; }
+  .estoque-page.inventario-page .gestao-lista td,
+.estoque-page.inventario-page .gestao-lista th { padding-left: 8px; padding-right: 8px; }
+  .estoque-page .estoque-acoes { white-space: normal; width: 1%; }
+  .estoque-page .estoque-acoes .btn { display: flex; margin: 3px 0 3px auto; }
+  .estoque-page.inventario-page .gestao-lista th:nth-child(5),
+.estoque-page.inventario-page .gestao-lista td:nth-child(5) { display: none; }
 }

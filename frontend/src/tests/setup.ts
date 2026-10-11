@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
@@ -24,15 +24,9 @@ Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
 });
 
-// Recharts (ResponsiveContainer) exige ResizeObserver, ausente no jsdom
-class ResizeObserverStub {
-  observe() {}
-  unobserve() {}
-  disconnect() {}
-}
-globalThis.ResizeObserver = globalThis.ResizeObserver ?? (ResizeObserverStub as never);
-
 beforeEach(() => {
+  // jsdom não implementa window.alert; os testes verificam as chamadas com este espião
+  window.alert = vi.fn();
   localStorage.clear();
   window.history.replaceState(null, '', '/');
 });

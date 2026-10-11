@@ -1,8 +1,25 @@
 const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
+// Só para arquivos públicos (imagens do catálogo de tipos). Anexos e laudos
+// exigem autenticação: use baixarArquivoProtegido.
 export function urlArquivo(caminho: string) {
   return `${API_URL}${caminho}`;
 }
+
+// Contagem de requisições em andamento: alimenta a barra de carregamento global
+let pendentes = 0;
+const ouvintes = new Set<() => void>();
+function mudarPendentes(delta: number) {
+  pendentes += delta;
+  ouvintes.forEach((avisar) => avisar());
+}
+export function assinarRequisicoes(avisar: () => void) {
+  ouvintes.add(avisar);
+  return () => {
+    ouvintes.delete(avisar);
+  };
+}
+export const requisicoesPendentes = () => pendentes;
 
 const storage = () => globalThis.localStorage as Storage | undefined;
 
@@ -55,7 +72,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       : {}),
     ...(tokenAtual ? { Authorization: `Bearer ${tokenAtual}` } : {}),
   };
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  mudarPendentes(1);
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...options, headers });
+  } finally {
+    mudarPendentes(-1);
+  }
   if (res.status === 401 && onUnauthorized) {
     onUnauthorized();
   }
@@ -74,7 +97,23 @@ export const api = {
       method: 'POST',
       body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
     }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
 };
+
+// Baixa um arquivo protegido (anexo/laudo) com o token da sessão e devolve uma
+// URL temporária do navegador, já que <a href> e <img src> não enviam o Authorization.
+export async function baixarArquivoProtegido(caminho: string): Promise<string> {
+  const tokenAtual = getToken();
+  const res = await fetch(`${API_URL}${caminho}`, {
+    headers: tokenAtual ? { Authorization: `Bearer ${tokenAtual}` } : {},
+  });
+  if (res.status === 401 && onUnauthorized) onUnauthorized();
+  if (!res.ok) {
+    throw new ApiError(res.status === 403 ? 'Você não tem acesso a este arquivo.' : 'Não foi possível abrir o arquivo.', res.status);
+  }
+  return URL.createObjectURL(await res.blob());
+}

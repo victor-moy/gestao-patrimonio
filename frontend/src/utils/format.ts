@@ -13,19 +13,8 @@ export function formatarMoeda(valor: number | string | null | undefined) {
   return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-export function formatarMoedaCompacta(valor: number) {
-  if (valor >= 1000) return `R$ ${(valor / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`;
-  return formatarMoeda(valor);
-}
-
 // Converte um bucket "AAAA-MM" (usado nos relatórios agrupados por mês) em
 // rótulo curto pra eixo de gráfico, ex.: "2026-07" -> "Jul/26"
-export function formatarMes(mes: string) {
-  const [ano, m] = mes.split('-');
-  const nomes = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-  return `${nomes[Number(m) - 1]}/${ano.slice(2)}`;
-}
-
 // Converte texto em CAIXA ALTA para "Primeira Letra De Cada Palavra Maiúscula"
 export function capitalizarPalavras(texto: string) {
   return texto
@@ -49,14 +38,6 @@ export const ROTULO_STATUS_EQUIPAMENTO: Record<string, string> = {
   EMPRESTADO: 'Emprestado',
   BAIXADO: 'Baixado',
   CEDIDO: 'Cedido (externo)',
-};
-
-export const ROTULO_MOTIVO_BAIXA: Record<string, string> = {
-  LEILAO: 'Leilão',
-  EXTRAVIO: 'Extravio',
-  ROUBO: 'Roubo',
-  SUBSTITUICAO: 'Substituição',
-  OUTRO: 'Outro',
 };
 
 export const ROTULO_TIPO_UNIDADE: Record<string, string> = {
@@ -129,3 +110,7 @@ export const ROTULO_MOVIMENTACAO: Record<string, string> = {
   RECEBIMENTO_GALPAO: 'Recebimento no galpão',
   ATUALIZACAO_CADASTRO: 'Atualização de cadastro',
 };
+
+// Código legível da requisição (SOL-0012 / MAN-0007), usado para referenciá-la em conversas e relatos.
+export const codigoSolicitacao = (numero: number) => `SOL-${String(numero).padStart(4, '0')}`;
+export const codigoManutencao = (numero: number) => `MAN-${String(numero).padStart(4, '0')}`;

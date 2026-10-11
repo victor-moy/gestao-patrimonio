@@ -102,11 +102,21 @@ export type StatusManutencao =
   | 'CONCLUIDA'
   | 'BAIXADO';
 
+export interface EventoManutencao {
+  id: string;
+  acao: string;
+  criadoEm: string;
+  usuario: string | null;
+  perfil?: string;
+}
+
 export interface Manutencao {
   id: string;
+  numero: number;
   status: StatusManutencao;
   descricaoProblema: string;
-  justificativa: string;
+  // Só os chamados antigos têm justificativa; a abertura atual não pede mais
+  justificativa?: string | null;
   motivoNegacao: string | null;
   orcamentoValor: string | null;
   orcamentoDescricao: string | null;
@@ -145,8 +155,17 @@ export type StatusSolicitacao =
   | 'AGUARDANDO_DISPONIBILIDADE'
   | 'AGUARDANDO_VALIDACAO';
 
+export interface EventoSolicitacao {
+  id: string;
+  acao: string;
+  criadoEm: string;
+  usuario: string | null;
+  recebimentoOk?: boolean;
+}
+
 export interface Solicitacao {
   id: string;
+  numero: number;
   tipo: TipoSolicitacao;
   status: StatusSolicitacao;
   justificativa: string;
@@ -211,43 +230,12 @@ export interface EstoqueAguardandoItem {
   aguardandoDesde: string | null;
 }
 
-export interface SolicitacaoAguardandoItem {
-  id: string;
-  tipo: TipoSolicitacao;
-  unidadeOrigem: string;
-  quantidade: number | null;
-  prioridade: number | null;
-  criadoEm: string;
-}
-
-export interface ItensPorUnidadeResposta {
-  // Nomes das unidades com séries no gráfico, na ordem em que aparecem em `linhas`
-  unidades: string[];
-  // Uma linha por mês (chave "mes": "AAAA-MM") + uma chave por unidade com o
-  // total acumulado de equipamentos até o fim daquele mês
-  linhas: Array<Record<string, string | number>>;
-}
-
 export interface ResumoItem {
   itemNome: string;
   entregue: number;
   pendente: number;
   demandaQuantidade: number;
   demandaValor: number;
-}
-
-export interface DetalheSolicitacaoUnidade {
-  id: string;
-  tipo: TipoSolicitacao;
-  item: string | null;
-  quantidade: number | null;
-  status: StatusSolicitacao;
-  criadoEm: string;
-}
-
-export interface MensagemAssistente {
-  role: 'user' | 'assistant';
-  content: string;
 }
 
 export interface MovimentacaoEstoque {
@@ -259,16 +247,6 @@ export interface MovimentacaoEstoque {
   estoque: { tipoEquipamento: { nome: string; codigo: string } };
   unidadeDestino: { id: string; nome: string } | null;
   usuario: { id: string; nome: string } | null;
-}
-
-export interface DashboardData {
-  totalEquipamentos: number;
-  emManutencao: number;
-  tempoMedioManutencaoDias: number;
-  custoMesAtual: number;
-  custoSemestral: Array<{ mes: string; custo: number }>;
-  equipamentosPorUnidade: Array<{ unidadeId: string; unidade: string; quantidade: number }>;
-  rankingSolicitacoes: Array<{ unidadeId: string; unidade: string; quantidade: number }>;
 }
 
 export interface Alerta {
@@ -311,7 +289,6 @@ export interface RelatorioEmprestimos {
   concluida: number;
   negadaCancelada: number;
   percentualAtraso: number;
-  duracaoMediaDias: number;
   itens: EmprestimoRelatorio[];
 }
 
@@ -352,4 +329,23 @@ export interface Contrato {
   vigenciaInicio: string;
   vigenciaFim: string;
   ativo: boolean;
+}
+
+export interface MensagemChat {
+  id: string;
+  texto: string;
+  criadoEm: string;
+  autor: { id: string; nome: string; perfil: Perfil };
+}
+
+export interface ConversaResumo {
+  contexto: 'solicitacao' | 'manutencao';
+  id: string;
+  numero: number;
+  tipoSolicitacao: string | null;
+  item: string | null;
+  unidade: string | null;
+  ultimaEm: string;
+  ultimoTexto: string;
+  ultimoAutor: string;
 }
