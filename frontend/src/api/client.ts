@@ -64,7 +64,12 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// `silencioso`: requisição em segundo plano (atualizações automáticas); não acende a barra de carregamento global.
+interface OpcoesRequisicao {
+  silencioso?: boolean;
+}
+
+async function request<T>(path: string, options: RequestInit = {}, { silencioso }: OpcoesRequisicao = {}): Promise<T> {
   const tokenAtual = getToken();
   const headers: Record<string, string> = {
     ...(options.body && !(options.body instanceof FormData)
@@ -72,12 +77,12 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       : {}),
     ...(tokenAtual ? { Authorization: `Bearer ${tokenAtual}` } : {}),
   };
-  mudarPendentes(1);
+  if (!silencioso) mudarPendentes(1);
   let res: Response;
   try {
     res = await fetch(`${API_URL}${path}`, { ...options, headers });
   } finally {
-    mudarPendentes(-1);
+    if (!silencioso) mudarPendentes(-1);
   }
   if (res.status === 401 && onUnauthorized) {
     onUnauthorized();
@@ -91,12 +96,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
-  post: <T>(path: string, body?: unknown) =>
-    request<T>(path, {
-      method: 'POST',
-      body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
-    }),
+  get: <T>(path: string, opcoes?: OpcoesRequisicao) => request<T>(path, {}, opcoes),
+  post: <T>(path: string, body?: unknown, opcoes?: OpcoesRequisicao) =>
+    request<T>(
+      path,
+      {
+        method: 'POST',
+        body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
+      },
+      opcoes,
+    ),
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
   patch: <T>(path: string, body: unknown) =>

@@ -1,11 +1,13 @@
 import { FormEvent, useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
+import { LogoSistema } from '../components/LogoSistema';
 
 export function Login() {
   return (
     <div className="login-page">
       <header className="login-topbar">
+        <LogoSistema />
         <strong>Gestão Patrimonial</strong>
       </header>
       <main className="login-main">

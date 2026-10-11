@@ -191,15 +191,14 @@ export const IconeBusca = () => (
   </Icone>
 );
 
-export const IconeCaixa = () => (
-  <Icone width="16" height="16">
-    <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-    <path d="m3.3 7 8.7 5 8.7-5" />
-    <path d="M12 22V12" />
+export const IconeUpload = () => (
+  <Icone>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <path d="m17 8-5-5-5 5" />
+    <path d="M12 3v12" />
   </Icone>
 );
 
-// Catálogo de tipos de Solicitação
 export const IconeCheck = () => (
   <Icone width="20" height="20">
     <path d="M20 6 9 17l-5-5" />

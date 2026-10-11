@@ -113,6 +113,8 @@ export interface EventoManutencao {
 export interface Manutencao {
   id: string;
   numero: number;
+  // Nome dado a quem abre o pedido (opcional; sem ele vale o nome do equipamento)
+  titulo?: string | null;
   status: StatusManutencao;
   descricaoProblema: string;
   // Só os chamados antigos têm justificativa; a abertura atual não pede mais
@@ -166,6 +168,8 @@ export interface EventoSolicitacao {
 export interface Solicitacao {
   id: string;
   numero: number;
+  // Nome dado a quem abre o pedido (opcional; sem ele vale o nome do item)
+  titulo?: string | null;
   tipo: TipoSolicitacao;
   status: StatusSolicitacao;
   justificativa: string;
@@ -273,6 +277,8 @@ export interface RankingUnidadeTipo {
 
 export interface EmprestimoRelatorio {
   id: string;
+  numero: number;
+  titulo: string | null;
   equipamento: string | null;
   tombamento: string | null;
   unidadeOrigem: string;
@@ -294,6 +300,8 @@ export interface RelatorioEmprestimos {
 
 export interface CessaoRelatorio {
   id: string;
+  numero: number;
+  titulo: string | null;
   entidadeExternaNome: string | null;
   tipoEquipamento: string | null;
   numerosPatrimonio: string[];
@@ -342,10 +350,13 @@ export interface ConversaResumo {
   contexto: 'solicitacao' | 'manutencao';
   id: string;
   numero: number;
+  titulo?: string | null;
   tipoSolicitacao: string | null;
   item: string | null;
   unidade: string | null;
   ultimaEm: string;
   ultimoTexto: string;
   ultimoAutor: string;
+  // Mensagens de outras pessoas ainda não lidas por quem está logado
+  naoLidas: number;
 }

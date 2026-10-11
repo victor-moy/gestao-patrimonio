@@ -78,6 +78,7 @@ export function NovaSolicitacao() {
     // unidade).
     itensCessao: [{ tipoEquipamentoId: '', numeroPatrimonio: '' }],
     dataRetornoPrevista: '',
+    titulo: '',
     justificativa: '',
     entidadeExternaNome: '',
   };
@@ -163,6 +164,7 @@ export function NovaSolicitacao() {
     try {
       const { ids } = await api.post<{ ids: string[] }>('/solicitacoes', {
         tipo,
+        titulo: form.titulo.trim(),
         // Substituição carrega justificativa por item, não aqui (feedback do
         // cliente 25/08) — os demais tipos continuam com uma só, global.
         ...(tipo !== 'SUBSTITUICAO' ? { justificativa: form.justificativa } : {}),
@@ -259,9 +261,9 @@ export function NovaSolicitacao() {
             type="submit"
             form="form-nova-solicitacao"
             className="btn btn-primary"
-            disabled={!tipo || semAlteracoes(inicial, form)}
+            disabled={!tipo || !form.titulo.trim() || semAlteracoes(inicial, form)}
           >
-            Enviar solicitação
+            Enviar
           </button>
         </div>
       </div>
@@ -286,6 +288,17 @@ export function NovaSolicitacao() {
               ))}
             </select>
             {infoTipo && <p className="nova-solicitacao-descricao">{infoTipo.descricao}</p>}
+          </div>
+          <div className="field nova-solicitacao-campo-titulo">
+            <label htmlFor="nova-solicitacao-titulo-campo">Título</label>
+            <input
+              id="nova-solicitacao-titulo-campo"
+              placeholder="Ex.: Consultório novo da UBS Norte"
+              maxLength={80}
+              value={form.titulo}
+              onChange={(e) => setForm({ ...form, titulo: e.target.value })}
+              required
+            />
           </div>
         </section>
 

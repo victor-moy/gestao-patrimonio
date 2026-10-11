@@ -6,10 +6,10 @@ import './Solicitacoes.css';
 import { api } from '../api/client';
 import { ImagemProtegida, LinkArquivoProtegido } from '../components/ArquivoProtegido';
 import { useAuth } from '../auth/AuthContext';
-import { corDoStatus } from '../components/Badge';
+import { StatusPill } from '../components/StatusPill';
 import type { EventoSolicitacao, Solicitacao } from '../types';
 import { codigoSolicitacao, formatarData, formatarDataHora, formatarMoeda, ROTULO_TIPO_SOLICITACAO } from '../utils/format';
-import { nomeItem, rotuloEvento, statusExibido, TIPOS_COM_ATA } from '../utils/solicitacao';
+import { nomeItem, rotuloEvento, statusExibido, tituloSolicitacao, TIPOS_COM_ATA } from '../utils/solicitacao';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
 import { EsqueletoDetalhe } from '../components/Esqueletos';
 
@@ -202,12 +202,9 @@ function ConteudoSolicitacao({
       <div className="equipamento-pagina-cabecalho">
         <div>
           <div className="equipamento-titulo-linha">
-            <h2 id="solicitacao-titulo">{nomeItem(s)}</h2>
+            <h2 id="solicitacao-titulo">{tituloSolicitacao(s)}</h2>
             <span className="req-numero req-numero--titulo" aria-label={`Número ${codigoSolicitacao(s.numero)}`}>{codigoSolicitacao(s.numero)}</span>
-            <span className={`inventario-status inventario-status--tom-${corDoStatus(statusAtual.valor)}`}>
-              <span aria-hidden />
-              {statusAtual.texto}
-            </span>
+            <StatusPill valor={statusAtual.valor}>{statusAtual.texto}</StatusPill>
           </div>
         </div>
         <div className="inventario-lista-acoes">
@@ -226,12 +223,15 @@ function ConteudoSolicitacao({
                 <dt>Tipo</dt>
                 <dd>{tipoTexto}</dd>
               </div>
-              {s.equipamento && (
-                <div>
-                  <dt>Tombamento</dt>
-                  <dd>{s.equipamento.tombamento}</dd>
-                </div>
-              )}
+              <div>
+                <dt>Item</dt>
+                <dd>
+                  {nomeItem(s)}
+                  {(s.equipamento?.tombamento ?? s.tipoEquipamento?.codigo) && (
+                    <span className="dado-apoio">{s.equipamento?.tombamento ?? s.tipoEquipamento?.codigo}</span>
+                  )}
+                </dd>
+              </div>
               {s.prioridade && (
                 <div>
                   <dt>Prioridade</dt>

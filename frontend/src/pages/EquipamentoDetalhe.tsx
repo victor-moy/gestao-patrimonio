@@ -12,6 +12,7 @@ import {
   ROTULO_STATUS_EQUIPAMENTO,
 } from '../utils/format';
 import { EsqueletoDetalhe } from '../components/Esqueletos';
+import { StatusPill } from '../components/StatusPill';
 
 export function EquipamentoDetalhe() {
   const { id } = useParams();
@@ -45,10 +46,7 @@ export function EquipamentoDetalhe() {
         <div>
           <div className="equipamento-titulo-linha">
             <h2 id="equipamento-titulo">{equipamento.tipoEquipamento.nome}</h2>
-            <span className={`inventario-status inventario-status--${equipamento.status}`}>
-              <span aria-hidden />
-              {ROTULO_STATUS_EQUIPAMENTO[equipamento.status]}
-            </span>
+            <StatusPill valor={equipamento.status}>{ROTULO_STATUS_EQUIPAMENTO[equipamento.status]}</StatusPill>
           </div>
           <div className="equipamento-tombamento-linha">
             <span className="equipamento-tombamento">Tombamento {equipamento.tombamento}</span>

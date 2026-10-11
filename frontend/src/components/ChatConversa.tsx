@@ -5,6 +5,7 @@ import { IconeSetaCima } from './icons';
 import type { MensagemChat } from '../types';
 import { formatarDataHora } from '../utils/format';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
+import { avisarConversasAtualizadas } from '../hooks/useConversas';
 
 const INTERVALO_ATUALIZACAO_MS = 10_000;
 const LIMITE_TEXTO = 2000;
@@ -30,6 +31,7 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
   const noFim = useRef(true);
   const campo = useRef<HTMLTextAreaElement>(null);
   const ultima = useRef<string | null>(null);
+  const marcada = useRef<string | null>(null);
 
   const acrescentar = useCallback((novas: MensagemChat[]) => {
     if (novas.length === 0) return;
@@ -71,6 +73,29 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
     return () => clearInterval(timer);
   }, [carregar]);
 
+  // Marca como lida até a última mensagem exibida, mas só com a aba visível (quem está em outra aba
+  // ainda não viu). Falha em segundo plano é tentada de novo na próxima atualização.
+  const marcarLida = useCallback(() => {
+    const ate = ultima.current;
+    if (!ate || marcada.current === ate || document.visibilityState !== 'visible' || !noFim.current) return;
+    marcada.current = ate;
+    api
+      .post(`${caminho}/lida`, { ate }, { silencioso: true })
+      .then(avisarConversasAtualizadas)
+      .catch(() => {
+        marcada.current = null;
+      });
+  }, [caminho]);
+
+  useEffect(() => {
+    if (mensagens) marcarLida();
+  }, [mensagens, marcarLida]);
+
+  useEffect(() => {
+    document.addEventListener('visibilitychange', marcarLida);
+    return () => document.removeEventListener('visibilitychange', marcarLida);
+  }, [marcarLida]);
+
   // Mantém a conversa rolada até o fim, a menos que a pessoa esteja lendo mensagens antigas
   useEffect(() => {
     const el = lista.current;
@@ -88,6 +113,8 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
   function aoRolar() {
     const el = lista.current;
     if (el) noFim.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+    // Chegou ao fim: o que estava abaixo agora foi visto
+    if (noFim.current) marcarLida();
   }
 
   async function enviar(e?: FormEvent) {
@@ -101,6 +128,7 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
       noFim.current = true;
       acrescentar([criada]);
       setTexto('');
+      avisarConversasAtualizadas();
     } catch (err) {
       setErroEnvio(err instanceof Error ? err.message : 'Não foi possível enviar a mensagem.');
     } finally {

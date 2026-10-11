@@ -25,16 +25,6 @@
 .cadastro-page .gestao-lista td:not(:first-child) { color: #303030; font-size: 12px; font-weight: 500; }
 .cadastro-page .gestao-lista td .cadastro-sub { color: var(--text-secondary); font-weight: 400; }
 
-/* Caixa de seleção dentro dos formulários */
-.novo-equipamento .field label.campo-checkbox {
-  display: inline-flex; align-items: center; gap: 8px; margin: 0;
-  color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer;
-}
-.novo-equipamento .field input[type='checkbox'] {
-  width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; flex: none;
-  accent-color: #303030; box-shadow: none; cursor: pointer;
-}
-
 /* Navegação da página de Configurações */
 
 /* Usuários: ícone ao lado do nome para entrar como aquele usuário */

@@ -129,7 +129,7 @@ export function RelatorioVisaoGeral() {
           {[
             { rotulo: 'Em andamento', valor: totalEmAndamento, classe: 'andamento' },
             { rotulo: 'Concluídas', valor: totalConcluida, classe: 'concluida' },
-            { rotulo: 'Negadas / canceladas', valor: totalNegada, classe: 'negada' },
+            { rotulo: 'Canceladas', valor: totalNegada, classe: 'negada' },
           ].map((k) => (
             <div className="card stat-card" key={k.classe}>
               <div className="stat-label">
@@ -191,7 +191,7 @@ export function RelatorioVisaoGeral() {
                     <span className="stat-dot stat-dot--concluida" /> Concluídas
                   </span>
                   <span>
-                    <span className="stat-dot stat-dot--negada" /> Negadas / canceladas
+                    <span className="stat-dot stat-dot--negada" /> Canceladas
                   </span>
                 </div>
                 <div className="resumo-tipo-lista">
@@ -221,7 +221,7 @@ export function RelatorioVisaoGeral() {
                             <div
                               className="segmento segmento--negada"
                               style={{ flexGrow: d.negadaCancelada }}
-                              title={`Negadas / canceladas: ${d.negadaCancelada}`}
+                              title={`Canceladas: ${d.negadaCancelada}`}
                             />
                           )}
                         </div>

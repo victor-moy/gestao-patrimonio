@@ -2,11 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import { corDoStatus } from '../components/Badge';
+import { StatusPill } from '../components/StatusPill';
 import { IconeBusca, IconeCheck, IconeChevron } from '../components/icons';
 import type { Manutencao } from '../types';
 import { codigoManutencao, formatarData, ROTULO_STATUS_MANUTENCAO } from '../utils/format';
-import { nomeEquipamento } from '../utils/manutencao';
+import { tituloManutencao } from '../utils/manutencao';
 import { EsqueletoTabela } from '../components/Esqueletos';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
 
@@ -113,7 +113,7 @@ export function Manutencoes() {
                   aria-expanded={visualizacoesAberto}
                   onClick={() => setVisualizacoesAberto((aberto) => !aberto)}
                 >
-                  {visualizacaoAtual?.[1] ?? 'Todas'}
+                  <span className="inventario-visualizacao-rotulo">{visualizacaoAtual?.[1] ?? 'Todas'}</span>
                   <IconeChevron />
                 </button>
                 {visualizacoesAberto && (
@@ -151,7 +151,7 @@ export function Manutencoes() {
           </div>
         </div>
 
-        <div className="gestao-tabela-scroll" role="region" aria-label="Manutenções" tabIndex={0} aria-busy={carregando}>
+        <div className="gestao-tabela-scroll lista-cartoes lista-cartoes--manutencoes" role="region" aria-label="Manutenções" tabIndex={0} aria-busy={carregando}>
           <table>
             <caption className="gestao-sr-only">Manutenções da seleção atual</caption>
             <thead>
@@ -168,29 +168,26 @@ export function Manutencoes() {
                 !falhaCarregamento &&
                 manutencoes.slice(inicio, inicio + POR_PAGINA).map((m) => (
                   <tr key={m.id}>
-                    <td className="gestao-equipamento">
+                    <td className="gestao-equipamento cartao-nome">
                       <span className="req-numero">{codigoManutencao(m.numero)}</span>
                       <Link
                         className="inventario-equipamento-link"
                         to={`/manutencoes/${m.id}`}
-                        aria-label={`Ver manutenção de ${nomeEquipamento(m)}`}
+                        aria-label={`Ver manutenção de ${tituloManutencao(m)}`}
                       >
-                        {nomeEquipamento(m)}
+                        {tituloManutencao(m)}
                       </Link>
                       <div className="inventario-mobile-meta">
                         {m.unidade.nome} · {formatarData(m.criadoEm)}
                       </div>
                     </td>
-                    <td className="inventario-unidade">
+                    <td className="inventario-unidade cartao-unidade">
                       <strong>{m.unidade.nome}</strong>
                     </td>
-                    <td>
-                      <span className={`inventario-status inventario-status--tom-${corDoStatus(m.status)}`}>
-                        <span aria-hidden />
-                        {ROTULO_STATUS_MANUTENCAO[m.status]}
-                      </span>
+                    <td className="cartao-status">
+                      <StatusPill valor={m.status}>{ROTULO_STATUS_MANUTENCAO[m.status]}</StatusPill>
                     </td>
-                    <td className="inventario-data">{formatarData(m.criadoEm)}</td>
+                    <td className="inventario-data cartao-data">{formatarData(m.criadoEm)}</td>
                   </tr>
                 ))}
             </tbody>

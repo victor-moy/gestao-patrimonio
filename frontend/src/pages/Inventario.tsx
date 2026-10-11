@@ -16,6 +16,8 @@ import {
 } from '../utils/format';
 import { EsqueletoTabela } from '../components/Esqueletos';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
+import { MiniaturaItem } from '../components/MiniaturaItem';
+import { StatusPill } from '../components/StatusPill';
 
 export function Inventario() {
   const { usuario } = useAuth();
@@ -214,7 +216,7 @@ export function Inventario() {
                     setFiltrosAbertos(false);
                   }}
                 >
-                  {visualizacaoAtual?.rotulo ?? 'Personalizado'}
+                  <span className="inventario-visualizacao-rotulo">{visualizacaoAtual?.rotulo ?? 'Personalizado'}</span>
                   <IconeChevron />
                 </button>
                 {visualizacoesAberto && (
@@ -313,7 +315,7 @@ export function Inventario() {
           )}
         </div>
         <div
-          className="gestao-tabela-scroll"
+          className="gestao-tabela-scroll lista-cartoes lista-cartoes--inventario"
           role="region"
           aria-label="Equipamentos"
           tabIndex={0}
@@ -323,7 +325,6 @@ export function Inventario() {
             <caption className="gestao-sr-only">Bens patrimoniais da seleção atual</caption>
             <thead>
               <tr>
-                <th scope="col">Tombamento</th>
                 <th scope="col">Equipamento</th>
                 <th scope="col">Unidade</th>
                 <th scope="col">Status</th>
@@ -332,14 +333,14 @@ export function Inventario() {
               </tr>
             </thead>
             <tbody>
-              {carregando && <EsqueletoTabela colunas={6} />}
+              {carregando && <EsqueletoTabela colunas={5} />}
               {!carregando &&
                 !falhaCarregamento &&
                 equipamentosVisiveis.map((eq) => (
                   <tr key={eq.id}>
-                    <td><span className="inventario-tombamento">{eq.tombamento}</span></td>
-                    <td className="gestao-equipamento">
+                    <td className="gestao-equipamento cartao-nome">
                       <div className="inventario-equipamento-celula">
+                        <MiniaturaItem imagemUrl={eq.tipoEquipamento.imagemUrl} />
                         <div>
                           <Link
                             className="inventario-equipamento-link"
@@ -348,6 +349,7 @@ export function Inventario() {
                           >
                             {eq.tipoEquipamento.nome}
                           </Link>
+                          <span className="inventario-tombamento">{eq.tombamento}</span>
                           <div className="inventario-mobile-meta">
                             <span className="inventario-mobile-unidade">{eq.unidade.nome} · </span>
                             {ROTULO_ESTADO[eq.estadoConservacao]} · {formatarData(eq.dataAquisicao)}
@@ -355,7 +357,7 @@ export function Inventario() {
                         </div>
                       </div>
                     </td>
-                    <td className="inventario-unidade">
+                    <td className="inventario-unidade cartao-unidade">
                       <strong>{eq.unidade.nome}</strong>
                       {eq.unidadeTemporaria && (
                         <div className="celula-equipamento-sub">
@@ -363,18 +365,13 @@ export function Inventario() {
                         </div>
                       )}
                     </td>
-                    <td>
-                      <span className={`inventario-status inventario-status--${eq.status}`}>
-                        <span aria-hidden />
-                        {ROTULO_STATUS_EQUIPAMENTO[eq.status]}
-                      </span>
+                    <td className="cartao-status">
+                      <StatusPill valor={eq.status}>{ROTULO_STATUS_EQUIPAMENTO[eq.status]}</StatusPill>
                     </td>
-                    <td>
-                      <span className={`inventario-conservacao inventario-conservacao--${eq.estadoConservacao}`}>
-                        {ROTULO_ESTADO[eq.estadoConservacao]}
-                      </span>
+                    <td className="cartao-conservacao" data-label="Conservação">
+                      <StatusPill valor={eq.estadoConservacao}>{ROTULO_ESTADO[eq.estadoConservacao]}</StatusPill>
                     </td>
-                    <td className="inventario-data">{formatarData(eq.dataAquisicao)}</td>
+                    <td className="inventario-data cartao-data" data-label="Aquisição">{formatarData(eq.dataAquisicao)}</td>
                   </tr>
                 ))}
             </tbody>

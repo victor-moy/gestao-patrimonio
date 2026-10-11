@@ -4,11 +4,12 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { IconeBusca, IconeCheck, IconeChevron } from '../components/icons';
 import type { Contrato } from '../types';
-import { ROTULO_STATUS_CONTRATO, TOM_STATUS_CONTRATO } from '../utils/cadastros';
+import { ROTULO_STATUS_CONTRATO } from '../utils/cadastros';
 import { formatarData, formatarMoeda } from '../utils/format';
 import './Cadastros.css';
 import { EsqueletoTabela } from '../components/Esqueletos';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
+import { StatusPill } from '../components/StatusPill';
 
 const POR_PAGINA = 10;
 const VISUALIZACOES: Array<[string, string]> = [['', 'Todos'], ...Object.entries(ROTULO_STATUS_CONTRATO)];
@@ -113,7 +114,7 @@ export function Contratos() {
                   aria-expanded={menuAberto}
                   onClick={() => setMenuAberto((aberto) => !aberto)}
                 >
-                  {visualizacao?.[1]}
+                  <span className="inventario-visualizacao-rotulo">{visualizacao?.[1]}</span>
                   <IconeChevron />
                 </button>
                 {menuAberto && (
@@ -151,7 +152,7 @@ export function Contratos() {
           </div>
         </div>
 
-        <div className="gestao-tabela-scroll" role="region" aria-label="Contratos" tabIndex={0} aria-busy={carregando}>
+        <div className="gestao-tabela-scroll lista-cartoes lista-cartoes--contratos" role="region" aria-label="Contratos" tabIndex={0} aria-busy={carregando}>
           <table>
             <caption className="gestao-sr-only">Contratos de manutenção e serviços</caption>
             <thead>
@@ -169,7 +170,7 @@ export function Contratos() {
                 !falha &&
                 visiveis.slice(inicio, inicio + POR_PAGINA).map((c) => (
                   <tr key={c.id}>
-                    <td className="gestao-equipamento">
+                    <td className="gestao-equipamento cartao-nome">
                       <Link
                         className="inventario-equipamento-link"
                         to={`/contratos/${c.id}`}
@@ -179,18 +180,15 @@ export function Contratos() {
                       </Link>
                       <div className="cadastro-sub">{c.tipo}</div>
                     </td>
-                    <td className="inventario-unidade">
+                    <td className="inventario-unidade cartao-fornecedor">
                       <strong>{c.empresa}</strong>
                     </td>
-                    <td className="inventario-data">
+                    <td className="inventario-data cartao-vigencia" data-label="Vigência">
                       {formatarData(c.vigenciaInicio)} – {formatarData(c.vigenciaFim)}
                     </td>
-                    <td className="inventario-data">{c.valorTotal ? formatarMoeda(c.valorTotal) : '—'}</td>
-                    <td>
-                      <span className={`inventario-status inventario-status--tom-${TOM_STATUS_CONTRATO[c.status]}`}>
-                        <span aria-hidden />
-                        {ROTULO_STATUS_CONTRATO[c.status]}
-                      </span>
+                    <td className="inventario-data cartao-valor" data-label="Valor">{c.valorTotal ? formatarMoeda(c.valorTotal) : '—'}</td>
+                    <td className="cartao-status">
+                      <StatusPill valor={c.status}>{ROTULO_STATUS_CONTRATO[c.status]}</StatusPill>
                     </td>
                   </tr>
                 ))}

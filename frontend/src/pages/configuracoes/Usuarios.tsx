@@ -7,6 +7,7 @@ import { IconeEntrarComo } from '../../components/icons';
 import { useAlertaNativo } from '../../hooks/useAlertaNativo';
 import type { Usuario } from '../../types';
 import { ROTULO_PERFIL } from '../../utils/format';
+import { StatusPill } from '../../components/StatusPill';
 
 export interface UsuarioLista extends Usuario {
   unidade?: { nome: string } | null;
@@ -114,17 +115,14 @@ export function Usuarios() {
             celula: (u) => (
               <>
                 <div>{ROTULO_PERFIL[u.perfil]}</div>
-                <div className="cadastro-sub">{u.unidade?.nome ?? 'Secretaria'}</div>
+                <div className="cadastro-sub">{u.unidade?.nome ?? '--'}</div>
               </>
             ),
           },
           {
             titulo: 'Status',
             celula: (u) => (
-              <span className={`inventario-status inventario-status--tom-${u.ativo ? 'green' : 'gray'}`}>
-                <span aria-hidden />
-                {u.ativo ? 'Ativo' : 'Inativo'}
-              </span>
+              <StatusPill valor={u.ativo ? 'ATIVO' : 'INATIVO'}>{u.ativo ? 'Ativo' : 'Inativo'}</StatusPill>
             ),
           },
         ]}

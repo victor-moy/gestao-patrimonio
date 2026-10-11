@@ -69,10 +69,14 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
       '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6',
     );
     await userEvent.type(
-      screen.getByRole('textbox'),
+      screen.getByPlaceholderText(/Explique o motivo/),
       'Ampliação da capacidade de esterilização',
     );
-    await userEvent.click(screen.getByRole('button', { name: /enviar solicitação/i }));
+    // o título é obrigatório: sem ele o envio fica bloqueado
+    expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled();
+    await userEvent.type(screen.getByRole('textbox', { name: 'Título' }), '  Esterilização da UBS Centro  ');
+    expect(screen.getByRole('button', { name: 'Enviar' })).toBeEnabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Solicitações' })).toBeInTheDocument();
@@ -83,10 +87,47 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
     expect(post).toBeDefined();
     const corpo = JSON.parse(String(post!.init!.body));
     expect(corpo.tipo).toBe('AMPLIACAO');
+    expect(corpo.titulo).toBe('Esterilização da UBS Centro');
     expect(corpo.itens).toEqual([
       { tipoEquipamentoId: '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6', quantidade: 1 },
     ]);
     expect(corpo.origemRecurso).toBeUndefined();
+  });
+
+  it('a lista mostra o número e o título da solicitação, sem repetir o nome do item', async () => {
+    localStorage.setItem('sgp_token', 'token-teste');
+    mockFetch({
+      ...me,
+      '/solicitacoes': {
+        body: [
+          {
+            id: 's9',
+            numero: 9,
+            titulo: 'Consultório novo da UBS Norte',
+            tipo: 'AMPLIACAO',
+            status: 'PENDENTE_APROVACAO',
+            justificativa: 'Novo consultório',
+            quantidade: 1,
+            anexoUrl: null,
+            criadoEm: '2026-05-02T10:00:00.000Z',
+            unidadeOrigem: { id: 'u1', nome: 'UBS Norte' },
+            unidadeDestino: null,
+            equipamento: null,
+            tipoEquipamento: { id: 't1', nome: 'Autoclave Vertical', codigo: 'AUT-1' },
+            criadoPor: { nome: 'Ana' },
+          },
+        ],
+      },
+      '/equipamentos': { body: [] },
+      '/unidades': { body: [] },
+      '/categorias': { body: [] },
+    });
+    render(<App />);
+    await waitFor(() => expect(screen.getByText(/bem-vindo/i)).toBeInTheDocument());
+    await userEvent.click(within(screen.getByRole('navigation')).getByRole('link', { name: /solicitações/i }));
+    expect(await screen.findByRole('link', { name: 'Ver solicitação de Consultório novo da UBS Norte' })).toBeInTheDocument();
+    expect(screen.getByText('SOL-0009')).toBeInTheDocument();
+    expect(screen.queryByText('Autoclave Vertical')).not.toBeInTheDocument();
   });
 
   it('lista solicitações com tipo e status', async () => {
@@ -184,6 +225,9 @@ it('pagina solicitações e abre o detalhe em página própria pelo teclado', as
   expect(await screen.findByRole('heading', { name: 'Item 11' })).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   expect(screen.getByText('Ampliar atendimento')).toBeInTheDocument();
+  // sem tombamento (ampliação), o apoio é o código do tipo do item
+  const informacoes = screen.getByRole('heading', { name: 'Informações da solicitação' }).closest('section') as HTMLElement;
+  expect(within(informacoes).getByText('Item').nextElementSibling).toHaveTextContent(`Item 11${pedido.tipoEquipamento.codigo}`);
 });
 
 it('gestor aprova a solicitação pela página de detalhe e permanece nela', async () => {
@@ -305,6 +349,10 @@ it('empréstimo é aprovado com um clique, sem segunda confirmação', async () 
     '/solicitacoes': { body: [emprestimo] },
   }, 'GESTOR_PATRIMONIO');
   await userEvent.click(await screen.findByRole('link', { name: 'Ver solicitação de Monitor' }));
+  // Informações: o nome do item em cima e o tombamento embaixo
+  const informacoes = (await screen.findByRole('heading', { name: 'Informações da solicitação' })).closest('section') as HTMLElement;
+  const item = within(informacoes).getByText('Item').nextElementSibling as HTMLElement;
+  expect(item).toHaveTextContent('Monitor555');
   await userEvent.click(await screen.findByRole('button', { name: 'Aprovar solicitação' }));
 
   await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/solicitacoes/s1/aprovar') && c.init?.method === 'POST')).toBe(true));

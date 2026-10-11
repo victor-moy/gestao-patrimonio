@@ -9,6 +9,7 @@ import {
   setTokenMestre,
 } from '../api/client';
 import type { Usuario } from '../types';
+import { recarregarNoInicio } from '../utils/navegacao';
 
 interface AuthContextValue {
   usuario: Usuario | null;
@@ -69,6 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(resposta.token);
     setUsuario(resposta.usuario);
     setImpersonando(true);
+    recarregarNoInicio();
   }, []);
 
   const voltarAoMestre = useCallback(async () => {
@@ -80,6 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const usuarioMestre = await api.get<Usuario>('/auth/me');
       setUsuario(usuarioMestre);
+      recarregarNoInicio();
     } catch {
       logout();
     }

@@ -370,7 +370,7 @@
 }
 
 /* Empréstimos */
-.relatorios-page--emprestimos .rel-kpis--seis { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.relatorios-page--emprestimos .rel-kpis--cinco { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .relatorios-page--emprestimos .stat-value small { color: var(--text-muted); font-size: 11px; font-weight: 500; }
 .rel-busca { position: relative; display: block; margin: 16px 0 0; }
 .rel-busca svg { position: absolute; top: 50%; left: 11px; width: 15px; height: 15px; color: var(--text-muted); transform: translateY(-50%); pointer-events: none; }
@@ -401,14 +401,21 @@
 .relatorios-page .rel-tabela tbody tr:last-child td { border-bottom: 0; }
 .relatorios-page .rel-tabela tbody tr:hover { background: var(--surface-subtle); }
 .rel-tabela-principal { font-weight: 500; }
+.rel-numero { display: block; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; }
 .rel-tabela-sub { margin-top: 2px; color: var(--text-secondary); font-size: 11px; }
 .rel-tabela-status { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .rel-tabela-status .inventario-status { white-space: nowrap; }
+/* Com 5 cards: 3 na primeira linha e 2 na segunda, cada linha ocupando a largura toda */
 @media (max-width: 1200px) {
-  .relatorios-page--emprestimos .rel-kpis--seis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .relatorios-page--emprestimos .rel-kpis--cinco { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .relatorios-page--emprestimos .rel-kpis--cinco > * { grid-column: span 2; }
+  .relatorios-page--emprestimos .rel-kpis--cinco > :nth-child(n + 4) { grid-column: span 3; }
 }
 @media (max-width: 700px) {
-  .relatorios-page--emprestimos .rel-kpis--seis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .relatorios-page--emprestimos .rel-kpis--cinco { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .relatorios-page--emprestimos .rel-kpis--cinco > *,
+  .relatorios-page--emprestimos .rel-kpis--cinco > :nth-child(n + 4) { grid-column: auto; }
+  .relatorios-page--emprestimos .rel-kpis--cinco > :last-child { grid-column: 1 / -1; }
 }
 .rel-ordenar {
   display: inline-flex;
@@ -431,4 +438,57 @@
 .rel-busca--sozinha { margin-top: 0; }
 @media (max-width: 700px) {
   .relatorios-page--itens-estoque .rel-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* 3 indicadores em 2 colunas: o último (Previsão de verba) ocupa a linha toda em vez de meia linha */
+  .relatorios-page--itens-estoque .rel-kpis > :last-child { grid-column: 1 / -1; }
+}
+
+/* Ordenação do relatório de itens como seletor: só aparece no celular, onde o cabeçalho da tabela some. */
+.rel-ordenar-select { display: none; }
+
+/* Tabelas dos relatórios como cartões no celular (sem rolagem horizontal). Células `rc-*` ocupam as
+   áreas da grade de cada relatório; `data-label` mostra o rótulo da coluna. */
+@media (max-width: 600px) {
+  .rel-ordenar-select { display: block; margin-bottom: 12px; }
+  .rel-ordenar-select span { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 11px; font-weight: 400; }
+  .rel-ordenar-select select { width: 100%; height: 34px; padding: 0 36px 0 12px; border: 1px solid #c9cccf; border-radius: 8px; color: var(--text); font-size: 12px; font-weight: 400; }
+  /* Mesmo estilo dos outros seletores: cor mais clara enquanto está na opção padrão */
+  .rel-ordenar-select select[data-padrao] { color: var(--text-muted); }
+  .relatorios-page--itens-estoque .rel-busca--sozinha { margin-top: 0; }
+
+  .relatorios-page .rel-tabela .rel-cartoes { overflow-x: visible; }
+  .relatorios-page .rel-tabela .rel-cartoes table,
+  .relatorios-page .rel-tabela .rel-cartoes tbody,
+  .relatorios-page .rel-tabela .rel-cartoes tfoot { display: block; min-width: 0 !important; width: 100%; }
+  .relatorios-page .rel-tabela .rel-cartoes thead {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .relatorios-page .rel-tabela .rel-cartoes tbody tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+  }
+  .relatorios-page .rel-tabela .rel-cartoes tbody tr:last-child { border-bottom: 0; }
+  .relatorios-page .rel-tabela .rel-cartoes tbody tr > td {
+    display: block; min-width: 0; padding: 0; border: 0; white-space: normal; line-height: 1.4;
+  }
+  .relatorios-page .rel-tabela .rel-cartoes td[data-label]::before {
+    content: attr(data-label); display: block; margin-bottom: 1px; color: var(--text-muted); font-size: 11px; font-weight: 500;
+  }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-principal { grid-area: p; align-self: start; font-size: 13px; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-sol { grid-area: q; align-self: start; font-size: 13px; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-t { grid-area: t; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-status { grid-area: s; align-self: start; justify-self: end; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-equip { grid-area: e; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-a { grid-area: a; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-b { grid-area: b; text-align: right; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-c { grid-area: c; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-d { grid-area: d; text-align: right; }
+  .relatorios-page .rel-tabela .rel-cartoes .rel-tabela-status { justify-content: flex-end; }
+
+  .rel-cartoes--emprestimos tbody tr { grid-template-areas: "p s" "t t" "a b" "c c"; }
+  .rel-cartoes--cessoes tbody tr { grid-template-areas: "q s" "p p" "e e" "a b" "c d"; }
+  .rel-cartoes--itens tbody tr { grid-template-areas: "p s" "e e" "a b" "c d"; }
+
+  /* Total do relatório de itens: último cartão, rótulo à esquerda e valor à direita */
+  .relatorios-page .rel-tabela .rel-cartoes tfoot tr { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; background: var(--surface-subtle); }
+  .relatorios-page .rel-tabela .rel-cartoes tfoot td { padding: 0; border: 0; background: none; }
 }

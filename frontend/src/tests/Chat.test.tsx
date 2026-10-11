@@ -91,12 +91,23 @@ describe('Chat da manutenção', () => {
     await userEvent.click(botao);
 
     await waitFor(() => {
-      const post = chamadas.find((c) => c.url.includes('/manutencoes/m1/mensagens') && c.init?.method === 'POST');
+      const post = chamadas.find((c) => c.url.endsWith('/manutencoes/m1/mensagens') && c.init?.method === 'POST');
       expect(post).toBeTruthy();
       expect(JSON.parse(String(post!.init!.body))).toEqual({ texto: 'Obrigada!' });
     });
     expect(await within(lista).findByText('Obrigada!')).toBeInTheDocument();
     expect(screen.getByLabelText('Mensagem')).toHaveValue('');
+  });
+
+  it('ao abrir a conversa marca como lida até a última mensagem exibida', async () => {
+    const chamadas = mockFetch(rotas({ body: mensagens }));
+    render(<App />);
+    await screen.findByRole('list', { name: 'Mensagens da conversa' });
+    await waitFor(() => {
+      const lida = chamadas.find((c) => c.url.endsWith('/manutencoes/m1/mensagens/lida') && c.init?.method === 'POST');
+      expect(lida).toBeTruthy();
+      expect(JSON.parse(String(lida!.init!.body))).toEqual({ ate: '2026-10-10T10:05:00Z' });
+    });
   });
 
   it('mostra estado vazio quando ainda não há mensagens', async () => {
@@ -132,6 +143,7 @@ describe('Tela de conversas', () => {
   const resumo = {
     contexto: 'solicitacao',
     id: 's1',
+    numero: 12,
     tipoSolicitacao: 'AMPLIACAO',
     item: 'Autoclave',
     unidade: 'UBS Norte',
@@ -157,11 +169,111 @@ describe('Tela de conversas', () => {
     render(<App />);
 
     const menu = await screen.findByRole('navigation', { name: 'Conversas' });
-    expect(await within(menu).findByRole('link', { name: 'Ampliação · Autoclave' })).toHaveAttribute('href', '/conversas/solicitacao/s1');
-    expect(await screen.findByRole('heading', { name: 'Ampliação · Autoclave' })).toBeInTheDocument();
+    expect(await within(menu).findByRole('link', { name: 'SOL-0012' })).toHaveAttribute('href', '/conversas/solicitacao/s1');
+    expect(await screen.findByRole('heading', { name: 'SOL-0012' })).toBeInTheDocument();
+    expect(screen.queryByText('Ampliação · Autoclave')).not.toBeInTheDocument();
     expect(await screen.findByText('Podem enviar o orçamento?')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Ver solicitação' })).toHaveAttribute('href', '/solicitacoes/s1');
     expect(screen.getByRole('link', { name: 'Fechar conversas' })).toHaveAttribute('href', '/');
+  });
+
+  it('conversa ainda sem mensagens: o título é o número do pedido, não o nome genérico', async () => {
+    localStorage.setItem('sgp_token', 'token-teste');
+    window.history.replaceState(null, '', '/conversas/manutencao/m9');
+    mockFetch({
+      '/manutencoes/m9/mensagens': { body: [] },
+      '/manutencoes/m9': { body: { id: 'm9', numero: 3, equipamento: { descricao: 'Microscópio', tipoEquipamento: { nome: 'Microscópio' } } } },
+      '/conversas': { body: [] },
+      '/auth/me': { body: usuario },
+      '/dashboard/alertas': { body: [] },
+    });
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'MAN-0003' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Manutenção' })).not.toBeInTheDocument();
+  });
+
+  it('ao enviar a primeira mensagem, a conversa aparece no menu lateral sem recarregar a página', async () => {
+    localStorage.setItem('sgp_token', 'token-teste');
+    window.history.replaceState(null, '', '/conversas/manutencao/m9');
+    let enviada = false;
+    const nova = { id: 'x', texto: 'Olá', criadoEm: '2026-10-10T10:10:00Z', autor: { id: 'u1', nome: 'Ana Unidade', perfil: 'UNIDADE' } };
+    mockFetch({
+      '/manutencoes/m9/mensagens': (init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          enviada = true;
+          return { status: 201, body: nova };
+        }
+        return { body: [] };
+      },
+      '/manutencoes/m9': { body: { id: 'm9', numero: 3 } },
+      '/conversas': () => ({
+        body: enviada
+          ? [{ contexto: 'manutencao', id: 'm9', numero: 3, tipoSolicitacao: null, item: 'Microscópio', unidade: 'UBS Norte', ultimaEm: nova.criadoEm, ultimoTexto: 'Olá', ultimoAutor: 'Ana Unidade' }]
+          : [],
+      }),
+      '/auth/me': { body: usuario },
+      '/dashboard/alertas': { body: [] },
+    });
+    render(<App />);
+
+    const menu = await screen.findByRole('navigation', { name: 'Conversas' });
+    expect(await within(menu).findByText('Nenhuma conversa ainda')).toBeInTheDocument();
+    await userEvent.type(await screen.findByLabelText('Mensagem'), 'Olá');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar mensagem' }));
+
+    expect(await within(menu).findByRole('link', { name: 'MAN-0003' })).toHaveAttribute('href', '/conversas/manutencao/m9');
+  });
+
+  it('mostra as não lidas no menu, no item da conversa e no título da aba, e some ao ler', async () => {
+    localStorage.setItem('sgp_token', 'token-teste');
+    window.history.replaceState(null, '', '/conversas');
+    let lida = false;
+    mockFetch({
+      '/solicitacoes/s1/mensagens/lida': () => {
+        lida = true;
+        return { status: 204, body: null };
+      },
+      '/solicitacoes/s1/mensagens': { body: mensagens },
+      '/conversas/nao-lidas': () => ({ body: { total: lida ? 0 : 3, conversas: lida ? 0 : 1 } }),
+      '/conversas': () => ({ body: [{ ...resumo, numero: 12, naoLidas: lida ? 0 : 3 }] }),
+      '/auth/me': { body: usuario },
+      '/dashboard/alertas': { body: [] },
+    });
+    render(<App />);
+
+    // sem abrir a conversa: contador no menu, item em destaque e título da aba
+    const menu = await screen.findByRole('navigation', { name: 'Conversas' });
+    expect(await within(menu).findByRole('link', { name: /SOL-0012.*3 mensagens não lidas/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /Conversas.*3 mensagens não lidas/ })).toBeInTheDocument();
+    await waitFor(() => expect(document.title).toBe('(3) Gestão Patrimonial'));
+
+    // abrir a conversa marca como lida e zera os indicadores sem recarregar a página
+    await userEvent.click(within(menu).getByRole('link', { name: /SOL-0012/ }));
+    await screen.findByText('Podem enviar o orçamento?');
+    await waitFor(() => expect(document.title).toBe('Gestão Patrimonial'));
+    expect(within(menu).getByRole('link', { name: 'SOL-0012' })).toBeInTheDocument();
+  });
+
+  it('sem conversa aberta, o computador mostra o convite para escolher uma e a lista fica no menu lateral', async () => {
+    abrir('/conversas');
+    render(<App />);
+    expect(await screen.findByText('Selecione uma conversa para ler')).toBeInTheDocument();
+    const menu = await screen.findByRole('navigation', { name: 'Conversas' });
+    expect(await within(menu).findByRole('link', { name: 'SOL-0012' })).toBeInTheDocument();
+  });
+
+  it('sem nenhuma conversa, mostra o estado vazio em vez do convite', async () => {
+    localStorage.setItem('sgp_token', 'token-teste');
+    window.history.replaceState(null, '', '/conversas');
+    mockFetch({
+      '/conversas/nao-lidas': { body: { total: 0, conversas: 0 } },
+      '/conversas': { body: [] },
+      '/auth/me': { body: usuario },
+      '/dashboard/alertas': { body: [] },
+    });
+    render(<App />);
+    expect((await screen.findAllByText(/Nenhuma conversa ainda/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText('Selecione uma conversa para ler')).not.toBeInTheDocument();
   });
 
   it('o índice mostra a lista com a última mensagem', async () => {

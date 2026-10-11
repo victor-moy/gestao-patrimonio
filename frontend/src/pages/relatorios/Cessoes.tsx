@@ -1,12 +1,12 @@
 import '../Relatorios.css';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
-import { corDoStatus } from '../../components/Badge';
+import { StatusPill } from '../../components/StatusPill';
 import { IconeBusca } from '../../components/icons';
 import { SelectTipoEquipamento } from '../../components/SelectItem';
 import { FiltroPeriodo, FiltroUnidade, useOpcoesFiltro } from './filtros';
 import type { CessaoRelatorio, RelatorioCessoes } from '../../types';
-import { formatarData, formatarMoeda, ROTULO_STATUS_SOLICITACAO } from '../../utils/format';
+import { codigoSolicitacao, formatarData, formatarMoeda, ROTULO_STATUS_SOLICITACAO } from '../../utils/format';
 
 // Relatório 3 — prestação de contas de Cessão de Uso.
 export function RelatorioCessoes() {
@@ -126,10 +126,11 @@ export function RelatorioCessoes() {
           <h3>Cessões de uso</h3>
         </div>
         {dados && dados.itens.length > 0 ? (
-          <div className="rel-tabela-scroll">
+          <div className="rel-tabela-scroll rel-cartoes rel-cartoes--cessoes">
             <table>
               <thead>
                 <tr>
+                  <th scope="col">Solicitação</th>
                   <th scope="col">Entidade externa</th>
                   <th scope="col">Equipamento</th>
                   <th scope="col">Unidade de origem</th>
@@ -142,23 +143,24 @@ export function RelatorioCessoes() {
               <tbody>
                 {dados.itens.map((c: CessaoRelatorio) => (
                   <tr key={c.id}>
-                    <td className="rel-tabela-principal">{c.entidadeExternaNome ?? '—'}</td>
-                    <td>
+                    <td className="rc-sol">
+                      <span className="rel-numero">{codigoSolicitacao(c.numero)}</span>
+                      <div className="rel-tabela-principal">{c.titulo?.trim() || c.tipoEquipamento || '—'}</div>
+                    </td>
+                    <td className="rel-tabela-principal rc-principal">{c.entidadeExternaNome ?? '—'}</td>
+                    <td className="rc-equip">
                       <div>{c.tipoEquipamento ?? '—'}</div>
                       {c.numerosPatrimonio.length > 0 && (
                         <div className="rel-tabela-sub">Patrimônio {c.numerosPatrimonio.join(', ')}</div>
                       )}
                     </td>
-                    <td>{c.unidadeOrigem}</td>
-                    <td>{c.preco === null ? '—' : formatarMoeda(c.preco)}</td>
-                    <td>
-                      <span className={`inventario-status inventario-status--tom-${corDoStatus(c.status)}`}>
-                        <span aria-hidden />
-                        {ROTULO_STATUS_SOLICITACAO[c.status]}
-                      </span>
+                    <td className="rc-a" data-label="Unidade de origem">{c.unidadeOrigem}</td>
+                    <td className="rc-b" data-label="Valor">{c.preco === null ? '—' : formatarMoeda(c.preco)}</td>
+                    <td className="rc-status">
+                      <StatusPill valor={c.status}>{ROTULO_STATUS_SOLICITACAO[c.status]}</StatusPill>
                     </td>
-                    <td>{c.numeroPedidoBranet ?? '—'}</td>
-                    <td>{c.dataConclusao ? formatarData(c.dataConclusao) : '—'}</td>
+                    <td className="rc-c" data-label="Pedido Branet">{c.numeroPedidoBranet ?? '—'}</td>
+                    <td className="rc-d" data-label="Conclusão">{c.dataConclusao ? formatarData(c.dataConclusao) : '—'}</td>
                   </tr>
                 ))}
               </tbody>

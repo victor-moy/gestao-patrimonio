@@ -60,8 +60,8 @@
   width: 30px;
   height: 30px;
   border-radius: 6px;
-  background: #b7e4d7;
-  color: #005c45;
+  background: #cfe1fb;
+  color: #0a3d8f;
   font-size: 12px;
 }
 .app-shell--gestao .user-meta .email { color: #303030; font-size: 12px; }
@@ -82,6 +82,8 @@
 
 .app-shell--gestao .app-topbar-wordmark {
   display: flex;
+  align-items: center;
+  gap: 10px;
   width: auto;
   flex: 0 0 auto;
   color: #f1f1f1;
@@ -233,6 +235,9 @@
   justify-content: space-between;
   border-radius: 9px 0 0 9px;
 }
+/* Rótulo longo (ex.: "Aguardando orçamento") termina em reticências em vez de passar do botão */
+.inventario-visualizacao-rotulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inventario-visualizacao-botao > svg { flex: none; }
 
 .inventario-visualizacao-botao:hover,
 .inventario-filtros-botao:hover {
@@ -248,7 +253,9 @@
   top: calc(100% + 8px);
   left: 0;
   z-index: 30;
-  width: 210px;
+  width: max-content;
+  min-width: 210px;
+  max-width: min(320px, calc(100vw - 32px));
   padding: 6px;
   border: 1px solid #e3e3e3;
   border-radius: 12px;
@@ -273,6 +280,7 @@
 }
 
 .inventario-visualizacao-menu button:hover { background: #f1f1f1; }
+.inventario-visualizacao-menu button > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .inventario-visualizacao-check { display: inline-grid; width: 18px; place-items: center; }
 .inventario-visualizacao-check svg { width: 16px; height: 16px; }
 
@@ -293,7 +301,7 @@
 }
 
 .inventario-consulta-busca input {
-  min-width: 120px;
+  min-width: 0;
   height: 30px;
   flex: 1 1 auto;
   padding: 0;
@@ -316,8 +324,8 @@
 }
 
 .inventario-filtros-botao {
-  width: 42px;
-  padding: 0 9px;
+  min-width: 42px;
+  padding: 0 11px;
   border-left: 1px solid #e3e3e3;
   border-radius: 0 9px 9px 0;
   font-weight: 550;
@@ -446,10 +454,8 @@
   box-shadow: 0 1px 0 rgba(0, 0, 0, .08);
   color: #fff;
 }
-.inventario-tombamento,
 .inventario-equipamento-link,
 .inventario-unidade strong,
-.inventario-conservacao,
 .inventario-data {
   color: #303030 !important;
   font-family: inherit;
@@ -459,33 +465,53 @@
 .inventario-equipamento-link {
   text-decoration: none;
 }
+.inventario-tombamento { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 11px; font-weight: 400; }
+.miniatura-item {
+  display: block;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #e3e3e3;
+}
+.miniatura-item img { display: block; width: 100%; height: 100%; object-fit: contain; background: var(--surface); box-shadow: inset 0 0 0 1px var(--border); }
 .inventario-equipamento-link:hover { color: #005bd3; }
 .inventario-mobile-meta { color: #303030; font-size: 12px; font-weight: 500; }
 .inventario-status {
   gap: 6px;
   padding: 3px 8px;
   border-radius: 999px;
-  background: #eaf4ee;
-  color: #274e3b;
+  background: #e3e3e3;
+  color: #4a4a4a;
   font-size: 11px;
   font-weight: 550;
 }
 .inventario-status > span { width: 6px; height: 6px; }
-.inventario-status--EM_MANUTENCAO { background: #fff1d6; color: #5f4710; }
-.inventario-status--BAIXADO { background: #e3e3e3; color: #4a4a4a; }
-.inventario-status--EMPRESTADO { background: #e8f0fe; color: #244b75; }
-.inventario-status--CEDIDO { background: #f2eafa; color: #5e3b76; }
+.inventario-status--tom-green { background: #eaf4ee; color: #274e3b; }
+.inventario-status--tom-yellow { background: #fff1d6; color: #5f4710; }
+.inventario-status--tom-gray { background: #e3e3e3; color: #4a4a4a; }
+.inventario-status--tom-blue { background: #e8f0fe; color: #244b75; }
+.inventario-status--tom-red { background: #fde8e6; color: #8e1f0b; }
+.inventario-status--tom-green > span { background: #2f855a; }
+.inventario-status--tom-yellow > span { background: #c18424; }
+.inventario-status--tom-gray > span { background: #8b8882; }
+.inventario-status--tom-blue > span { background: #41759a; }
+.inventario-status--tom-red > span { background: #c0392b; }
 
 .inventario-page .gestao-rodape { padding: 12px 16px; border-top: 0; border-radius: 0 0 11px 11px; background: #fafafa; }
 .inventario-page .gestao-paginacao .btn { border-radius: 8px; }
 
 @media (max-width: 900px) {
+  /* Ancorado por top + bottom, não por 100vh: no celular o 100vh inclui a área sob a barra do navegador
+     e empurrava Conversas e Configurações (o rodapé do menu) para fora da tela. */
   .app-shell--gestao .sidebar {
     top: var(--topbar-height);
+    bottom: 0;
     width: 240px;
-    height: calc(100vh - var(--topbar-height));
+    height: auto;
   }
-  .app-shell--gestao .sidebar-nav { padding-top: 46px; }
+  .app-shell--gestao .sidebar-footer { padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
   .app-shell--gestao .sidebar-backdrop { top: var(--topbar-height); }
   .app-shell--gestao .app-content { border-radius: 14px 14px 0 0; }
   .app-shell--gestao .app-topbar {
@@ -514,42 +540,14 @@
 }
 
 @media (max-width: 600px) {
+  .inventario-visualizacao { width: 124px; }
+  .inventario-visualizacao-botao { padding: 0 9px; }
   .inventario-page .page-header.inventario-cabecalho { gap: 16px; margin-bottom: 18px; }
   .inventario-page .gestao-filtro-select { flex: 1 1 100%; }
   .inventario-page .gestao-lista table { min-width: 520px; }
   .inventario-filtros-popover { grid-template-columns: 1fr; }
   .app-shell--gestao .topbar-user .user-meta { display: none; }
 }
-
-:root[data-theme='dark'] .app-shell--gestao .sidebar { background: #232323; border-color: #3a3a3a; }
-:root[data-theme='dark'] .app-shell--gestao .user-meta .email { color: var(--text); }
-:root[data-theme='dark'] .app-shell--gestao .sidebar-link { color: #c7c7c7; }
-:root[data-theme='dark'] .app-shell--gestao .sidebar-link:hover,
-:root[data-theme='dark'] .app-shell--gestao .sidebar-link.active,
-:root[data-theme='dark'] .app-shell--gestao .user-button:hover { background: #353535; color: #fff; }
-:root[data-theme='dark'] .inventario-lista,
-:root[data-theme='dark'] .inventario-indexbar,
-:root[data-theme='dark'] .inventario-consulta,
-:root[data-theme='dark'] .inventario-visualizacao-menu,
-:root[data-theme='dark'] .inventario-page .gestao-filtro-select select { background: var(--surface); color: var(--text); }
-:root[data-theme='dark'] .inventario-consulta-busca input { background: transparent; color: var(--text); }
-:root[data-theme='dark'] .inventario-visualizacao-botao,
-:root[data-theme='dark'] .inventario-filtros-botao {
-  border-color: var(--border);
-  color: var(--text);
-}
-:root[data-theme='dark'] .inventario-visualizacao-botao,
-:root[data-theme='dark'] .inventario-filtros-botao { background: transparent; }
-:root[data-theme='dark'] .inventario-visualizacao-menu button { color: var(--text); }
-:root[data-theme='dark'] .inventario-visualizacao-menu button:hover,
-:root[data-theme='dark'] .inventario-visualizacao-botao:hover,
-:root[data-theme='dark'] .inventario-filtros-botao:hover { background: var(--border); }
-:root[data-theme='dark'] .inventario-filtros-popover {
-  border-color: var(--border);
-  background: var(--surface-subtle);
-}
-:root[data-theme='dark'] .inventario-page .gestao-lista th,
-:root[data-theme='dark'] .inventario-page .gestao-rodape { background: var(--surface-subtle); }
 
 /* Página de cadastro de equipamento — mesma escala tipográfica e divisórias do detalhe. */
 .novo-equipamento-grade {
@@ -601,6 +599,7 @@
 
 .nova-solicitacao .field.nova-solicitacao-campo-tipo,
 .novo-equipamento .field.nova-solicitacao-campo-tipo { max-width: 420px; margin-bottom: 0; padding-top: 0; border-top: 0; }
+.nova-solicitacao .field.nova-solicitacao-campo-titulo { max-width: 420px; margin: 24px 0 0; }
 .nova-solicitacao-descricao { margin: 6px 0 0; color: var(--text-secondary); font-size: 12px; }
 
 .nova-solicitacao .form-colunas {
@@ -703,6 +702,12 @@
   margin-bottom: 20px;
 }
 
+/* No celular o botão do cabeçalho (ex.: Conversar) desce para uma linha própria, sempre à esquerda. */
+@media (max-width: 900px) {
+  .equipamento-pagina-cabecalho { flex-direction: column; align-items: stretch; gap: 12px; }
+  .equipamento-pagina-cabecalho .inventario-lista-acoes { width: auto; justify-content: flex-start; }
+}
+
 .equipamento-titulo-linha {
   display: flex;
   align-items: center;
@@ -797,6 +802,7 @@
   font-weight: 550;
 }
 
+.equipamento-dados dd .dado-apoio { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 11px; font-weight: 400; }
 .equipamento-dados--lateral { grid-template-columns: 1fr; }
 .equipamento-historico-vazio { color: var(--text-secondary); font-size: 13px; }
 
@@ -976,10 +982,6 @@
 }
 .app-shell--gestao .sidebar-sublink:hover { background: #e1e1e1; color: #303030; }
 .app-shell--gestao .sidebar-sublink.active { background: #fff; color: #303030; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .04); }
-:root[data-theme='dark'] .app-shell--gestao .sidebar-submenu { border-left-color: #3a3a3a; }
-:root[data-theme='dark'] .app-shell--gestao .sidebar-sublink { color: #c7c7c7; }
-:root[data-theme='dark'] .app-shell--gestao .sidebar-sublink:hover,
-:root[data-theme='dark'] .app-shell--gestao .sidebar-sublink.active { background: #353535; color: #fff; }
 
 /* Transição suave entre páginas: o conteúdo entra com um leve fade/deslize */
 @keyframes pagina-entrada{
@@ -997,8 +999,13 @@
 
 /* Menu lateral no modo Conversas */
 .sidebar-vazio { padding: 8px 12px; color: var(--text-muted); font-size: 12px; }
-.sidebar-conversa { display: block; overflow: hidden; }
-.sidebar-conversa span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-conversa { display: flex; align-items: center; gap: 8px; overflow: hidden; }
+.sidebar-conversa > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-conversa--nao-lida > span:first-child { font-weight: 650; }
+
+/* Contador de mensagens não lidas (menu, listas e Início) */
+.contagem-nao-lidas { display: inline-grid; flex: none; place-items: center; box-sizing: border-box; min-width: 16px; height: 16px; margin-left: auto; padding: 0 5px; border-radius: 8px; background: #005bd3; color: #fff; font-size: 10px; font-weight: 600; line-height: 1; letter-spacing: 0; }
+
 
 /* Número sequencial da requisição (SOL-0001 / MAN-0001) */
 .req-numero { display: inline-block; min-width: 62px; margin-right: 8px; color: var(--text-muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; font-weight: 500; letter-spacing: -.1px; white-space: nowrap; }
@@ -1025,7 +1032,7 @@
 /* Barra de carregamento global (topo da janela) */
 .barra-carregamento { position: fixed; top: 0; left: 0; right: 0; z-index: 300; height: 3px; overflow: hidden; opacity: 0; pointer-events: none; transition: opacity .2s ease; }
 .barra-carregamento.ativa { opacity: 1; }
-.barra-carregamento::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 38%; border-radius: 0 3px 3px 0; background: #7bd3a8; animation: barra-carregamento 1.05s ease-in-out infinite; }
+.barra-carregamento::before { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 38%; border-radius: 0 3px 3px 0; background: #5b9bf0; animation: barra-carregamento 1.05s ease-in-out infinite; }
 @keyframes barra-carregamento{ 0% { transform: translateX(-100%); } 100% { transform: translateX(270%); } }
 @media (prefers-reduced-motion: reduce) { .barra-carregamento::before { width: 100%; animation: none; opacity: .6; } }
 
@@ -1080,3 +1087,82 @@ a.app-topbar-wordmark:hover strong { opacity: .85; }
 
 /* Texto de ajuda abaixo de um campo de formulário */
 .campo-ajuda { max-width: 640px; margin: 14px 0 0; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+
+/* Tabela como lista de cartões no celular: cada linha vira um bloco, sem rolagem horizontal.
+   Ative com a classe `lista-cartoes` no contêiner da tabela, `cartao-*` nas células e uma variante
+   (`lista-cartoes--x`) que define a disposição. `data-label` na célula mostra o rótulo da coluna.
+   `display` e `min-width` usam !important só para vencer as regras antigas que escondiam colunas por largura. */
+@media (max-width: 600px) {
+  .inventario-page .gestao-lista .lista-cartoes { overflow-x: visible; padding: 0; }
+  .inventario-page .gestao-lista .lista-cartoes table,
+  .inventario-page .gestao-lista .lista-cartoes tbody { display: block; min-width: 0 !important; width: 100%; }
+  .inventario-page .gestao-lista .lista-cartoes thead {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .inventario-page .gestao-lista .lista-cartoes tbody tr {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "nome status" "unidade data" "tipo tipo";
+    gap: 6px 12px;
+    align-items: center;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .inventario-page .gestao-lista .lista-cartoes--manutencoes tbody tr { grid-template-areas: "nome status" "unidade data"; }
+  .inventario-page .gestao-lista .lista-cartoes tbody tr:last-child { border-bottom: 0; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td {
+    display: block !important; height: auto; min-width: 0; max-width: none; padding: 0; border: 0;
+    white-space: normal; line-height: 1.4;
+  }
+  .inventario-page .gestao-lista .lista-cartoes tr > td[data-label]:not([data-label=""])::before {
+    content: attr(data-label); display: block; margin-bottom: 1px; color: var(--text-muted); font-size: 11px; font-weight: 500;
+  }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-nome { grid-area: nome; align-self: start; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-status { grid-area: status; align-self: start; justify-self: end; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-unidade { grid-area: unidade; font-size: 12px; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-data { grid-area: data; font-size: 12px; text-align: right; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-tipo { grid-area: tipo; font-size: 12px; }
+  .inventario-page .gestao-lista .lista-cartoes .inventario-mobile-meta { display: none; }
+  .inventario-page .gestao-lista .lista-cartoes .miniatura-item { display: none; }
+  .inventario-page .gestao-lista .lista-cartoes .inventario-equipamento-link::after { content: ''; position: absolute; inset: 0; }
+  .inventario-page .gestao-lista .lista-cartoes tr.esqueleto-linha > td { grid-column: 1 / -1; grid-area: auto; }
+
+  /* Inventário: equipamento (com o tombamento abaixo do nome) e status; unidade e aquisição; conservação */
+  .inventario-page .gestao-lista .lista-cartoes--inventario tbody tr { grid-template-areas: "nome status" "unidade data" "cons cons"; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-conservacao { grid-area: cons; }
+
+  /* Atas: ata e situação; valor total e saldo; utilizado e vencimento */
+  .inventario-page .gestao-lista .lista-cartoes--atas tbody tr { grid-template-areas: "nome status" "valor saldo" "uso venc"; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-valor { grid-area: valor; font-size: 12px; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-saldo { grid-area: saldo; font-size: 12px; text-align: right; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-uso { grid-area: uso; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-vencimento { grid-area: venc; font-size: 12px; text-align: right; }
+
+  /* Contratos: contrato e status; fornecedor; vigência e valor */
+  .inventario-page .gestao-lista .lista-cartoes--contratos tbody tr { grid-template-areas: "nome status" "forn forn" "vig valor"; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-fornecedor { grid-area: forn; font-size: 12px; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-vigencia { grid-area: vig; font-size: 12px; }
+  .inventario-page .gestao-lista .lista-cartoes--contratos tr > td.cartao-valor { text-align: right; }
+
+  /* Estoque: item e status; categoria; disponível e reservado; ação em largura total */
+  .inventario-page .gestao-lista .lista-cartoes--estoque tbody tr { grid-template-areas: "nome status" "cat cat" "disp res" "acoes acoes"; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-categoria { grid-area: cat; font-size: 12px; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-disp { grid-area: disp; font-size: 12px; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-res { grid-area: res; font-size: 12px; text-align: right; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-acoes { grid-area: acoes; margin-top: 4px; }
+  .inventario-page .gestao-lista .lista-cartoes tr > td.cartao-acoes .btn { width: 100%; margin: 0; justify-content: center; position: relative; z-index: 1; }
+
+  /* Cadastros genéricos (Configurações): nome em destaque; demais campos em duas colunas, com rótulo */
+  .inventario-page .gestao-lista .lista-cartoes--fluxo tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 10px 16px; }
+  .inventario-page .gestao-lista .lista-cartoes--fluxo tr > td { font-size: 12px; overflow-wrap: anywhere; }
+  .inventario-page .gestao-lista .lista-cartoes--fluxo tr > td.cartao-nome,
+  .inventario-page .gestao-lista .lista-cartoes--fluxo tr > td.cartao-larga { grid-column: 1 / -1; }
+}
+
+/* Inventário (5 colunas: equipamento, unidade, status, conservação, aquisição): entre 601 e 900 px
+   a conservação some junto com a aquisição, que a regra genérica já esconde. */
+@media (max-width: 900px) {
+  .inventario-page .gestao-lista .lista-cartoes--inventario th:nth-child(4),
+  .inventario-page .gestao-lista .lista-cartoes--inventario td:nth-child(4) { display: none; }
+}

@@ -59,18 +59,6 @@
 .solicitacao-acoes select { padding-right: 36px; }
 .solicitacao-acoes .info-grid { margin-bottom: 0; }
 
-.inventario-status--tom-green { background: #eaf4ee; color: #274e3b; }
-.inventario-status--tom-yellow { background: #fff1d6; color: #5f4710; }
-.inventario-status--tom-gray { background: #e3e3e3; color: #4a4a4a; }
-.inventario-status--tom-blue { background: #e8f0fe; color: #244b75; }
-.inventario-status--tom-purple { background: #f2eafa; color: #5e3b76; }
-.inventario-status--tom-red { background: #fde8e6; color: #8e1f0b; }
-.inventario-status--tom-green > span { background: #2f855a; }
-.inventario-status--tom-yellow > span { background: #c18424; }
-.inventario-status--tom-gray > span { background: #8b8882; }
-.inventario-status--tom-blue > span { background: #41759a; }
-.inventario-status--tom-purple > span { background: #73598e; }
-.inventario-status--tom-red > span { background: #c0392b; }
 
 /* Divisória sob o título, igual à das linhas de dados do detalhe. */
 .solicitacao-secao-texto > :not(h3) {

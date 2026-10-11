@@ -197,16 +197,17 @@ export function UnidadeFormulario() {
             </select>
           </div>
           {editando && (
-            <div className="field novo-equipamento-largura-total">
-              <label className="campo-checkbox">
-                <input
-                  type="checkbox"
-                  checked={form.ativo}
-                  onChange={(e) => setForm({ ...form, ativo: e.target.checked })}
-                  disabled={bloqueado}
-                />
-                Unidade ativa
-              </label>
+            <div className="field">
+              <label htmlFor="unidade-status">Status</label>
+              <select
+                id="unidade-status"
+                value={form.ativo ? 'ativo' : 'inativo'}
+                onChange={(e) => setForm({ ...form, ativo: e.target.value === 'ativo' })}
+                disabled={bloqueado}
+              >
+                <option value="ativo">Ativa</option>
+                <option value="inativo">Inativa</option>
+              </select>
             </div>
           )}
         </div>
