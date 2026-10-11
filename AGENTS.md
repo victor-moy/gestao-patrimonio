@@ -30,7 +30,7 @@ O frontend usa `/api` em produção. O Nginx remove esse prefixo ao encaminhar p
 
 Nunca confie apenas na ocultação de controles no frontend. Toda leitura e mutação deve ser restringida no backend por RBAC e, quando aplicável, pelo `unidadeId` do token. Para `GALPAO`, o galpão da operação vem sempre do token (nunca do corpo ou da query); só o Gestor de Patrimônio escolhe outro galpão.
 
-Mapa de acesso atual: Atas — Gestor de Patrimônio; Contratos — Gestor de Manutenção e Gestor de Patrimônio (exclusão só Gestor de Patrimônio); Configurações na interface (usuários, unidades, categorias de itens, tipos de itens) e Relatórios — Gestor de Patrimônio; Estoque — Galpão e Gestor de Patrimônio; Conversa (chat) — quem já enxerga a solicitação (Gestor de Patrimônio, Unidade da própria unidade, Galpão) ou a manutenção (Gestor de Patrimônio, Gestor de Manutenção, Unidade da própria unidade); mensagens são imutáveis e o e-mail de aviso nunca inclui o texto; a lista `/conversas` aplica o mesmo filtro por perfil e por unidade.
+Mapa de acesso atual: Atas — Gestor de Patrimônio; Contratos — Gestor de Manutenção e Gestor de Patrimônio (exclusão só Gestor de Patrimônio); Configurações na interface (usuários, unidades, categorias de itens, tipos de itens) e Relatórios — Gestor de Patrimônio; Estoque — Galpão e Gestor de Patrimônio; Conversa (chat) — quem já enxerga a solicitação (Gestor de Patrimônio, Unidade da própria unidade, Galpão) ou a manutenção (Gestor de Patrimônio, Gestor de Manutenção, Unidade da própria unidade); mensagens são imutáveis e o e-mail de aviso nunca inclui o texto. O acesso direto segue essa regra, mas a lista `/conversas` e as mensagens não lidas são filtradas por perfil e unidade: a Unidade vê as da própria unidade, o Galpão as solicitações, e os Gestores (Patrimônio e Manutenção) só as em que estão envolvidos (escreveram, criaram ou decidiram o pedido), mais a fila dos pedidos pendentes sem decisão. A leitura é por usuário (`LeituraConversa`): cada pessoa só altera a própria.
 
 ## Invariantes de domínio
 
@@ -97,10 +97,10 @@ O gate atual exige no mínimo 75% de linhas no backend e 25% no frontend. Não r
 ## Frontend e UX
 
 - Consulte `documentation/DESIGN-SYSTEM.md` antes de alterar layout, navegação, filtros, tabelas, formulários ou hierarquia visual. Ele registra as decisões de UX tomadas (ação primária à direita, cadastros em página própria e não em modal, listas no padrão do Inventário, sem símbolos em botões, histórico recolhido etc.). Se a decisão de UX mudar, atualize esse documento junto com o código e os testes.
-- Reutilize os componentes existentes antes de criar outros: `ListaCadastro`, `PaginaCadastro`, `RotaRestrita`, `SelectItem`, `CampoAnexo`, `HistoricoRecolhivel`, `ArquivoProtegido`, hooks `useCarga` e `useMensagemTemporaria`. Estilos novos entram em `components/Polaris.css` ou no CSS da própria página; não reintroduza CSS sem uso.
+- Reutilize os componentes existentes antes de criar outros: `ListaCadastro`, `PaginaCadastro`, `RotaRestrita`, `SelectItem`, `StatusPill` (cor de qualquer status), `CampoAnexo`, `HistoricoRecolhivel`, `ArquivoProtegido`, hooks `useCarga` e `useMensagemTemporaria`. Estilos novos entram em `components/Polaris.css` ou no CSS da própria página; não reintroduza CSS sem uso.
 - Cadastros e edições são páginas (`/recurso/novo`, `/recurso/:id`); modais ficam para confirmações e tarefas curtas. Não há toasts de sucesso: a confirmação é a mudança visível na tela. Erros de ação usam `window.alert` (`useAlertaNativo`); falhas de carregamento usam faixa inline com nova tentativa.
 - Anexos e laudos são protegidos: nunca use `<a href>`/`<img src>` direto para `/uploads/solicitacoes` ou `/uploads/laudos`; use os componentes de `ArquivoProtegido`.
-- Preserve suporte responsivo e temas claro/escuro.
+- Preserve suporte responsivo. O sistema tem um único tema (claro); não reintroduza tema escuro sem decisão explícita.
 - Toda operação assíncrona deve ter estado de carregamento, vazio e erro visível; não descarte falhas silenciosamente.
 - Ações destrutivas ou irreversíveis exigem confirmação e feedback após conclusão.
 - Modais precisam de `aria-modal`, foco inicial, contenção de foco, fechamento por `Escape` e devolução do foco ao acionador.
