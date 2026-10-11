@@ -50,8 +50,8 @@ export function NovaManutencao() {
   if (!podeSolicitar) return <Navigate to="/manutencoes" replace />;
 
   function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/manutencoes');
+    if (location.key !== 'default') void navigate(-1);
+    else void navigate('/manutencoes');
   }
 
   async function aoEnviar(e: FormEvent) {
@@ -61,7 +61,7 @@ export function NovaManutencao() {
     setEnviando(true);
     try {
       await api.post('/manutencoes', { ...form, titulo: form.titulo.trim() });
-      navigate('/manutencoes', { replace: true });
+      void navigate('/manutencoes', { replace: true });
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao registrar a solicitação.');
       setEnviando(false);

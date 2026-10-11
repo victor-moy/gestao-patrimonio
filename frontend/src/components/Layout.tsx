@@ -134,7 +134,7 @@ export function Layout() {
 
   return (
     <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${tituloGestao ? ' app-shell--gestao' : ''}${saindo ? ' app-shell--saindo' : ''}`}>
-      {sidebarAberta && <div className="sidebar-backdrop" onClick={fecharSidebar} />}
+      {sidebarAberta && <button type="button" className="sidebar-backdrop" aria-label="Fechar menu" tabIndex={-1} onClick={fecharSidebar} />}
       <aside className={`sidebar${sidebarAberta ? ' aberta' : ''}`}>
         {emConversas ? (
         <nav className="sidebar-nav" aria-label="Conversas">
@@ -255,7 +255,7 @@ export function Layout() {
                       type="button"
                       onClick={() => {
                         setMenuAberto(false);
-                        voltarAoMestre();
+                        void voltarAoMestre();
                       }}
                     >
                       <IconeUsuarios /> Redefinir usuário

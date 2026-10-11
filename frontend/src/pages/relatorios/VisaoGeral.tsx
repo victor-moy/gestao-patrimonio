@@ -1,8 +1,7 @@
 import '../Relatorios.css';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../api/client';
-import { SelectTipoEquipamento } from '../../components/SelectItem';
-import { FiltroPeriodo, FiltroUnidade, useOpcoesFiltro } from './filtros';
+import { FiltrosGerais, paramsFiltros, useOpcoesFiltro } from './filtros';
 import type { RankingUnidadeTipo, ResumoItem, VisaoGeralTipo } from '../../types';
 import { formatarMoeda, ROTULO_TIPO_SOLICITACAO } from '../../utils/format';
 
@@ -30,11 +29,7 @@ export function RelatorioVisaoGeral() {
   });
 
   const carregar = useCallback(() => {
-    const params = new URLSearchParams();
-    if (filtros.dataInicio) params.set('dataInicio', filtros.dataInicio);
-    if (filtros.dataFim) params.set('dataFim', filtros.dataFim);
-    if (filtros.unidadeIds.length > 0) params.set('unidadeId', filtros.unidadeIds.join(','));
-    if (filtros.tipoEquipamentoId) params.set('tipoEquipamentoId', filtros.tipoEquipamentoId);
+    const params = paramsFiltros(filtros);
     api
       .get<VisaoGeralTipo[]>(`/relatorios/visao-geral?${params}`)
       .then(setDados)
@@ -88,34 +83,7 @@ export function RelatorioVisaoGeral() {
     <>
       {(erro ?? erroOpcoes) && <div className="error-banner" role="alert">{erro ?? erroOpcoes}</div>}
       <div className="card card-pad rel-filtros">
-        <div className="relatorios-filtros-gerais">
-          <div>
-            <label>Período</label>
-            <FiltroPeriodo
-              dataInicio={filtros.dataInicio}
-              dataFim={filtros.dataFim}
-              onChange={(dataInicio, dataFim) => setFiltros({ ...filtros, dataInicio, dataFim })}
-            />
-          </div>
-          <div>
-            <label>Unidade de origem</label>
-            <FiltroUnidade
-              unidades={unidades}
-              selecionados={filtros.unidadeIds}
-              onChange={(ids) => setFiltros({ ...filtros, unidadeIds: ids })}
-            />
-          </div>
-          <div>
-            <label>Item</label>
-            <SelectTipoEquipamento
-              label="Item"
-              categorias={categorias}
-              value={filtros.tipoEquipamentoId}
-              onChange={(id) => setFiltros({ ...filtros, tipoEquipamentoId: id })}
-              placeholder="Todos os itens"
-            />
-          </div>
-        </div>
+        <FiltrosGerais filtros={filtros} onChange={setFiltros} unidades={unidades} categorias={categorias} />
       </div>
 
       {dados && (

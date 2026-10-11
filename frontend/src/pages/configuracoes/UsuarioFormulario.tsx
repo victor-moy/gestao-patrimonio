@@ -57,8 +57,8 @@ export function UsuarioFormulario() {
   }, [dados, editando, id]);
 
   function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/configuracoes/usuarios');
+    if (location.key !== 'default') void navigate(-1);
+    else void navigate('/configuracoes/usuarios');
   }
 
   async function aoEnviar(e: FormEvent) {
@@ -78,7 +78,7 @@ export function UsuarioFormulario() {
       } else {
         await api.post('/usuarios', { ...form, unidadeId: form.unidadeId || null });
       }
-      navigate('/configuracoes/usuarios', { replace: true });
+      void navigate('/configuracoes/usuarios', { replace: true });
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao salvar o usuário.');
       setEnviando(false);

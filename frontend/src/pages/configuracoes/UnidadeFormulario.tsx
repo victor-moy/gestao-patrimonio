@@ -56,12 +56,12 @@ export function UnidadeFormulario() {
   }, [dados, editando, id]);
 
   function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/configuracoes/unidades');
+    if (location.key !== 'default') void navigate(-1);
+    else void navigate('/configuracoes/unidades');
   }
 
   function concluir() {
-    navigate('/configuracoes/unidades', { replace: true });
+    void navigate('/configuracoes/unidades', { replace: true });
   }
 
   async function aoEnviar(e: FormEvent) {

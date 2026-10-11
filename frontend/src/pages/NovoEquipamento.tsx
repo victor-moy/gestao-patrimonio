@@ -57,8 +57,8 @@ export function NovoEquipamento() {
 
   // Volta para a página de origem; em acesso direto pela URL cai no inventário.
   function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/inventario');
+    if (location.key !== 'default') void navigate(-1);
+    else void navigate('/inventario');
   }
 
   async function aoEnviar(e: FormEvent) {
@@ -71,7 +71,7 @@ export function NovoEquipamento() {
         ...form,
         dataAquisicao: form.dataAquisicao || null,
       });
-      navigate('/inventario', { replace: true });
+      void navigate('/inventario', { replace: true });
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao cadastrar o equipamento.');
       setEnviando(false);

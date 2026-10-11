@@ -81,7 +81,7 @@ export async function importarEstoqueCsv(usuarioId: string, conteudo: Buffer, un
     for (const linha of porCodigo.values()) {
       const codigo = linha.mercadoriacodigocliente.trim();
       const nome = linha.mercadorianome.trim().replace(/\s+/g, ' ');
-      const quantidade = Math.max(0, parseInt(linha.quantidadeestoque, 10) || 0);
+      const quantidade = Math.max(0, Number.parseInt(linha.quantidadeestoque, 10) || 0);
 
       let tipo = await tx.tipoEquipamento.findUnique({ where: { codigo } });
       if (!tipo) {

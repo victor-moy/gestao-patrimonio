@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
+import { SelectTipoEquipamento } from '../../components/SelectItem';
 import type { Categoria, Unidade } from '../../types';
 
 const OPCOES_PERIODO = [
@@ -141,4 +142,67 @@ export function useOpcoesFiltro() {
   }, []);
 
   return { unidades, categorias, erro };
+}
+
+export interface FiltrosBase {
+  dataInicio: string;
+  dataFim: string;
+  unidadeIds: string[];
+  tipoEquipamentoId: string;
+}
+
+export const FILTROS_INICIAIS: FiltrosBase = { dataInicio: '', dataFim: '', unidadeIds: [], tipoEquipamentoId: '' };
+
+export function paramsFiltros(filtros: FiltrosBase & { busca?: string }) {
+  const params = new URLSearchParams();
+  if (filtros.dataInicio) params.set('dataInicio', filtros.dataInicio);
+  if (filtros.dataFim) params.set('dataFim', filtros.dataFim);
+  if (filtros.unidadeIds.length > 0) params.set('unidadeId', filtros.unidadeIds.join(','));
+  if (filtros.tipoEquipamentoId) params.set('tipoEquipamentoId', filtros.tipoEquipamentoId);
+  if (filtros.busca) params.set('busca', filtros.busca);
+  return params;
+}
+
+// Linha de filtros comum aos relatórios: período, unidade de origem e item.
+export function FiltrosGerais<T extends FiltrosBase>({
+  filtros,
+  onChange,
+  unidades,
+  categorias,
+}: {
+  filtros: T;
+  onChange: (filtros: T) => void;
+  unidades: Unidade[];
+  categorias: Categoria[];
+}) {
+  return (
+    <div className="relatorios-filtros-gerais">
+      <div>
+        <span className="campo-rotulo">Período</span>
+        <FiltroPeriodo
+          dataInicio={filtros.dataInicio}
+          dataFim={filtros.dataFim}
+          onChange={(dataInicio, dataFim) => onChange({ ...filtros, dataInicio, dataFim })}
+        />
+      </div>
+      <div>
+        <span className="campo-rotulo">Unidade de origem</span>
+        <FiltroUnidade
+          unidades={unidades}
+          selecionados={filtros.unidadeIds}
+          onChange={(ids) => onChange({ ...filtros, unidadeIds: ids })}
+        />
+      </div>
+      <div>
+        <span className="campo-rotulo">Item</span>
+        <SelectTipoEquipamento
+          label="Item"
+          categorias={categorias}
+          value={filtros.tipoEquipamentoId}
+          onChange={(id) => onChange({ ...filtros, tipoEquipamentoId: id })}
+          placeholder="Todos os itens"
+        />
+      </div>
+    </div>
+  );
 }

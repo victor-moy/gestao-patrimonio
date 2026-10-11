@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import { IconeBusca, IconeCheck, IconeChevron } from '../components/icons';
 import type { Contrato } from '../types';
 import { ROTULO_STATUS_CONTRATO } from '../utils/cadastros';
 import { formatarData, formatarMoeda } from '../utils/format';
@@ -10,9 +9,13 @@ import './Cadastros.css';
 import { EsqueletoTabela } from '../components/Esqueletos';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
 import { StatusPill } from '../components/StatusPill';
+import { BarraConsulta } from '../components/BarraConsulta';
 
 const POR_PAGINA = 10;
-const VISUALIZACOES: Array<[string, string]> = [['', 'Todos'], ...Object.entries(ROTULO_STATUS_CONTRATO)];
+const VISUALIZACOES = [
+  { valor: '', rotulo: 'Todos' },
+  ...Object.entries(ROTULO_STATUS_CONTRATO).map(([valor, rotulo]) => ({ valor, rotulo })),
+];
 
 export function Contratos() {
   const { usuario } = useAuth();
@@ -21,13 +24,11 @@ export function Contratos() {
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('');
   const [pagina, setPagina] = useState(1);
-  const [menuAberto, setMenuAberto] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [falha, setFalha] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   // Falhas de carregamento: alerta nativo + o estado inline da lista (com \"Tentar novamente\")
   useAlertaNativo(erro, () => undefined);
-  const controles = useRef<HTMLDivElement>(null);
 
   function carregar() {
     setCarregando(true);
@@ -48,22 +49,6 @@ export function Contratos() {
   }, [permitido]);
 
 
-  useEffect(() => {
-    function fechar(evento: PointerEvent | KeyboardEvent) {
-      if (evento instanceof KeyboardEvent) {
-        if (evento.key !== 'Escape') return;
-      } else if (controles.current?.contains(evento.target as Node)) {
-        return;
-      }
-      setMenuAberto(false);
-    }
-    document.addEventListener('pointerdown', fechar);
-    document.addEventListener('keydown', fechar);
-    return () => {
-      document.removeEventListener('pointerdown', fechar);
-      document.removeEventListener('keydown', fechar);
-    };
-  }, []);
 
   const visiveis = useMemo(() => {
     const alvo = busca.trim().toLowerCase();
@@ -86,7 +71,6 @@ export function Contratos() {
   const totalPaginas = Math.max(1, Math.ceil(visiveis.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
   const inicio = (paginaAtual - 1) * POR_PAGINA;
-  const visualizacao = VISUALIZACOES.find(([valor]) => valor === filtro);
 
   return (
     <section className="gestao-page inventario-page cadastro-page" aria-labelledby="contratos-titulo">
@@ -103,54 +87,16 @@ export function Contratos() {
 
 
       <div className="gestao-lista inventario-lista">
-        <div className="inventario-controles" ref={controles}>
-          <div className="inventario-indexbar">
-            <div className="inventario-consulta" role="search" aria-label="Pesquisar e filtrar contratos">
-              <div className="inventario-visualizacao">
-                <button
-                  type="button"
-                  className="inventario-visualizacao-botao"
-                  aria-haspopup="menu"
-                  aria-expanded={menuAberto}
-                  onClick={() => setMenuAberto((aberto) => !aberto)}
-                >
-                  <span className="inventario-visualizacao-rotulo">{visualizacao?.[1]}</span>
-                  <IconeChevron />
-                </button>
-                {menuAberto && (
-                  <div className="inventario-visualizacao-menu" role="menu" aria-label="Visualizações dos contratos">
-                    {VISUALIZACOES.map(([valor, rotulo]) => (
-                      <button
-                        key={valor}
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={filtro === valor}
-                        onClick={() => {
-                          setFiltro(valor);
-                          setMenuAberto(false);
-                        }}
-                      >
-                        <span className="inventario-visualizacao-check" aria-hidden>
-                          {filtro === valor && <IconeCheck />}
-                        </span>
-                        <span>{rotulo}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="inventario-consulta-busca">
-                <IconeBusca />
-                <input
-                  aria-label="Buscar contratos"
-                  placeholder="Buscar e filtrar"
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <BarraConsulta
+          pesquisa="Pesquisar e filtrar contratos"
+          menu="Visualizações dos contratos"
+          campoBusca="Buscar contratos"
+          visualizacoes={VISUALIZACOES}
+          filtro={filtro}
+          onFiltro={setFiltro}
+          busca={busca}
+          onBusca={setBusca}
+        />
 
         <div className="gestao-tabela-scroll lista-cartoes lista-cartoes--contratos" role="region" aria-label="Contratos" tabIndex={0} aria-busy={carregando}>
           <table>

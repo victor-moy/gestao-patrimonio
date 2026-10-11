@@ -3,15 +3,18 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { StatusPill } from '../components/StatusPill';
-import { IconeBusca, IconeCheck, IconeChevron } from '../components/icons';
 import type { Manutencao } from '../types';
 import { codigoManutencao, formatarData, ROTULO_STATUS_MANUTENCAO } from '../utils/format';
 import { tituloManutencao } from '../utils/manutencao';
 import { EsqueletoTabela } from '../components/Esqueletos';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
+import { BarraConsulta } from '../components/BarraConsulta';
 
 const POR_PAGINA = 10;
-const VISUALIZACOES: Array<[string, string]> = [['', 'Todas'], ...Object.entries(ROTULO_STATUS_MANUTENCAO)];
+const VISUALIZACOES = [
+  { valor: '', rotulo: 'Todas' },
+  ...Object.entries(ROTULO_STATUS_MANUTENCAO).map(([valor, rotulo]) => ({ valor, rotulo })),
+];
 
 export function Manutencoes() {
   const { usuario } = useAuth();
@@ -19,13 +22,11 @@ export function Manutencoes() {
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('');
   const [pagina, setPagina] = useState(1);
-  const [visualizacoesAberto, setVisualizacoesAberto] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [falhaCarregamento, setFalhaCarregamento] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   // Falhas de carregamento: alerta nativo + o estado inline da lista (com \"Tentar novamente\")
   useAlertaNativo(erro, () => undefined);
-  const controles = useRef<HTMLDivElement>(null);
   const requisicao = useRef(0);
 
   const carregar = useCallback(() => {
@@ -63,27 +64,9 @@ export function Manutencoes() {
 
   // Confirmação vinda da página de nova manutenção
 
-  useEffect(() => {
-    function fecharMenu(evento: PointerEvent | KeyboardEvent) {
-      if (evento instanceof KeyboardEvent) {
-        if (evento.key !== 'Escape') return;
-      } else if (controles.current?.contains(evento.target as Node)) {
-        return;
-      }
-      setVisualizacoesAberto(false);
-    }
-    document.addEventListener('pointerdown', fecharMenu);
-    document.addEventListener('keydown', fecharMenu);
-    return () => {
-      document.removeEventListener('pointerdown', fecharMenu);
-      document.removeEventListener('keydown', fecharMenu);
-    };
-  }, []);
-
   const totalPaginas = Math.max(1, Math.ceil(manutencoes.length / POR_PAGINA));
   const paginaAtual = Math.min(pagina, totalPaginas);
   const inicio = (paginaAtual - 1) * POR_PAGINA;
-  const visualizacaoAtual = VISUALIZACOES.find(([valor]) => valor === filtroStatus);
 
   return (
     <section className="gestao-page inventario-page manutencoes-page" aria-labelledby="manutencoes-titulo">
@@ -102,54 +85,16 @@ export function Manutencoes() {
 
 
       <div className="gestao-lista inventario-lista">
-        <div className="inventario-controles" ref={controles}>
-          <div className="inventario-indexbar">
-            <div className="inventario-consulta" role="search" aria-label="Pesquisar e filtrar manutenções">
-              <div className="inventario-visualizacao">
-                <button
-                  type="button"
-                  className="inventario-visualizacao-botao"
-                  aria-haspopup="menu"
-                  aria-expanded={visualizacoesAberto}
-                  onClick={() => setVisualizacoesAberto((aberto) => !aberto)}
-                >
-                  <span className="inventario-visualizacao-rotulo">{visualizacaoAtual?.[1] ?? 'Todas'}</span>
-                  <IconeChevron />
-                </button>
-                {visualizacoesAberto && (
-                  <div className="inventario-visualizacao-menu" role="menu" aria-label="Visualizações das manutenções">
-                    {VISUALIZACOES.map(([valor, rotulo]) => (
-                      <button
-                        key={valor}
-                        type="button"
-                        role="menuitemradio"
-                        aria-checked={filtroStatus === valor}
-                        onClick={() => {
-                          setFiltroStatus(valor);
-                          setVisualizacoesAberto(false);
-                        }}
-                      >
-                        <span className="inventario-visualizacao-check" aria-hidden>
-                          {filtroStatus === valor && <IconeCheck />}
-                        </span>
-                        <span>{rotulo}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div className="inventario-consulta-busca">
-                <IconeBusca />
-                <input
-                  aria-label="Buscar manutenções"
-                  placeholder="Buscar e filtrar"
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+        <BarraConsulta
+          pesquisa="Pesquisar e filtrar manutenções"
+          menu="Visualizações das manutenções"
+          campoBusca="Buscar manutenções"
+          visualizacoes={VISUALIZACOES}
+          filtro={filtroStatus}
+          onFiltro={setFiltroStatus}
+          busca={busca}
+          onBusca={setBusca}
+        />
 
         <div className="gestao-tabela-scroll lista-cartoes lista-cartoes--manutencoes" role="region" aria-label="Manutenções" tabIndex={0} aria-busy={carregando}>
           <table>

@@ -60,8 +60,8 @@ export function MovimentacaoEstoque() {
   if (!podeMovimentar) return <Navigate to="/estoque" replace />;
 
   function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/estoque');
+    if (location.key !== 'default') void navigate(-1);
+    else void navigate('/estoque');
   }
 
   async function aoEnviar(e: FormEvent) {
@@ -76,7 +76,7 @@ export function MovimentacaoEstoque() {
         unidadeId: form.galpaoId,
         ...(ehSaida ? { unidadeDestinoId: form.unidadeDestinoId } : {}),
       });
-      navigate('/estoque', { replace: true, state: { galpaoId: form.galpaoId } });
+      void navigate('/estoque', { replace: true, state: { galpaoId: form.galpaoId } });
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao registrar a movimentação.');
       setEnviando(false);

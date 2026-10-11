@@ -97,7 +97,11 @@
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .relatorios-filtros-gerais label {
+.relatorios-page--itens-estoque) .relatorios-filtros-gerais label,
+:is(.relatorios-page--visao-geral,
+.relatorios-page--emprestimos,
+.relatorios-page--cessoes,
+.relatorios-page--itens-estoque) .relatorios-filtros-gerais .campo-rotulo {
   display: block;
   margin-bottom: 6px;
   color: var(--text-secondary);

@@ -70,7 +70,7 @@ export function Estoque() {
     const estado = location.state as { galpaoId?: string } | null;
     if (!estado?.galpaoId) return;
     setGalpaoId(estado.galpaoId);
-    navigate(location.pathname, { replace: true, state: null });
+    void navigate(location.pathname, { replace: true, state: null });
   }, [location, navigate]);
 
   useEffect(() => {
@@ -226,7 +226,7 @@ export function Estoque() {
             style={{ display: 'none' }}
             onChange={(e) => {
               const arquivo = e.target.files?.[0];
-              if (arquivo) importarCsv(arquivo);
+              if (arquivo) void importarCsv(arquivo);
               e.target.value = '';
             }}
           />

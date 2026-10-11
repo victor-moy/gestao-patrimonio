@@ -95,9 +95,9 @@ export function NovaSolicitacao() {
   // aberta direto (sem histórico de navegação no app), cai na lista.
   function voltar() {
     if (location.key !== 'default') {
-      navigate(-1);
+      void navigate(-1);
     } else {
-      navigate('/solicitacoes');
+      void navigate('/solicitacoes');
     }
   }
 
@@ -234,7 +234,7 @@ export function NovaSolicitacao() {
           }),
         );
       }
-      navigate('/solicitacoes');
+      void navigate('/solicitacoes');
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro');
     }
@@ -556,8 +556,9 @@ export function NovaSolicitacao() {
               Detalhes
             </div>
             <div className="field">
-              <label>Justificativa *</label>
+              <label htmlFor="justificativa">Justificativa *</label>
               <textarea
+                id="justificativa"
                 rows={3}
                 maxLength={JUSTIFICATIVA_MAX}
                 placeholder="Explique o motivo da solicitação..."
@@ -570,7 +571,7 @@ export function NovaSolicitacao() {
               </div>
             </div>
             <div className="field">
-              <label>Anexo</label>
+              <span className="campo-rotulo">Anexo</span>
               <CampoAnexo
                 arquivo={anexo}
                 preview={previewAnexo}

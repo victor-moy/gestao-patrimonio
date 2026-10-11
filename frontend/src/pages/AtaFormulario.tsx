@@ -66,8 +66,8 @@ export function AtaFormulario() {
   if (!permitido) return <Navigate to="/" replace />;
 
   function voltar() {
-    if (location.key !== 'default') navigate(-1);
-    else navigate('/atas');
+    if (location.key !== 'default') void navigate(-1);
+    else void navigate('/atas');
   }
 
   async function aoEnviar(e: FormEvent) {
@@ -93,7 +93,7 @@ export function AtaFormulario() {
           unidadeEspecificaId: form.unidadeEspecificaId || null,
         });
       }
-      navigate('/atas', { replace: true });
+      void navigate('/atas', { replace: true });
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro ao salvar a ata.');
       setEnviando(false);

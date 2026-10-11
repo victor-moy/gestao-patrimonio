@@ -42,7 +42,7 @@ export function QrCodeEquipamento({ equipamentoId, tombamento, descricao, unidad
     if (!imprimir || !imagem) return;
     let ativo = true;
     const el = document.querySelector<HTMLImageElement>('.qr-etiqueta-impressao img');
-    Promise.resolve(el?.decode?.())
+    void Promise.resolve(el?.decode?.())
       .catch(() => undefined)
       .then(() => {
         if (!ativo) return;
