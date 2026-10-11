@@ -39,6 +39,14 @@ jobs:
         working-directory: backend
         run: npm run lint
 
+      - name: Backend — build (TypeScript)
+        working-directory: backend
+        run: npm run build
+
+      - name: Backend — vulnerabilidades em dependências de produção
+        working-directory: backend
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Backend — testes com cobertura (meta ≥ 75% linhas)
         working-directory: backend
         run: npm run test:coverage
@@ -51,6 +59,10 @@ jobs:
       - name: Frontend — ESLint
         working-directory: frontend
         run: npm run lint
+
+      - name: Frontend — vulnerabilidades em dependências de produção
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
 
       - name: Frontend — testes com cobertura (meta ≥ 25% linhas)
         working-directory: frontend
