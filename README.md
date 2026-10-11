@@ -104,9 +104,6 @@ cd frontend && npm run test:coverage
 
 ## Deploy
 
-O deploy é automatizado via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — não é feito manualmente via SSH/FTP. A cada push/merge na `main`, depois que o job de qualidade (lint + testes + cobertura dos dois lados) passa, dois ambientes são atualizados por runners self-hosted:
-
-- **Produção** — VM da própria Secretaria Municipal de Saúde, rede interna.
-- **Demonstração pública** — [sgp.yomlabs.io](https://sgp.yomlabs.io), usada para avaliação.
+O deploy é automatizado via GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — não é feito manualmente via SSH/FTP. A cada push/merge na `main`, depois que o job de qualidade (lint + testes + cobertura dos dois lados) passa, o ambiente de **demonstração** ([sgp.yomlabs.io](https://sgp.yomlabs.io), usado para avaliação) é atualizado por um runner self-hosted. O deploy de **produção** (VM da Secretaria Municipal de Saúde) está desativado no workflow por enquanto, pois a VM não está disponível.
 
 Detalhes de infraestrutura, variáveis de ambiente e como reproduzir o deploy em um servidor novo estão na [página de Deploy e Instalação da Wiki](https://github.com/victor-moy/gestao-patrimonio/wiki/Deploy-e-Instalação).

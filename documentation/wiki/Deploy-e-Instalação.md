@@ -32,7 +32,7 @@ O `.env` nunca é versionado (está no `.gitignore`) — segredos reais (JWT, SM
 | Situação | Onde fica a configuração |
 |---|---|
 | Rodando local com Docker Compose | Arquivo `.env` na raiz (copie de `.env.example`). Nunca é versionado. |
-| Deploy automático (GitHub Actions) | No GitHub, em **Settings › Environments**, um ambiente para cada destino: `producao` e `demonstracao`. Em cada um, valores sensíveis (`JWT_SECRET`, `SMTP_PASS`, e `POSTGRES_PASSWORD`/`GRAFANA_PASSWORD` quando aplicável) vão em **Secrets**; os demais (`WEB_PORT`, `JWT_EXPIRES_IN`, `SMTP_*`...) em **Variables**. Assim produção e demonstração têm segredos e portas próprios. |
+| Deploy automático (GitHub Actions) | No GitHub, em **Settings › Environments**, um ambiente para cada destino (hoje só `demonstracao`; `producao` volta quando o deploy de produção for reativado). Em cada um, valores sensíveis (`JWT_SECRET`, `SMTP_PASS`, e `POSTGRES_PASSWORD`/`GRAFANA_PASSWORD` quando aplicável) vão em **Secrets**; os demais (`WEB_PORT`, `JWT_EXPIRES_IN`, `SMTP_*`...) em **Variables**. Assim produção e demonstração têm segredos e portas próprios. |
 | Desenvolvimento sem Docker (`npm run dev`) | Não é preciso definir `JWT_SECRET`: fora de produção a API usa um valor de desenvolvimento. |
 
 O job de deploy copia os segredos e variáveis do GitHub para o ambiente antes de rodar `docker compose`. O que não estiver cadastrado no GitHub é ignorado e vale o `.env` do servidor (se existir) ou o padrão do Compose, então dá para migrar aos poucos.
@@ -132,8 +132,8 @@ Pipeline: [`.github/workflows/ci.yml`](https://github.com/victor-moy/gestao-patr
 A cada push ou merge na branch `main`:
 
 1. **Qualidade e Testes** (`ubuntu-latest`) — instala dependências, roda Prisma generate, ESLint (backend com `eslint-plugin-security`) e os testes com cobertura dos dois lados, builda o frontend e publica o relatório de cobertura como artefato. Se configurado o secret `SONAR_TOKEN`, roda também a análise do SonarCloud.
-2. Se o passo anterior passar, dois jobs rodam em paralelo, cada um num runner **self-hosted**:
-   - **Entrega produção** — na VM da Secretaria Municipal de Saúde (rede interna): `docker compose build && docker compose up -d`, seguido de um healthcheck em `/api/health`.
-   - **Entrega demonstração** ([sgp.yomlabs.io](https://sgp.yomlabs.io)) — na instância usada para avaliação: `git pull`, `docker compose build && docker compose up -d`, healthcheck em `/api/health`.
+2. Se o passo anterior passar, o job **Entrega demonstração** ([sgp.yomlabs.io](https://sgp.yomlabs.io)) roda num runner **self-hosted** (label `demo`, instalado na instância da AWS usada para avaliação): `git pull`, `docker compose build && docker compose up -d` e healthcheck em `/api/health`.
+
+> O job de **produção** (VM da Secretaria Municipal de Saúde, runner com label `producao`) foi removido do workflow enquanto a VM não está disponível. Para reativá-lo, recupere-o do histórico do Git e cadastre o ambiente `producao` no GitHub.
 
 Para reproduzir o deploy manualmente em um servidor novo (por exemplo, para configurar um runner), os passos são os mesmos da seção "Rodando com Docker Compose" acima.
