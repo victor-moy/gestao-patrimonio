@@ -28,6 +28,7 @@ services:
       API_PORT: 3333
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-30m}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
       SMTP_ENABLED: ${SMTP_ENABLED:-false}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
@@ -35,11 +36,11 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-SGP <sgp@joinville.sc.gov.br>}
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       - api-uploads:/app/uploads
     ports:
-      - '3333:3333'
+      # Só a própria máquina acessa a API direto; o acesso normal passa pelo Nginx (/api)
+      - '127.0.0.1:3333:3333'
 
   web:
     build: ./frontend

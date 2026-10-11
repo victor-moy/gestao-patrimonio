@@ -8,10 +8,6 @@ export const dashboardRouter = Router();
 
 dashboardRouter.use(autenticar);
 
-dashboardRouter.get('/resumo', permitir(Perfil.GESTOR_PATRIMONIO, Perfil.GESTOR_MANUTENCAO), async (_req, res) => {
-  res.json(await service.resumoInicio());
-});
-
 // RF36 — dashboard do Gestor de Patrimônio (gestores têm acesso)
 dashboardRouter.get(
   '/',

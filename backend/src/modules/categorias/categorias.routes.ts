@@ -7,7 +7,7 @@ import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
-import { uploadImagemTipo, removerImagemTipo } from '../../lib/uploads';
+import { assinaturaImagem, uploadImagemTipo, removerImagemTipo } from '../../lib/uploads';
 
 // Taxonomia de grupos/subgrupos espelhando o e-Pública
 // (feedback da reunião de 12/05/2026).
@@ -165,6 +165,7 @@ categoriasRouter.post(
   '/tipos/:id/imagem',
   permitir(Perfil.GESTOR_PATRIMONIO, Perfil.GALPAO),
   uploadImagemTipo.single('imagem'),
+  assinaturaImagem,
   async (req, res) => {
     if (!req.file) {
       throw new AppError('Envie a imagem no campo "imagem".', 422);

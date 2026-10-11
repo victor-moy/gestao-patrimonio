@@ -14,20 +14,23 @@ Projeto de Portfólio — Engenharia de Software, Católica SC. Autor: Victor Mo
 
 | Página | Conteúdo |
 |---|---|
-| [Requisitos Funcionais](Requisitos-Funcionais) | RF01–RF37, requisitos não funcionais (RNF) e regras de negócio (RN) |
-| [Casos de Uso](Casos-de-Uso) | UC01–UC21, organizados por módulo, e as 5 personas de usuário |
+| [Requisitos Funcionais](Requisitos-Funcionais) | RF01–RF44, requisitos não funcionais (RNF) e regras de negócio (RN) |
+| [Casos de Uso](Casos-de-Uso) | UC01–UC26, organizados por módulo, e as 5 personas de usuário |
 | [Arquitetura](Arquitetura) | Diagramas C4 (Contexto, Containers, Componentes), stack tecnológica e modelo de dados |
 | [Deploy e Instalação](Deploy-e-Instalação) | Variáveis de ambiente, como rodar local (com e sem Docker) e como funciona o deploy automatizado |
 
+O guia de UX está em [`documentation/DESIGN-SYSTEM.md`](https://github.com/victor-moy/gestao-patrimonio/blob/main/documentation/DESIGN-SYSTEM.md) e as instruções para agentes de IA em [`AGENTS.md`](https://github.com/victor-moy/gestao-patrimonio/blob/main/AGENTS.md).
+
 ## Visão geral do sistema
 
-O SGP atende cinco perfis de usuário — Gestor de Patrimônio, Gestor de Manutenção, Unidade de Atendimento, Galpão e um perfil automático do próprio Sistema — em torno de seis módulos principais:
+O SGP atende cinco perfis de usuário — Gestor de Patrimônio, Gestor de Manutenção, Unidade de Atendimento, Galpão e um perfil automático do próprio Sistema — em torno de sete módulos principais:
 
-- **Inventário** — cadastro e consulta de equipamentos por número de tombamento (único e imutável), com importação via CSV.
+- **Inventário** — cadastro e consulta de equipamentos por número de tombamento (único e imutável), com importação via CSV e QR Code por equipamento (leva direto ao detalhe).
 - **Manutenções** — fluxo completo: solicitação → aprovação → orçamento da terceirizada → validação → execução ou laudo de baixa → confirmação dupla de retorno.
-- **Solicitações** — cinco tipos de fluxo: Substituição, Ampliação (novos itens), Cessão de Uso, Empréstimo e Recolha entre unidades.
+- **Solicitações** — cinco tipos de fluxo: Substituição, Ampliação (novos itens), Cessão de Uso, Empréstimo e Recolha entre unidades. Solicitações e manutenções têm uma conversa interna entre os participantes.
 - **Estoque** — controle do que está no Galpão aguardando destinação, incluindo itens represados por falta de saldo em ata.
 - **Atas e Contratos** — saldo e vencimento de atas de registro de preços vinculadas às aprovações de novos itens; contratos das empresas terceirizadas de manutenção.
-- **Relatórios** — dashboards analíticos (funil de solicitações, prazos de empréstimo, prestação de contas de cessões, itens aguardando estoque) com filtros por período, unidade e item.
+- **Relatórios** — quatro relatórios, um por submenu (visão geral com funil de solicitações e ranking de unidades, empréstimos, cessões de uso e itens aguardando estoque), com filtros por período, unidade e item.
+- **Configurações** — Gestor de Patrimônio: usuários e perfis (inclusive redefinição de senha), unidades, categorias de itens e tipos de itens; também permite entrar como outro usuário, com um clique na lista, para testes (auditado).
 
 Mais contexto sobre o problema, benchmark de soluções existentes e justificativa de escopo está no [RFC v1.0](https://github.com/victor-moy/gestao-patrimonio/blob/main/documentation/RFC.pdf).

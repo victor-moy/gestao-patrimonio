@@ -8,15 +8,6 @@ export interface FiltrosDashboard {
   tipoEquipamentoId?: string;
 }
 
-export async function resumoInicio() {
-  const [totalEquipamentos, unidades, totalSolicitacoes] = await Promise.all([
-    prisma.equipamento.count({ where: { status: { not: 'BAIXADO' } } }),
-    prisma.equipamento.groupBy({ by: ['unidadeId'], where: { status: { not: 'BAIXADO' } } }),
-    prisma.solicitacao.count(),
-  ]);
-  return { totalEquipamentos, unidadesAtendidas: unidades.length, totalSolicitacoes };
-}
-
 // UC21/RF36/RF37 — indicadores consolidados com filtros por período,
 // unidade e tipo de equipamento.
 export async function indicadores(filtros: FiltrosDashboard) {

@@ -4,7 +4,7 @@ import { env } from '../config/env';
 
 // Notificações por e-mail ao endereço base da unidade envolvida
 // (feedback da reunião de 12/05/2026), com registro de cada envio.
-let transporter: nodemailer.Transporter | null = null;
+let transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
 
 function getTransporter() {
   if (!transporter) {

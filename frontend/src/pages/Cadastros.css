@@ -1,0 +1,45 @@
+/* Listas de cadastros (atas e contratos) sobre o índice do Inventário. */
+.cadastro-sub { margin-top: 2px; color: var(--text-secondary); font-size: 11px; }
+.cadastro-progresso { width: 96px; height: 6px; margin-bottom: 4px; border-radius: 3px; background: var(--surface-subtle); overflow: hidden; }
+.cadastro-progresso-fill { height: 100%; border-radius: 3px; background: #303030; }
+.cadastro-selos { display: flex; flex-wrap: wrap; gap: 6px; }
+.cadastro-page .gestao-lista table { min-width: 860px; }
+
+/* O índice do Inventário esconde as colunas 3, 5 e 6 no mobile; aqui todas ficam e a tabela rola. */
+@media (max-width: 900px) {
+  .cadastro-page.inventario-page .gestao-lista th:nth-child(3),
+.cadastro-page.inventario-page .gestao-lista td:nth-child(3),
+.cadastro-page.inventario-page .gestao-lista th:nth-child(5),
+.cadastro-page.inventario-page .gestao-lista td:nth-child(5),
+.cadastro-page.inventario-page .gestao-lista th:nth-child(6),
+.cadastro-page.inventario-page .gestao-lista td:nth-child(6) { display: table-cell; }
+  .cadastro-page.inventario-page .gestao-lista table { min-width: 860px; }
+}
+@media (max-width: 600px) {
+  .cadastro-page.inventario-page .gestao-lista th:nth-child(3),
+.cadastro-page.inventario-page .gestao-lista td:nth-child(3) { display: table-cell; }
+  .cadastro-page.inventario-page .gestao-lista table { min-width: 860px; }
+}
+
+/* Hierarquia das tabelas igual à do Inventário: 1ª coluna em destaque, demais em texto padrão, apoio em cinza */
+.cadastro-page .gestao-lista td:not(:first-child) { color: #303030; font-size: 12px; font-weight: 500; }
+.cadastro-page .gestao-lista td .cadastro-sub { color: var(--text-secondary); font-weight: 400; }
+
+/* Caixa de seleção dentro dos formulários */
+.novo-equipamento .field label.campo-checkbox {
+  display: inline-flex; align-items: center; gap: 8px; margin: 0;
+  color: var(--text); font-size: 13px; font-weight: 500; cursor: pointer;
+}
+.novo-equipamento .field input[type='checkbox'] {
+  width: 16px; height: 16px; min-height: 0; margin: 0; padding: 0; flex: none;
+  accent-color: #303030; box-shadow: none; cursor: pointer;
+}
+
+/* Navegação da página de Configurações */
+
+/* Usuários: ícone ao lado do nome para entrar como aquele usuário */
+.usuario-nome-linha { display: flex; align-items: center; gap: 6px; }
+.icone-acao { display: inline-grid; flex: none; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.icone-acao:hover:not(:disabled) { background: rgba(0, 0, 0, .06); color: var(--text); }
+.icone-acao:disabled { cursor: progress; opacity: .5; }
+.icone-acao svg { width: 15px; height: 15px; }

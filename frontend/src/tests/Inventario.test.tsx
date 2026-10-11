@@ -25,7 +25,7 @@ const equipamentos = [
   {
     id: 'eq-1',
     tombamento: '12345/2024',
-    descricao: 'Autoclave Vertical 75L',
+    descricao: 'Equipamento 12345/2024',
     estadoConservacao: 'BOM',
     status: 'ATIVO',
     emendaParlamentar: false,
@@ -88,16 +88,44 @@ describe('Inventário (UC03/UC04)', () => {
       within(screen.getByRole('navigation')).getByRole('link', { name: /inventário/i }),
     );
     await waitFor(() => {
-      expect(screen.getByText('Inventário de Equipamentos')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Inventário' })).toBeInTheDocument();
       expect(screen.getByText('12345/2024')).toBeInTheDocument();
     });
     expect(screen.getAllByText('Em Manutenção').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Regular').length).toBeGreaterThan(0);
-    expect(screen.getByText('Emenda')).toBeInTheDocument();
+    expect(screen.queryByText('Emenda')).not.toBeInTheDocument();
     expect(screen.getByText('2 equipamentos')).toBeInTheDocument();
+    expect(screen.queryByText('Equipamento 12345/2024')).not.toBeInTheDocument();
+    const consulta = screen.getByRole('search', { name: 'Pesquisar e filtrar inventário' });
+    expect(within(consulta).getByRole('button', { name: 'Todos' })).toBeInTheDocument();
+    expect(within(consulta).getByRole('textbox', { name: 'Buscar equipamentos' })).toBeInTheDocument();
+    expect(within(consulta).getByRole('button', { name: 'Filtrar e ordenar' })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Menu do usuário' }),
+    ).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).getByText('Gestão Patrimonial')).toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).queryByText('Prefeitura de Joinville')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('banner')).queryByText('SGP')).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('complementary')).getByRole('link', { name: 'Configurações' }),
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('complementary')).queryByRole('button', {
+        name: 'Menu do usuário',
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(screen.getByRole('banner')).queryByRole('button', { name: /ativar tema/i }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(screen.getByRole('banner')).getByRole('button', { name: 'Menu do usuário' }),
+    );
+    expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
+    expect(screen.queryByText('Configurações do Sistema')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tema escuro')).not.toBeInTheDocument();
     // Gestor vê botões de importação e cadastro
-    expect(screen.getByRole('button', { name: /importar csv/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /cadastrar equipamento/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /importar arquivo csv/i })).toHaveTextContent('Importar');
+    expect(screen.getByRole('link', { name: /novo equipamento/i })).toHaveAttribute('href', '/inventario/novo');
   });
 
   it('unidade não vê botões de cadastro/importação (leitura apenas)', async () => {
@@ -117,10 +145,44 @@ describe('Inventário (UC03/UC04)', () => {
     await waitFor(() => {
       expect(screen.getByText('12345/2024')).toBeInTheDocument();
     });
-    expect(screen.queryByRole('button', { name: /importar csv/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /importar arquivo csv/i })).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /cadastrar equipamento/i }),
+      screen.queryByRole('link', { name: /novo equipamento/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('abre o equipamento em uma página de detalhe e permite voltar à lista', async () => {
+    mockFetch({
+      ...autenticarComo('GESTOR_PATRIMONIO'),
+      '/equipamentos/eq-1': {
+        body: {
+          ...equipamentos[0],
+          observacoes: 'Equipamento conferido pela equipe.',
+          movimentacoes: [],
+        },
+      },
+      '/equipamentos': { body: equipamentos },
+      '/unidades': { body: [] },
+      '/categorias': { body: [] },
+    });
+    window.history.replaceState(null, '', '/inventario');
+    render(<App />);
+    await screen.findByText('12345/2024');
+
+    await userEvent.click(screen.getByRole('link', { name: 'Ver detalhes de 12345/2024' }));
+
+    expect(await screen.findByRole('heading', { name: 'Autoclave Vertical 75L' })).toBeInTheDocument();
+    expect(screen.getByText('Equipamento conferido pela equipe.')).toBeInTheDocument();
+    // Histórico começa recolhido e abre pela setinha
+    const alternar = screen.getByRole('button', { name: 'Expandir histórico' });
+    expect(alternar).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Sem movimentações registradas.')).not.toBeVisible();
+    await userEvent.click(alternar);
+    expect(screen.getByText('Sem movimentações registradas.')).toBeVisible();
+    await userEvent.click(
+      within(screen.getByRole('navigation')).getByRole('link', { name: /inventário/i }),
+    );
+    expect(await screen.findByRole('heading', { name: 'Inventário' })).toBeInTheDocument();
   });
 });
 
@@ -146,10 +208,11 @@ it('pagina os resultados e reinicia a página ao filtrar por status', async () =
   expect(screen.getByText('PAT-011')).toBeInTheDocument();
   expect(screen.queryByText('PAT-001')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Próxima página' })).toBeDisabled();
-  await userEvent.click(screen.getByRole('button', { name: 'Em manutenção' }));
+  await userEvent.click(screen.getByRole('button', { name: 'Todos' }));
+  await userEvent.click(screen.getByRole('menuitemradio', { name: 'Em manutenção' }));
   await screen.findByText('12346/2024');
   expect(screen.getByText('Página 1 de 1')).toBeInTheDocument();
-  expect(screen.getByRole('combobox', { name: 'Filtrar por status' })).toHaveValue('EM_MANUTENCAO');
+  expect(screen.getByRole('button', { name: 'Em manutenção' })).toBeInTheDocument();
   expect(chamadas.some((c) => c.url.endsWith('/equipamentos?status=EM_MANUTENCAO'))).toBe(true);
 });
 
@@ -164,6 +227,7 @@ it('mantém status adicionais, combina busca e unidade e permite limpar filtros 
   window.history.replaceState(null, '', '/inventario');
   render(<App />);
   await screen.findByText('12345/2024');
+  await userEvent.click(screen.getByRole('button', { name: 'Filtrar e ordenar' }));
   await userEvent.selectOptions(
     screen.getByRole('combobox', { name: 'Filtrar por status' }),
     'CEDIDO',
@@ -172,6 +236,10 @@ it('mantém status adicionais, combina busca e unidade e permite limpar filtros 
     screen.getByRole('combobox', { name: 'Filtrar por unidade' }),
     'u1',
   );
+  const consulta = screen.getByRole('search', { name: 'Pesquisar e filtrar inventário' });
+  expect(within(consulta).queryByRole('button', { name: /Unidade é UBS Centro/i })).not.toBeInTheDocument();
+  expect(within(consulta).queryByRole('button', { name: /Situação é Cedido/i })).not.toBeInTheDocument();
+  expect(within(consulta).getByLabelText('2 filtros aplicados')).toBeInTheDocument();
   await userEvent.type(screen.getByRole('textbox', { name: 'Buscar equipamentos' }), 'xyz');
   await screen.findByText('Nenhum equipamento encontrado');
   expect(
@@ -180,11 +248,9 @@ it('mantém status adicionais, combina busca e unidade e permite limpar filtros 
   await userEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }));
   await screen.findByText('12345/2024');
   expect(screen.getByRole('textbox', { name: 'Buscar equipamentos' })).toHaveValue('');
+  await userEvent.click(screen.getByRole('button', { name: 'Filtrar e ordenar' }));
   expect(screen.getByRole('combobox', { name: 'Filtrar por unidade' })).toHaveValue('');
-  expect(screen.getByRole('button', { name: 'Todos os bens' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  expect(screen.getByRole('button', { name: 'Todos' })).toBeInTheDocument();
 });
 
 it('distingue falha de consulta de inventário vazio e permite tentar novamente', async () => {

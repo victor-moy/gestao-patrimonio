@@ -8,6 +8,8 @@ import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
+import { limiteImportacao } from '../importacao/importacao.routes';
+import { env } from '../../config/env';
 import { importarEstoqueCsv } from './estoque.importacao.service';
 
 export const estoqueRouter = Router();
@@ -19,11 +21,13 @@ const upload = multer({
 
 estoqueRouter.use(autenticar, permitir(Perfil.GALPAO, Perfil.GESTOR_PATRIMONIO));
 
-// Resolve o galpão-alvo da operação: explícito no corpo (usado pelo Gestor de
-// Patrimônio, que não pertence a um galpão específico) ou a própria unidade
-// do usuário GALPAO logado.
+// Resolve o galpão-alvo da operação. O usuário GALPAO só opera o próprio galpão
+// (qualquer unidadeId enviado no corpo é ignorado); o Gestor de Patrimônio, que
+// não pertence a um galpão, precisa informar qual no corpo.
 function resolverGalpaoId(req: Request): string {
-  const unidadeId = (req.body?.unidadeId as string | undefined) ?? req.usuario!.unidadeId ?? undefined;
+  const usuario = req.usuario!;
+  const unidadeId =
+    usuario.perfil === Perfil.GALPAO ? usuario.unidadeId : (req.body?.unidadeId as string | undefined);
   if (!unidadeId) {
     throw new AppError('Informe o galpão (unidadeId) da operação.', 422);
   }
@@ -40,15 +44,20 @@ async function validarGalpao(unidadeId: string) {
 
 // Importação do relatório de estoque consolidado (Branet) — cria/atualiza
 // tipos de equipamento e saldo de estoque em lote, para um galpão específico
-estoqueRouter.post('/importar-csv', upload.single('arquivo'), async (req, res) => {
-  if (!req.file) {
-    throw new AppError('Envie o arquivo CSV no campo "arquivo".', 422);
-  }
-  const unidadeId = resolverGalpaoId(req);
-  await validarGalpao(unidadeId);
-  const resultado = await importarEstoqueCsv(req.usuario!.sub, req.file.buffer, unidadeId);
-  res.json(resultado);
-});
+estoqueRouter.post(
+  '/importar-csv',
+  (req, res, next) => (env.rateLimitAtivo ? limiteImportacao(req, res, next) : next()),
+  upload.single('arquivo'),
+  async (req, res) => {
+    if (!req.file) {
+      throw new AppError('Envie o arquivo CSV no campo "arquivo".', 422);
+    }
+    const unidadeId = resolverGalpaoId(req);
+    await validarGalpao(unidadeId);
+    const resultado = await importarEstoqueCsv(req.usuario!.sub, req.file.buffer, unidadeId);
+    res.json(resultado);
+  },
+);
 
 // Tipos que reservam do estoque de galpão (Ampliação/Substituição sem ata) —
 // mesmo conjunto usado em solicitacoes.service.ts
@@ -75,7 +84,9 @@ async function calcularReservadoPorTipo(tipoEquipamentoIds: string[]) {
 }
 
 estoqueRouter.get('/', async (req, res) => {
-  const unidadeId = req.query.unidadeId as string | undefined;
+  // Galpão enxerga apenas o próprio estoque; o Gestor pode filtrar por qualquer galpão.
+  const unidadeId =
+    req.usuario!.perfil === Perfil.GALPAO ? (req.usuario!.unidadeId ?? '') : (req.query.unidadeId as string | undefined);
   const itens = await prisma.estoqueGalpao.findMany({
     where: unidadeId ? { unidadeId } : undefined,
     include: {
@@ -91,35 +102,6 @@ estoqueRouter.get('/', async (req, res) => {
   // a reserva não guarda qual EstoqueGalpao a atendeu (ver função acima).
   const reservadoPorTipo = await calcularReservadoPorTipo(itens.map((i) => i.tipoEquipamentoId));
   res.json(itens.map((i) => ({ ...i, reservado: reservadoPorTipo.get(i.tipoEquipamentoId) ?? 0 })));
-});
-
-estoqueRouter.get('/movimentacoes', async (_req, res) => {
-  const movimentacoes = await prisma.movimentacaoEstoque.findMany({
-    include: {
-      estoque: {
-        include: { tipoEquipamento: true },
-      },
-      unidadeDestino: { select: { id: true, nome: true } },
-      usuario: { select: { id: true, nome: true } },
-    },
-    orderBy: { criadoEm: 'desc' },
-  });
-  res.json(movimentacoes);
-});
-
-estoqueRouter.patch('/movimentacoes/:id', async (req, res) => {
-  const mov = await prisma.movimentacaoEstoque.findUnique({ where: { id: req.params.id } });
-  if (!mov) throw new AppError('Movimentação não encontrada.', 404);
-  const atualizado = await prisma.movimentacaoEstoque.update({
-    where: { id: req.params.id },
-    data: { atualizadoNoBranet: !mov.atualizadoNoBranet },
-    include: {
-      estoque: { include: { tipoEquipamento: true } },
-      unidadeDestino: { select: { id: true, nome: true } },
-      usuario: { select: { id: true, nome: true } },
-    },
-  });
-  res.json(atualizado);
 });
 
 const entradaSchema = z.object({
@@ -172,27 +154,28 @@ estoqueRouter.post('/saida', validarBody(saidaSchema), async (req, res) => {
   const unidadeId = resolverGalpaoId(req);
   const item = await prisma.estoqueGalpao.findUnique({
     where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId, unidadeId } },
-    include: { tipoEquipamento: true },
   });
   if (!item) throw new AppError('Item não encontrado no estoque deste galpão.', 404);
-  if (item.quantidade < quantidade) {
-    throw new AppError(`Quantidade indisponível no estoque (disponível: ${item.quantidade}).`, 422);
-  }
   const atualizado = await prisma.$transaction(async (tx) => {
-    const estoque = await tx.estoqueGalpao.update({
-      where: { tipoEquipamentoId_unidadeId: { tipoEquipamentoId, unidadeId } },
+    // Débito condicional: duas saídas simultâneas nunca deixam o estoque negativo.
+    const { count } = await tx.estoqueGalpao.updateMany({
+      where: { id: item.id, quantidade: { gte: quantidade } },
       data: { quantidade: { decrement: quantidade } },
     });
+    if (count !== 1) {
+      const atual = await tx.estoqueGalpao.findUnique({ where: { id: item.id } });
+      throw new AppError(`Quantidade indisponível no estoque (disponível: ${atual?.quantidade ?? 0}).`, 422);
+    }
     await tx.movimentacaoEstoque.create({
       data: {
-        estoqueId: estoque.id,
+        estoqueId: item.id,
         tipo: 'SAIDA',
         quantidade,
         unidadeDestinoId: unidadeDestinoId ?? null,
         usuarioId: req.usuario!.sub,
       },
     });
-    return estoque;
+    return tx.estoqueGalpao.findUniqueOrThrow({ where: { id: item.id } });
   });
   await registrarAuditoria({
     usuarioId: req.usuario!.sub,

@@ -20,13 +20,6 @@ function Icone({ children, ...props }: SVGProps<SVGSVGElement>) {
   );
 }
 
-export const IconeSino = () => (
-  <Icone>
-    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
-    <path d="M10 21h4" />
-  </Icone>
-);
-
 export const IconeInicio = () => (
   <Icone>
     <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -75,6 +68,32 @@ export const IconeRelatorios = () => (
   </Icone>
 );
 
+export const IconeConfiguracoes = () => (
+  <Icone>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6h.08A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.08A1.65 1.65 0 0 0 20.91 10H21a2 2 0 1 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15z" />
+  </Icone>
+);
+
+export const IconeFiltros = () => (
+  <Icone width="18" height="18">
+    <path d="M4 7h10" />
+    <path d="M18 7h2" />
+    <circle cx="16" cy="7" r="2" />
+    <path d="M4 17h2" />
+    <path d="M10 17h10" />
+    <circle cx="8" cy="17" r="2" />
+  </Icone>
+);
+
+export const IconeLogout = () => (
+  <Icone width="16" height="16">
+    <path d="M10 17l5-5-5-5" />
+    <path d="M15 12H3" />
+    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+  </Icone>
+);
+
 export const IconeChevron = () => (
   <Icone width="16" height="16">
     <path d="M6 9l6 6 6-6" />
@@ -84,12 +103,6 @@ export const IconeChevron = () => (
 export const IconeMenu = () => (
   <Icone>
     <path d="M3 12h18M3 6h18M3 18h18" />
-  </Icone>
-);
-
-export const IconeRecolherMenu = ({ expandido = true }: { expandido?: boolean }) => (
-  <Icone>
-    {expandido ? <path d="m14 8-4 4 4 4" /> : <path d="m10 8 4 4-4 4" />}
   </Icone>
 );
 
@@ -117,6 +130,44 @@ export const IconeUnidades = () => (
   </Icone>
 );
 
+export const IconeCategorias = () => (
+  <Icone>
+    <path d="M12 2 2 7l10 5 10-5z" />
+    <path d="m2 17 10 5 10-5" />
+    <path d="m2 12 10 5 10-5" />
+  </Icone>
+);
+
+export const IconeSetaCima = () => (
+  <Icone>
+    <path d="M12 19V5" />
+    <path d="m5 12 7-7 7 7" />
+  </Icone>
+);
+
+export const IconeQrCode = () => (
+  <Icone>
+    <rect x="3" y="3" width="7" height="7" rx="1" />
+    <rect x="14" y="3" width="7" height="7" rx="1" />
+    <rect x="3" y="14" width="7" height="7" rx="1" />
+    <path d="M14 14h3v3h-3zM20 14v.01M14 20h3M20 17v4" />
+  </Icone>
+);
+
+export const IconeEntrarComo = () => (
+  <Icone>
+    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+    <path d="m10 17 5-5-5-5" />
+    <path d="M15 12H3" />
+  </Icone>
+);
+
+export const IconeConversas = () => (
+  <Icone>
+    <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+  </Icone>
+);
+
 export const IconeAtas = () => (
   <Icone>
     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -133,97 +184,10 @@ export const IconeContratos = () => (
   </Icone>
 );
 
-export const IconePin = () => (
-  <Icone>
-    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z" />
-    <circle cx="12" cy="10" r="3" />
-  </Icone>
-);
-
-export const IconeTag = () => (
-  <Icone>
-    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-    <path d="M7 7h.01" />
-  </Icone>
-);
-
-export const IconeLapis = () => (
-  <Icone width="16" height="16">
-    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" />
-  </Icone>
-);
-
-export const IconeLixeira = () => (
-  <Icone width="16" height="16">
-    <path d="M3 6h18" />
-    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-  </Icone>
-);
-
-export const IconeDinheiro = () => (
-  <Icone width="16" height="16">
-    <path d="M12 2v20" />
-    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-  </Icone>
-);
-
-export const IconeCalendario = () => (
-  <Icone width="16" height="16">
-    <rect x="3" y="4" width="18" height="18" rx="2" />
-    <path d="M16 2v4M8 2v4M3 10h18" />
-  </Icone>
-);
-
-export const IconeAlerta = () => (
-  <Icone width="16" height="16">
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-    <path d="M12 9v4M12 17h.01" />
-  </Icone>
-);
-
 export const IconeBusca = () => (
   <Icone width="18" height="18">
     <circle cx="11" cy="11" r="8" />
     <path d="M21 21l-4.35-4.35" />
-  </Icone>
-);
-
-export const IconeEmail = () => (
-  <Icone width="16" height="16">
-    <rect x="2" y="4" width="20" height="16" rx="2" />
-    <path d="M22 7l-10 6L2 7" />
-  </Icone>
-);
-
-export const IconeUsuario = () => (
-  <Icone width="16" height="16">
-    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </Icone>
-);
-
-export const IconeEntrada = () => (
-  <Icone width="16" height="16">
-    <path d="M12 3v12" />
-    <path d="M8 11l4 4 4-4" />
-    <path d="M3 17v1a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-1" />
-  </Icone>
-);
-
-export const IconeSaida = () => (
-  <Icone width="16" height="16">
-    <path d="M12 21V9" />
-    <path d="M8 13l4-4 4 4" />
-    <path d="M3 7V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v1" />
-  </Icone>
-);
-
-export const IconeUpload = () => (
-  <Icone width="16" height="16">
-    <path d="M17 8l-5-5-5 5" />
-    <path d="M12 3v12" />
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
   </Icone>
 );
 
@@ -236,94 +200,9 @@ export const IconeCaixa = () => (
 );
 
 // Catálogo de tipos de Solicitação
-export const IconeSubstituicao = () => (
-  <Icone>
-    <path d="M21 2v6h-6" />
-    <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-    <path d="M3 22v-6h6" />
-    <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-  </Icone>
-);
-
-export const IconeAmpliacao = () => (
-  <Icone>
-    <rect x="3" y="3" width="18" height="18" rx="2" />
-    <path d="M12 8v8" />
-    <path d="M8 12h8" />
-  </Icone>
-);
-
-export const IconeCessaoExterna = () => (
-  <Icone>
-    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-    <path d="M15 3h6v6" />
-    <path d="M10 14L21 3" />
-  </Icone>
-);
-
-export const IconeEmprestimo = () => (
-  <Icone>
-    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-    <circle cx="9" cy="7" r="4" />
-    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-  </Icone>
-);
-
-export const IconeRecolha = () => (
-  <Icone>
-    <path d="M10 17h4V5H2v12h3" />
-    <path d="M20 17h2v-3.34a4 4 0 0 0-1.17-2.83L19 9h-5v8h1" />
-    <circle cx="7.5" cy="17.5" r="2.5" />
-    <circle cx="17.5" cy="17.5" r="2.5" />
-  </Icone>
-);
-
-export const IconeDetalhes = () => (
-  <Icone>
-    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
-    <rect x="8" y="2" width="8" height="4" rx="1" />
-    <path d="M9 12h6" />
-    <path d="M9 16h6" />
-  </Icone>
-);
-
-export const IconeEnviar = () => (
-  <Icone width="16" height="16">
-    <path d="M22 2 11 13" />
-    <path d="M22 2 15 22l-4-9-9-4 20-7z" />
-  </Icone>
-);
-
-export const IconeLike = () => (
-  <Icone width="16" height="16">
-    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3z" />
-    <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-  </Icone>
-);
-
-export const IconeDislike = () => (
-  <Icone width="16" height="16">
-    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3z" />
-    <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
-  </Icone>
-);
-
 export const IconeCheck = () => (
   <Icone width="20" height="20">
     <path d="M20 6 9 17l-5-5" />
   </Icone>
 );
 
-export const IconeRelogio = () => (
-  <Icone width="20" height="20">
-    <circle cx="12" cy="12" r="10" />
-    <path d="M12 6v6l4 2" />
-  </Icone>
-);
-
-export const IconeChat = () => (
-  <Icone width="24" height="24">
-    <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-  </Icone>
-);

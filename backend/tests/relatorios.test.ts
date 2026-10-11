@@ -97,7 +97,6 @@ describe('Relatórios — Fase 1 (visão geral, ranking, empréstimos, cessões)
     ] as never);
     const res = await request(app).get('/relatorios/emprestimos').set(auth('GESTOR_PATRIMONIO'));
     expect(res.status).toBe(200);
-    expect(res.body.duracaoMediaDias).toBe(10);
     // Devolvido 1 dia depois do prazo previsto (10/01) — conta como atraso
     expect(res.body.itens[0].atrasado).toBe(true);
   });
@@ -163,81 +162,6 @@ describe('Relatórios — Fase 1 (visão geral, ranking, empréstimos, cessões)
     expect(res.body[0].aguardandoDesde).toBe('2026-01-01T00:00:00.000Z');
   });
 
-  it('itens e estoque: detalhe lista as solicitações represadas de um item, ordenadas por prioridade e antiguidade', async () => {
-    prismaMock.solicitacao.findMany.mockResolvedValue([
-      {
-        id: 'sol-1',
-        tipo: 'AMPLIACAO',
-        unidadeOrigem: { nome: 'UBS Sul' },
-        quantidade: 3,
-        prioridade: 1,
-        criadoEm: new Date('2026-01-05'),
-      },
-    ] as never);
-    const res = await request(app)
-      .get(`/relatorios/itens-estoque/detalhe?tipoEquipamentoId=${UUID}`)
-      .set(auth('GESTOR_PATRIMONIO'));
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual([
-      expect.objectContaining({ unidadeOrigem: 'UBS Sul', tipo: 'AMPLIACAO', quantidade: 3, prioridade: 1 }),
-    ]);
-    expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ status: 'AGUARDANDO_DISPONIBILIDADE', tipoEquipamentoId: UUID }),
-        orderBy: [{ prioridade: 'asc' }, { criadoEm: 'asc' }],
-      }),
-    );
-  });
-
-  it('itens e estoque: detalhe exige tipoEquipamentoId', async () => {
-    const res = await request(app).get('/relatorios/itens-estoque/detalhe').set(auth('GESTOR_PATRIMONIO'));
-    expect(res.status).toBe(422);
-  });
-
-  it('itens por unidade: acumula CADASTRO/RECEBIMENTO_GALPAO/RECOLHA/BAIXA mês a mês, sem contar empréstimo/manutenção', async () => {
-    prismaMock.movimentacao.findMany.mockResolvedValue([
-      { unidadeOrigemId: null, unidadeDestinoId: 'unidade-1', criadoEm: new Date('2026-01-10') },
-      { unidadeOrigemId: null, unidadeDestinoId: 'unidade-1', criadoEm: new Date('2026-02-05') },
-      { unidadeOrigemId: 'unidade-1', unidadeDestinoId: 'unidade-2', criadoEm: new Date('2026-02-20') },
-      { unidadeOrigemId: 'unidade-2', unidadeDestinoId: null, criadoEm: new Date('2026-03-01') },
-    ] as never);
-    prismaMock.unidade.findMany.mockResolvedValue([
-      { id: 'unidade-1', nome: 'UBS Sul' },
-      { id: 'unidade-2', nome: 'Galpão CIAD/Branet' },
-    ] as never);
-    const res = await request(app)
-      .get('/relatorios/itens-por-unidade?dataFim=2026-03-31')
-      .set(auth('GESTOR_PATRIMONIO'));
-    expect(res.status).toBe(200);
-    expect(res.body.unidades).toEqual(['UBS Sul', 'Galpão CIAD/Branet']);
-    expect(res.body.linhas).toEqual([
-      { mes: '2026-01', 'UBS Sul': 1, 'Galpão CIAD/Branet': 0 },
-      { mes: '2026-02', 'UBS Sul': 1, 'Galpão CIAD/Branet': 1 },
-      { mes: '2026-03', 'UBS Sul': 1, 'Galpão CIAD/Branet': 0 },
-    ]);
-    expect(prismaMock.movimentacao.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { tipo: { in: ['CADASTRO', 'IMPORTACAO_CSV', 'RECEBIMENTO_GALPAO', 'RECOLHA', 'BAIXA'] } },
-      }),
-    );
-  });
-
-  it('itens por unidade: filtro de unidade restringe as séries retornadas', async () => {
-    prismaMock.movimentacao.findMany.mockResolvedValue([
-      { unidadeOrigemId: null, unidadeDestinoId: 'unidade-1', criadoEm: new Date('2026-01-10') },
-      { unidadeOrigemId: null, unidadeDestinoId: 'unidade-2', criadoEm: new Date('2026-01-15') },
-    ] as never);
-    prismaMock.unidade.findMany.mockResolvedValue([
-      { id: 'unidade-1', nome: 'UBS Sul' },
-      { id: 'unidade-2', nome: 'UBS Norte' },
-    ] as never);
-    const res = await request(app)
-      .get('/relatorios/itens-por-unidade?dataFim=2026-01-31&unidadeId=unidade-1')
-      .set(auth('GESTOR_PATRIMONIO'));
-    expect(res.status).toBe(200);
-    expect(res.body.unidades).toEqual(['UBS Sul']);
-    expect(res.body.linhas).toEqual([{ mes: '2026-01', 'UBS Sul': 1 }]);
-  });
 });
 
 describe('Relatórios — feedback do stakeholder (filtro por item, busca, drill-down, resumo)', () => {
@@ -305,40 +229,6 @@ describe('Relatórios — feedback do stakeholder (filtro por item, busca, drill
     expect(res.status).toBe(200);
     expect(res.body.itens).toHaveLength(1);
     expect(res.body.itens[0].id).toBe('sol-1');
-  });
-
-  it('detalhe da unidade: exige unidadeId', async () => {
-    const res = await request(app).get('/relatorios/detalhe-unidade').set(auth('GESTOR_PATRIMONIO'));
-    expect(res.status).toBe(422);
-  });
-
-  it('detalhe da unidade: lista as solicitações da unidade clicada no ranking', async () => {
-    prismaMock.solicitacao.findMany.mockResolvedValue([
-      {
-        id: 'sol-1',
-        tipo: 'AMPLIACAO',
-        quantidade: 2,
-        status: 'CONCLUIDA',
-        criadoEm: new Date('2026-01-01'),
-        equipamento: null,
-        tipoEquipamento: { nome: 'Purificador de Água' },
-      },
-    ] as never);
-    const res = await request(app)
-      .get('/relatorios/detalhe-unidade?unidadeId=unidade-1')
-      .set(auth('GESTOR_PATRIMONIO'));
-    expect(res.status).toBe(200);
-    expect(res.body).toEqual([
-      { id: 'sol-1', tipo: 'AMPLIACAO', item: 'Purificador de Água', quantidade: 2, status: 'CONCLUIDA', criadoEm: '2026-01-01T00:00:00.000Z' },
-    ]);
-    expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          tipo: { in: ['SUBSTITUICAO', 'AMPLIACAO', 'EMPRESTIMO', 'RECOLHA'] },
-          unidadeOrigemId: 'unidade-1',
-        }),
-      }),
-    );
   });
 
   it('resumo do item: entregue (concluída), pendente (em andamento) e demanda valorizada (aguardando estoque)', async () => {

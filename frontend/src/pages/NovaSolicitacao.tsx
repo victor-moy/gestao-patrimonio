@@ -1,69 +1,46 @@
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { FormEvent, useEffect, useState } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
-import {
-  IconeAmpliacao,
-  IconeBusca,
-  IconeCaixa,
-  IconeCessaoExterna,
-  IconeDetalhes,
-  IconeEmprestimo,
-  IconeEnviar,
-  IconeRecolha,
-  IconeSubstituicao,
-} from '../components/icons';
 import type { Categoria, Equipamento, TipoSolicitacao as TipoSolicitacaoValor, Unidade } from '../types';
 import { ROTULO_TIPO_SOLICITACAO } from '../utils/format';
-import { SeletorTipoEquipamento } from '../components/SeletorTipoEquipamento';
-import { SeletorEquipamento } from '../components/SeletorEquipamento';
+import { CampoAnexo } from '../components/CampoAnexo';
+import { IconeFechar } from '../components/icons';
+import { SelectEquipamento, SelectTipoEquipamento } from '../components/SelectItem';
+import { ItemAusente } from '../components/ItemAusente';
+import { useAlertaNativo } from '../hooks/useAlertaNativo';
 
 const JUSTIFICATIVA_MAX = 500;
 
-// Catálogo de tipos — estilo "central de serviços" (referência: central de
-// serviços da Prefeitura de Joinville, feedback do cliente).
+// Tipos de solicitação disponíveis, com a descrição mostrada sob o seletor.
 const CATALOGO_TIPOS: Array<{
   tipo: TipoSolicitacaoValor;
-  Icone: () => JSX.Element;
   descricao: string;
 }> = [
-  { tipo: 'SUBSTITUICAO', Icone: IconeSubstituicao, descricao: 'Trocar um item com defeito por um novo' },
-  { tipo: 'AMPLIACAO', Icone: IconeAmpliacao, descricao: 'Adquirir um item novo, sem remover outro' },
-  { tipo: 'CESSAO_USO', Icone: IconeCessaoExterna, descricao: 'Ceder um item a uma entidade externa' },
-  { tipo: 'EMPRESTIMO', Icone: IconeEmprestimo, descricao: 'Movimentar um item entre unidades da SES' },
-  { tipo: 'RECOLHA', Icone: IconeRecolha, descricao: 'Processo para recolha de itens na unidade' },
+  { tipo: 'SUBSTITUICAO', descricao: 'Trocar um item com defeito por um novo' },
+  { tipo: 'AMPLIACAO', descricao: 'Adquirir um item novo, sem remover outro' },
+  { tipo: 'CESSAO_USO', descricao: 'Ceder um item a uma entidade externa' },
+  { tipo: 'EMPRESTIMO', descricao: 'Movimentar um item entre unidades da SES' },
+  { tipo: 'RECOLHA', descricao: 'Processo para recolha de itens na unidade' },
 ];
-
-// Ilustração decorativa (prancheta + cruz) no canto do cabeçalho — puramente estética
-function IlustracaoFormulario() {
-  return (
-    <svg className="pagina-ilustracao" viewBox="0 0 200 150" fill="none" aria-hidden>
-      <circle cx="150" cy="45" r="58" fill="var(--blue-bg)" />
-      <circle cx="35" cy="110" r="30" fill="var(--bg)" />
-      <rect x="92" y="22" width="72" height="96" rx="12" fill="var(--surface)" stroke="var(--blue-text)" strokeWidth="3" />
-      <rect x="114" y="14" width="28" height="16" rx="4" fill="var(--blue-text)" />
-      <path d="M106 58h48M106 76h48M106 94h32" stroke="var(--border)" strokeWidth="5" strokeLinecap="round" />
-      <circle cx="150" cy="46" r="14" fill="#2563eb" />
-      <path d="M150 39v14M143 46h14" stroke="#fff" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 export function NovaSolicitacao() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  // Vindo do detalhe do equipamento (ou do QR), o item já chega escolhido nos tipos que usam um equipamento existente
+  const [params] = useSearchParams();
+  const equipamentoInicial = params.get('equipamento') ?? '';
   const [tipo, setTipo] = useState<TipoSolicitacaoValor | null>(null);
-  const [buscaTipo, setBuscaTipo] = useState('');
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [anexo, setAnexo] = useState<File | null>(null);
   const [previewAnexo, setPreviewAnexo] = useState<string | null>(null);
-  const inputAnexo = useRef<HTMLInputElement>(null);
   const [erro, setErro] = useMensagemTemporaria();
+  useAlertaNativo(erro, () => setErro(null));
   const inicial = {
     unidadeDestinoId: '',
     tipoEquipamentoId: '',
@@ -79,7 +56,7 @@ export function NovaSolicitacao() {
     // defeito/motivo diferente (feedback do cliente 25/08).
     itensSubstituicao: [
       {
-        equipamentoId: '',
+        equipamentoId: equipamentoInicial,
         tipoEquipamentoId: '',
         quantidade: 1,
         justificativa: '',
@@ -90,11 +67,11 @@ export function NovaSolicitacao() {
     // Recolha: lista repetível de equipamentos existentes a recolher — sem
     // escolher o galpão de destino, que agora é o Gestor quem define ao
     // aprovar (feedback do cliente 26/08).
-    itensRecolha: [{ equipamentoId: '' }],
+    itensRecolha: [{ equipamentoId: equipamentoInicial }],
     // Empréstimo: mesmo padrão de lista repetível da Recolha — a unidade
     // escolhe um ou mais equipamentos próprios para emprestar de uma vez à
     // mesma unidade de destino.
-    itensEmprestimo: [{ equipamentoId: '' }],
+    itensEmprestimo: [{ equipamentoId: equipamentoInicial }],
     // Cessão de Uso: mesmo padrão de lista repetível da Ampliação — o Gestor
     // escolhe um ou mais tipos de equipamento e a quantidade, reservando do
     // estoque de galpão (não escolhe um equipamento específico de uma
@@ -107,9 +84,10 @@ export function NovaSolicitacao() {
   const [form, setForm] = useState(inicial);
 
   useEffect(() => {
-    api.get<Equipamento[]>('/equipamentos?status=ATIVO').then(setEquipamentos).catch(() => {});
-    api.get<Unidade[]>('/unidades').then(setUnidades).catch(() => {});
-    api.get<Categoria[]>('/categorias').then(setCategorias).catch(() => {});
+    const falhou = (e: unknown) => setErro(e instanceof Error ? e.message : 'Não foi possível carregar os dados do formulário.');
+    api.get<Equipamento[]>('/equipamentos?status=ATIVO').then(setEquipamentos).catch(falhou);
+    api.get<Unidade[]>('/unidades').then(setUnidades).catch(falhou);
+    api.get<Categoria[]>('/categorias').then(setCategorias).catch(falhou);
   }, []);
 
   // Sempre volta pra página em que o usuário estava antes; se a tela foi
@@ -121,6 +99,62 @@ export function NovaSolicitacao() {
       navigate('/solicitacoes');
     }
   }
+
+  type ChaveItens =
+    | 'itensAmpliacao'
+    | 'itensSubstituicao'
+    | 'itensRecolha'
+    | 'itensEmprestimo'
+    | 'itensCessao';
+
+  function editarItem(chave: ChaveItens, indice: number, parcial: Record<string, unknown>) {
+    setForm((atual) => ({
+      ...atual,
+      [chave]: (atual[chave] as Array<Record<string, unknown>>).map((item, j) =>
+        j === indice ? { ...item, ...parcial } : item,
+      ),
+    }) as typeof atual);
+  }
+
+  function removerItem(chave: ChaveItens, indice: number) {
+    setForm((atual) => ({
+      ...atual,
+      [chave]: (atual[chave] as unknown[]).filter((_, j) => j !== indice),
+    }) as typeof atual);
+  }
+
+  function adicionarItem(chave: ChaveItens, vazio: Record<string, unknown>) {
+    setForm((atual) => ({ ...atual, [chave]: [...(atual[chave] as unknown[]), vazio] }) as typeof atual);
+  }
+
+  // Ids já escolhidos nas outras linhas — não aparecem de novo nas opções.
+  function idsEmUso(chave: ChaveItens, campo: string, indice: number) {
+    return (form[chave] as Array<Record<string, unknown>>)
+      .filter((_, j) => j !== indice)
+      .map((item) => String(item[campo] ?? ''))
+      .filter(Boolean);
+  }
+
+  const botaoRemover = (chave: ChaveItens, indice: number) =>
+    form[chave].length > 1 ? (
+      <button
+        type="button"
+        className="itens-remover"
+        aria-label={`Remover item ${indice + 1}`}
+        title="Remover item"
+        onClick={() => removerItem(chave, indice)}
+      >
+        <IconeFechar />
+      </button>
+    ) : (
+      <span />
+    );
+
+  const botaoAdicionar = (chave: ChaveItens, vazio: Record<string, unknown>) => (
+    <button type="button" className="btn btn-outline itens-adicionar" onClick={() => adicionarItem(chave, vazio)}>
+      + Adicionar item
+    </button>
+  );
 
   async function aoEnviar(e: FormEvent) {
     e.preventDefault();
@@ -198,403 +232,219 @@ export function NovaSolicitacao() {
           }),
         );
       }
-      navigate('/solicitacoes', {
-        state: {
-          mensagem:
-            ids.length > 1 ? `${ids.length} solicitações registradas.` : 'Solicitação registrada.',
-        },
-      });
+      navigate('/solicitacoes');
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Erro');
     }
   }
 
-  if (!tipo) {
-    const catalogoFiltrado = CATALOGO_TIPOS
-      // Cessão de Uso envolve entidade externa à secretaria — só o Gestor
-      // de Patrimônio pode abrir.
-      .filter((item) => item.tipo !== 'CESSAO_USO' || usuario?.perfil === 'GESTOR_PATRIMONIO')
-      .filter((item) => ROTULO_TIPO_SOLICITACAO[item.tipo].toLowerCase().includes(buscaTipo.toLowerCase()));
-    return (
-      <>
-        <button type="button" className="catalogo-voltar pagina-voltar" onClick={voltar}>
-          ← Voltar
-        </button>
-        <div className="page-header pagina-cabecalho-decorada">
-          <div>
-            <h2>Nova Solicitação</h2>
-            <p className="subtitle">Selecione o tipo de solicitação</p>
-          </div>
-          <IlustracaoFormulario />
-        </div>
-        <div className="card card-pad">
-          <div className="catalogo-busca">
-            <IconeBusca />
-            <input
-              placeholder="Buscar tipo de solicitação..."
-              value={buscaTipo}
-              onChange={(e) => setBuscaTipo(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="catalogo-grid">
-            {catalogoFiltrado.map(({ tipo: valor, Icone, descricao }) => (
-              <button type="button" key={valor} className="catalogo-card" onClick={() => setTipo(valor)}>
-                <div className="catalogo-card-icone">
-                  <Icone />
-                </div>
-                <div className="catalogo-card-titulo">{ROTULO_TIPO_SOLICITACAO[valor]}</div>
-                <div className="catalogo-card-desc">{descricao}</div>
-              </button>
-            ))}
-            {catalogoFiltrado.length === 0 && (
-              <div className="catalogo-vazio">Nenhum tipo encontrado para "{buscaTipo}".</div>
-            )}
-          </div>
-        </div>
-      </>
-    );
-  }
+  const tiposDisponiveis = CATALOGO_TIPOS
+    // Cessão de Uso envolve entidade externa à secretaria — só o Gestor
+    // de Patrimônio pode abrir.
+    .filter((item) => item.tipo !== 'CESSAO_USO' || usuario?.perfil === 'GESTOR_PATRIMONIO');
 
-  const infoTipo = CATALOGO_TIPOS.find((item) => item.tipo === tipo)!;
+  const infoTipo = CATALOGO_TIPOS.find((item) => item.tipo === tipo);
 
   return (
-    <>
-      <button type="button" className="catalogo-voltar pagina-voltar" onClick={voltar}>
-        ← Voltar
-      </button>
-      <div className="page-header pagina-cabecalho-decorada">
-        <div>
-          <h2>Nova Solicitação</h2>
-          <p className="subtitle">Preencha os campos abaixo para registrar sua solicitação.</p>
+    <section className="gestao-page equipamento-pagina nova-solicitacao" aria-labelledby="nova-solicitacao-titulo">
+      <div className="equipamento-pagina-cabecalho">
+        <div className="equipamento-titulo-linha">
+          <h2 id="nova-solicitacao-titulo">Nova solicitação</h2>
         </div>
-        <IlustracaoFormulario />
+        <div className="nova-solicitacao-acoes">
+          <button type="button" className="btn btn-outline" onClick={voltar}>
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            form="form-nova-solicitacao"
+            className="btn btn-primary"
+            disabled={!tipo || semAlteracoes(inicial, form)}
+          >
+            Enviar solicitação
+          </button>
+        </div>
       </div>
-      <div className="card card-pad">
-        <form onSubmit={aoEnviar} className="form-minimalista">
-          {erro && <div className="error-banner toast-erro">{erro}</div>}
 
-          <div className="tipo-resumo">
-            <div className="tipo-resumo-icone">
-              <infoTipo.Icone />
-            </div>
-            <div className="tipo-resumo-texto">
-              <div className="tipo-resumo-titulo">{ROTULO_TIPO_SOLICITACAO[tipo]}</div>
-              <div className="tipo-resumo-desc">{infoTipo.descricao}</div>
-            </div>
-            <button type="button" className="catalogo-voltar catalogo-voltar--com-icone" onClick={() => setTipo(null)}>
-              <IconeSubstituicao /> Trocar tipo
-            </button>
+
+      <form id="form-nova-solicitacao" onSubmit={aoEnviar}>
+        <section className="equipamento-secao">
+          <h3>Tipo de solicitação</h3>
+          <div className="field nova-solicitacao-campo-tipo">
+            <label htmlFor="nova-solicitacao-tipo">Tipo</label>
+            <select
+              id="nova-solicitacao-tipo"
+              value={tipo ?? ''}
+              onChange={(e) => setTipo((e.target.value || null) as TipoSolicitacaoValor | null)}
+              required
+            >
+              <option value="">Selecione...</option>
+              {tiposDisponiveis.map(({ tipo: valor }) => (
+                <option key={valor} value={valor}>
+                  {ROTULO_TIPO_SOLICITACAO[valor]}
+                </option>
+              ))}
+            </select>
+            {infoTipo && <p className="nova-solicitacao-descricao">{infoTipo.descricao}</p>}
           </div>
+        </section>
 
+        {tipo && (
+          <>
           <div className={`form-colunas${tipo === 'SUBSTITUICAO' ? ' form-colunas-unica' : ''}`}>
           <div className="form-coluna">
           {tipo === 'SUBSTITUICAO' && (
             <div className="form-secao">
-              {form.itensSubstituicao.map((item, i) => (
-                <div key={i} className="item-ampliacao">
-                  <div className="item-ampliacao-cabecalho">
-                    <span className="item-ampliacao-numero">Item {i + 1}</span>
-                    {form.itensSubstituicao.length > 1 && (
-                      <button
-                        type="button"
-                        className="item-ampliacao-remover"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            itensSubstituicao: form.itensSubstituicao.filter((_, j) => j !== i),
-                          })
-                        }
-                      >
-                        Remover
-                      </button>
-                    )}
-                  </div>
-                  <div className="field">
-                    <label>Item a Substituir *</label>
-                    <SeletorEquipamento
-                      equipamentos={equipamentos}
-                      value={item.equipamentoId}
-                      idsExcluidos={form.itensSubstituicao
-                        .filter((_, j) => j !== i)
-                        .map((it) => it.equipamentoId)
-                        .filter(Boolean)}
-                      onChange={(id) => {
-                        const itens = [...form.itensSubstituicao];
-                        itens[i] = { ...item, equipamentoId: id };
-                        setForm({ ...form, itensSubstituicao: itens });
-                      }}
-                      required
-                    />
-                  </div>
-                  <div className="field">
-                    <label>Item para Reposição *</label>
-                    <SeletorTipoEquipamento
-                      categorias={categorias}
-                      value={item.tipoEquipamentoId}
-                      onChange={(id) => {
-                        const itens = [...form.itensSubstituicao];
-                        itens[i] = { ...item, tipoEquipamentoId: id };
-                        setForm({ ...form, itensSubstituicao: itens });
-                      }}
-                      required
-                    />
-                  </div>
-                  <div className="field">
-                    <label>Justificativa *</label>
-                    <textarea
-                      rows={2}
-                      maxLength={JUSTIFICATIVA_MAX}
-                      placeholder="Explique o motivo da substituição deste item..."
-                      value={item.justificativa}
-                      onChange={(e) => {
-                        const itens = [...form.itensSubstituicao];
-                        itens[i] = { ...item, justificativa: e.target.value };
-                        setForm({ ...form, itensSubstituicao: itens });
-                      }}
-                      required
-                    />
-                    <div className="campo-contador">
-                      {item.justificativa.length}/{JUSTIFICATIVA_MAX} caracteres
+              <div className="form-secao-titulo">Itens a Substituir</div>
+              <div className="itens-lista" style={{ '--colunas': 'minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr) 112px 34px' } as React.CSSProperties}>
+                <div className="itens-cabecalho" aria-hidden>
+                  <span>Item a substituir</span>
+                  <span>Item para reposição</span>
+                  <span>Justificativa</span>
+                  <span>Anexo</span>
+                  <span />
+                </div>
+                {form.itensSubstituicao.map((item, i) => (
+                  <div key={i} className="itens-linha" role="group" aria-label={`Item ${i + 1}`}>
+                    <div className="itens-celula" data-rotulo="Item a substituir">
+                      <SelectEquipamento
+                        label="Item a substituir"
+                        equipamentos={equipamentos}
+                        value={item.equipamentoId}
+                        idsExcluidos={idsEmUso('itensSubstituicao', 'equipamentoId', i)}
+                        onChange={(id) => editarItem('itensSubstituicao', i, { equipamentoId: id })}
+                        required
+                      />
                     </div>
-                  </div>
-                  <div className="field">
-                    <label>Anexo</label>
-                    <input
-                      type="file"
-                      id={`anexo-substituicao-${i}`}
-                      accept="application/pdf,image/jpeg,image/png,image/webp"
-                      style={{ display: 'none' }}
-                      onChange={(e) => {
-                        const arquivo = e.target.files?.[0];
-                        if (arquivo) {
-                          const itens = [...form.itensSubstituicao];
-                          itens[i] = {
-                            ...item,
+                    <div className="itens-celula" data-rotulo="Item para reposição">
+                      <SelectTipoEquipamento
+                        label="Item para reposição"
+                        categorias={categorias}
+                        value={item.tipoEquipamentoId}
+                        onChange={(id) => editarItem('itensSubstituicao', i, { tipoEquipamentoId: id })}
+                        required
+                      />
+                    </div>
+                    <div className="itens-celula" data-rotulo="Justificativa">
+                      <input
+                        aria-label="Justificativa"
+                        maxLength={JUSTIFICATIVA_MAX}
+                        placeholder="Motivo da substituição"
+                        value={item.justificativa}
+                        onChange={(e) => editarItem('itensSubstituicao', i, { justificativa: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="itens-celula" data-rotulo="Anexo">
+                      <CampoAnexo
+                        compacto
+                        arquivo={item.anexo}
+                        preview={item.anexoPreview}
+                        onSelecionar={(arquivo) =>
+                          editarItem('itensSubstituicao', i, {
                             anexo: arquivo,
                             anexoPreview:
                               arquivo.type === 'application/pdf' ? null : URL.createObjectURL(arquivo),
-                          };
-                          setForm({ ...form, itensSubstituicao: itens });
+                          })
                         }
-                        e.target.value = '';
-                      }}
-                    />
-                    {item.anexo ? (
-                      <div className="foto-preview-grande">
-                        {item.anexoPreview ? (
-                          <img src={item.anexoPreview} alt="" />
-                        ) : (
-                          <div className="foto-dropzone-texto" style={{ padding: '20px 0' }}>
-                            <div className="foto-dropzone-titulo">📄 {item.anexo.name}</div>
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          className="foto-preview-remover"
-                          aria-label="Remover anexo"
-                          onClick={() => {
-                            const itens = [...form.itensSubstituicao];
-                            itens[i] = { ...item, anexo: null, anexoPreview: null };
-                            setForm({ ...form, itensSubstituicao: itens });
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ) : (
-                      <label htmlFor={`anexo-substituicao-${i}`} className="foto-dropzone">
-                        <IconeCaixa />
-                        <div className="foto-dropzone-texto">
-                          <div className="foto-dropzone-titulo">Selecionar anexo</div>
-                          <div className="foto-dropzone-sub">PDF, PNG, JPG ou WebP até 5MB</div>
-                        </div>
-                      </label>
-                    )}
+                        onRemover={() => editarItem('itensSubstituicao', i, { anexo: null, anexoPreview: null })}
+                      />
+                    </div>
+                    <div className="itens-celula itens-celula-remover">{botaoRemover('itensSubstituicao', i)}</div>
                   </div>
-                </div>
-              ))}
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                style={{ marginTop: 12 }}
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    itensSubstituicao: [
-                      ...form.itensSubstituicao,
-                      {
-                        equipamentoId: '',
-                        tipoEquipamentoId: '',
-                        quantidade: 1,
-                        justificativa: '',
-                        anexo: null,
-                        anexoPreview: null,
-                      },
-                    ],
-                  })
-                }
-              >
-                + Adicionar item
-              </button>
+                ))}
+              </div>
+              {botaoAdicionar('itensSubstituicao', {
+                equipamentoId: '',
+                tipoEquipamentoId: '',
+                quantidade: 1,
+                justificativa: '',
+                anexo: null,
+                anexoPreview: null,
+              })}
             </div>
           )}
 
           {tipo === 'AMPLIACAO' && (
             <div className="form-secao">
-              <div className="form-secao-titulo">
-                <div className="form-secao-titulo-icone">
-                  <IconeCaixa />
+              <div className="form-secao-titulo">Itens Solicitados</div>
+              <div className="itens-lista" style={{ '--colunas': 'minmax(0,1fr) 96px 34px' } as React.CSSProperties}>
+                <div className="itens-cabecalho" aria-hidden>
+                  <span>Tipo de item</span>
+                  <span>Quantidade</span>
+                  <span />
                 </div>
-                Itens Solicitados
+                {form.itensAmpliacao.map((item, i) => (
+                  <div key={i} className="itens-linha" role="group" aria-label={`Item ${i + 1}`}>
+                    <div className="itens-celula" data-rotulo="Tipo de item">
+                      <SelectTipoEquipamento
+                        label="Tipo de Item"
+                        categorias={categorias}
+                        value={item.tipoEquipamentoId}
+                        idsExcluidos={idsEmUso('itensAmpliacao', 'tipoEquipamentoId', i)}
+                        onChange={(id) => editarItem('itensAmpliacao', i, { tipoEquipamentoId: id })}
+                        required
+                      />
+                    </div>
+                    <div className="itens-celula" data-rotulo="Quantidade">
+                      <input
+                        type="number"
+                        min="1"
+                        aria-label="Quantidade"
+                        value={item.quantidade}
+                        onChange={(e) => editarItem('itensAmpliacao', i, { quantidade: Number(e.target.value) })}
+                        required
+                      />
+                    </div>
+                    <div className="itens-celula itens-celula-remover">{botaoRemover('itensAmpliacao', i)}</div>
+                  </div>
+                ))}
               </div>
-              {form.itensAmpliacao.map((item, i) => (
-                <div key={i} className="item-ampliacao">
-                  <div className="item-ampliacao-cabecalho">
-                    <span className="item-ampliacao-numero">Item {i + 1}</span>
-                    {form.itensAmpliacao.length > 1 && (
-                      <button
-                        type="button"
-                        className="item-ampliacao-remover"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            itensAmpliacao: form.itensAmpliacao.filter((_, j) => j !== i),
-                          })
-                        }
-                      >
-                        Remover
-                      </button>
-                    )}
-                  </div>
-                  <div className="field">
-                    <label>Tipo de Item *</label>
-                    <SeletorTipoEquipamento
-                      categorias={categorias}
-                      value={item.tipoEquipamentoId}
-                      idsExcluidos={form.itensAmpliacao
-                        .filter((_, j) => j !== i)
-                        .map((it) => it.tipoEquipamentoId)
-                        .filter(Boolean)}
-                      onChange={(id) => {
-                        const itens = [...form.itensAmpliacao];
-                        itens[i] = { ...item, tipoEquipamentoId: id };
-                        setForm({ ...form, itensAmpliacao: itens });
-                      }}
-                      required
-                    />
-                  </div>
-                  <div className="field item-ampliacao-quantidade">
-                    <label>Quantidade *</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={item.quantidade}
-                      onChange={(e) => {
-                        const itens = [...form.itensAmpliacao];
-                        itens[i] = { ...item, quantidade: Number(e.target.value) };
-                        setForm({ ...form, itensAmpliacao: itens });
-                      }}
-                      required
-                    />
-                  </div>
-                </div>
-              ))}
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                style={{ marginTop: 12 }}
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    itensAmpliacao: [...form.itensAmpliacao, { tipoEquipamentoId: '', quantidade: 1 }],
-                  })
-                }
-              >
-                + Adicionar item
-              </button>
+              {botaoAdicionar('itensAmpliacao', { tipoEquipamentoId: '', quantidade: 1 })}
             </div>
           )}
 
           {tipo === 'RECOLHA' && (
             <div className="form-secao">
-              <div className="form-secao-titulo">
-                <div className="form-secao-titulo-icone">
-                  <IconeCaixa />
+              <div className="form-secao-titulo">Itens a Recolher</div>
+              <div className="itens-lista" style={{ '--colunas': 'minmax(0,1fr) 34px' } as React.CSSProperties}>
+                <div className="itens-cabecalho" aria-hidden>
+                  <span>Item</span>
+                  <span />
                 </div>
-                Itens a Recolher
+                {form.itensRecolha.map((item, i) => (
+                  <div key={i} className="itens-linha" role="group" aria-label={`Item ${i + 1}`}>
+                    <div className="itens-celula" data-rotulo="Item">
+                      <SelectEquipamento
+                        label="Item"
+                        equipamentos={equipamentos}
+                        value={item.equipamentoId}
+                        idsExcluidos={idsEmUso('itensRecolha', 'equipamentoId', i)}
+                        onChange={(id) => editarItem('itensRecolha', i, { equipamentoId: id })}
+                        required
+                      />
+                    </div>
+                    <div className="itens-celula itens-celula-remover">{botaoRemover('itensRecolha', i)}</div>
+                  </div>
+                ))}
               </div>
-              {form.itensRecolha.map((item, i) => (
-                <div key={i} className="item-ampliacao">
-                  <div className="item-ampliacao-cabecalho">
-                    <span className="item-ampliacao-numero">Item {i + 1}</span>
-                    {form.itensRecolha.length > 1 && (
-                      <button
-                        type="button"
-                        className="item-ampliacao-remover"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            itensRecolha: form.itensRecolha.filter((_, j) => j !== i),
-                          })
-                        }
-                      >
-                        Remover
-                      </button>
-                    )}
-                  </div>
-                  <div className="field">
-                    <label>Item *</label>
-                    <SeletorEquipamento
-                      equipamentos={equipamentos}
-                      value={item.equipamentoId}
-                      idsExcluidos={form.itensRecolha
-                        .filter((_, j) => j !== i)
-                        .map((it) => it.equipamentoId)
-                        .filter(Boolean)}
-                      onChange={(id) => {
-                        const itens = [...form.itensRecolha];
-                        itens[i] = { ...item, equipamentoId: id };
-                        setForm({ ...form, itensRecolha: itens });
-                      }}
-                      required
-                    />
-                  </div>
-                </div>
-              ))}
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                style={{ marginTop: 12 }}
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    itensRecolha: [...form.itensRecolha, { equipamentoId: '' }],
-                  })
-                }
-              >
-                + Adicionar item
-              </button>
+              {botaoAdicionar('itensRecolha', { equipamentoId: '' })}
             </div>
           )}
 
           {tipo === 'EMPRESTIMO' && (
             <div className="form-secao">
-              <div className="form-secao-titulo">
-                <div className="form-secao-titulo-icone">
-                  <IconeCaixa />
-                </div>
-                Itens a Emprestar
-              </div>
-              <div className="info-grid">
+              <div className="form-secao-titulo">Itens a Emprestar</div>
+              <div className="info-grid itens-alinhado">
                 <div className="field">
-                  <label>Unidade de Destino *</label>
+                  <label htmlFor="emprestimo-unidade">Unidade de destino *</label>
                   <select
+                    id="emprestimo-unidade"
                     value={form.unidadeDestinoId}
                     onChange={(e) => setForm({ ...form, unidadeDestinoId: e.target.value })}
                     required
                   >
-                    <option value="">Selecione a unidade</option>
+                    <option value="">Selecione...</option>
                     {unidades.map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.nome}
@@ -603,8 +453,9 @@ export function NovaSolicitacao() {
                   </select>
                 </div>
                 <div className="field">
-                  <label>Data Final do Empréstimo *</label>
+                  <label htmlFor="emprestimo-data">Data final do empréstimo *</label>
                   <input
+                    id="emprestimo-data"
                     type="date"
                     value={form.dataRetornoPrevista}
                     onChange={(e) => setForm({ ...form, dataRetornoPrevista: e.target.value })}
@@ -612,140 +463,75 @@ export function NovaSolicitacao() {
                   />
                 </div>
               </div>
-              {form.itensEmprestimo.map((item, i) => (
-                <div key={i} className="item-ampliacao">
-                  <div className="item-ampliacao-cabecalho">
-                    <span className="item-ampliacao-numero">Item {i + 1}</span>
-                    {form.itensEmprestimo.length > 1 && (
-                      <button
-                        type="button"
-                        className="item-ampliacao-remover"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            itensEmprestimo: form.itensEmprestimo.filter((_, j) => j !== i),
-                          })
-                        }
-                      >
-                        Remover
-                      </button>
-                    )}
-                  </div>
-                  <div className="field">
-                    <label>Item *</label>
-                    <SeletorEquipamento
-                      equipamentos={equipamentos}
-                      value={item.equipamentoId}
-                      idsExcluidos={form.itensEmprestimo
-                        .filter((_, j) => j !== i)
-                        .map((it) => it.equipamentoId)
-                        .filter(Boolean)}
-                      onChange={(id) => {
-                        const itens = [...form.itensEmprestimo];
-                        itens[i] = { ...item, equipamentoId: id };
-                        setForm({ ...form, itensEmprestimo: itens });
-                      }}
-                      required
-                    />
-                  </div>
+              <div className="itens-lista" style={{ '--colunas': 'minmax(0,1fr) 34px' } as React.CSSProperties}>
+                <div className="itens-cabecalho" aria-hidden>
+                  <span>Item</span>
+                  <span />
                 </div>
-              ))}
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                style={{ marginTop: 12 }}
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    itensEmprestimo: [...form.itensEmprestimo, { equipamentoId: '' }],
-                  })
-                }
-              >
-                + Adicionar item
-              </button>
+                {form.itensEmprestimo.map((item, i) => (
+                  <div key={i} className="itens-linha" role="group" aria-label={`Item ${i + 1}`}>
+                    <div className="itens-celula" data-rotulo="Item">
+                      <SelectEquipamento
+                        label="Item"
+                        equipamentos={equipamentos}
+                        value={item.equipamentoId}
+                        idsExcluidos={idsEmUso('itensEmprestimo', 'equipamentoId', i)}
+                        onChange={(id) => editarItem('itensEmprestimo', i, { equipamentoId: id })}
+                        required
+                      />
+                    </div>
+                    <div className="itens-celula itens-celula-remover">{botaoRemover('itensEmprestimo', i)}</div>
+                  </div>
+                ))}
+              </div>
+              {botaoAdicionar('itensEmprestimo', { equipamentoId: '' })}
             </div>
           )}
 
           {tipo === 'CESSAO_USO' && (
             <div className="form-secao">
-              <div className="form-secao-titulo">
-                <div className="form-secao-titulo-icone">
-                  <IconeCaixa />
-                </div>
-                Itens a Ceder
-              </div>
-              <div className="field">
-                <label>Entidade Externa (nome) *</label>
+              <div className="form-secao-titulo">Itens a Ceder</div>
+              <div className="field itens-alinhado">
+                <label htmlFor="cessao-entidade">Entidade externa *</label>
                 <input
+                  id="cessao-entidade"
                   placeholder="Ex: Hospital Regional (outro município)"
                   value={form.entidadeExternaNome}
                   onChange={(e) => setForm({ ...form, entidadeExternaNome: e.target.value })}
                   required
                 />
               </div>
-              {form.itensCessao.map((item, i) => (
-                <div key={i} className="item-ampliacao">
-                  <div className="item-ampliacao-cabecalho">
-                    <span className="item-ampliacao-numero">Item {i + 1}</span>
-                    {form.itensCessao.length > 1 && (
-                      <button
-                        type="button"
-                        className="item-ampliacao-remover"
-                        onClick={() =>
-                          setForm({
-                            ...form,
-                            itensCessao: form.itensCessao.filter((_, j) => j !== i),
-                          })
-                        }
-                      >
-                        Remover
-                      </button>
-                    )}
-                  </div>
-                  <div className="field">
-                    <label>Item *</label>
-                    <SeletorTipoEquipamento
-                      categorias={categorias}
-                      value={item.tipoEquipamentoId}
-                      idsExcluidos={form.itensCessao
-                        .filter((_, j) => j !== i)
-                        .map((it) => it.tipoEquipamentoId)
-                        .filter(Boolean)}
-                      onChange={(id) => {
-                        const itens = [...form.itensCessao];
-                        itens[i] = { ...item, tipoEquipamentoId: id };
-                        setForm({ ...form, itensCessao: itens });
-                      }}
-                      required
-                    />
-                  </div>
-                  <div className="field">
-                    <label>Nº de Patrimônio *</label>
-                    <input
-                      value={item.numeroPatrimonio}
-                      onChange={(e) => {
-                        const itens = [...form.itensCessao];
-                        itens[i] = { ...item, numeroPatrimonio: e.target.value };
-                        setForm({ ...form, itensCessao: itens });
-                      }}
-                      required
-                    />
-                  </div>
+              <div className="itens-lista" style={{ '--colunas': 'minmax(0,1fr) minmax(0,1fr) 34px' } as React.CSSProperties}>
+                <div className="itens-cabecalho" aria-hidden>
+                  <span>Item</span>
+                  <span>Nº de patrimônio</span>
+                  <span />
                 </div>
-              ))}
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                style={{ marginTop: 12 }}
-                onClick={() =>
-                  setForm({
-                    ...form,
-                    itensCessao: [...form.itensCessao, { tipoEquipamentoId: '', numeroPatrimonio: '' }],
-                  })
-                }
-              >
-                + Adicionar item
-              </button>
+                {form.itensCessao.map((item, i) => (
+                  <div key={i} className="itens-linha" role="group" aria-label={`Item ${i + 1}`}>
+                    <div className="itens-celula" data-rotulo="Item">
+                      <SelectTipoEquipamento
+                        label="Item"
+                        categorias={categorias}
+                        value={item.tipoEquipamentoId}
+                        idsExcluidos={idsEmUso('itensCessao', 'tipoEquipamentoId', i)}
+                        onChange={(id) => editarItem('itensCessao', i, { tipoEquipamentoId: id })}
+                        required
+                      />
+                    </div>
+                    <div className="itens-celula" data-rotulo="Nº de patrimônio">
+                      <input
+                        aria-label="Nº de patrimônio"
+                        value={item.numeroPatrimonio}
+                        onChange={(e) => editarItem('itensCessao', i, { numeroPatrimonio: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="itens-celula itens-celula-remover">{botaoRemover('itensCessao', i)}</div>
+                  </div>
+                ))}
+              </div>
+              {botaoAdicionar('itensCessao', { tipoEquipamentoId: '', numeroPatrimonio: '' })}
             </div>
           )}
           </div>
@@ -754,9 +540,6 @@ export function NovaSolicitacao() {
           <div className="form-coluna">
           <div className="form-secao">
             <div className="form-secao-titulo">
-              <div className="form-secao-titulo-icone">
-                <IconeDetalhes />
-              </div>
               Detalhes
             </div>
             <div className="field">
@@ -775,66 +558,27 @@ export function NovaSolicitacao() {
             </div>
             <div className="field">
               <label>Anexo</label>
-              <input
-                ref={inputAnexo}
-                type="file"
-                accept="application/pdf,image/jpeg,image/png,image/webp"
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  const arquivo = e.target.files?.[0];
-                  if (arquivo) {
-                    setAnexo(arquivo);
-                    setPreviewAnexo(arquivo.type === 'application/pdf' ? null : URL.createObjectURL(arquivo));
-                  }
-                  e.target.value = '';
+              <CampoAnexo
+                arquivo={anexo}
+                preview={previewAnexo}
+                onSelecionar={(arquivo) => {
+                  setAnexo(arquivo);
+                  setPreviewAnexo(arquivo.type === 'application/pdf' ? null : URL.createObjectURL(arquivo));
+                }}
+                onRemover={() => {
+                  setAnexo(null);
+                  setPreviewAnexo(null);
                 }}
               />
-              {anexo ? (
-                <div className="foto-preview-grande">
-                  {previewAnexo ? (
-                    <img src={previewAnexo} alt="" />
-                  ) : (
-                    <div className="foto-dropzone-texto" style={{ padding: '20px 0' }}>
-                      <div className="foto-dropzone-titulo">📄 {anexo.name}</div>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    className="foto-preview-remover"
-                    aria-label="Remover anexo"
-                    onClick={() => {
-                      setAnexo(null);
-                      setPreviewAnexo(null);
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ) : (
-                <button type="button" className="foto-dropzone" onClick={() => inputAnexo.current?.click()}>
-                  <IconeCaixa />
-                  <div className="foto-dropzone-texto">
-                    <div className="foto-dropzone-titulo">Selecionar anexo</div>
-                    <div className="foto-dropzone-sub">PDF, PNG, JPG ou WebP até 5MB</div>
-                  </div>
-                </button>
-              )}
             </div>
           </div>
           </div>
           )}
           </div>
-
-          <div className="actions-row" style={{ justifyContent: 'flex-end' }}>
-            <button type="button" className="btn btn-outline" onClick={voltar}>
-              Cancelar
-            </button>
-            <button type="submit" className="btn btn-primary" disabled={semAlteracoes(inicial, form)}>
-              <IconeEnviar /> Enviar Solicitação
-            </button>
-          </div>
+          {(tipo === 'SUBSTITUICAO' || tipo === 'RECOLHA' || tipo === 'EMPRESTIMO') && <ItemAusente />}
+          </>
+        )}
         </form>
-      </div>
-    </>
+    </section>
   );
 }

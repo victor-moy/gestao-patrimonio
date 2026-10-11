@@ -5,7 +5,7 @@ import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
-import { uploadAnexoSolicitacao } from '../../lib/uploads';
+import { assinaturaAnexo, uploadAnexoSolicitacao } from '../../lib/uploads';
 import * as service from './solicitacoes.service';
 
 export const solicitacoesRouter = Router();
@@ -23,6 +23,10 @@ solicitacoesRouter.get('/', async (req, res) => {
 
 solicitacoesRouter.get('/:id', async (req, res) => {
   res.json(await service.buscarPorId(req.usuario!, req.params.id));
+});
+
+solicitacoesRouter.get('/:id/historico', async (req, res) => {
+  res.json(await service.historico(req.usuario!, req.params.id));
 });
 
 const criarSchema = z.object({
@@ -256,6 +260,7 @@ solicitacoesRouter.post(
   '/:id/anexo',
   permitir(Perfil.UNIDADE, Perfil.GESTOR_PATRIMONIO),
   uploadAnexoSolicitacao.single('anexo'),
+  assinaturaAnexo,
   async (req, res) => {
     if (!req.file) {
       throw new AppError('Envie o anexo no campo "anexo".', 422);

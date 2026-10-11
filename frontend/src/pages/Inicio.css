@@ -1,42 +1,152 @@
-.inicio-page .page-header { margin-bottom: 28px; }
-.inicio-acao-icone { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 9px; color: var(--blue-text); background: var(--blue-bg); }
-.inicio-alertas-titulo { display: flex; align-items: center; gap: 10px; }
-.inicio-alertas-titulo svg { color: var(--yellow-text); }
-.inicio-icone--verde { color: var(--green-text); background: var(--green-bg); }
-.inicio-icone--violeta { color: var(--purple-text); background: var(--purple-bg); }
-.inicio-page .stats-grid { margin-top: 0; }
-.inicio-page .stat-card { min-height: 150px; border-radius: var(--radius); }
-.inicio-page .stat-value { font-variant-numeric: tabular-nums; }
-.inicio-page .grid-2,
-.inicio-page .grid-2-even { gap: 18px; }
-.inicio-page .card-pad { padding: 22px; }
-.inicio-page .card-pad h3 { font-size: 16px; margin-bottom: 18px; }
-.inicio-page .alert-item {
+.inicio-page {
+  width: 100%;
+}
+
+.inicio-page .page-header.inicio-boas-vindas {
+  align-items: flex-start;
+  min-height: 32px;
+  margin-bottom: 20px;
+}
+
+.inicio-page .page-header h2 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -.45px;
+}
+
+.inicio-caixa-entrada {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.inicio-painel {
+  overflow: hidden;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--yellow-text);
-  border-radius: 7px;
-  margin-bottom: 9px;
-  padding: 11px 13px;
-  background: var(--bg);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.inicio-painel-cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.inicio-painel-titulo {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+}
+
+.inicio-painel h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+.inicio-painel-cabecalho p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
   line-height: 1.45;
 }
-.inicio-page .alert-item.alert-critico { border-left-color: var(--red-text); }
-.inicio-page .quick-actions { gap: 10px; }
-.inicio-page .quick-action {
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  padding: 13px;
-  background: var(--surface);
-  transition: border-color .15s ease, background .15s ease;
+
+.inicio-contagem {
+  display: inline-grid;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
 }
-.inicio-page .quick-action:hover { border-color: var(--accent); background: var(--bg); }
-.inicio-page .ranking-row { padding: 13px 0; }
-.inicio-page .ranking-bar { background: var(--gray-bg); }
-.inicio-page .ranking-bar-fill { background: var(--accent); }
-.inicio-page .inicio-graficos .card { min-height: 350px; }
-@media (max-width: 700px) {
-  .inicio-page .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  .inicio-page .stat-card { min-height: 125px; padding: 14px; }
-  .inicio-page .stat-value { font-size: 26px; }
-  .inicio-page .inicio-graficos .card { min-height: 300px; }
+
+.inicio-painel-conteudo {
+  padding: 12px;
+}
+
+.inicio-estado-texto {
+  margin: 0;
+  padding: 28px 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: center;
+}
+
+.inicio-estado-vazio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  padding: 28px 20px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.inicio-estado-vazio strong {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.inicio-estado-vazio .btn {
+  min-height: 32px;
+  margin-top: 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.inicio-alertas-lista {
+  display: grid;
+  gap: 8px;
+}
+
+.inicio-alerta {
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-subtle);
+}
+
+.inicio-alerta-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.inicio-alerta-severidade {
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.inicio-alerta p {
+  margin: 5px 0 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 600px) {
+  .inicio-page .page-header.inicio-boas-vindas { margin-bottom: 18px; }
+  .inicio-painel-cabecalho { padding: 15px 16px; }
+  .inicio-estado-vazio { padding: 24px 12px; }
 }

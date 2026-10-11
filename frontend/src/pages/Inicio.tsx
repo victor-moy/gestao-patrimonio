@@ -1,189 +1,123 @@
-import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import type { Alerta } from '../types';
 import './Inicio.css';
-import { IconeSino, IconeRelatorios, IconeEstoque, IconeInventario, IconeManutencoes, IconeSolicitacoes, IconeUnidades } from '../components/icons';
 
-const ACOES_RAPIDAS = [
-  {
-    para: '/inventario',
-    icone: <IconeInventario />,
-    titulo: 'Consultar Inventário',
-    sub: 'Visualizar equipamentos por unidade',
-    perfis: ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO', 'UNIDADE', 'GALPAO'],
-  },
-  {
-    para: '/manutencoes',
-    icone: <IconeManutencoes />,
-    titulo: 'Aprovar Manutenções',
-    sub: 'Gerenciar solicitações pendentes',
-    perfis: ['GESTOR_MANUTENCAO'],
-  },
-  {
-    para: '/manutencoes',
-    icone: <IconeManutencoes />,
-    titulo: 'Solicitar Manutenção',
-    sub: 'Abrir solicitação para um equipamento',
-    perfis: ['UNIDADE'],
-  },
-  {
-    para: '/manutencoes',
-    icone: <IconeManutencoes />,
-    titulo: 'Manutenções',
-    sub: 'Acompanhar manutenção dos equipamentos',
-    perfis: ['GESTOR_PATRIMONIO'],
-  },
-  {
-    para: '/solicitacoes',
-    icone: <IconeSolicitacoes />,
-    titulo: 'Solicitações',
-    sub: 'Consultar pedidos e movimentações',
-    perfis: ['GESTOR_PATRIMONIO'],
-  },
-  {
-    para: '/estoque',
-    icone: <IconeEstoque />,
-    titulo: 'Gestão de Estoque',
-    sub: 'Entradas e saídas do galpão',
-    perfis: ['GALPAO'],
-  },
-  {
-    para: '/relatorios',
-    icone: <IconeRelatorios />,
-    titulo: 'Relatórios',
-    sub: 'Consultar indicadores e relatórios',
-    perfis: ['GESTOR_PATRIMONIO'],
-  },
-  {
-    para: '/solicitacoes',
-    icone: <IconeSolicitacoes />,
-    titulo: 'Minhas Solicitações',
-    sub: 'Acompanhar status dos pedidos',
-    perfis: ['UNIDADE', 'GALPAO'],
-  },
-];
+function rotuloDoAlerta(tipo: string) {
+  if (tipo.startsWith('ATA_')) return 'Ata';
+  if (tipo === 'EMPRESTIMO_ATRASADO') return 'Empréstimo';
+  return 'Patrimônio';
+}
 
 export function Inicio() {
   const { usuario } = useAuth();
-  const location = useLocation();
   const ehGestor = usuario?.perfil === 'GESTOR_PATRIMONIO' || usuario?.perfil === 'GESTOR_MANUTENCAO';
-  const [dados, setDados] = useState<{ totalEquipamentos: number; unidadesAtendidas: number; totalSolicitacoes: number } | null>(null);
-  const [falhaResumo, setFalhaResumo] = useState(false);
+  const primeiroNome = usuario?.nome.trim().split(/\s+/)[0] ?? '';
   const [alertas, setAlertas] = useState<Alerta[]>([]);
+  const [carregandoAlertas, setCarregandoAlertas] = useState(false);
+  const [falhaAlertas, setFalhaAlertas] = useState(false);
 
-  useEffect(() => {
+  const carregarAlertas = useCallback(async () => {
     if (!ehGestor) return;
-    api.get<{ totalEquipamentos: number; unidadesAtendidas: number; totalSolicitacoes: number }>('/dashboard/resumo').then(setDados).catch(() => setFalhaResumo(true));
-    api.get<Alerta[]>('/dashboard/alertas').then(setAlertas).catch(() => {});
+
+    setCarregandoAlertas(true);
+    setFalhaAlertas(false);
+    try {
+      setAlertas(await api.get<Alerta[]>('/dashboard/alertas'));
+    } catch {
+      setFalhaAlertas(true);
+    } finally {
+      setCarregandoAlertas(false);
+    }
   }, [ehGestor]);
 
-  const acoes = ACOES_RAPIDAS.filter((a) => a.perfis.includes(usuario?.perfil ?? ''));
-
-  if (!ehGestor) {
-    return (
-      <section className="gestao-page inicio-page" aria-labelledby="inicio-titulo">
-        <div className="page-header">
-          <div>
-            <h2 id="inicio-titulo">Bem-vindo, {usuario?.nome}</h2>
-            <p className="subtitle">
-              {usuario?.unidadeNome ? `Unidade: ${usuario.unidadeNome}` : 'Acesso ao sistema de patrimônio'}
-            </p>
-          </div>
-        </div>
-        <div className="card card-pad inicio-acoes-unidade">
-          <h3>Ações Rápidas</h3>
-          <div className="quick-actions">
-            {acoes.map((a) => (
-              <Link
-                key={a.titulo}
-                to={a.para}
-                state={a.para.startsWith('/configuracoes') ? { background: location } : undefined}
-                className="quick-action"
-              >
-                <span className="inicio-acao-icone" aria-hidden>
-                  {a.icone}
-                </span>
-                <div className="qa-title">{a.titulo}</div>
-                <div className="qa-sub">{a.sub}</div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
-
+  useEffect(() => {
+    void carregarAlertas();
+  }, [carregarAlertas]);
 
   return (
     <section className="gestao-page inicio-page" aria-labelledby="inicio-titulo">
-      <div className="page-header">
-        <div>
-          <h2 id="inicio-titulo">Bem-vindo, {usuario?.nome}</h2>
-        </div>
-      </div>
+      <header className="page-header inicio-boas-vindas">
+        <h2 id="inicio-titulo">Bem-vindo, {primeiroNome}</h2>
+      </header>
 
-      <div className="gestao-resumo-label">Resumo da operação</div>
-      {falhaResumo && <p role="status" className="subtitle">Não foi possível carregar o resumo. Atualize a página para tentar novamente.</p>}
-      <div className="stats-grid inicio-resumo">
-        <div className="card stat-card">
-          <div className="stat-top">
-            <div className="stat-icon inicio-acao-icone"><IconeInventario /></div>
-          </div>
-          <div className="stat-label">Total de Equipamentos</div>
-          <div className="stat-value">{dados?.totalEquipamentos ?? '—'}</div>
-        </div>
-        <div className="card stat-card">
-          <div className="stat-top">
-            <div className="stat-icon inicio-acao-icone inicio-icone--verde"><IconeUnidades /></div>
-          </div>
-          <div className="stat-label">Unidades atendidas</div>
-          <div className="stat-value">{dados?.unidadesAtendidas ?? '—'}</div>
-        </div>
-        <div className="card stat-card">
-          <div className="stat-top">
-            <div className="stat-icon inicio-acao-icone inicio-icone--violeta"><IconeSolicitacoes /></div>
-          </div>
-          <div className="stat-label">Solicitações registradas</div>
-          <div className="stat-value">{dados?.totalSolicitacoes ?? '—'}</div>
-        </div>
-      </div>
-
-      <div className="grid-2 inicio-primeira-linha">
-        <div className="card card-pad">
-          <h3 className="inicio-alertas-titulo"><IconeSino /> Alertas Importantes</h3>
-          {alertas.length === 0 && <div className="empty-state">Nenhum alerta no momento</div>}
-          {alertas.map((a, i) => (
-            <div
-              key={i}
-              className={`alert-item ${a.severidade === 'CRITICO' ? 'alert-critico' : 'alert-aviso'}`}
-            >
-              • {a.mensagem}
+      <div className="inicio-caixa-entrada">
+        <section className="card inicio-painel inicio-painel--alertas" aria-labelledby="inicio-alertas-titulo">
+          <header className="inicio-painel-cabecalho">
+            <div className="inicio-painel-titulo">
+              <div>
+                <h3 id="inicio-alertas-titulo">Alertas importantes</h3>
+                <p>Ocorrências que precisam da sua atenção.</p>
+              </div>
             </div>
-          ))}
-        </div>
-        <div className="card card-pad">
-          <h3>Ações Rápidas</h3>
-          <div className="quick-actions">
-            {acoes.map((a) => (
-              <Link
-                key={a.titulo}
-                to={a.para}
-                state={a.para.startsWith('/configuracoes') ? { background: location } : undefined}
-                className="quick-action"
-              >
-                <span className="inicio-acao-icone" aria-hidden>
-                  {a.icone}
-                </span>
-                <div className="qa-title">{a.titulo}</div>
-                <div className="qa-sub">{a.sub}</div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
+            {!carregandoAlertas && !falhaAlertas && alertas.length > 0 && (
+              <span className="inicio-contagem" aria-label={`${alertas.length} alertas importantes`}>
+                {alertas.length}
+              </span>
+            )}
+          </header>
 
+          <div className="inicio-painel-conteudo" aria-live="polite">
+            {carregandoAlertas && <p className="inicio-estado-texto">Carregando alertas…</p>}
+
+            {!carregandoAlertas && falhaAlertas && (
+              <div className="inicio-estado-vazio">
+                <strong>Não foi possível carregar os alertas.</strong>
+                <span>Tente novamente para conferir as pendências atuais.</span>
+                <button type="button" className="btn btn-outline" onClick={carregarAlertas}>
+                  Tentar novamente
+                </button>
+              </div>
+            )}
+
+            {!carregandoAlertas && !falhaAlertas && alertas.length === 0 && (
+              <div className="inicio-estado-vazio">
+                <strong>Nenhum alerta importante</strong>
+                <span>Não há ocorrências que precisem da sua atenção agora.</span>
+              </div>
+            )}
+
+            {!carregandoAlertas && !falhaAlertas && alertas.length > 0 && (
+              <div className="inicio-alertas-lista">
+                {alertas.map((alerta, indice) => (
+                  <article
+                    key={`${alerta.tipo}-${indice}`}
+                    className={`inicio-alerta inicio-alerta--${alerta.severidade.toLowerCase()}`}
+                  >
+                    <div className="inicio-alerta-meta">
+                      <span className="inicio-alerta-severidade">
+                        {alerta.severidade === 'CRITICO' ? 'Crítico' : 'Atenção'}
+                      </span>
+                      <span>{rotuloDoAlerta(alerta.tipo)}</span>
+                    </div>
+                    <p>{alerta.mensagem}</p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section className="card inicio-painel inicio-painel--mensagens" aria-labelledby="inicio-mensagens-titulo">
+          <header className="inicio-painel-cabecalho">
+            <div className="inicio-painel-titulo">
+              <div>
+                <h3 id="inicio-mensagens-titulo">Mensagens não lidas</h3>
+                <p>Atualizações enviadas diretamente para você.</p>
+              </div>
+            </div>
+            <span className="inicio-contagem inicio-contagem--neutra" aria-label="0 mensagens não lidas">0</span>
+          </header>
+
+          <div className="inicio-painel-conteudo">
+            <div className="inicio-estado-vazio inicio-estado-vazio--mensagens">
+              <strong>Nenhuma mensagem não lida</strong>
+              <span>Novas mensagens aparecerão aqui.</span>
+            </div>
+          </div>
+        </section>
+      </div>
     </section>
   );
 }

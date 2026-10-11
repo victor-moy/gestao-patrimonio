@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { Perfil } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
-import { AppError } from '../../errors/AppError';
 import * as service from './relatorios.service';
 
 export const relatoriosRouter = Router();
@@ -57,19 +56,6 @@ relatoriosRouter.get('/ranking-unidades', async (req, res) => {
   );
 });
 
-relatoriosRouter.get('/detalhe-unidade', async (req, res) => {
-  const unidadeId = req.query.unidadeId as string | undefined;
-  if (!unidadeId) {
-    throw new AppError('Informe a unidade (unidadeId).', 422);
-  }
-  res.json(
-    await service.detalheUnidade(unidadeId, {
-      ...periodo(req),
-      tipoEquipamentoId: tipoEquipamentoId(req),
-    }),
-  );
-});
-
 relatoriosRouter.get('/emprestimos', async (req, res) => {
   res.json(
     await service.emprestimos({
@@ -96,23 +82,6 @@ relatoriosRouter.get('/itens-estoque', async (_req, res) => {
   res.json(await service.itensEstoque());
 });
 
-relatoriosRouter.get('/itens-estoque/detalhe', async (req, res) => {
-  const tipoEquipamentoId = req.query.tipoEquipamentoId as string | undefined;
-  if (!tipoEquipamentoId) {
-    throw new AppError('Informe o item (tipoEquipamentoId).', 422);
-  }
-  res.json(await service.detalheItemAguardando(tipoEquipamentoId));
-});
-
 relatoriosRouter.get('/resumo-item', async (req, res) => {
   res.json(await service.resumoItem(tipoEquipamentoId(req), periodo(req)));
-});
-
-relatoriosRouter.get('/itens-por-unidade', async (req, res) => {
-  res.json(
-    await service.itensPorUnidade({
-      ...periodo(req),
-      unidadeIds: unidadeIds(req),
-    }),
-  );
 });

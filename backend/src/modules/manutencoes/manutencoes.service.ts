@@ -1,5 +1,6 @@
 import { EstadoConservacao, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
+import { numeroDaBusca } from '../../lib/numero';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
 import { notificar } from '../../services/notificacao.service';
@@ -22,6 +23,7 @@ export async function listar(usuario: AuthPayload, filtros: { status?: string; b
     ...(filtros.busca
       ? {
           OR: [
+            ...(numeroDaBusca(filtros.busca, 'MAN') !== null ? [{ numero: numeroDaBusca(filtros.busca, 'MAN') as number }] : []),
             { equipamento: { tombamento: { contains: filtros.busca, mode: 'insensitive' as const } } },
             { equipamento: { descricao: { contains: filtros.busca, mode: 'insensitive' as const } } },
             { unidade: { nome: { contains: filtros.busca, mode: 'insensitive' as const } } },
@@ -49,10 +51,45 @@ export async function buscarPorId(usuario: AuthPayload, id: string) {
   return manutencao;
 }
 
+// Linha do tempo da manutenção: abertura + ações auditadas. Expõe só ação,
+// autor, data e o perfil de quem confirmou o retorno — nunca o payload bruto.
+export async function historico(usuario: AuthPayload, id: string) {
+  const manutencao = await buscarPorId(usuario, id);
+  const logs = await prisma.logAuditoria.findMany({
+    where: { entidade: 'manutencao', entidadeId: id },
+    orderBy: { criadoEm: 'asc' },
+    select: {
+      id: true,
+      acao: true,
+      criadoEm: true,
+      dadosDepois: true,
+      usuario: { select: { nome: true } },
+    },
+  });
+  return [
+    {
+      id: 'abertura',
+      acao: 'ABRIR_MANUTENCAO',
+      criadoEm: manutencao.criadoEm,
+      usuario: manutencao.solicitante?.nome ?? null,
+    },
+    ...logs.map((log) => {
+      const dados = (log.dadosDepois ?? {}) as { perfil?: unknown };
+      return {
+        id: log.id,
+        acao: log.acao,
+        criadoEm: log.criadoEm,
+        usuario: log.usuario?.nome ?? null,
+        ...(typeof dados.perfil === 'string' ? { perfil: dados.perfil } : {}),
+      };
+    }),
+  ];
+}
+
 // UC05/RF11 — a Unidade abre solicitação de manutenção
 export async function solicitar(
   usuario: AuthPayload,
-  dados: { equipamentoId: string; descricaoProblema: string; justificativa: string },
+  dados: { equipamentoId: string; descricaoProblema: string },
 ) {
   const equipamento = await prisma.equipamento.findUnique({
     where: { id: dados.equipamentoId },
@@ -75,7 +112,6 @@ export async function solicitar(
       unidadeId: equipamento.unidadeId,
       solicitanteId: usuario.sub,
       descricaoProblema: dados.descricaoProblema,
-      justificativa: dados.justificativa,
     },
     include: includePadrao,
   });
@@ -176,15 +212,28 @@ export async function registrarOrcamento(
   if (manutencao.status !== 'AGUARDANDO_ORCAMENTO') {
     throw new AppError('O orçamento só pode ser registrado quando a manutenção aguarda orçamento.', 422);
   }
-  return prisma.manutencao.update({
-    where: { id },
-    data: {
-      status: 'ORCAMENTO_REGISTRADO',
-      orcamentoValor: dados.valor,
-      orcamentoDescricao: dados.descricao ?? null,
-      ...(dados.contratoId ? { contratoId: dados.contratoId } : {}),
-    },
-    include: includePadrao,
+  return prisma.$transaction(async (tx) => {
+    const atualizada = await tx.manutencao.update({
+      where: { id },
+      data: {
+        status: 'ORCAMENTO_REGISTRADO',
+        orcamentoValor: dados.valor,
+        orcamentoDescricao: dados.descricao ?? null,
+        ...(dados.contratoId ? { contratoId: dados.contratoId } : {}),
+      },
+      include: includePadrao,
+    });
+    await registrarAuditoria(
+      {
+        usuarioId: usuario.sub,
+        acao: 'REGISTRAR_ORCAMENTO',
+        entidade: 'manutencao',
+        entidadeId: id,
+        dadosDepois: { status: 'ORCAMENTO_REGISTRADO', valor: dados.valor },
+      },
+      tx,
+    );
+    return atualizada;
   });
 }
 
@@ -314,13 +363,26 @@ export async function registrarRetorno(usuario: AuthPayload, id: string, custoFi
   if (manutencao.status !== 'EM_EXECUCAO') {
     throw new AppError('Somente manutenções em execução podem registrar retorno.', 422);
   }
-  return prisma.manutencao.update({
-    where: { id },
-    data: {
-      status: 'AGUARDANDO_RETORNO',
-      custoFinal: custoFinal ?? manutencao.orcamentoValor,
-    },
-    include: includePadrao,
+  return prisma.$transaction(async (tx) => {
+    const atualizada = await tx.manutencao.update({
+      where: { id },
+      data: {
+        status: 'AGUARDANDO_RETORNO',
+        custoFinal: custoFinal ?? manutencao.orcamentoValor,
+      },
+      include: includePadrao,
+    });
+    await registrarAuditoria(
+      {
+        usuarioId: usuario.sub,
+        acao: 'REGISTRAR_RETORNO_MANUTENCAO',
+        entidade: 'manutencao',
+        entidadeId: id,
+        dadosDepois: { status: 'AGUARDANDO_RETORNO' },
+      },
+      tx,
+    );
+    return atualizada;
   });
 }
 
@@ -364,6 +426,16 @@ export async function confirmarRetorno(
       },
       include: includePadrao,
     });
+    await registrarAuditoria(
+      {
+        usuarioId: usuario.sub,
+        acao: 'CONFIRMAR_RETORNO_MANUTENCAO',
+        entidade: 'manutencao',
+        entidadeId: id,
+        dadosDepois: { perfil: usuario.perfil },
+      },
+      tx,
+    );
     if (ambosConfirmaram) {
       // RF18/RF19 — equipamento volta a ativo com estado pós-serviço,
       // custo e data registrados no histórico.

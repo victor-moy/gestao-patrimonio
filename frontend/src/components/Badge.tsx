@@ -41,7 +41,11 @@ const CORES: Record<string, string> = {
   RECOLHA: 'yellow',
 };
 
+export function corDoStatus(valor: string) {
+  return CORES[valor] ?? 'gray';
+}
+
 export function Badge({ valor, children }: { valor: string; children: ReactNode }) {
-  const cor = CORES[valor] ?? 'gray';
+  const cor = corDoStatus(valor);
   return <span className={`badge badge-${cor}`}>{children}</span>;
 }

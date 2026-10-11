@@ -16,16 +16,37 @@ Copie `.env.example` para `.env` na raiz do repositório e ajuste os valores:
 | `DATABASE_URL` | String de conexão do PostgreSQL usada pelo Prisma | `postgresql://sgp:sgp@localhost:5432/sgp?schema=public` |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Credenciais do container do Postgres (Docker Compose) | `sgp` / `sgp` / `sgp` |
 | `API_PORT` | Porta em que a API escuta | `3333` |
-| `NODE_ENV` | Ambiente da API | `development` |
-| `JWT_SECRET` | Segredo de assinatura dos tokens JWT — **troque em qualquer ambiente real** | `troque-este-segredo-em-producao` |
-| `JWT_EXPIRES_IN` | Expiração da sessão por inatividade (RF04) | `30m` |
+| `NODE_ENV` | Ambiente da API. Em `production` (imagem Docker) a API exige `JWT_SECRET` forte e não aceita origens CORS externas por padrão | `development` |
+| `JWT_SECRET` | Segredo de assinatura dos tokens JWT. **Obrigatório e com no mínimo 32 caracteres em produção** — a API não inicia sem isso (ex.: `openssl rand -hex 32`) | `troque-este-segredo-em-producao` |
+| `JWT_EXPIRES_IN` | Duração da sessão (RF04): o token expira após esse tempo e o usuário precisa entrar de novo | `30m` |
+| `CORS_ORIGINS` | Origens extras autorizadas a chamar a API pelo navegador, separadas por vírgula. Normalmente vazio: em produção o frontend usa o mesmo domínio (`/api` via Nginx) | vazio |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | Configuração do SMTP institucional para notificações por e-mail | ver `.env.example` |
 | `SMTP_ENABLED` | Liga/desliga o envio real de e-mail — em dev, deixe `false` para só registrar as notificações | `false` |
-| `ANTHROPIC_API_KEY` | Chave da API da Anthropic para o assistente de IA nos Relatórios — **opcional**: sem ela, o resto do sistema funciona normalmente e só o assistente fica indisponível | vazio |
 | `WEB_PORT` | Porta do container do frontend no host | `8080` |
 | `VITE_API_URL` | Só usada em dev local sem Docker; em produção o frontend fala com `/api` via Nginx | `http://localhost:3333` |
 
-O `.env` nunca é versionado (está no `.gitignore`) — segredos reais (JWT, SMTP, chave da Anthropic) não devem ser commitados.
+O `.env` nunca é versionado (está no `.gitignore`) — segredos reais (JWT, SMTP) não devem ser commitados.
+
+## Onde configurar as variáveis
+
+| Situação | Onde fica a configuração |
+|---|---|
+| Rodando local com Docker Compose | Arquivo `.env` na raiz (copie de `.env.example`). Nunca é versionado. |
+| Deploy automático (GitHub Actions) | No GitHub, em **Settings › Environments**, um ambiente para cada destino: `producao` e `demonstracao`. Em cada um, valores sensíveis (`JWT_SECRET`, `SMTP_PASS`, e `POSTGRES_PASSWORD`/`GRAFANA_PASSWORD` quando aplicável) vão em **Secrets**; os demais (`WEB_PORT`, `JWT_EXPIRES_IN`, `SMTP_*`...) em **Variables**. Assim produção e demonstração têm segredos e portas próprios. |
+| Desenvolvimento sem Docker (`npm run dev`) | Não é preciso definir `JWT_SECRET`: fora de produção a API usa um valor de desenvolvimento. |
+
+O job de deploy copia os segredos e variáveis do GitHub para o ambiente antes de rodar `docker compose`. O que não estiver cadastrado no GitHub é ignorado e vale o `.env` do servidor (se existir) ou o padrão do Compose, então dá para migrar aos poucos.
+
+**`JWT_SECRET` é obrigatório em produção** (a API recusa iniciar sem um valor de pelo menos 32 caracteres). Gere um com `openssl rand -hex 32` e cadastre como secret `JWT_SECRET` no GitHub.
+
+### Credenciais do banco no GitHub
+
+`POSTGRES_USER` e `POSTGRES_DB` ficam em **Variables** e `POSTGRES_PASSWORD` em **Secrets** de cada ambiente. A API monta a URL de conexão a partir deles (não é preciso cadastrar `DATABASE_URL`). A senha só pode ter letras, números e `. _ ~ -` (o deploy recusa outros caracteres, que quebrariam a URL); gere com `openssl rand -hex 24`.
+
+O Postgres só lê usuário, senha e nome do banco na **primeira criação do volume**. Por isso:
+
+- **Servidor novo (banco vazio):** cadastre os três valores no GitHub antes do primeiro deploy.
+- **Servidor com banco já em uso (mantendo os dados):** `POSTGRES_USER` e `POSTGRES_DB` devem repetir o que o banco já tem (hoje `sgp` e `sgp`). Antes do deploy, troque a senha dentro do banco para o valor que vai cadastrar: `docker compose exec db psql -U sgp -d sgp -c "ALTER USER sgp WITH PASSWORD '<nova senha>'"`. Só depois cadastre o secret e faça o deploy; se o secret mudar sem a troca no banco, a API perde a conexão.
 
 ## Rodando com Docker Compose
 

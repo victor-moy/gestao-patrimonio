@@ -104,34 +104,6 @@ export async function rankingUnidades(filtros: FiltrosPeriodo & { unidadeIds?: s
     });
 }
 
-// Drill-down do ranking (feedback do stakeholder: clicar numa unidade e ver
-// tudo que ela pediu, não só o número agregado) — mesmos 4 tipos do gráfico
-// de ranking, filtrável também por item.
-export async function detalheUnidade(unidadeId: string, filtros: FiltrosPeriodo & { tipoEquipamentoId?: string }) {
-  const where: Prisma.SolicitacaoWhereInput = {
-    tipo: { in: TIPOS_RANKING },
-    unidadeOrigemId: unidadeId,
-    ...filtroItem(filtros.tipoEquipamentoId),
-    ...filtroPeriodo(filtros),
-  };
-  const registros = await prisma.solicitacao.findMany({
-    where,
-    include: {
-      equipamento: { select: { tombamento: true, descricao: true } },
-      tipoEquipamento: { select: { nome: true } },
-    },
-    orderBy: { criadoEm: 'desc' },
-  });
-  return registros.map((s) => ({
-    id: s.id,
-    tipo: s.tipo,
-    item: s.equipamento ? `${s.equipamento.tombamento} — ${s.equipamento.descricao}` : (s.tipoEquipamento?.nome ?? null),
-    quantidade: s.quantidade,
-    status: s.status,
-    criadoEm: s.criadoEm,
-  }));
-}
-
 // Relatório 3 — Empréstimos: prazos e devoluções. "Atrasado" cobre tanto o
 // empréstimo ainda em aberto além do prazo quanto o que já foi devolvido
 // depois do prazo (mesma regra do alerta EMPRESTIMO_ATRASADO do dashboard,
@@ -206,19 +178,7 @@ export async function emprestimos(
       ? Math.round((relevantes.filter((i) => i.atrasado).length / relevantes.length) * 100)
       : 0;
 
-  // Duração aproximada do processo completo (abertura → devolução
-  // confirmada) — não temos timestamp isolado de "quando saiu"/"quando
-  // voltou" na Solicitacao, só criadoEm/atualizadoEm.
-  const concluidos = registros.filter((s) => s.status === 'CONCLUIDA');
-  const duracoesDias = concluidos.map(
-    (s) => (s.atualizadoEm.getTime() - s.criadoEm.getTime()) / (24 * 60 * 60 * 1000),
-  );
-  const duracaoMediaDias =
-    duracoesDias.length > 0
-      ? Math.round(duracoesDias.reduce((a, b) => a + b, 0) / duracoesDias.length)
-      : 0;
-
-  return { total, emAndamento, concluida, negadaCancelada, percentualAtraso, duracaoMediaDias, itens };
+  return { total, emAndamento, concluida, negadaCancelada, percentualAtraso, itens };
 }
 
 // Tipos que reservam do estoque de galpão (Ampliação/Substituição sem ata) —
@@ -259,32 +219,6 @@ export async function itensEstoque() {
       aguardandoDesde: g._min.criadoEm,
     }))
     .sort((a, b) => a.tipoEquipamento.nome.localeCompare(b.tipoEquipamento.nome, 'pt-BR'));
-}
-
-// Drill-down do card "Itens Aguardando Estoque" (feedback do cliente: clicar
-// num item e ver quais solicitações específicas estão represadas nele, não
-// só o total agregado) — mesmas solicitações que compõem o grupo acima,
-// ordenadas por prioridade manual (1 = mais urgente) e depois por
-// antiguidade (mais antiga primeiro), que é como o Gestor decide o que
-// atender primeiro quando o estoque chegar.
-export async function detalheItemAguardando(tipoEquipamentoId: string) {
-  const registros = await prisma.solicitacao.findMany({
-    where: {
-      status: 'AGUARDANDO_DISPONIBILIDADE',
-      tipo: { in: [...TIPOS_COM_ATA] },
-      tipoEquipamentoId,
-    },
-    include: { unidadeOrigem: { select: { nome: true } } },
-    orderBy: [{ prioridade: 'asc' }, { criadoEm: 'asc' }],
-  });
-  return registros.map((s) => ({
-    id: s.id,
-    tipo: s.tipo,
-    unidadeOrigem: s.unidadeOrigem.nome,
-    quantidade: s.quantidade,
-    prioridade: s.prioridade,
-    criadoEm: s.criadoEm,
-  }));
 }
 
 // Tipos que representam "entrega" de um item (Ampliação/Substituição/Cessão
@@ -354,86 +288,6 @@ export async function resumoItem(tipoEquipamentoId: string | undefined, filtros:
     demandaQuantidade: demanda.quantidade,
     demandaValor: demanda.valor,
   };
-}
-
-// Tipos de Movimentacao que alteram a unidade *permanente* dona do
-// equipamento — exclui manutenção e empréstimo, que só mudam status/
-// unidadeTemporariaId (RN06: durante empréstimo o tombamento permanece na
-// origem). RECOLHA e BAIXA usam unidadeOrigemId (saída); CADASTRO/
-// IMPORTACAO_CSV/RECEBIMENTO_GALPAO e RECOLHA usam unidadeDestinoId (entrada).
-const TIPOS_MOVIMENTACAO_UNIDADE = ['CADASTRO', 'IMPORTACAO_CSV', 'RECEBIMENTO_GALPAO', 'RECOLHA', 'BAIXA'] as const;
-
-// UTC, não hora local — evita que um timestamp perto da virada do mês
-// (ex.: "2026-03-01T00:00:00Z") caia num mês diferente dependendo do fuso
-// do servidor.
-function chaveMes(data: Date) {
-  return `${data.getUTCFullYear()}-${String(data.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
-// Relatório 5 — Itens e Estoque: quantidade de equipamentos por unidade ao
-// longo do tempo, reconstruída a partir do log de Movimentacao (não existe
-// histórico direto de Equipamento.unidadeId). Valor por mês é o total
-// acumulado até o fim daquele mês, mês a mês desde o primeiro evento.
-export async function itensPorUnidade(filtros: FiltrosPeriodo & { unidadeIds?: string[] }) {
-  const eventos = await prisma.movimentacao.findMany({
-    where: { tipo: { in: [...TIPOS_MOVIMENTACAO_UNIDADE] } },
-    select: { unidadeOrigemId: true, unidadeDestinoId: true, criadoEm: true },
-    orderBy: { criadoEm: 'asc' },
-  });
-  if (eventos.length === 0) return { unidades: [] as string[], linhas: [] as Array<Record<string, string | number>> };
-
-  const nomeUnidade = await mapaNomeUnidade();
-  const filtroUnidades = filtros.unidadeIds?.length ? new Set(filtros.unidadeIds) : null;
-  const fim = filtros.dataFim ?? new Date();
-
-  const meses: string[] = [];
-  const cursor = new Date(Date.UTC(eventos[0].criadoEm.getUTCFullYear(), eventos[0].criadoEm.getUTCMonth(), 1));
-  while (cursor <= fim) {
-    meses.push(chaveMes(cursor));
-    cursor.setUTCMonth(cursor.getUTCMonth() + 1);
-  }
-
-  const acumulado = new Map<string, number>();
-  const porUnidadePorMes = new Map<string, Map<string, number>>();
-  function garantirUnidade(id: string) {
-    if (!acumulado.has(id)) {
-      acumulado.set(id, 0);
-      porUnidadePorMes.set(id, new Map());
-    }
-  }
-
-  let indiceEvento = 0;
-  for (const mes of meses) {
-    while (indiceEvento < eventos.length && chaveMes(eventos[indiceEvento].criadoEm) <= mes) {
-      const ev = eventos[indiceEvento];
-      if (ev.unidadeDestinoId) {
-        garantirUnidade(ev.unidadeDestinoId);
-        acumulado.set(ev.unidadeDestinoId, acumulado.get(ev.unidadeDestinoId)! + 1);
-      }
-      if (ev.unidadeOrigemId) {
-        garantirUnidade(ev.unidadeOrigemId);
-        acumulado.set(ev.unidadeOrigemId, acumulado.get(ev.unidadeOrigemId)! - 1);
-      }
-      indiceEvento++;
-    }
-    for (const [unidadeId, total] of acumulado) {
-      porUnidadePorMes.get(unidadeId)!.set(mes, total);
-    }
-  }
-
-  const unidadesAtivas = Array.from(porUnidadePorMes.keys()).filter((id) => !filtroUnidades || filtroUnidades.has(id));
-  const mesInicio = filtros.dataInicio ? chaveMes(filtros.dataInicio) : meses[0];
-  const linhas = meses
-    .filter((mes) => mes >= mesInicio)
-    .map((mes) => {
-      const linha: Record<string, string | number> = { mes };
-      for (const unidadeId of unidadesAtivas) {
-        linha[nomeUnidade(unidadeId)] = porUnidadePorMes.get(unidadeId)!.get(mes) ?? 0;
-      }
-      return linha;
-    });
-
-  return { unidades: unidadesAtivas.map((id) => nomeUnidade(id)), linhas };
 }
 
 // Relatório 6 — Cessões de Uso: prestação de contas (o que foi cedido, pra
