@@ -94,8 +94,9 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     # Self-hosted runner instalado como serviço na VM — sem SSH externo
     runs-on: [self-hosted, producao]
-    # Configuração vinda do GitHub: segredos em Settings › Secrets and variables › Actions › Secrets,
-    # demais valores na aba Variables. Valores não cadastrados chegam vazios e são descartados abaixo.
+    # Ambiente do GitHub (Settings › Environments): cada um tem os próprios segredos e variáveis
+    environment: producao
+    # Configuração vinda do GitHub: segredos na aba Secrets do ambiente, demais valores em Variables. Valores não cadastrados chegam vazios e são descartados abaixo.
     env:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
@@ -135,8 +136,8 @@ jobs:
     needs: ci
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: [self-hosted, demo]
-    # Configuração vinda do GitHub: segredos em Settings › Secrets and variables › Actions › Secrets,
-    # demais valores na aba Variables. Valores não cadastrados chegam vazios e são descartados abaixo.
+    environment: demonstracao
+    # Configuração vinda do GitHub: segredos na aba Secrets do ambiente, demais valores em Variables. Valores não cadastrados chegam vazios e são descartados abaixo.
     env:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}

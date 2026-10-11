@@ -20,7 +20,7 @@ As áreas de maior sensibilidade são autenticação JWT, impersonação, RBAC p
 
 ## Controles implementados
 
-- `JWT_SECRET` obrigatório e com no mínimo 32 caracteres em produção (a API falha no boot). Em produção ele é cadastrado como *secret* do GitHub (Settings › Secrets and variables › Actions) e entregue ao deploy; localmente fica no `.env`, que não é versionado.
+- `JWT_SECRET` obrigatório e com no mínimo 32 caracteres em produção (a API falha no boot). Em produção ele é cadastrado como *secret* do ambiente no GitHub (Settings › Environments › producao/demonstracao › Secrets), um valor diferente por ambiente e entregue ao deploy; localmente fica no `.env`, que não é versionado.
 - CORS restrito a `CORS_ORIGINS`; sem configuração, nenhuma origem externa é aceita em produção.
 - Limite de frequência no login (por IP + e-mail e teto por IP), na impersonação e nas importações.
 - Anexos de solicitação e laudos exigem autenticação e respeitam a unidade do usuário; só as imagens do catálogo de tipos são públicas.
