@@ -73,13 +73,22 @@ docker compose exec api sh -c "npm install tsx --no-save && npx tsx prisma/seed.
 
 Healthcheck: `GET /api/health` (usado também pelo pipeline de CI/CD para validar o deploy).
 
-### Observabilidade (opcional)
+### Observabilidade (Prometheus e Grafana)
 
-A API expõe métricas no formato Prometheus em `GET /api/metrics`. Os containers de Prometheus e Grafana ficam atrás do profile `observability` do `docker-compose.yml` e **não sobem por padrão**:
+A API expõe métricas no formato Prometheus em `/metrics`. Esse endereço **não passa pelo Nginx** (`/api/metrics` devolve 404 de propósito): só o Prometheus, na rede interna do Docker, coleta `api:3333/metrics`.
 
-```bash
-docker compose --profile observability up -d
-```
+Prometheus e Grafana ficam no profile `observability` do `docker-compose.yml`. O **deploy automático sobe os dois** (`docker compose --profile observability up -d`) e, no fim, confere `GET /grafana/api/health`. Para subir à mão: `docker compose --profile observability up -d`.
+
+| Item | Como funciona |
+| --- | --- |
+| Endereço | O Nginx do container `web` publica o Grafana em **`/grafana/`** do mesmo domínio (ex.: `https://sgp.yomlabs.io/grafana/`), com o mesmo certificado e sem DNS novo. Se o Grafana estiver fora do ar, só essa rota responde 502; o sistema continua normal. |
+| Login | Usuário `admin` e a senha do secret `GRAFANA_PASSWORD`. **Não há senha padrão**: sem ela o container recusa iniciar e o passo "Verificação do Grafana" do deploy falha. Cadastro público e acesso anônimo desligados. Use uma senha forte (`openssl rand -hex 24`), pois a tela de login fica acessível pela internet. |
+| `GRAFANA_URL` | Variable do ambiente com o endereço público completo, **com a barra final** (ex.: `https://sgp.yomlabs.io/grafana/`). Sem ela o Grafana monta links para `localhost`. |
+| Histórico | O Prometheus grava no volume `prometheus-data` e mantém **90 dias** por padrão (`PROMETHEUS_RETENTION`, ex.: `30d`, `1y`). O volume sobrevive a deploys; só `docker compose down -v` o apaga. Os dados do Grafana (usuários, preferências) ficam no volume `grafana-data`. |
+| Porta local | `127.0.0.1:3000` na própria máquina, para túnel SSH e testes. |
+| Painel | **SGP — API**, provisionado por arquivos em `observability/grafana/provisioning/` (somente leitura na interface; para alterar, edite `dashboards/sgp-api.json` e faça o deploy). Mostra: situação da API, requisições por segundo e por status, erros 5xx, latência p50/p95/p99, rotas mais lentas e com mais erros, CPU, memória e atraso do event loop. |
+
+Para ativar em um ambiente novo no GitHub (Settings › Environments): Secret `GRAFANA_PASSWORD`; Variables `GRAFANA_URL` e, se quiser, `PROMETHEUS_RETENTION`.
 
 ## Rodando sem Docker (desenvolvimento local)
 
