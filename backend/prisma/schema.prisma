@@ -16,10 +16,12 @@ datasource db {
 // ----------------------------------------------------------------
 
 enum Perfil {
-  GESTOR_PATRIMONIO
-  GESTOR_MANUTENCAO
+  // Operador: reúne tudo o que antes eram os perfis Gestor de Patrimônio e Gestor de Manutenção
+  OPERADOR
   UNIDADE
   GALPAO
+  // Empresa contratada: vinculada a um prestador de serviço; só enxerga as manutenções dos contratos dele
+  TERCEIRIZADA
 }
 
 enum TipoUnidade {
@@ -138,19 +140,23 @@ model Usuario {
   ativo     Boolean  @default(true)
   unidadeId String?  @map("unidade_id")
   unidade   Unidade? @relation(fields: [unidadeId], references: [id])
+  // Só para o perfil TERCEIRIZADA: o prestador de serviço que o usuário representa
+  prestadorId String?           @map("prestador_id")
+  prestador   PrestadorServico? @relation(fields: [prestadorId], references: [id])
   criadoEm  DateTime @default(now()) @map("criado_em")
 
-  movimentacoes           Movimentacao[]
-  movimentacoesEstoque    MovimentacaoEstoque[] @relation("MovEstoqueUsuario")
-  solicitacoesCriadas     Solicitacao[]  @relation("SolicitacaoCriadaPor")
-  solicitacoesDecididas   Solicitacao[]  @relation("SolicitacaoDecididaPor")
-  manutencoesSolicitadas  Manutencao[]   @relation("ManutencaoSolicitante")
-  manutencoesDecididas    Manutencao[]   @relation("ManutencaoDecididaPor")
-  logsAuditoria           LogAuditoria[]
-  mensagensChat           MensagemChat[]
-  leiturasConversa        LeituraConversa[]
-  unidadesResponsavel     Unidade[]      @relation("UnidadeResponsavel")
+  movimentacoes          Movimentacao[]
+  movimentacoesEstoque   MovimentacaoEstoque[] @relation("MovEstoqueUsuario")
+  solicitacoesCriadas    Solicitacao[]         @relation("SolicitacaoCriadaPor")
+  solicitacoesDecididas  Solicitacao[]         @relation("SolicitacaoDecididaPor")
+  manutencoesSolicitadas Manutencao[]          @relation("ManutencaoSolicitante")
+  manutencoesDecididas   Manutencao[]          @relation("ManutencaoDecididaPor")
+  logsAuditoria          LogAuditoria[]
+  mensagensChat          MensagemChat[]
+  leiturasConversa       LeituraConversa[]
+  unidadesResponsavel    Unidade[]             @relation("UnidadeResponsavel")
 
+  @@index([prestadorId])
   @@map("usuario")
 }
 
@@ -167,15 +173,15 @@ model Unidade {
   criadoEm      DateTime    @default(now()) @map("criado_em")
 
   usuarios                Usuario[]
-  equipamentos            Equipamento[]  @relation("EquipamentoUnidade")
-  equipamentosEmprestados Equipamento[]  @relation("EquipamentoUnidadeTemporaria")
+  equipamentos            Equipamento[]         @relation("EquipamentoUnidade")
+  equipamentosEmprestados Equipamento[]         @relation("EquipamentoUnidadeTemporaria")
   movimentacoesOrigem     Movimentacao[]        @relation("MovimentacaoOrigem")
   movimentacoesDestino    Movimentacao[]        @relation("MovimentacaoDestino")
   movimentacoesEstoque    MovimentacaoEstoque[] @relation("MovEstoqueDestino")
-  solicitacoesOrigem      Solicitacao[]  @relation("SolicitacaoOrigem")
-  solicitacoesDestino     Solicitacao[]  @relation("SolicitacaoDestino")
+  solicitacoesOrigem      Solicitacao[]         @relation("SolicitacaoOrigem")
+  solicitacoesDestino     Solicitacao[]         @relation("SolicitacaoDestino")
   manutencoes             Manutencao[]
-  atasEspecificas         Ata[]          @relation("AtaUnidadeEspecifica")
+  atasEspecificas         Ata[]                 @relation("AtaUnidadeEspecifica")
   estoquesGalpao          EstoqueGalpao[]
 
   @@map("unidade")
@@ -200,9 +206,12 @@ model TipoEquipamento {
   nome        String
   descricao   String?
   imagemUrl   String?   @map("imagem_url")
-  // Preço de referência (opcional) — usado em relatórios/estimativas,
-  // não trava nem calcula automaticamente valor de ata/aquisição
+  // Preço de referência (opcional) — usado em relatórios/estimativas e como base do alerta de manutenção
+  // (orçamento a partir de 50% dele); não trava nem calcula automaticamente valor de ata/aquisição
   preco       Decimal?  @db.Decimal(12, 2)
+  // Tipos de manutenção que o item aceita (nenhum = não permite manutenção)
+  permitePreventiva Boolean  @default(true) @map("permite_preventiva")
+  permiteCorretiva  Boolean  @default(true) @map("permite_corretiva")
   categoriaId String    @map("categoria_id")
   categoria   Categoria @relation(fields: [categoriaId], references: [id])
   criadoEm    DateTime  @default(now()) @map("criado_em")
@@ -215,35 +224,35 @@ model TipoEquipamento {
 }
 
 model Equipamento {
-  id                 String            @id @default(uuid())
+  id                     String            @id @default(uuid())
   // RN01: tombamento único e imutável após o cadastro
-  tombamento         String            @unique
-  descricao          String
-  tipoEquipamentoId  String            @map("tipo_equipamento_id")
-  tipoEquipamento    TipoEquipamento   @relation(fields: [tipoEquipamentoId], references: [id])
-  unidadeId          String            @map("unidade_id")
-  unidade            Unidade           @relation("EquipamentoUnidade", fields: [unidadeId], references: [id])
+  tombamento             String            @unique
+  descricao              String
+  tipoEquipamentoId      String            @map("tipo_equipamento_id")
+  tipoEquipamento        TipoEquipamento   @relation(fields: [tipoEquipamentoId], references: [id])
+  unidadeId              String            @map("unidade_id")
+  unidade                Unidade           @relation("EquipamentoUnidade", fields: [unidadeId], references: [id])
   // RN06: durante empréstimo o tombamento permanece na origem;
   // a receptora aparece apenas como detentora temporária.
-  unidadeTemporariaId String?          @map("unidade_temporaria_id")
-  unidadeTemporaria  Unidade?          @relation("EquipamentoUnidadeTemporaria", fields: [unidadeTemporariaId], references: [id])
-  estadoConservacao  EstadoConservacao @map("estado_conservacao")
-  status             StatusEquipamento @default(ATIVO)
+  unidadeTemporariaId    String?           @map("unidade_temporaria_id")
+  unidadeTemporaria      Unidade?          @relation("EquipamentoUnidadeTemporaria", fields: [unidadeTemporariaId], references: [id])
+  estadoConservacao      EstadoConservacao @map("estado_conservacao")
+  status                 StatusEquipamento @default(ATIVO)
   // Preenchido quando status = BAIXADO (leilão, extravio, roubo, substituição...)
-  motivoBaixa        MotivoBaixa?      @map("motivo_baixa")
+  motivoBaixa            MotivoBaixa?      @map("motivo_baixa")
   // RN10: flag de emenda parlamentar visível em relatórios e históricos
-  emendaParlamentar  Boolean           @default(false) @map("emenda_parlamentar")
-  dataAquisicao      DateTime?         @map("data_aquisicao")
-  observacoes        String?
+  emendaParlamentar      Boolean           @default(false) @map("emenda_parlamentar")
+  dataAquisicao          DateTime?         @map("data_aquisicao")
+  observacoes            String?
   // Ampliação/Substituição: solicitação que gerou este item (tombamento
   // capturado pelo Gestor ao marcar lançado no Branet) — permite listar os
   // itens de uma solicitação pra conferência/ajuste no recebimento. Exceção
   // estreita à RN01 (tombamento imutável): só estes itens, só enquanto a
   // solicitação está AGUARDANDO_VALIDACAO, podem ter o tombamento corrigido.
-  criadoPorSolicitacaoId String?       @map("criado_por_solicitacao_id")
-  criadoPorSolicitacao   Solicitacao?  @relation("EquipamentoCriadoPorSolicitacao", fields: [criadoPorSolicitacaoId], references: [id])
-  criadoEm           DateTime          @default(now()) @map("criado_em")
-  atualizadoEm       DateTime          @updatedAt @map("atualizado_em")
+  criadoPorSolicitacaoId String?           @map("criado_por_solicitacao_id")
+  criadoPorSolicitacao   Solicitacao?      @relation("EquipamentoCriadoPorSolicitacao", fields: [criadoPorSolicitacaoId], references: [id])
+  criadoEm               DateTime          @default(now()) @map("criado_em")
+  atualizadoEm           DateTime          @updatedAt @map("atualizado_em")
 
   movimentacoes Movimentacao[]
   manutencoes   Manutencao[]
@@ -271,110 +280,114 @@ model Movimentacao {
 }
 
 model Manutencao {
-  id                  String           @id @default(uuid())
+  id                  String             @id @default(uuid())
   // Número sequencial legível para referenciar a manutenção (MAN-0001)
-  numero              Int              @unique @default(autoincrement())
-  equipamentoId       String           @map("equipamento_id")
-  equipamento         Equipamento      @relation(fields: [equipamentoId], references: [id])
-  unidadeId           String           @map("unidade_id")
-  unidade             Unidade          @relation(fields: [unidadeId], references: [id])
-  solicitanteId       String           @map("solicitante_id")
-  solicitante         Usuario          @relation("ManutencaoSolicitante", fields: [solicitanteId], references: [id])
-  descricaoProblema   String           @map("descricao_problema")
+  numero              Int                @unique @default(autoincrement())
+  equipamentoId       String             @map("equipamento_id")
+  equipamento         Equipamento        @relation(fields: [equipamentoId], references: [id])
+  unidadeId           String             @map("unidade_id")
+  unidade             Unidade            @relation(fields: [unidadeId], references: [id])
+  solicitanteId       String             @map("solicitante_id")
+  solicitante         Usuario            @relation("ManutencaoSolicitante", fields: [solicitanteId], references: [id])
+  descricaoProblema   String             @map("descricao_problema")
   // Nome dado por quem abre o pedido, para reconhecê-lo nas listas (opcional; sem ele vale o nome do equipamento)
-  titulo              String?          @db.VarChar(80)
+  titulo              String?            @db.VarChar(80)
   // Legado: a abertura não pede mais justificativa; mantida para os chamados antigos
   justificativa       String?
-  status              StatusManutencao @default(PENDENTE_APROVACAO)
-  motivoNegacao       String?          @map("motivo_negacao")
-  decididoPorId       String?          @map("decidido_por_id")
-  decididoPor         Usuario?         @relation("ManutencaoDecididaPor", fields: [decididoPorId], references: [id])
-  contratoId          String?          @map("contrato_id")
-  contrato            Contrato?        @relation(fields: [contratoId], references: [id])
-  orcamentoValor      Decimal?         @map("orcamento_valor") @db.Decimal(12, 2)
-  orcamentoDescricao  String?          @map("orcamento_descricao")
+  status              StatusManutencao   @default(PENDENTE_APROVACAO)
+  motivoNegacao       String?            @map("motivo_negacao")
+  decididoPorId       String?            @map("decidido_por_id")
+  decididoPor         Usuario?           @relation("ManutencaoDecididaPor", fields: [decididoPorId], references: [id])
+  contratoId          String?            @map("contrato_id")
+  contrato            Contrato?          @relation(fields: [contratoId], references: [id])
+  // Item do contrato (serviço + escopo) que cobre esta manutenção; o contrato acima é o dele
+  contratoItemId      String?            @map("contrato_item_id")
+  contratoItem        ContratoItem?      @relation(fields: [contratoItemId], references: [id])
+  orcamentoValor      Decimal?           @map("orcamento_valor") @db.Decimal(12, 2)
+  orcamentoDescricao  String?            @map("orcamento_descricao")
   // Laudo de baixa (RF16)
-  laudoBaixa          String?          @map("laudo_baixa")
+  laudoBaixa          String?            @map("laudo_baixa")
   // RN11: confirmação dupla de retorno
-  confirmadoUnidade   Boolean          @default(false) @map("confirmado_unidade")
-  confirmadoGestor    Boolean          @default(false) @map("confirmado_gestor")
+  confirmadoUnidade   Boolean            @default(false) @map("confirmado_unidade")
+  confirmadoGestor    Boolean            @default(false) @map("confirmado_gestor")
   estadoPosManutencao EstadoConservacao? @map("estado_pos_manutencao")
-  custoFinal          Decimal?         @map("custo_final") @db.Decimal(12, 2)
-  dataEnvio           DateTime?        @map("data_envio")
-  dataConclusao       DateTime?        @map("data_conclusao")
-  criadoEm            DateTime         @default(now()) @map("criado_em")
-  atualizadoEm        DateTime         @updatedAt @map("atualizado_em")
+  custoFinal          Decimal?           @map("custo_final") @db.Decimal(12, 2)
+  dataEnvio           DateTime?          @map("data_envio")
+  dataConclusao       DateTime?          @map("data_conclusao")
+  criadoEm            DateTime           @default(now()) @map("criado_em")
+  atualizadoEm        DateTime           @updatedAt @map("atualizado_em")
 
   mensagens MensagemChat[]
   leituras  LeituraConversa[]
 
+  @@index([contratoItemId])
   @@map("manutencao")
 }
 
 model Solicitacao {
-  id                  String            @id @default(uuid())
+  id                        String             @id @default(uuid())
   // Número sequencial legível para referenciar a solicitação (SOL-0001)
-  numero              Int               @unique @default(autoincrement())
-  tipo                TipoSolicitacao
-  status              StatusSolicitacao @default(PENDENTE_APROVACAO)
-  unidadeOrigemId     String            @map("unidade_origem_id")
-  unidadeOrigem       Unidade           @relation("SolicitacaoOrigem", fields: [unidadeOrigemId], references: [id])
-  unidadeDestinoId    String?           @map("unidade_destino_id")
-  unidadeDestino      Unidade?          @relation("SolicitacaoDestino", fields: [unidadeDestinoId], references: [id])
-  equipamentoId       String?           @map("equipamento_id")
-  equipamento         Equipamento?      @relation(fields: [equipamentoId], references: [id])
-  tipoEquipamentoId   String?           @map("tipo_equipamento_id")
-  tipoEquipamento     TipoEquipamento?  @relation(fields: [tipoEquipamentoId], references: [id])
-  quantidade          Int?
+  numero                    Int                @unique @default(autoincrement())
+  tipo                      TipoSolicitacao
+  status                    StatusSolicitacao  @default(PENDENTE_APROVACAO)
+  unidadeOrigemId           String             @map("unidade_origem_id")
+  unidadeOrigem             Unidade            @relation("SolicitacaoOrigem", fields: [unidadeOrigemId], references: [id])
+  unidadeDestinoId          String?            @map("unidade_destino_id")
+  unidadeDestino            Unidade?           @relation("SolicitacaoDestino", fields: [unidadeDestinoId], references: [id])
+  equipamentoId             String?            @map("equipamento_id")
+  equipamento               Equipamento?       @relation(fields: [equipamentoId], references: [id])
+  tipoEquipamentoId         String?            @map("tipo_equipamento_id")
+  tipoEquipamento           TipoEquipamento?   @relation(fields: [tipoEquipamentoId], references: [id])
+  quantidade                Int?
   // Nome dado por quem abre o pedido, para reconhecê-lo nas listas (opcional; sem ele vale o nome do item)
-  titulo              String?           @db.VarChar(80)
-  justificativa       String
-  origemRecurso       OrigemRecurso?    @map("origem_recurso")
-  ataId               String?           @map("ata_id")
-  ata                 Ata?              @relation(fields: [ataId], references: [id])
-  valorVinculado      Decimal?          @map("valor_vinculado") @db.Decimal(12, 2)
-  motivoNegacao       String?           @map("motivo_negacao")
+  titulo                    String?            @db.VarChar(80)
+  justificativa             String
+  origemRecurso             OrigemRecurso?     @map("origem_recurso")
+  ataId                     String?            @map("ata_id")
+  ata                       Ata?               @relation(fields: [ataId], references: [id])
+  valorVinculado            Decimal?           @map("valor_vinculado") @db.Decimal(12, 2)
+  motivoNegacao             String?            @map("motivo_negacao")
   // Anexo opcional (PDF ou imagem) — comprovante de autorização/projeto interno
-  anexoUrl            String?           @map("anexo_url")
+  anexoUrl                  String?            @map("anexo_url")
   // Cessão de Uso: nome da entidade externa (fora do município) que recebe o equipamento
-  entidadeExternaNome String?           @map("entidade_externa_nome")
+  entidadeExternaNome       String?            @map("entidade_externa_nome")
   // Cessão de Uso: nº de patrimônio de cada unidade do item cedido (reservado
   // do estoque por tipo/quantidade — quem abre já informa qual(is) item(ns)
   // específico(s) do estoque serão cedidos)
-  numerosPatrimonio   String[]          @default([]) @map("numeros_patrimonio")
+  numerosPatrimonio         String[]           @default([]) @map("numeros_patrimonio")
   // Empréstimo: data final prevista, informada na criação — usada pra
   // sinalizar atraso quando a origem confirma o retorno.
-  dataRetornoPrevista DateTime?         @map("data_retorno_prevista")
+  dataRetornoPrevista       DateTime?          @map("data_retorno_prevista")
   // Legado: 5 níveis de conservação avaliados no recebimento do empréstimo
   // antigo — a confirmação de recebimento foi substituída por confirmar-saída.
-  estadoRecebimento   EstadoConservacao? @map("estado_recebimento")
+  estadoRecebimento         EstadoConservacao? @map("estado_recebimento")
   // Ampliação/Substituição: registro manual de que o pedido foi lançado no
   // Branet (não é integração — só um marcador de auditoria), feito pelo
   // Gestor de Patrimônio ao marcar RESERVADO → AGUARDANDO_ENTREGA, junto
   // com o número do pedido e o(s) tombamento(s) (feedback do cliente 17/08)
-  numeroPedidoBranet  String?           @map("numero_pedido_branet")
-  pedidoEntregaRegistradoEm DateTime?   @map("pedido_entrega_registrado_em")
+  numeroPedidoBranet        String?            @map("numero_pedido_branet")
+  pedidoEntregaRegistradoEm DateTime?          @map("pedido_entrega_registrado_em")
   // Definida pelo Gestor de Patrimônio (não pelo solicitante), usada junto
   // com a antiguidade pra decidir prioridade entre pedidos aguardando estoque.
   // Escala 1–3, 1 = mais urgente.
-  prioridade          Int?
+  prioridade                Int?
   // Confirmação de recebimento (Unidade): OK/Não OK binário, distinto do
   // estadoRecebimento de 5 níveis usado pelo Empréstimo. Se os tombamentos
   // informados não baterem com o cadastrado, vira anomalia automaticamente.
-  recebimentoOk       Boolean?          @map("recebimento_ok")
-  observacaoRecebimento String?         @map("observacao_recebimento")
+  recebimentoOk             Boolean?           @map("recebimento_ok")
+  observacaoRecebimento     String?            @map("observacao_recebimento")
   // RN07: solicitação aberta automaticamente pelo Sistema após laudo de baixa
-  automatica          Boolean           @default(false)
-  criadoPorId         String?           @map("criado_por_id")
-  criadoPor           Usuario?          @relation("SolicitacaoCriadaPor", fields: [criadoPorId], references: [id])
-  decididoPorId       String?           @map("decidido_por_id")
-  decididoPor         Usuario?          @relation("SolicitacaoDecididaPor", fields: [decididoPorId], references: [id])
-  criadoEm            DateTime          @default(now()) @map("criado_em")
-  atualizadoEm        DateTime          @updatedAt @map("atualizado_em")
+  automatica                Boolean            @default(false)
+  criadoPorId               String?            @map("criado_por_id")
+  criadoPor                 Usuario?           @relation("SolicitacaoCriadaPor", fields: [criadoPorId], references: [id])
+  decididoPorId             String?            @map("decidido_por_id")
+  decididoPor               Usuario?           @relation("SolicitacaoDecididaPor", fields: [decididoPorId], references: [id])
+  criadoEm                  DateTime           @default(now()) @map("criado_em")
+  atualizadoEm              DateTime           @updatedAt @map("atualizado_em")
 
-  itensGerados        Equipamento[]     @relation("EquipamentoCriadoPorSolicitacao")
-  mensagens           MensagemChat[]
-  leituras            LeituraConversa[]
+  itensGerados Equipamento[]     @relation("EquipamentoCriadoPorSolicitacao")
+  mensagens    MensagemChat[]
+  leituras     LeituraConversa[]
 
   @@map("solicitacao")
 }
@@ -385,25 +398,88 @@ enum StatusContrato {
   EXPIRADO
 }
 
+// Empresa contratada para prestar serviços (cadastro em Configurações).
+model PrestadorServico {
+  id       String   @id @default(uuid())
+  nome     String   @unique
+  cnpj     String?  @unique
+  telefone String?
+  email    String?
+  criadoEm DateTime @default(now()) @map("criado_em")
+
+  contratos Contrato[]
+  usuarios  Usuario[]
+
+  @@map("prestador_servico")
+}
+
+// Serviço que pode compor um contrato, ex.: "Serviço de manutenção preventiva e corretiva".
+model ServicoContrato {
+  id        String   @id @default(uuid())
+  nome      String   @unique
+  descricao String?
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  itens ContratoItem[]
+
+  @@map("servico_contrato")
+}
+
+// Escopo de um serviço contratado, ex.: "Preventiva", "Corretiva", "Preventiva e corretiva".
+model EscopoServico {
+  id        String   @id @default(uuid())
+  nome      String   @unique
+  descricao String?
+  // Tipos de manutenção que o escopo cobre (ao menos um); define quais itens de contrato servem a cada tipo de item
+  cobrePreventiva Boolean @default(true) @map("cobre_preventiva")
+  cobreCorretiva  Boolean @default(true) @map("cobre_corretiva")
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  itens ContratoItem[]
+
+  @@map("escopo_servico")
+}
+
 model Contrato {
-  id                 String         @id @default(uuid())
-  numero             String         @unique
-  empresa            String
-  cnpj               String?        @unique
-  tipo               String
-  objeto             String
-  valorTotal         Decimal?       @map("valor_total") @db.Decimal(14, 2)
-  condicoesPagamento String?        @map("condicoes_pagamento")
-  status             StatusContrato @default(ATIVO)
-  observacoes        String?
-  vigenciaInicio     DateTime       @map("vigencia_inicio")
-  vigenciaFim        DateTime       @map("vigencia_fim")
-  ativo              Boolean        @default(true)
-  criadoEm           DateTime       @default(now()) @map("criado_em")
+  id             String           @id @default(uuid())
+  numero         String           @unique
+  prestadorId    String           @map("prestador_id")
+  prestador      PrestadorServico @relation(fields: [prestadorId], references: [id])
+  objeto         String
+  // Soma dos valores dos itens, recalculada pelo servidor a cada gravação.
+  // Contratos antigos, sem itens, mantêm o valor que já tinham.
+  valorTotal     Decimal?         @map("valor_total") @db.Decimal(14, 2)
+  status         StatusContrato   @default(ATIVO)
+  vigenciaInicio DateTime         @map("vigencia_inicio")
+  vigenciaFim    DateTime         @map("vigencia_fim")
+  ativo          Boolean          @default(true)
+  criadoEm       DateTime         @default(now()) @map("criado_em")
+
+  itens       ContratoItem[]
+  manutencoes Manutencao[]
+
+  @@index([prestadorId])
+  @@map("contrato")
+}
+
+// Serviço contratado, com valor próprio e tipo de manutenção.
+model ContratoItem {
+  id         String          @id @default(uuid())
+  contratoId String          @map("contrato_id")
+  contrato   Contrato        @relation(fields: [contratoId], references: [id], onDelete: Cascade)
+  servicoId  String          @map("servico_id")
+  servico    ServicoContrato @relation(fields: [servicoId], references: [id])
+  escopoId   String          @map("escopo_id")
+  escopo     EscopoServico   @relation(fields: [escopoId], references: [id])
+  valor      Decimal         @db.Decimal(14, 2)
+  criadoEm   DateTime        @default(now()) @map("criado_em")
 
   manutencoes Manutencao[]
 
-  @@map("contrato")
+  @@unique([contratoId, servicoId])
+  @@index([servicoId])
+  @@index([escopoId])
+  @@map("contrato_item")
 }
 
 model Ata {
@@ -448,7 +524,7 @@ model MovimentacaoEstoque {
   id                 String        @id @default(uuid())
   estoqueId          String        @map("estoque_id")
   estoque            EstoqueGalpao @relation(fields: [estoqueId], references: [id])
-  tipo               String        // ENTRADA | SAIDA
+  tipo               String // ENTRADA | SAIDA
   quantidade         Int
   unidadeDestinoId   String?       @map("unidade_destino_id")
   unidadeDestino     Unidade?      @relation("MovEstoqueDestino", fields: [unidadeDestinoId], references: [id])

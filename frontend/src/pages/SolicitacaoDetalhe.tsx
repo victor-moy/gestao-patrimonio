@@ -146,7 +146,7 @@ function ConteudoSolicitacao({
     setItensAjuste((s.itensGerados ?? []).map((eq) => ({ equipamentoId: eq.id, tombamento: eq.tombamento })));
   }, [chaveItensGerados]);
 
-  const ehGP = usuario?.perfil === 'GESTOR_PATRIMONIO';
+  const ehAdministrador = usuario?.perfil === 'OPERADOR';
   // Confirmação de recebimento de Ampliação/Substituição, saída e retorno de
   // Empréstimo/Cessão são só da Unidade de origem — nem o Gestor de
   // Patrimônio pode fazer isso por ela (feedback 18/08)
@@ -266,7 +266,7 @@ function ConteudoSolicitacao({
                   <dd>{formatarData(s.dataRetornoPrevista)}</dd>
                 </div>
               )}
-              {s.ata && ehGP && (
+              {s.ata && ehAdministrador && (
                 <div>
                   <dt>Ata vinculada</dt>
                   <dd>
@@ -367,7 +367,7 @@ function ConteudoSolicitacao({
           <div className="solicitacao-acoes">
       {/* GP: aprovar/negar — sem escolher ata aqui (o sistema decide sozinho
           se reserva do estoque ou fica aguardando disponibilidade) */}
-      {ehGP && pendente && (
+      {ehAdministrador && pendente && (
         <div className="actions-box actions-box--simples">
           {/* Os campos ficam montados e só expandem/recolhem (altura animada), e a
               linha de botões é sempre a mesma — evita o "pulo" ao abrir a ação. */}
@@ -488,7 +488,7 @@ function ConteudoSolicitacao({
 
       {/* GP: aguardando disponibilidade — vincular ata (compra) ou tentar
           reservar do estoque de novo (ex: chegou estoque novo) */}
-      {ehGP && aguardandoDisponibilidade && (
+      {ehAdministrador && aguardandoDisponibilidade && (
         <div className="actions-box actions-box--simples">
           <div className="actions-row">
             <button
@@ -513,7 +513,7 @@ function ConteudoSolicitacao({
           mais o Galpão depois). Cessão de Uso reservou do estoque na própria
           criação e não gera tombamento novo (destino externo) — só registra
           o número do pedido e já conclui direto. */}
-      {ehGP && s.status === 'RESERVADO' && (
+      {ehAdministrador && s.status === 'RESERVADO' && (
         <div className="actions-box">
           <div className="actions-title">Lançar no Branet</div>
           <div className="field">
@@ -578,7 +578,7 @@ function ConteudoSolicitacao({
       )}
 
       {/* GP: validação final, depois que a unidade já confirmou o recebimento */}
-      {ehGP && s.status === 'AGUARDANDO_VALIDACAO' && (
+      {ehAdministrador && s.status === 'AGUARDANDO_VALIDACAO' && (
         <div className="actions-box actions-box--simples">
           {/* Mesmo padrão de aprovar/negar: campos sempre montados (só expandem) e
               linha de botões fixa, para não "piscar" ao abrir o ajuste. */}
@@ -672,7 +672,7 @@ function ConteudoSolicitacao({
           do item (já com tombamento, lançado pelo Gestor) — OK/Não OK binário;
           se OK, confirma o tombamento de cada item pra bater com o cadastrado
           (feedback do cliente 17/08). Não conclui sozinho, aguarda validação.
-          Só a Unidade — nem o Gestor de Patrimônio confirma isso por ela
+          Só a Unidade — nem o Administrador confirma isso por ela
           (feedback 18/08). */}
       {TIPOS_COM_ATA.includes(s.tipo) && s.status === 'AGUARDANDO_ENTREGA' && souUnidadeOrigem && (
         <div className="actions-box">

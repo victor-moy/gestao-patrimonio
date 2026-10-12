@@ -1,4 +1,5 @@
-import { EstadoConservacao, Prisma } from '@prisma/client';
+import { comprometidoPorItem, saldoDoItem } from '../contratos/saldo';
+import { EstadoConservacao, Prisma, StatusManutencao } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { numeroDaBusca } from '../../lib/numero';
 import { AppError } from '../../errors/AppError';
@@ -8,18 +9,30 @@ import { AuthPayload } from '../../middlewares/auth';
 
 const includePadrao = {
   equipamento: {
-    include: { tipoEquipamento: { select: { nome: true } } },
+    include: {
+      tipoEquipamento: {
+        select: { nome: true, permitePreventiva: true, permiteCorretiva: true, preco: true },
+      },
+    },
   },
   unidade: { select: { id: true, nome: true, emailBase: true } },
   solicitante: { select: { nome: true } },
   decididoPor: { select: { nome: true } },
-  contrato: { select: { id: true, empresa: true } },
+  contrato: { select: { id: true, numero: true, prestadorId: true, prestador: { select: { nome: true } } } },
+  contratoItem: {
+    select: { id: true, valor: true, servico: { select: { nome: true } }, escopo: { select: { nome: true } } },
+  },
 } satisfies Prisma.ManutencaoInclude;
 
-export async function listar(usuario: AuthPayload, filtros: { status?: string; busca?: string }) {
+// Perfis que existiam antes da unificação em Administrador (ainda presentes em registros de auditoria antigos)
+const PERFIS_UNIFICADOS = ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO'];
+
+export async function listar(usuario: AuthPayload, filtros: { status?: StatusManutencao; busca?: string }) {
   const where: Prisma.ManutencaoWhereInput = {
     ...(usuario.perfil === 'UNIDADE' ? { unidadeId: usuario.unidadeId ?? '' } : {}),
-    ...(filtros.status ? { status: filtros.status as never } : {}),
+    // Terceirizada: só as manutenções cobertas por contratos do seu prestador (o prestador vem do token)
+    ...(usuario.perfil === 'TERCEIRIZADA' ? { contrato: { prestadorId: usuario.prestadorId ?? '' } } : {}),
+    ...(filtros.status ? { status: filtros.status } : {}),
     ...(filtros.busca
       ? {
           OR: [
@@ -48,6 +61,12 @@ export async function buscarPorId(usuario: AuthPayload, id: string) {
   if (!manutencao) throw new AppError('Manutenção não encontrada.', 404);
   if (usuario.perfil === 'UNIDADE' && manutencao.unidadeId !== usuario.unidadeId) {
     throw new AppError('Esta manutenção não pertence à sua unidade.', 403);
+  }
+  if (
+    usuario.perfil === 'TERCEIRIZADA' &&
+    (!usuario.prestadorId || manutencao.contrato?.prestadorId !== usuario.prestadorId)
+  ) {
+    throw new AppError('Esta manutenção não pertence a um contrato do seu prestador.', 403);
   }
   return manutencao;
 }
@@ -81,7 +100,8 @@ export async function historico(usuario: AuthPayload, id: string) {
         acao: log.acao,
         criadoEm: log.criadoEm,
         usuario: log.usuario?.nome ?? null,
-        ...(typeof dados.perfil === 'string' ? { perfil: dados.perfil } : {}),
+        // Registros antigos guardam os perfis que foram unificados em Administrador
+        ...(typeof dados.perfil === 'string' ? { perfil: PERFIS_UNIFICADOS.includes(dados.perfil) ? 'OPERADOR' : dados.perfil } : {}),
       };
     }),
   ];
@@ -94,8 +114,13 @@ export async function solicitar(
 ) {
   const equipamento = await prisma.equipamento.findUnique({
     where: { id: dados.equipamentoId },
+    include: { tipoEquipamento: { select: { nome: true, permitePreventiva: true, permiteCorretiva: true } } },
   });
   if (!equipamento) throw new AppError('Equipamento não encontrado.', 404);
+  const tipo = equipamento.tipoEquipamento;
+  if (tipo && !tipo.permitePreventiva && !tipo.permiteCorretiva) {
+    throw new AppError(`O tipo de item "${tipo.nome}" não permite manutenção.`, 422);
+  }
   // Feedback 12/05/2026: a unidade só seleciona equipamentos do próprio inventário
   if (usuario.perfil === 'UNIDADE' && equipamento.unidadeId !== usuario.unidadeId) {
     throw new AppError('Só é possível solicitar manutenção para equipamentos da sua unidade.', 403);
@@ -119,19 +144,68 @@ export async function solicitar(
   });
 }
 
-// UC06/RF12/RF13 — aprovação pelo Gestor de Manutenção (RN03)
-export async function aprovar(usuario: AuthPayload, id: string, contratoId?: string) {
+// UC06/RF12/RF13 — aprovação pelo Administrador (RN03)
+type TipoManutencaoItem = { permitePreventiva: boolean; permiteCorretiva: boolean };
+
+// O vínculo da manutenção é com um item de contrato (serviço + escopo); o contrato vem dele. Regras: contrato
+// vigente, escopo compatível com o que o tipo de item aceita e saldo disponível. A linha do item fica travada
+// até o fim da transação para duas aprovações simultâneas não gastarem o mesmo saldo.
+async function vincularItem(
+  tx: Prisma.TransactionClient,
+  contratoItemId: string,
+  tipo: TipoManutencaoItem,
+  manutencaoId: string,
+  { valorNovo = 0, novaSelecao = true } = {},
+) {
+  await tx.$queryRaw`SELECT id FROM contrato_item WHERE id = ${contratoItemId} FOR UPDATE`;
+  const item = await tx.contratoItem.findUnique({
+    where: { id: contratoItemId },
+    select: {
+      id: true,
+      contratoId: true,
+      valor: true,
+      contrato: { select: { status: true } },
+      escopo: { select: { nome: true, cobrePreventiva: true, cobreCorretiva: true } },
+    },
+  });
+  if (!item) throw new AppError('Item de contrato não encontrado.', 422);
+  // Contrato vigente e escopo compatível valem na escolha do item; um orçamento posterior só confere o saldo
+  if (novaSelecao && item.contrato.status === 'EXPIRADO') {
+    throw new AppError('O contrato deste item está expirado.', 422);
+  }
+  const compativel =
+    (tipo.permitePreventiva && item.escopo.cobrePreventiva) || (tipo.permiteCorretiva && item.escopo.cobreCorretiva);
+  if (novaSelecao && !compativel) {
+    throw new AppError(
+      `O escopo "${item.escopo.nome}" não cobre o tipo de manutenção que este item aceita.`,
+      422,
+    );
+  }
+  const comprometido = (await comprometidoPorItem(tx, [item.id], manutencaoId)).get(item.id) ?? 0;
+  const saldo = saldoDoItem(item.valor, comprometido);
+  if (novaSelecao && saldo <= 0) throw new AppError('O item de contrato não tem saldo disponível.', 422);
+  if (valorNovo > saldo) {
+    throw new AppError(
+      `O orçamento (${valorNovo.toFixed(2)}) excede o saldo disponível do item de contrato (${saldo.toFixed(2)}).`,
+      422,
+    );
+  }
+  return { contratoItemId: item.id, contratoId: item.contratoId };
+}
+
+export async function aprovar(usuario: AuthPayload, id: string, contratoItemId: string) {
   const manutencao = await buscarPorId(usuario, id);
   if (manutencao.status !== 'PENDENTE_APROVACAO') {
     throw new AppError('Somente solicitações pendentes podem ser aprovadas.', 422);
   }
   const atualizada = await prisma.$transaction(async (tx) => {
+    const vinculo = await vincularItem(tx, contratoItemId, manutencao.equipamento.tipoEquipamento, id);
     const m = await tx.manutencao.update({
       where: { id },
       data: {
         status: 'AGUARDANDO_ORCAMENTO',
         decididoPorId: usuario.sub,
-        contratoId: contratoId ?? null,
+        ...vinculo,
         dataEnvio: new Date(),
       },
       include: includePadrao,
@@ -208,20 +282,27 @@ export async function negar(usuario: AuthPayload, id: string, motivo: string) {
 export async function registrarOrcamento(
   usuario: AuthPayload,
   id: string,
-  dados: { valor: number; descricao?: string; contratoId?: string },
+  dados: { valor: number; descricao?: string },
 ) {
   const manutencao = await buscarPorId(usuario, id);
   if (manutencao.status !== 'AGUARDANDO_ORCAMENTO') {
     throw new AppError('O orçamento só pode ser registrado quando a manutenção aguarda orçamento.', 422);
   }
   return prisma.$transaction(async (tx) => {
+    // O item de contrato foi escolhido na aprovação; aqui só se confere o saldo. Manutenção antiga, sem item, não tem saldo a conferir
+    const vinculo = manutencao.contratoItemId
+      ? await vincularItem(tx, manutencao.contratoItemId, manutencao.equipamento.tipoEquipamento, id, {
+          valorNovo: dados.valor,
+          novaSelecao: false,
+        })
+      : {};
     const atualizada = await tx.manutencao.update({
       where: { id },
       data: {
         status: 'ORCAMENTO_REGISTRADO',
         orcamentoValor: dados.valor,
         orcamentoDescricao: dados.descricao ?? null,
-        ...(dados.contratoId ? { contratoId: dados.contratoId } : {}),
+        ...vinculo,
       },
       include: includePadrao,
     });
@@ -231,7 +312,7 @@ export async function registrarOrcamento(
         acao: 'REGISTRAR_ORCAMENTO',
         entidade: 'manutencao',
         entidadeId: id,
-        dadosDepois: { status: 'ORCAMENTO_REGISTRADO', valor: dados.valor },
+        dadosDepois: { status: 'ORCAMENTO_REGISTRADO', valor: dados.valor, perfil: usuario.perfil },
       },
       tx,
     );
@@ -339,9 +420,9 @@ export async function emitirBaixa(usuario: AuthPayload, id: string, laudo: strin
     );
     return m;
   });
-  // FA02 — o Gestor de Patrimônio é notificado da solicitação automática
+  // FA02 — o Administrador é notificado da solicitação automática
   const gestores = await prisma.usuario.findMany({
-    where: { perfil: 'GESTOR_PATRIMONIO', ativo: true },
+    where: { perfil: 'OPERADOR', ativo: true },
     select: { email: true },
   });
   for (const gestor of gestores) {
@@ -365,6 +446,15 @@ export async function registrarRetorno(usuario: AuthPayload, id: string, custoFi
   if (manutencao.status !== 'EM_EXECUCAO') {
     throw new AppError('Somente manutenções em execução podem registrar retorno.', 422);
   }
+  // A terceirizada informa o custo do reparo, mas não pode ultrapassar o orçamento aprovado
+  if (
+    usuario.perfil === 'TERCEIRIZADA' &&
+    custoFinal !== undefined &&
+    manutencao.orcamentoValor !== null &&
+    custoFinal > Number(manutencao.orcamentoValor)
+  ) {
+    throw new AppError('O custo final não pode ser maior que o orçamento aprovado.', 422);
+  }
   return prisma.$transaction(async (tx) => {
     const atualizada = await tx.manutencao.update({
       where: { id },
@@ -380,7 +470,7 @@ export async function registrarRetorno(usuario: AuthPayload, id: string, custoFi
         acao: 'REGISTRAR_RETORNO_MANUTENCAO',
         entidade: 'manutencao',
         entidadeId: id,
-        dadosDepois: { status: 'AGUARDANDO_RETORNO' },
+        dadosDepois: { status: 'AGUARDANDO_RETORNO', perfil: usuario.perfil },
       },
       tx,
     );
@@ -388,7 +478,7 @@ export async function registrarRetorno(usuario: AuthPayload, id: string, custoFi
   });
 }
 
-// UC09/RF18/RN11 — confirmação dupla: Unidade + Gestor de Manutenção
+// UC09/RF18/RN11 — confirmação dupla: Unidade + Administrador
 export async function confirmarRetorno(
   usuario: AuthPayload,
   id: string,
@@ -399,7 +489,7 @@ export async function confirmarRetorno(
     throw new AppError('Esta manutenção não está aguardando confirmação de retorno.', 422);
   }
   const dados: Prisma.ManutencaoUpdateInput = {};
-  if (usuario.perfil === 'GESTOR_MANUTENCAO') {
+  if (usuario.perfil === 'OPERADOR') {
     dados.confirmadoGestor = true;
   } else if (usuario.perfil === 'UNIDADE') {
     if (manutencao.unidadeId !== usuario.unidadeId) {
@@ -407,7 +497,7 @@ export async function confirmarRetorno(
     }
     dados.confirmadoUnidade = true;
   } else {
-    throw new AppError('Somente a Unidade e o Gestor de Manutenção confirmam retorno.', 403);
+    throw new AppError('Somente a Unidade e o Administrador confirmam retorno.', 403);
   }
   if (estadoPosManutencao) {
     dados.estadoPosManutencao = estadoPosManutencao;

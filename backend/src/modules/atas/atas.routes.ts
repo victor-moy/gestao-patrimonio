@@ -11,7 +11,7 @@ import { registrarAuditoria } from '../../services/auditoria.service';
 // UC19/UC20/RF33-35 — controle de atas de registro de preços
 export const atasRouter = Router();
 
-atasRouter.use(autenticar, permitir(Perfil.GESTOR_PATRIMONIO, Perfil.GESTOR_MANUTENCAO, Perfil.GALPAO));
+atasRouter.use(autenticar, permitir(Perfil.OPERADOR, Perfil.GALPAO));
 
 atasRouter.get('/', async (_req, res) => {
   const atas = await prisma.ata.findMany({
@@ -76,7 +76,7 @@ const ataSchema = z.object({
 
 atasRouter.post(
   '/',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(ataSchema),
   async (req, res) => {
     const existe = await prisma.ata.findUnique({ where: { numero: req.body.numero } });
@@ -105,7 +105,7 @@ atasRouter.post(
 
 atasRouter.patch(
   '/:id',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(
     z.object({
       fornecedor: z.string().min(2).optional(),

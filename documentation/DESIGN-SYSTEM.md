@@ -25,18 +25,18 @@ Tokens globais em `frontend/src/styles.css`; padrões das telas autenticadas em 
 ## Estrutura de uma página
 
 1. Cabeçalho global em largura total (nome do sistema + usuário).
-2. Menu lateral abaixo do cabeçalho, fundo cinza-claro, item ativo em superfície branca; vira painel sobreposto no mobile, sem botão de fechar: fecha ao tocar fora, ao escolher um item, pelo botão de menu do cabeçalho ou com `Escape`. Itens: Início, Inventário, Manutenções, Solicitações, Estoque, Atas, Contratos, Relatórios (cada perfil vê apenas o que pode usar). **Conversas** e **Configurações** ficam isolados no rodapé do menu (Configurações só para o Gestor de Patrimônio; os demais perfis veem apenas Conversas no rodapé).
+2. Menu lateral abaixo do cabeçalho, fundo cinza-claro, item ativo em superfície branca; vira painel sobreposto no mobile, sem botão de fechar: fecha ao tocar fora, ao escolher um item, pelo botão de menu do cabeçalho ou com `Escape`. Itens: Início, Inventário, Solicitações, Estoque, Atas, Contratos, Relatórios (cada perfil vê apenas o que pode usar). **Não há item "Manutenções"**: a manutenção é um tipo de solicitação e aparece em Solicitações (a terceirizada vê ali só as manutenções do seu contrato). **Conversas** e **Configurações** ficam isolados no rodapé do menu (Configurações só para o Administrador; os demais perfis veem apenas Conversas no rodapé).
 3. Título curto (sem subtítulo redundante) e ações principais à direita.
 4. Conteúdo em superfícies brancas com a mesma largura e os mesmos recuos do Início/Inventário (272 → 1408 px a 1440 px). Todas as telas devem manter essa margem.
 5. Mudança de página usa uma transição suave de entrada (`pagina-transicao`) e uma **barra de carregamento fina no topo da janela** (`BarraCarregamento`) enquanto há requisições à API em andamento — troca de tela, login e ações. Ela só aparece após 120 ms (sem piscar em respostas instantâneas) e fica ao menos 450 ms. Enquanto os dados chegam, listas e detalhes mostram **esqueletos** (`Esqueletos.tsx`: linhas cinzas pulsando no desenho da tabela ou dos cards) em vez de uma tela vazia com a palavra "Carregando…"; ao chegar, as linhas entram em cascata curta e a página entra com fade e deslize de 0,4 s. O app entra com um fade ao fazer login ou recarregar, e **Sair** esmaece o app por 0,35 s antes de voltar ao login (que também entra com fade), e a verificação inicial da sessão mostra um spinner centralizado. Tudo respeita `prefers-reduced-motion`.
 
 ### Submenus
 
-Relatórios abre submenus no menu lateral (Visão geral, Empréstimos, Cessões de uso, Itens e estoque); apenas o submenu selecionado fica marcado, o item pai não.
+Relatórios abre submenus no menu lateral (Visão geral, Ampliação, Empréstimos, Cessões de uso, Manutenções); apenas o submenu selecionado fica marcado, o item pai não.
 
 ### Configurações
 
-Configurações é uma página própria com navegação própria: ao abrir, o menu lateral é **substituído** por Usuários, Unidades, Categorias de itens, Tipos de itens e Atendimento, e um **X** no canto superior direito da página (acima das ações) fecha e volta ao Início. Só o Gestor de Patrimônio acessa. Não há modal de configurações.
+Configurações é uma página própria com navegação própria: ao abrir, o menu lateral é **substituído** por Usuários, Unidades, Categorias de itens, Tipos de itens e Atendimento, e um **X** no canto superior direito da página (acima das ações) fecha e volta ao Início. Só o Administrador acessa. Não há modal de configurações.
 
 ## Cores de status
 
@@ -54,7 +54,7 @@ Roxo não é cor de status; fica só para etiquetas de classificação (`badge-p
 
 ## Listas (resource index)
 
-Padrão do Inventário, reutilizado por Solicitações, Manutenções, Estoque, Atas, Contratos e pelas listas de Configurações (componente `ListaCadastro` para cadastros simples):
+Padrão do Inventário, reutilizado por Solicitações (que também lista as manutenções, como o tipo **Manutenção**, ordenadas da mais recente para a mais antiga, com o número `MAN-0007` e o link para o detalhe da manutenção), Estoque, Atas, Contratos e pelas listas de Configurações (componente `ListaCadastro` para cadastros simples):
 
 - uma única superfície contendo **seletor de visualização** (largura fixa, ex.: "Todos", "Ativos"), **busca** (`Buscar e filtrar`) e, quando houver, ícone de filtros/ordenação em popover;
 - tabela com cabeçalho cinza; **primeira coluna em destaque** (abre o detalhe/edição, sem coluna de ações para uma única ação), demais colunas em texto padrão `#303030` 12 px, linhas de apoio em cinza;
@@ -66,7 +66,7 @@ Padrão do Inventário, reutilizado por Solicitações, Manutenções, Estoque, 
 - estado em *pill* suave com ponto colorido, sempre pelo componente `StatusPill` (cores em "Cores de status", abaixo);
 - rodapé com "N itens · Mostrando a–b" e paginação "Anterior / Página x de y / Próxima" (10 por página);
 - quatro estados visíveis: carregando, vazio, erro (com "Tentar novamente") e sucesso; nenhum erro de rede pode parecer lista vazia válida;
-- **no mobile (até 600 px) a tabela vira lista de cartões**, sem rolagem horizontal: cada linha é um bloco com o nome em destaque e o status à direita, os dados de apoio abaixo e o cartão inteiro como alvo de toque. O HTML continua sendo `<table>` (o cabeçalho fica oculto só visualmente). Ative com a classe `lista-cartoes` + uma variante (`--inventario`, `--atas`, `--contratos`, `--estoque`, `--manutencoes`, `--fluxo`) no contêiner, `cartao-*` nas células e `data-label` onde o valor precisa de rótulo (Valor total, Saldo, Vencimento…). A disposição de cada tela fica em `Polaris.css`; as listas de Configurações usam a variante `--fluxo` (nome em destaque e demais campos em duas colunas; `larga: true` na coluna para ocupar a linha toda). Entre 601 e 900 px a tabela segue com colunas escondidas por largura;
+- **no mobile (até 600 px) a tabela vira lista de cartões**, sem rolagem horizontal: cada linha é um bloco com o nome em destaque e o status à direita, os dados de apoio abaixo e o cartão inteiro como alvo de toque. O HTML continua sendo `<table>` (o cabeçalho fica oculto só visualmente). Ative com a classe `lista-cartoes` + uma variante (`--inventario`, `--atas`, `--estoque`, `--manutencoes`, `--fluxo`; Contratos usa a mesma variante `--atas`) no contêiner, `cartao-*` nas células e `data-label` onde o valor precisa de rótulo (Valor total, Saldo, Vencimento…). A disposição de cada tela fica em `Polaris.css`; as listas de Configurações usam a variante `--fluxo` (nome em destaque e demais campos em duas colunas; `larga: true` na coluna para ocupar a linha toda). Entre 601 e 900 px a tabela segue com colunas escondidas por largura;
 - o rótulo do seletor de visualização (ex.: "Aguardando orçamento") termina em reticências quando não cabe no botão, sem empurrar a seta nem passar do elemento; o menu cresce até 320 px conforme o texto e corta com reticências além disso;
 - a busca (`Buscar e filtrar`) nunca impõe largura mínima: em telas estreitas ela encolhe e o texto é cortado dentro do campo, sem passar por cima do botão de filtros.
 
@@ -95,7 +95,7 @@ Hoje o sistema não tem modais: confirmações usam `window.confirm` e erros usa
 
 ## Item não encontrado
 
-Nos formulários de manutenção e de solicitação (tipos que escolhem um equipamento existente), abaixo da seleção aparece "Não encontrou o item? **Fale com o atendimento**": link para o WhatsApp do atendimento (`wa.me`) com a mensagem pré-escrita (unidade e solicitante). O número é editado pelo Gestor de Patrimônio em Configurações › **Atendimento**; sem número, o link não aparece. A abertura de manutenção pede **apenas a descrição do problema** (não há campo de justificativa).
+Nos formulários de manutenção e de solicitação (tipos que escolhem um equipamento existente), abaixo da seleção aparece "Não encontrou o item? **Fale com o atendimento**": link para o WhatsApp do atendimento (`wa.me`) com a mensagem pré-escrita (unidade e solicitante). O número é editado pelo Administrador em Configurações › **Atendimento**; sem número, o link não aparece. A abertura de manutenção pede **apenas a descrição do problema** (não há campo de justificativa).
 
 ## Detalhes de um recurso
 
@@ -104,7 +104,7 @@ Página própria com conteúdo principal e resumo lateral, em cards de altura co
 - título + *badge* de status no mesmo estilo do Inventário (compacto);
 - seções com título e divisor; textos de resposta (ex.: "Motivo da negação") seguem a hierarquia normal, **não** em vermelho;
 - o botão claro **Conversar** fica no canto superior direito do cabeçalho de solicitações e manutenções (no mobile, em linha própria abaixo do título, sempre à esquerda) e leva à tela de conversa (não há chat embutido nos detalhes);
-- ações disponíveis ficam **direto na tela**, abaixo dos cards (não dentro de um bloco "Ações"), alinhadas à direita; o botão primário é o mais à direita; em solicitações, as ações ficam sob "Localização";
+- ações disponíveis ficam **direto na tela**, abaixo dos cards (não dentro de um bloco "Ações"), alinhadas à direita; o botão primário é o mais à direita; em solicitações, as ações ficam sob "Localização"; na manutenção o **Item do contrato** mostra só o nome do tipo de serviço;
 - **Histórico** é um card recolhido por padrão, com seta para expandir/recolher (`HistoricoRecolhivel`); fica antes dos botões de ação; no Inventário fica à esquerda;
 - no detalhe do equipamento, um **ícone de QR Code** ao lado do tombamento (sob o título) imprime a etiqueta ao clicar: o QR é gerado no navegador, e a etiqueta mostra QR, tombamento, descrição e unidade, com o resto da página oculto na impressão. Não há card de QR na página;
 - no detalhe do equipamento, a **unidade dona** (item ativo) tem à direita do cabeçalho os botões claros **Abrir solicitação** e **Abrir manutenção**; eles levam ao formulário correspondente com `?equipamento=<id>`, e o item já vem escolhido (em solicitação, nos tipos Substituição, Recolha e Empréstimo);
@@ -138,7 +138,7 @@ Lista por galpão com "Equipamento" (código abaixo do nome), Categoria, Dispon�
 
 ## Autenticação
 
-Tela de acesso com o ícone do sistema e o nome no topo (no mobile, centralizados e com o ícone maior), formulário central em um card e a mensagem de suporte no próprio card; no mobile o card fica centralizado na vertical; fundo em gradiente discreto. Não há "Esqueceu a senha?": a redefinição é feita pelo Gestor de Patrimônio (Configurações › Usuários › Nova senha) e a mensagem de suporte no card orienta quem tiver dificuldade. Impersonação é restrita ao Gestor de Patrimônio: em Configurações › Usuários, um **ícone ao lado do nome** de cada usuário ativo (exceto o próprio) entra como aquele usuário com um clique; o botão "Redefinir usuário" aparece no menu do usuário (canto superior direito), logo **acima de "Sair"**, e só durante a impersonação; a ação é auditada. Tanto ao entrar como outro usuário quanto ao redefinir, **a página é recarregada na tela inicial**, para nenhum estado do usuário anterior (listas, contadores, rascunhos) sobrar na tela.
+Tela de acesso com o ícone do sistema e o nome no topo (no mobile, centralizados e com o ícone maior), formulário central em um card e a mensagem de suporte no próprio card; no mobile o card fica centralizado na vertical; fundo em gradiente discreto. Não há "Esqueceu a senha?": a redefinição é feita pelo Administrador (Configurações › Usuários › Nova senha) e a mensagem de suporte no card orienta quem tiver dificuldade. Impersonação é restrita ao Administrador: no menu do usuário (canto superior direito), o item **"Entrar como"**, acima de "Sair", começa recolhido e, ao clicar, expande a lista de usuários ativos com busca; um clique entra como a pessoa (também a partir de um usuário já assumido). A própria conta é a primeira da lista ("Conta atual", desabilitada; depois de assumir outro usuário vira "Voltar à sua conta"); não há botão de redefinir. A ação é auditada. Ao entrar como outro usuário, **a página é recarregada na tela inicial**, para nenhum estado do usuário anterior (listas, contadores, rascunhos) sobrar na tela.
 
 ## Conteúdo e linguagem
 

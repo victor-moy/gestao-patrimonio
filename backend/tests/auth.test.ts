@@ -13,7 +13,7 @@ describe('Autenticação (RF01, RF03, RF04, RNF04)', () => {
     email: 'gestor@joinville.sc.gov.br',
     matricula: '10001',
     senhaHash: bcrypt.hashSync('senha-correta', 10),
-    perfil: 'GESTOR_PATRIMONIO' as const,
+    perfil: 'OPERADOR' as const,
     ativo: true,
     unidadeId: null,
     criadoEm: new Date(),
@@ -27,7 +27,7 @@ describe('Autenticação (RF01, RF03, RF04, RNF04)', () => {
       .send({ email: usuario.email, senha: 'senha-correta' });
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
-    expect(res.body.usuario.perfil).toBe('GESTOR_PATRIMONIO');
+    expect(res.body.usuario.perfil).toBe('OPERADOR');
   });
 
   it('rejeita senha incorreta sem revelar detalhes (RNF11)', async () => {
@@ -70,17 +70,17 @@ describe('Autenticação (RF01, RF03, RF04, RNF04)', () => {
       nome: 'Samuel',
       email: usuario.email,
       matricula: '10001',
-      perfil: 'GESTOR_PATRIMONIO',
+      perfil: 'OPERADOR',
       unidadeId: null,
       unidade: null,
     } as never);
-    const res = await request(app).get('/auth/me').set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get('/auth/me').set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     expect(res.body.email).toBe(usuario.email);
   });
 });
 
-describe('Impersonação (Gestor de Patrimônio "entra como" outro usuário)', () => {
+describe('Impersonação (o Administrador "entra como" outro usuário)', () => {
   const unidadeUsuario = {
     id: 'user-2',
     nome: 'Ana da Unidade',
@@ -97,7 +97,7 @@ describe('Impersonação (Gestor de Patrimônio "entra como" outro usuário)', (
     prismaMock.usuario.findUnique.mockResolvedValue(unidadeUsuario as never);
     const res = await request(app)
       .post('/auth/impersonar/user-2')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
@@ -110,12 +110,51 @@ describe('Impersonação (Gestor de Patrimônio "entra como" outro usuário)', (
     prismaMock.usuario.findUnique.mockResolvedValue(null);
     const res = await request(app)
       .post('/auth/impersonar/user-999')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(404);
   });
 
-  it('bloqueia perfis que não sejam Gestor de Patrimônio (RN04)', async () => {
+  it('o Administrador entra como qualquer perfil e a entrada é auditada com o perfil de quem entrou', async () => {
+    const op = () => auth('OPERADOR', { sub: 'op-1' });
+    for (const perfil of ['UNIDADE', 'TERCEIRIZADA', 'GALPAO', 'OPERADOR'] as const) {
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...unidadeUsuario, perfil, prestador: { nome: 'X' } } as never);
+      const res = await request(app).post('/auth/impersonar/user-2').set(op()).send();
+      expect([perfil, res.status]).toEqual([perfil, 200]);
+    }
+    expect(prismaMock.logAuditoria.create.mock.calls[0][0].data.dadosDepois).toMatchObject({
+      impersonadoPorPerfil: 'OPERADOR',
+    });
+  });
+
+  it('a lista de quem pode ser assumido traz só dados básicos e inclui o próprio administrador, primeiro', async () => {
+    const base = { perfil: 'OPERADOR', unidade: null, prestador: null };
+    prismaMock.usuario.findMany.mockResolvedValue([
+      { id: 'a', nome: 'Ana', ...base },
+      { id: 'op-1', nome: 'Você', ...base },
+    ] as never);
+    const lista = await request(app).get('/auth/impersonaveis').set(auth('OPERADOR', { sub: 'op-1' }));
+    expect(lista.body.map((u: { id: string; proprio: boolean }) => [u.id, u.proprio])).toEqual([
+      ['op-1', true],
+      ['a', false],
+    ]);
+    const filtro = prismaMock.usuario.findMany.mock.calls[0][0] as { where: Record<string, unknown>; select: Record<string, unknown> };
+    expect(filtro.where).toMatchObject({ ativo: true });
+    expect(filtro.where).not.toHaveProperty('id');
+    expect(filtro.where).not.toHaveProperty('perfil');
+    expect(filtro.select).not.toHaveProperty('email');
+    expect(filtro.select).not.toHaveProperty('senhaHash');
+  });
+
+  it('outros perfis não listam nem assumem ninguém', async () => {
+    for (const perfil of ['UNIDADE', 'GALPAO', 'TERCEIRIZADA'] as const) {
+      const opcoes = { unidadeId: 'u-1', prestadorId: 'p-1' };
+      expect((await request(app).get('/auth/impersonaveis').set(auth(perfil, opcoes))).status).toBe(403);
+      expect((await request(app).post('/auth/impersonar/user-2').set(auth(perfil, opcoes)).send()).status).toBe(403);
+    }
+  });
+
+  it('bloqueia perfis que não sejam Administrador (RN04)', async () => {
     const res = await request(app)
       .post('/auth/impersonar/user-2')
       .set(auth('UNIDADE', { unidadeId: 'unidade-1' }))
@@ -129,14 +168,6 @@ describe('RBAC (RNF05, RN03, RN04)', () => {
     const res = await request(app)
       .post('/manutencoes/abc/aprovar')
       .set(auth('UNIDADE', { unidadeId: 'u-1' }))
-      .send({});
-    expect(res.status).toBe(403);
-  });
-
-  it('impede que o Gestor de Manutenção aprove solicitações de cessão (RN04)', async () => {
-    const res = await request(app)
-      .post('/solicitacoes/abc/aprovar')
-      .set(auth('GESTOR_MANUTENCAO'))
       .send({});
     expect(res.status).toBe(403);
   });

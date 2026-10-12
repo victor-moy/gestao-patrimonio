@@ -1,5 +1,6 @@
 import { Prisma, TipoSolicitacao } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
+import { numeroDaBusca } from '../../lib/numero';
 
 export interface FiltrosPeriodo {
   dataInicio?: Date;
@@ -13,6 +14,28 @@ function filtroPeriodo(filtros: FiltrosPeriodo): Prisma.SolicitacaoWhereInput {
       ...(filtros.dataInicio ? { gte: filtros.dataInicio } : {}),
       ...(filtros.dataFim ? { lte: filtros.dataFim } : {}),
     },
+  };
+}
+
+function filtroPeriodoManutencao(filtros: FiltrosPeriodo): Prisma.ManutencaoWhereInput {
+  if (!filtros.dataInicio && !filtros.dataFim) return {};
+  return {
+    criadoEm: {
+      ...(filtros.dataInicio ? { gte: filtros.dataInicio } : {}),
+      ...(filtros.dataFim ? { lte: filtros.dataFim } : {}),
+    },
+  };
+}
+
+// Manutenção entra na Visão Geral como mais um "tipo", ao lado dos 5 tipos de solicitação.
+export type TipoVisaoGeral = TipoSolicitacao | 'MANUTENCAO';
+
+// Mesmos filtros das solicitações, traduzidos para a manutenção (unidade, item do equipamento e período).
+function filtroManutencao(filtros: FiltrosPeriodo & { unidadeIds?: string[]; tipoEquipamentoId?: string }): Prisma.ManutencaoWhereInput {
+  return {
+    ...(filtros.unidadeIds?.length ? { unidadeId: { in: filtros.unidadeIds } } : {}),
+    ...(filtros.tipoEquipamentoId ? { equipamento: { tipoEquipamentoId: filtros.tipoEquipamentoId } } : {}),
+    ...filtroPeriodoManutencao(filtros),
   };
 }
 
@@ -66,11 +89,22 @@ export async function visaoGeral(filtros: FiltrosPeriodo & { unidadeIds?: string
     else if (TERMINAL_NEGADA.has(g.status)) bucket.negadaCancelada += g._count.id;
     else bucket.emAndamento += g._count.id;
   }
-  return TODOS_TIPOS.map((tipo) => ({ tipo, ...porTipo.get(tipo)! }));
+  const manutencoes = { emAndamento: 0, concluida: 0, negadaCancelada: 0 };
+  const gruposManutencao = await prisma.manutencao.groupBy({ by: ['status'], where: filtroManutencao(filtros), _count: { id: true } });
+  for (const g of gruposManutencao ?? []) {
+    if (g.status === 'CONCLUIDA') manutencoes.concluida += g._count.id;
+    // Negada e baixada não são sucesso: contam como "canceladas", como as solicitações negadas
+    else if (g.status === 'NEGADA' || g.status === 'BAIXADO') manutencoes.negadaCancelada += g._count.id;
+    else manutencoes.emAndamento += g._count.id;
+  }
+  return [
+    ...TODOS_TIPOS.map((tipo) => ({ tipo: tipo as TipoVisaoGeral, ...porTipo.get(tipo)! })),
+    { tipo: 'MANUTENCAO' as TipoVisaoGeral, ...manutencoes },
+  ];
 }
 
 // Relatório 2 (mostrado dentro de Visão Geral) — Ranking de Unidades, com os
-// 4 tipos lado a lado por unidade, num gráfico só (feedback do cliente:
+// 4 tipos de solicitação mais a manutenção lado a lado por unidade, num gráfico só (feedback do cliente:
 // dinâmico, sem precisar escolher um tipo por vez).
 export async function rankingUnidades(filtros: FiltrosPeriodo & { unidadeIds?: string[]; tipoEquipamentoId?: string }) {
   const where: Prisma.SolicitacaoWhereInput = {
@@ -84,24 +118,28 @@ export async function rankingUnidades(filtros: FiltrosPeriodo & { unidadeIds?: s
     where,
     _count: { id: true },
   });
+  const gruposManutencao = await prisma.manutencao.groupBy({
+    by: ['unidadeId'],
+    where: filtroManutencao(filtros),
+    _count: { id: true },
+  });
   const nomeUnidade = await mapaNomeUnidade();
-  const porUnidade = new Map<string, Record<TipoSolicitacao, number>>();
+  type Contagens = Record<(typeof TIPOS_RANKING)[number] | 'MANUTENCAO', number>;
+  const vazio = () =>
+    Object.fromEntries([...TIPOS_RANKING, 'MANUTENCAO'].map((t) => [t, 0])) as Contagens;
+  const porUnidade = new Map<string, Contagens>();
   for (const g of grupos) {
-    if (!porUnidade.has(g.unidadeOrigemId)) {
-      porUnidade.set(
-        g.unidadeOrigemId,
-        Object.fromEntries(TIPOS_RANKING.map((t) => [t, 0])) as Record<TipoSolicitacao, number>,
-      );
-    }
-    porUnidade.get(g.unidadeOrigemId)![g.tipo] = g._count.id;
+    if (!porUnidade.has(g.unidadeOrigemId)) porUnidade.set(g.unidadeOrigemId, vazio());
+    porUnidade.get(g.unidadeOrigemId)![g.tipo as (typeof TIPOS_RANKING)[number]] = g._count.id;
   }
+  for (const g of gruposManutencao ?? []) {
+    if (!porUnidade.has(g.unidadeId)) porUnidade.set(g.unidadeId, vazio());
+    porUnidade.get(g.unidadeId)!.MANUTENCAO = g._count.id;
+  }
+  const total = (c: Contagens) => Object.values(c).reduce((soma, n) => soma + n, 0);
   return Array.from(porUnidade.entries())
     .map(([unidadeId, tipos]) => ({ unidadeId, unidade: nomeUnidade(unidadeId), ...tipos }))
-    .sort((a, b) => {
-      const totalA = TIPOS_RANKING.reduce((soma, t) => soma + a[t], 0);
-      const totalB = TIPOS_RANKING.reduce((soma, t) => soma + b[t], 0);
-      return totalB - totalA;
-    });
+    .sort((a, b) => total(b) - total(a));
 }
 
 // Relatório 3 — Empréstimos: prazos e devoluções. "Atrasado" cobre tanto o
@@ -204,7 +242,7 @@ export async function itensEstoque() {
     _count: { _all: true },
     // Mais antiga solicitação ainda represada nesse tipo — junto com a
     // quantidade, é o que orienta prioridade entre pedidos (RN: antiguidade
-    // + prioridade manual do Gestor).
+    // + prioridade manual do Administrador).
     _min: { criadoEm: true },
   });
   const ids = grupos.map((g) => g.tipoEquipamentoId).filter((id): id is string => !!id);
@@ -296,7 +334,7 @@ export async function resumoItem(tipoEquipamentoId: string | undefined, filtros:
 // Relatório 6 — Cessões de Uso: prestação de contas (o que foi cedido, pra
 // quem, com qual nº de patrimônio). Diferente de Empréstimo/Ampliação, o
 // fluxo de Cessão só tem 2 estados na prática (reserva na criação, sem etapa
-// de aprovação nem cancelamento): RESERVADO até o Gestor lançar no Branet, e
+// de aprovação nem cancelamento): RESERVADO até o Administrador lançar no Branet, e
 // CONCLUIDA depois disso — por isso não há balde de negada/cancelada aqui.
 export async function cessoes(
   filtros: FiltrosPeriodo & { unidadeIds?: string[]; tipoEquipamentoId?: string; busca?: string },
@@ -353,5 +391,175 @@ export async function cessoes(
       dataConclusao: s.pedidoEntregaRegistradoEm,
       criadoEm: s.criadoEm,
     })),
+  };
+}
+
+// Relatório 7 — Manutenções: custo, prazo, prestadores e itens que mais geram manutenção.
+// Os 4 baldes são os mesmos do funil de solicitações, mais "baixada" separada (equipamento perdido).
+const STATUS_ANDAMENTO = ['PENDENTE_APROVACAO', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'EM_EXECUCAO', 'AGUARDANDO_RETORNO'] as const;
+export type SituacaoManutencao = 'EM_ANDAMENTO' | 'CONCLUIDA' | 'NEGADA' | 'BAIXADO';
+
+// Os agregados somam até este limite de registros (os mais recentes); a tabela mostra só os primeiros.
+const LIMITE_AGREGACAO_MANUTENCOES = 5000;
+const LIMITE_TABELA_MANUTENCOES = 200;
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+function statusDaSituacao(situacao?: SituacaoManutencao): Prisma.ManutencaoWhereInput {
+  if (!situacao) return {};
+  if (situacao === 'EM_ANDAMENTO') return { status: { in: [...STATUS_ANDAMENTO] } };
+  return { status: situacao };
+}
+
+const arredondar = (n: number) => Math.round(n * 100) / 100;
+
+export async function manutencoes(
+  filtros: FiltrosPeriodo & {
+    unidadeIds?: string[];
+    tipoEquipamentoId?: string;
+    prestadorId?: string;
+    situacao?: SituacaoManutencao;
+    busca?: string;
+  },
+) {
+  const busca = filtros.busca?.trim();
+  const numero = busca ? numeroDaBusca(busca, 'MAN') : null;
+  const where: Prisma.ManutencaoWhereInput = {
+    ...(filtros.unidadeIds?.length ? { unidadeId: { in: filtros.unidadeIds } } : {}),
+    ...(filtros.tipoEquipamentoId ? { equipamento: { tipoEquipamentoId: filtros.tipoEquipamentoId } } : {}),
+    ...(filtros.prestadorId ? { contrato: { prestadorId: filtros.prestadorId } } : {}),
+    ...(filtros.dataInicio || filtros.dataFim
+      ? {
+          criadoEm: {
+            ...(filtros.dataInicio ? { gte: filtros.dataInicio } : {}),
+            ...(filtros.dataFim ? { lte: filtros.dataFim } : {}),
+          },
+        }
+      : {}),
+    ...statusDaSituacao(filtros.situacao),
+    ...(busca
+      ? {
+          OR: [
+            ...(numero !== null ? [{ numero }] : []),
+            { titulo: { contains: busca, mode: 'insensitive' as const } },
+            { descricaoProblema: { contains: busca, mode: 'insensitive' as const } },
+            { equipamento: { tombamento: { contains: busca, mode: 'insensitive' as const } } },
+            { equipamento: { descricao: { contains: busca, mode: 'insensitive' as const } } },
+          ],
+        }
+      : {}),
+  };
+
+  const registros = await prisma.manutencao.findMany({
+    where,
+    select: {
+      id: true,
+      numero: true,
+      titulo: true,
+      status: true,
+      criadoEm: true,
+      dataConclusao: true,
+      orcamentoValor: true,
+      custoFinal: true,
+      unidade: { select: { nome: true } },
+      equipamento: {
+        select: {
+          tombamento: true,
+          descricao: true,
+          tipoEquipamentoId: true,
+          tipoEquipamento: { select: { nome: true, preco: true } },
+        },
+      },
+      contrato: { select: { numero: true, prestadorId: true, prestador: { select: { nome: true } } } },
+    },
+    orderBy: { criadoEm: 'desc' },
+    take: LIMITE_AGREGACAO_MANUTENCOES,
+  });
+
+  let emAndamento = 0;
+  let concluidas = 0;
+  let negadas = 0;
+  let baixadas = 0;
+  let custoTotal = 0;
+  let orcamentosAltos = 0;
+  let somaDias = 0;
+  const porMes = new Map<string, { quantidade: number; custo: number }>();
+  const porPrestador = new Map<string, { prestador: string; quantidade: number; custo: number }>();
+  const porItem = new Map<string, { nome: string; quantidade: number; custo: number }>();
+
+  const linhas = registros.map((m) => {
+    const orcamento = m.orcamentoValor === null ? null : Number(m.orcamentoValor);
+    const custoFinal = m.custoFinal === null ? null : Number(m.custoFinal);
+    const preco = m.equipamento.tipoEquipamento.preco === null ? null : Number(m.equipamento.tipoEquipamento.preco);
+    // Mesma regra do alerta da tela de manutenção: orçamento a partir de 50% do preço de referência
+    const naoSugerida = orcamento !== null && preco !== null && preco > 0 && orcamento >= preco * 0.5;
+    // Negadas e baixadas não geram gasto; o resto vale o custo final ou, enquanto não há, o orçamento
+    const consome = m.status !== 'NEGADA' && m.status !== 'BAIXADO';
+    const custo = consome ? (custoFinal ?? orcamento ?? 0) : 0;
+
+    if (m.status === 'CONCLUIDA') {
+      concluidas += 1;
+      if (m.dataConclusao) somaDias += Math.max(0, (m.dataConclusao.getTime() - m.criadoEm.getTime()) / DIA_MS);
+    } else if (m.status === 'NEGADA') negadas += 1;
+    else if (m.status === 'BAIXADO') baixadas += 1;
+    else emAndamento += 1;
+    custoTotal += custo;
+    if (naoSugerida) orcamentosAltos += 1;
+
+    const mes = m.criadoEm.toISOString().slice(0, 7);
+    const doMes = porMes.get(mes) ?? { quantidade: 0, custo: 0 };
+    porMes.set(mes, { quantidade: doMes.quantidade + 1, custo: doMes.custo + custo });
+
+    const prestadorId = m.contrato?.prestadorId ?? 'sem-prestador';
+    const doPrestador = porPrestador.get(prestadorId) ?? {
+      prestador: m.contrato?.prestador.nome ?? 'Sem contrato',
+      quantidade: 0,
+      custo: 0,
+    };
+    porPrestador.set(prestadorId, { ...doPrestador, quantidade: doPrestador.quantidade + 1, custo: doPrestador.custo + custo });
+
+    const tipoId = m.equipamento.tipoEquipamentoId;
+    const doItem = porItem.get(tipoId) ?? { nome: m.equipamento.tipoEquipamento.nome, quantidade: 0, custo: 0 };
+    porItem.set(tipoId, { ...doItem, quantidade: doItem.quantidade + 1, custo: doItem.custo + custo });
+
+    return {
+      id: m.id,
+      numero: m.numero,
+      titulo: m.titulo,
+      status: m.status,
+      equipamento: m.equipamento.descricao,
+      tombamento: m.equipamento.tombamento,
+      unidade: m.unidade.nome,
+      prestador: m.contrato?.prestador.nome ?? null,
+      contrato: m.contrato?.numero ?? null,
+      orcamento,
+      custoFinal,
+      naoSugerida,
+      criadoEm: m.criadoEm,
+      dataConclusao: m.dataConclusao,
+    };
+  });
+
+  return {
+    total: registros.length,
+    truncado: registros.length >= LIMITE_AGREGACAO_MANUTENCOES,
+    emAndamento,
+    concluidas,
+    negadas,
+    baixadas,
+    custoTotal: arredondar(custoTotal),
+    tempoMedioDias: concluidas > 0 ? Math.round((somaDias / concluidas) * 10) / 10 : null,
+    orcamentosAltos,
+    porMes: [...porMes.entries()]
+      .map(([mes, v]) => ({ mes, quantidade: v.quantidade, custo: arredondar(v.custo) }))
+      .sort((a, b) => a.mes.localeCompare(b.mes)),
+    porPrestador: [...porPrestador.entries()]
+      .map(([prestadorId, v]) => ({ prestadorId, prestador: v.prestador, quantidade: v.quantidade, custo: arredondar(v.custo) }))
+      .sort((a, b) => b.quantidade - a.quantidade || b.custo - a.custo),
+    porItem: [...porItem.entries()]
+      .map(([tipoEquipamentoId, v]) => ({ tipoEquipamentoId, nome: v.nome, quantidade: v.quantidade, custo: arredondar(v.custo) }))
+      .sort((a, b) => b.quantidade - a.quantidade || b.custo - a.custo)
+      .slice(0, 8),
+    itensTotal: linhas.length,
+    itens: linhas.slice(0, LIMITE_TABELA_MANUTENCOES),
   };
 }

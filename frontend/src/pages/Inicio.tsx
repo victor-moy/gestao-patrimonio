@@ -16,7 +16,7 @@ function rotuloDoAlerta(tipo: string) {
 
 export function Inicio() {
   const { usuario } = useAuth();
-  const ehGestor = usuario?.perfil === 'GESTOR_PATRIMONIO' || usuario?.perfil === 'GESTOR_MANUTENCAO';
+  const ehGestor = usuario?.perfil === 'OPERADOR';
   const primeiroNome = usuario?.nome.trim().split(/\s+/)[0] ?? '';
   const [alertas, setAlertas] = useState<Alerta[]>([]);
   const [carregandoAlertas, setCarregandoAlertas] = useState(false);

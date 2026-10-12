@@ -59,18 +59,18 @@ async function buscarEquipamentoDaUnidade(equipamentoId: string, unidadeOrigemId
 export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<string[]> {
   const titulo = dados.titulo?.trim();
   if (!titulo) throw new AppError('Informe o título.', 422);
-  // CESSAO_USO — exclusiva do Gestor de Patrimônio (envolve entidade externa
+  // CESSAO_USO — exclusiva do Administrador (envolve entidade externa
   // à secretaria). Não sai do inventário de uma unidade específica: reserva
   // do estoque de galpão por tipo, sempre 1 unidade por item (cada item já
   // tem seu próprio nº de patrimônio — pra ceder mais de uma unidade do
   // mesmo tipo, adiciona outro item), igual Ampliação/Substituição mas sem
   // a etapa de Ata — se não tiver saldo, falha na hora (não fica aguardando
-  // disponibilidade). Vira uma Solicitacao por item, já RESERVADO; o Gestor
+  // disponibilidade). Vira uma Solicitacao por item, já RESERVADO; o Administrador
   // só marca lançado no Branet depois pra concluir, sem gerar tombamento
   // novo (o destino é externo, não rastreado no inventário).
   if (dados.tipo === 'CESSAO_USO') {
-    if (usuario.perfil !== 'GESTOR_PATRIMONIO') {
-      throw new AppError('Somente o Gestor de Patrimônio pode abrir uma Cessão de Uso.', 403);
+    if (usuario.perfil !== 'OPERADOR') {
+      throw new AppError('Somente o Administrador pode abrir uma Cessão de Uso.', 403);
     }
     if (!dados.itens || dados.itens.length === 0) {
       throw new AppError('Selecione ao menos um item para a cessão.', 422);
@@ -208,7 +208,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
   }
 
   // RECOLHA — a unidade escolhe os equipamentos existentes a recolher (sem
-  // destino): o galpão fica a critério do Gestor de Patrimônio, definido só
+  // destino): o galpão fica a critério do Administrador, definido só
   // na aprovação — centraliza essa decisão em vez da unidade escolher
   // (feedback do cliente 26/08).
   if (dados.tipo === 'RECOLHA') {
@@ -257,7 +257,7 @@ export async function criar(usuario: AuthPayload, dados: DadosCriacao): Promise<
   // EMPRESTIMO — a unidade de origem escolhe um ou mais equipamentos
   // próprios e a unidade de destino (mesmo padrão de lista repetível da
   // Recolha); vira uma Solicitacao por item, todas passam por aprovação do
-  // Gestor e só movimentam o equipamento quando a origem confirma a saída
+  // Administrador e só movimentam o equipamento quando a origem confirma a saída
   // (RF25/RN06 — tombamento permanece na origem até a devolução).
   if (dados.tipo === 'EMPRESTIMO') {
     if (!dados.unidadeDestinoId) throw new AppError('Informe a unidade de destino do empréstimo.', 422);

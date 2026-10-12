@@ -35,7 +35,7 @@ describe('Arquivos protegidos (/uploads)', () => {
   });
 
   it('recusa nomes que não sejam UUID + extensão (path traversal)', async () => {
-    const res = await request(app).get('/uploads/solicitacoes/..%2F..%2Fetc%2Fpasswd').set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get('/uploads/solicitacoes/..%2F..%2Fetc%2Fpasswd').set(auth('OPERADOR'));
     expect(res.status).toBe(404);
   });
 
@@ -52,13 +52,13 @@ describe('Arquivos protegidos (/uploads)', () => {
     const dona = await request(app).get(`/uploads/solicitacoes/${NOME}`).set(auth('UNIDADE', { unidadeId: 'u-a' }));
     expect(dona.status).toBe(200);
     expect(dona.headers['cache-control']).toContain('no-store');
-    const gestor = await request(app).get(`/uploads/solicitacoes/${NOME}`).set(auth('GESTOR_PATRIMONIO'));
+    const gestor = await request(app).get(`/uploads/solicitacoes/${NOME}`).set(auth('OPERADOR'));
     expect(gestor.status).toBe(200);
   });
 
   it('arquivo sem registro no banco não é servido', async () => {
     prismaMock.solicitacao.findFirst.mockResolvedValue(null);
-    const res = await request(app).get(`/uploads/solicitacoes/${NOME}`).set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get(`/uploads/solicitacoes/${NOME}`).set(auth('OPERADOR'));
     expect(res.status).toBe(404);
   });
 });
@@ -68,7 +68,7 @@ describe('Validação de assinatura dos uploads', () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue({ id: 'sol-1', unidadeOrigemId: 'u-a' } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/anexo')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .attach('anexo', Buffer.from('<?php echo 1; ?>'), { filename: 'x.pdf', contentType: 'application/pdf' });
     expect(res.status).toBe(422);
     expect(res.body.mensagem).toContain('não corresponde');
@@ -77,7 +77,7 @@ describe('Validação de assinatura dos uploads', () => {
   it('recusa tipo não permitido já no filtro do upload', async () => {
     const res = await request(app)
       .post('/solicitacoes/sol-1/anexo')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .attach('anexo', Buffer.from('MZ'), { filename: 'x.exe', contentType: 'application/x-msdownload' });
     expect(res.status).toBe(422);
   });
@@ -104,5 +104,57 @@ describe('Segredo JWT', () => {
     process.env.NODE_ENV = 'production';
     process.env.JWT_SECRET = 'x'.repeat(40);
     expect(() => jest.isolateModules(() => require('../src/config/env'))).not.toThrow();
+  });
+});
+
+describe('Perfil terceirizada: lista de permissão (negado por padrão)', () => {
+  const t = () => auth('TERCEIRIZADA', { sub: 'terc-1', prestadorId: 'prest-1' });
+
+  it.each([
+    ['get', '/equipamentos'],
+    ['get', '/equipamentos/abc'],
+    ['get', '/solicitacoes'],
+    ['get', '/solicitacoes/abc/historico'],
+    ['get', '/solicitacoes/11111111-1111-4111-8111-111111111111/mensagens'],
+    ['get', '/categorias'],
+    ['get', '/categorias/tipos'],
+    ['get', '/unidades'],
+    ['get', '/dashboard/alertas'],
+    ['get', '/estoque'],
+    ['get', '/relatorios/visao-geral'],
+    ['get', '/atas'],
+    ['get', '/configuracoes/atendimento'],
+    ['get', '/usuarios'],
+    ['get', '/prestadores'],
+    ['get', '/servicos-contrato'],
+    ['get', '/escopos-servico'],
+    ['get', '/uploads/laudos/11111111-1111-4111-8111-111111111111.pdf'],
+    ['get', '/uploads/solicitacoes/11111111-1111-4111-8111-111111111111.jpg'],
+    ['post', '/auth/impersonar/abc'],
+    ['post', '/manutencoes'],
+    ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/aprovar'],
+    ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/confirmar-retorno'],
+    ['post', '/contratos'],
+  ] as const)('%s %s é negado', async (metodo, rota) => {
+    const res = await request(app)[metodo](rota).set(t()).send({});
+    expect(res.status).toBe(403);
+  });
+
+  it('as rotas do fluxo dela continuam permitidas (não retornam 403)', async () => {
+    const ID = '11111111-1111-4111-8111-111111111111';
+    const ok = [
+      ['get', '/auth/me'],
+      ['get', '/manutencoes'],
+      ['get', `/manutencoes/${ID}`],
+      ['get', `/manutencoes/${ID}/historico`],
+      ['get', `/manutencoes/${ID}/mensagens`],
+      ['get', '/conversas'],
+      ['get', '/conversas/nao-lidas'],
+      ['get', '/contratos'],
+    ] as const;
+    for (const [metodo, rota] of ok) {
+      const res = await request(app)[metodo](rota).set(t());
+      expect([rota, res.status]).not.toEqual([rota, 403]);
+    }
   });
 });

@@ -38,44 +38,53 @@
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) { --rel-borda: #c9cccf; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) { --rel-borda: #c9cccf; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .card,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .card,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .card-pad {
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .card-pad {
   border-radius: 12px;
   box-shadow: var(--shadow);
 }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .card.card-pad { padding: 20px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .card.card-pad { padding: 20px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .rel-filtros,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .rel-filtros,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .rel-kpis,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .rel-kpis,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-item-card { margin-top: 16px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-item-card { margin-top: 16px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .relatorios-graficos { gap: 16px; margin-top: 16px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .relatorios-graficos { gap: 16px; margin-top: 16px; }
 
 /* Título do card com divisória, como nos cards de detalhe */
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .rel-cabecalho {
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .rel-cabecalho {
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--border);
@@ -83,25 +92,30 @@
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .rel-cabecalho h3 { margin: 0; font-size: 14px; font-weight: 650; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .rel-cabecalho h3 { margin: 0; font-size: 14px; font-weight: 650; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .rel-cabecalho p { margin: 3px 0 0; color: var(--text-secondary); font-size: 12px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .rel-cabecalho p { margin: 3px 0 0; color: var(--text-secondary); font-size: 12px; }
 
 /* Filtros */
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .relatorios-filtros-gerais { gap: 16px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .relatorios-filtros-gerais { gap: 16px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .relatorios-filtros-gerais label,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .relatorios-filtros-gerais label,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .relatorios-filtros-gerais .campo-rotulo {
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .relatorios-filtros-gerais .campo-rotulo {
   display: block;
   margin-bottom: 6px;
   color: var(--text-secondary);
@@ -128,15 +142,18 @@
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .rel-kpis { gap: 12px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .rel-kpis { gap: 12px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-card { display: grid; align-content: start; gap: 6px; padding: 12px 16px; border: 1px solid var(--border); }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-card { display: grid; align-content: start; gap: 6px; padding: 12px 16px; border: 1px solid var(--border); }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-label {
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-label {
   display: flex;
   align-items: center;
   min-height: 0;
@@ -148,183 +165,226 @@
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-value { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.3px; line-height: 1.2; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-value { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.3px; line-height: 1.2; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-sub { color: var(--text-muted); font-size: 11px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-sub { color: var(--text-muted); font-size: 11px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-trilho { height: 3px; border-radius: 2px; background: var(--surface-subtle); overflow: hidden; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-trilho { height: 3px; border-radius: 2px; background: var(--surface-subtle); overflow: hidden; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-trilho-fill { height: 100%; border-radius: 2px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-trilho-fill { height: 100%; border-radius: 2px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-dot { width: 7px; height: 7px; margin-right: 6px; border-radius: 2px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-dot { width: 7px; height: 7px; margin-right: 6px; border-radius: 2px; }
 
 /* Paleta neutra dos gráficos: grafite, cinza médio e cinza claro */
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-dot--concluida,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-dot--concluida,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .segmento--concluida,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .segmento--concluida,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-trilho-fill--concluida { background: #303030; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-trilho-fill--concluida { background: #303030; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-dot--andamento,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-dot--andamento,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .segmento--andamento,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .segmento--andamento,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-trilho-fill--andamento { background: #8a8a8a; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-trilho-fill--andamento { background: #8a8a8a; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-dot--negada,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-dot--negada,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .segmento--negada,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .segmento--negada,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .stat-trilho-fill--negada { background: #d2d2d2; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .stat-trilho-fill--negada { background: #d2d2d2; }
 
 /* Resumo geral: quatro métricas lado a lado */
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-item-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding-top: 0; border-top: 0; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-item-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; padding-top: 0; border-top: 0; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-item-stat { min-width: 0; padding: 0 16px; text-align: left; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-item-stat { min-width: 0; padding: 0 16px; text-align: left; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-item-stat:first-child { padding-left: 0; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-item-stat:first-child { padding-left: 0; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-item-stat-label { margin-bottom: 4px; color: var(--text-secondary); font-size: 11px; font-weight: 400; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-item-stat-label { margin-bottom: 4px; color: var(--text-secondary); font-size: 11px; font-weight: 400; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-item-stat-valor { justify-content: flex-start; font-size: 20px; font-weight: 650; letter-spacing: -.3px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-item-stat-valor { justify-content: flex-start; font-size: 20px; font-weight: 650; letter-spacing: -.3px; }
 
 /* Gráficos */
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .card.card-pad { padding: 16px 20px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .card.card-pad { padding: 16px 20px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .rel-cabecalho { margin-bottom: 14px; padding-bottom: 10px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .rel-cabecalho { margin-bottom: 14px; padding-bottom: 10px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .rel-cabecalho h3 { font-size: 13px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .rel-cabecalho h3 { font-size: 13px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .rel-cabecalho p { font-size: 11px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .rel-cabecalho p { font-size: 11px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-legenda { margin: 0 0 16px; gap: 14px; font-size: 11px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-legenda { margin: 0 0 16px; gap: 14px; font-size: 11px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-legenda .stat-dot { width: 8px; height: 8px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-legenda .stat-dot { width: 8px; height: 8px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-tipo-lista { gap: 12px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-tipo-lista { gap: 12px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-tipo-cabecalho { margin-bottom: 5px; font-size: 12px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-tipo-cabecalho { margin-bottom: 5px; font-size: 12px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-tipo-cabecalho strong:first-child { font-weight: 550; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-tipo-cabecalho strong:first-child { font-weight: 550; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-tipo-cabecalho strong:last-child { color: var(--text-secondary); font-weight: 600; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-tipo-cabecalho strong:last-child { color: var(--text-secondary); font-weight: 600; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-tipo-barra { height: 10px; background: var(--surface-subtle); border-radius: 3px; overflow: hidden; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-tipo-barra { height: 10px; background: var(--surface-subtle); border-radius: 3px; overflow: hidden; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-tipo-barra-preenchida { gap: 1px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-tipo-barra-preenchida { gap: 1px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .segmento { min-width: 4px; transition: opacity .15s ease; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .segmento { min-width: 4px; transition: opacity .15s ease; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-tipo-barra-preenchida:hover .segmento { opacity: .5; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-tipo-barra-preenchida:hover .segmento { opacity: .5; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-tipo-barra-preenchida .segmento:hover { opacity: 1; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-tipo-barra-preenchida .segmento:hover { opacity: 1; }
 
 /* Ranking */
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-lista { gap: 0; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-lista { gap: 0; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-linha { padding: 8px 0; border: 0; cursor: default; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-linha { padding: 8px 0; border: 0; cursor: default; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-linha:first-child,
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-linha:first-child,
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-linha:last-child { padding: 8px 0; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-linha:last-child { padding: 8px 0; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-cabecalho { margin-bottom: 6px; font-size: 12px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-cabecalho { margin-bottom: 6px; font-size: 12px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-cabecalho > span { display: inline-flex; align-items: center; gap: 8px; font-weight: 550; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-cabecalho > span { display: inline-flex; align-items: center; gap: 8px; font-weight: 550; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-cabecalho strong { font-weight: 600; color: var(--text-secondary); }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-cabecalho strong { font-weight: 600; color: var(--text-secondary); }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-posicao {
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-posicao {
   display: inline-grid;
   place-items: center;
   min-width: 20px;
@@ -339,42 +399,50 @@
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-barra { height: 6px; border-radius: 3px; background: var(--surface-subtle); }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-barra { height: 6px; border-radius: 3px; background: var(--surface-subtle); }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-barra-fill { border-radius: 3px; background: #303030; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-barra-fill { border-radius: 3px; background: #303030; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .ranking-demanda { margin-top: 5px; font-size: 11px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .ranking-demanda { margin-top: 5px; font-size: 11px; }
 :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .empty-state { padding: 28px 16px; font-size: 12px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .empty-state { padding: 28px 16px; font-size: 12px; }
 @media (max-width: 900px) {
   :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-item-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-item-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 14px; }
   :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-item-stat:nth-child(odd) { padding-left: 0; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-item-stat:nth-child(odd) { padding-left: 0; }
 }
 @media (max-width: 640px) {
   :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-item-stat { padding: 0; border: 0; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-item-stat { padding: 0; border: 0; }
   :is(.relatorios-page--visao-geral,
 .relatorios-page--emprestimos,
 .relatorios-page--cessoes,
-.relatorios-page--itens-estoque) .resumo-item-stat:not(:last-child) { padding-bottom: 0; border: 0; }
+.relatorios-page--ampliacao,
+.relatorios-page--manutencoes) .resumo-item-stat:not(:last-child) { padding-bottom: 0; border: 0; }
 }
 
 /* Empréstimos */
-.relatorios-page--emprestimos .rel-kpis--cinco { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+:is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .relatorios-page--emprestimos .stat-value small { color: var(--text-muted); font-size: 11px; font-weight: 500; }
 .rel-busca { position: relative; display: block; margin: 16px 0 0; }
 .rel-busca svg { position: absolute; top: 50%; left: 11px; width: 15px; height: 15px; color: var(--text-muted); transform: translateY(-50%); pointer-events: none; }
@@ -411,15 +479,15 @@
 .rel-tabela-status .inventario-status { white-space: nowrap; }
 /* Com 5 cards: 3 na primeira linha e 2 na segunda, cada linha ocupando a largura toda */
 @media (max-width: 1200px) {
-  .relatorios-page--emprestimos .rel-kpis--cinco { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .relatorios-page--emprestimos .rel-kpis--cinco > * { grid-column: span 2; }
-  .relatorios-page--emprestimos .rel-kpis--cinco > :nth-child(n + 4) { grid-column: span 3; }
+  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco > * { grid-column: span 2; }
+  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco > :nth-child(n + 4) { grid-column: span 3; }
 }
 @media (max-width: 700px) {
-  .relatorios-page--emprestimos .rel-kpis--cinco { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .relatorios-page--emprestimos .rel-kpis--cinco > *,
-  .relatorios-page--emprestimos .rel-kpis--cinco > :nth-child(n + 4) { grid-column: auto; }
-  .relatorios-page--emprestimos .rel-kpis--cinco > :last-child { grid-column: 1 / -1; }
+  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco > *,
+  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco > :nth-child(n + 4) { grid-column: auto; }
+  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco > :last-child { grid-column: 1 / -1; }
 }
 .rel-ordenar {
   display: inline-flex;
@@ -438,12 +506,12 @@
 .rel-ordenar-seta.asc svg { transform: rotate(180deg); }
 .relatorios-page .rel-tabela tfoot td { border-top: 1px solid var(--border); border-bottom: 0; background: var(--surface-subtle); font-weight: 600; }
 .rel-tabela-total-rotulo { text-align: right; }
-.relatorios-page--itens-estoque .rel-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.relatorios-page--ampliacao .rel-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .rel-busca--sozinha { margin-top: 0; }
 @media (max-width: 700px) {
-  .relatorios-page--itens-estoque .rel-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .relatorios-page--ampliacao .rel-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* 3 indicadores em 2 colunas: o último (Previsão de verba) ocupa a linha toda em vez de meia linha */
-  .relatorios-page--itens-estoque .rel-kpis > :last-child { grid-column: 1 / -1; }
+  .relatorios-page--ampliacao .rel-kpis > :last-child { grid-column: 1 / -1; }
 }
 
 /* Ordenação do relatório de itens como seletor: só aparece no celular, onde o cabeçalho da tabela some. */
@@ -457,7 +525,7 @@
   .rel-ordenar-select select { width: 100%; height: 34px; padding: 0 36px 0 12px; border: 1px solid #c9cccf; border-radius: 8px; color: var(--text); font-size: 12px; font-weight: 400; }
   /* Mesmo estilo dos outros seletores: cor mais clara enquanto está na opção padrão */
   .rel-ordenar-select select[data-padrao] { color: var(--text-muted); }
-  .relatorios-page--itens-estoque .rel-busca--sozinha { margin-top: 0; }
+  .relatorios-page--ampliacao .rel-busca--sozinha { margin-top: 0; }
 
   .relatorios-page .rel-tabela .rel-cartoes { overflow-x: visible; }
   .relatorios-page .rel-tabela .rel-cartoes table,
@@ -468,7 +536,8 @@
   }
   .relatorios-page .rel-tabela .rel-cartoes tbody tr {
     display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; align-items: center;
-    padding: 14px 16px; border-bottom: 1px solid var(--border);
+    /* mesma margem lateral do título do cartão (20px), para o texto alinhar com ele */
+    padding: 14px 20px; border-bottom: 1px solid var(--border);
   }
   .relatorios-page .rel-tabela .rel-cartoes tbody tr:last-child { border-bottom: 0; }
   .relatorios-page .rel-tabela .rel-cartoes tbody tr > td {
@@ -489,10 +558,50 @@
   .relatorios-page .rel-tabela .rel-cartoes .rel-tabela-status { justify-content: flex-end; }
 
   .rel-cartoes--emprestimos tbody tr { grid-template-areas: "p s" "t t" "a b" "c c"; }
+  .rel-cartoes--manutencoes tbody tr { grid-template-areas: "p s" "e e" "a b" "c d"; }
+  /* Prestadores: no celular cada prestador vira um cartão (nome em cima; manutenções e custo embaixo) */
+  .rel-cartoes--prestadores tbody tr { grid-template-areas: "p p" "a b"; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-b.rel-coluna-num { text-align: right; }
+  .rel-cartoes--manutencoes .rel-tabela-status { flex-direction: column; align-items: flex-end; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rel-coluna-num { white-space: normal; text-align: left; }
+  .relatorios-page .rel-tabela .rel-cartoes td.rc-d.rel-coluna-num { text-align: right; }
   .rel-cartoes--cessoes tbody tr { grid-template-areas: "q s" "p p" "e e" "a b" "c d"; }
   .rel-cartoes--itens tbody tr { grid-template-areas: "p s" "e e" "a b" "c d"; }
 
   /* Total do relatório de itens: último cartão, rótulo à esquerda e valor à direita */
   .relatorios-page .rel-tabela .rel-cartoes tfoot tr { display: flex; justify-content: space-between; gap: 12px; padding: 14px 16px; background: var(--surface-subtle); }
   .relatorios-page .rel-tabela .rel-cartoes tfoot td { padding: 0; border: 0; background: none; }
+}
+
+/* Relatório de manutenções: filtros extras, linha de 3 KPIs, apoio dos gráficos, colunas numéricas e cartão no mobile */
+.relatorios-page--manutencoes .rel-filtros-extra { margin-top: 16px; }
+.rel-busca--campo { margin: 0; }
+.relatorios-page--manutencoes .rel-busca--campo input { width: 100%; height: 34px; }
+.relatorios-page--manutencoes .rel-kpis--tres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.relatorios-page--manutencoes .rel-kpis--tres .stat-sub { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 11px; }
+.rel-grafico-apoio { margin-top: 4px; color: var(--text-secondary); font-size: 11px; }
+.rel-aviso { margin: 12px 0 0; color: var(--text-secondary); font-size: 12px; }
+.relatorios-page .rel-tabela .rel-coluna-num { text-align: right; white-space: nowrap; }
+.relatorios-page--manutencoes .rel-tabela + .rel-tabela { margin-top: 16px; }
+@media (max-width: 900px) {
+  .relatorios-page--manutencoes .rel-filtros-extra { grid-template-columns: minmax(0, 1fr); }
+  .relatorios-page--manutencoes .rel-kpis--tres { grid-template-columns: minmax(0, 1fr); }
+}
+.relatorios-page .rel-tabela.rel-tabela--prestadores table { width: 100%; min-width: 0 !important; }
+.rel-tabela--prestadores td.rel-tabela-principal { white-space: normal; }
+
+/* Gráficos do relatório de manutenções: duas listas com barra fina, lado a lado */
+.relatorios-page--manutencoes .rel-graficos-manutencao { grid-template-columns: 1fr 1fr; align-items: start; }
+.rel-coluna-pilha { display: grid; gap: 16px; min-width: 0; }
+.rel-coluna-pilha > .rel-tabela { margin-top: 0; }
+.rel-grafico-cartao { min-width: 0; }
+.rel-itens-lista { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin: 0; padding: 0; list-style: none; }
+.rel-itens-lista > li { min-width: 0; }
+.rel-itens-linha { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.rel-itens-nome { min-width: 0; overflow: hidden; color: var(--text); font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.rel-itens-qtd { color: var(--text-secondary); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.rel-itens-trilho { height: 6px; margin-top: 6px; border-radius: 3px; background: var(--surface-subtle); overflow: hidden; }
+.rel-itens-fill { height: 100%; border-radius: 3px; background: #303030; }
+@media (max-width: 900px) {
+  .relatorios-page--manutencoes .rel-graficos-manutencao { grid-template-columns: minmax(0, 1fr); }
 }

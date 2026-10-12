@@ -6,11 +6,11 @@ import type { EstoqueAguardandoItem } from '../../types';
 import { diasDesde } from '../../utils/relatorios';
 import { capitalizarPalavras, formatarMoeda } from '../../utils/format';
 
-// Relatório 4 — Itens e Estoque: quantidade de equipamentos por unidade ao
+// Relatório 4 — Ampliação (antes "Itens e estoque"): quantidade de equipamentos por unidade ao
 // longo do tempo + o que está represado em Aguardando Disponibilidade, sem
 // estoque suficiente pra reservar agora. A segunda parte vivia antes dentro
 // da tela de Estoque, virou um relatório dedicado.
-export function RelatorioItensEstoque() {
+export function RelatorioAmpliacao() {
   const [dados, setDados] = useState<EstoqueAguardandoItem[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [busca, setBusca] = useState('');

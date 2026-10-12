@@ -38,10 +38,10 @@ const cadastroSchema = z.object({
   observacoes: z.string().nullable().optional(),
 });
 
-// UC02 — cadastro manual pelo Galpão (o Gestor de Patrimônio também pode)
+// UC02 — cadastro manual pelo Galpão (o Administrador também pode)
 equipamentosRouter.post(
   '/',
-  permitir(Perfil.GALPAO, Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.GALPAO, Perfil.OPERADOR),
   validarBody(cadastroSchema),
   async (req, res) => {
     const equipamento = await service.cadastrar(req.usuario!.sub, req.body);
@@ -58,7 +58,7 @@ const atualizacaoSchema = z.object({
 
 equipamentosRouter.patch(
   '/:id',
-  permitir(Perfil.GALPAO, Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.GALPAO, Perfil.OPERADOR),
   validarBody(atualizacaoSchema),
   async (req, res) => {
     const equipamento = await service.atualizar(req.usuario!.sub, req.params.id, req.body);
@@ -69,7 +69,7 @@ equipamentosRouter.patch(
 // Baixa manual (leilão, extravio, roubo...)
 equipamentosRouter.post(
   '/:id/baixa',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(
     z.object({
       motivo: z.nativeEnum(MotivoBaixa),

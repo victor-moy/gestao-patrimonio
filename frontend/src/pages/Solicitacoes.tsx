@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { StatusPill } from '../components/StatusPill';
@@ -11,9 +11,12 @@ import {
 } from '../components/icons';
 import './Solicitacoes.css';
 import { statusExibido, tituloSolicitacao } from '../utils/solicitacao';
-import type { Solicitacao } from '../types';
+import { tituloManutencao } from '../utils/manutencao';
+import type { Manutencao, Solicitacao } from '../types';
 import {
+  codigoManutencao,
   formatarData,
+  ROTULO_STATUS_MANUTENCAO,
   ROTULO_STATUS_SOLICITACAO,
   ROTULO_TIPO_SOLICITACAO,
   codigoSolicitacao,
@@ -92,11 +95,78 @@ const STATUS_POR_TIPO: Record<string, string[]> = {
   ],
 };
 
+// Manutenção aparece na lista como mais um tipo de solicitação, mas é outro registro (MAN-0001, rota própria)
+const TIPO_MANUTENCAO = 'MANUTENCAO';
+const TIPOS_DE_SOLICITACAO = Object.entries(ROTULO_TIPO_SOLICITACAO).filter(([valor]) => valor !== TIPO_MANUTENCAO);
+
+// Statuses de manutenção que não existem em solicitação (o resto tem o mesmo valor e o mesmo rótulo)
+const STATUS_SO_DE_MANUTENCAO = Object.entries(ROTULO_STATUS_MANUTENCAO).filter(
+  ([valor]) => !(valor in ROTULO_STATUS_SOLICITACAO),
+);
+
+interface LinhaLista {
+  chave: string;
+  id: string;
+  numero: string;
+  titulo: string;
+  tipo: string;
+  tipoTexto: string;
+  unidade: string;
+  statusValor: string;
+  statusTexto: string;
+  criadoEm: string;
+  para: string;
+  rotuloLink: string;
+  emenda: boolean;
+  automatica: boolean;
+}
+
+const daSolicitacao = (s: Solicitacao): LinhaLista => ({
+  chave: `s-${s.id}`,
+  id: s.id,
+  numero: codigoSolicitacao(s.numero),
+  titulo: tituloSolicitacao(s),
+  tipo: s.tipo,
+  tipoTexto: ROTULO_TIPO_SOLICITACAO[s.tipo],
+  unidade: s.unidadeOrigem.nome,
+  statusValor: statusExibido(s).valor,
+  statusTexto: statusExibido(s).texto,
+  criadoEm: s.criadoEm,
+  para: `/solicitacoes/${s.id}`,
+  rotuloLink: `Ver solicitação de ${tituloSolicitacao(s)}`,
+  emenda: s.origemRecurso === 'EMENDA_PARLAMENTAR',
+  automatica: Boolean(s.automatica),
+});
+
+const daManutencao = (m: Manutencao): LinhaLista => ({
+  chave: `m-${m.id}`,
+  id: m.id,
+  numero: codigoManutencao(m.numero),
+  titulo: tituloManutencao(m),
+  tipo: TIPO_MANUTENCAO,
+  tipoTexto: ROTULO_TIPO_SOLICITACAO[TIPO_MANUTENCAO],
+  unidade: m.unidade.nome,
+  statusValor: m.status,
+  statusTexto: ROTULO_STATUS_MANUTENCAO[m.status],
+  criadoEm: m.criadoEm,
+  para: `/manutencoes/${m.id}`,
+  rotuloLink: `Ver manutenção de ${tituloManutencao(m)}`,
+  emenda: false,
+  automatica: false,
+});
+
 export function Solicitacoes() {
   const { usuario } = useAuth();
-  const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
+  // A terceirizada só tem manutenções; Galpão só solicitações; Administrador e Unidade, as duas
+  const veManutencoes = usuario?.perfil === 'OPERADOR' || usuario?.perfil === 'UNIDADE' || usuario?.perfil === 'TERCEIRIZADA';
+  const veSolicitacoes = usuario?.perfil !== 'TERCEIRIZADA';
+  const [params] = useSearchParams();
+  const [linhas, setLinhas] = useState<LinhaLista[]>([]);
   const [busca, setBusca] = useState('');
-  const [filtroTipo, setFiltroTipo] = useState('');
+  const tipoDaUrl = params.get('tipo') ?? '';
+  const [filtroTipo, setFiltroTipo] = useState(
+    tipoDaUrl === TIPO_MANUTENCAO || tipoDaUrl in ROTULO_TIPO_SOLICITACAO ? tipoDaUrl : '',
+  );
   const [filtroStatus, setFiltroStatus] = useState('');
   const [visualizacoesAberto, setVisualizacoesAberto] = useState(false);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
@@ -115,29 +185,45 @@ export function Solicitacoes() {
     setCarregando(true);
     setFalhaCarregamento(false);
     setErro(null);
-    const params = new URLSearchParams();
-    if (busca) params.set('busca', busca);
-    if (filtroTipo) params.set('tipo', filtroTipo);
-    if (filtroStatus) {
-      const extra = OPCOES_STATUS_EXTRA.find((o) => o.valor === filtroStatus);
-      params.set('status', extra?.statusBackend ?? filtroStatus);
+    const extra = OPCOES_STATUS_EXTRA.find((o) => o.valor === filtroStatus);
+    // Cada lado só é consultado quando o tipo e o status escolhidos existem nele
+    const buscarSolicitacoes =
+      veSolicitacoes &&
+      filtroTipo !== TIPO_MANUTENCAO &&
+      (!filtroStatus || Boolean(extra) || filtroStatus in ROTULO_STATUS_SOLICITACAO);
+    const buscarManutencoes =
+      veManutencoes && (!filtroTipo || filtroTipo === TIPO_MANUTENCAO) && (!filtroStatus || filtroStatus in ROTULO_STATUS_MANUTENCAO);
+    const consulta = (statusBackend: string, tipo = '') => {
+      const p = new URLSearchParams();
+      if (busca) p.set('busca', busca);
+      if (tipo) p.set('tipo', tipo);
+      if (statusBackend) p.set('status', statusBackend);
+      return p;
+    };
+    const pedidos: Array<Promise<LinhaLista[]>> = [];
+    if (buscarSolicitacoes) {
+      const p = consulta(extra?.statusBackend ?? filtroStatus, filtroTipo);
+      pedidos.push(api.get<Solicitacao[]>(`/solicitacoes?${p}`).then((l) => l.map(daSolicitacao)));
     }
-    api
-      .get<Solicitacao[]>(`/solicitacoes?${params}`)
-      .then((dados) => {
+    if (buscarManutencoes) {
+      pedidos.push(api.get<Manutencao[]>(`/manutencoes?${consulta(filtroStatus)}`).then((l) => l.map(daManutencao)));
+    }
+    Promise.all(pedidos)
+      .then((listas) => {
         if (idRequisicao !== requisicao.current) return;
-        setSolicitacoes(dados);
+        setLinhas(listas.flat().sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)));
         setPagina(1);
       })
       .catch((e) => {
         if (idRequisicao !== requisicao.current) return;
         setFalhaCarregamento(true);
-        setErro(e.message);
+        setLinhas([]);
+        setErro(e instanceof Error ? e.message : 'Não foi possível carregar as solicitações.');
       })
       .finally(() => {
         if (idRequisicao === requisicao.current) setCarregando(false);
       });
-  }, [busca, filtroTipo, filtroStatus]);
+  }, [busca, filtroTipo, filtroStatus, veSolicitacoes, veManutencoes]);
 
   useEffect(() => {
     carregar();
@@ -170,8 +256,8 @@ export function Solicitacoes() {
   // filtro escolhido é um pseudo-status (ex: "Aguardando Recolha (Branet)")
   // ainda falta refinar no cliente pra bater exatamente com o badge exibido
   const solicitacoesExibidas = OPCOES_STATUS_EXTRA.some((o) => o.valor === filtroStatus)
-    ? solicitacoes.filter((s) => statusExibido(s).valor === filtroStatus)
-    : solicitacoes;
+    ? linhas.filter((l) => l.statusValor === filtroStatus)
+    : linhas;
 
   const porPagina = 10;
   const totalPaginas = Math.max(1, Math.ceil(solicitacoesExibidas.length / porPagina));
@@ -179,16 +265,32 @@ export function Solicitacoes() {
   const inicio = (paginaAtual - 1) * porPagina;
   function selecionarTipo(tipo: string) {
     setFiltroTipo(tipo);
-    if (tipo && filtroStatus && !STATUS_POR_TIPO[tipo]?.includes(filtroStatus)) {
+    const statusValido =
+      tipo === TIPO_MANUTENCAO ? filtroStatus in ROTULO_STATUS_MANUTENCAO : STATUS_POR_TIPO[tipo]?.includes(filtroStatus);
+    if (tipo && filtroStatus && !statusValido) {
       setFiltroStatus('');
     }
   }
 
-  const visualizacaoAtual = [['', 'Todas'], ...Object.entries(ROTULO_TIPO_SOLICITACAO)].find(
-    ([valor]) => valor === filtroTipo,
-  );
+  const opcoesTipo: Array<[string, string]> = [
+    ['', 'Todas'],
+    ...(veSolicitacoes ? TIPOS_DE_SOLICITACAO : []),
+    ...(veManutencoes ? ([[TIPO_MANUTENCAO, ROTULO_TIPO_SOLICITACAO[TIPO_MANUTENCAO]]] as Array<[string, string]>) : []),
+  ];
+  const visualizacaoAtual = opcoesTipo.find(([valor]) => valor === filtroTipo);
+  // Status oferecidos conforme o tipo: de solicitação (por tipo), de manutenção, ou a soma dos dois em "Todas"
+  const statusDeSolicitacao: Array<[string, string]> = [
+    ...Object.entries(ROTULO_STATUS_SOLICITACAO),
+    ...OPCOES_STATUS_EXTRA.map(({ valor, texto }): [string, string] => [valor, texto]),
+  ];
+  const opcoesDeStatus: Array<[string, string]> =
+    filtroTipo === TIPO_MANUTENCAO
+      ? Object.entries(ROTULO_STATUS_MANUTENCAO)
+      : filtroTipo
+        ? statusDeSolicitacao.filter(([valor]) => STATUS_POR_TIPO[filtroTipo]?.includes(valor))
+        : [...(veSolicitacoes ? statusDeSolicitacao : []), ...(veManutencoes ? STATUS_SO_DE_MANUTENCAO : [])];
   const totalFiltros = Number(Boolean(filtroStatus));
-  const podeCriar = usuario?.perfil === 'UNIDADE' || usuario?.perfil === 'GESTOR_PATRIMONIO';
+  const podeCriar = usuario?.perfil === 'UNIDADE' || usuario?.perfil === 'OPERADOR';
 
   return (
     <section
@@ -237,7 +339,7 @@ export function Solicitacoes() {
                     role="menu"
                     aria-label="Visualizações das solicitações"
                   >
-                    {[['', 'Todas'], ...Object.entries(ROTULO_TIPO_SOLICITACAO)].map(
+                    {opcoesTipo.map(
                       ([valor, rotulo]) => (
                         <button
                           key={valor}
@@ -296,18 +398,9 @@ export function Solicitacoes() {
                   onChange={(e) => setFiltroStatus(e.target.value)}
                 >
                   <option value="">Todos os status</option>
-                  {Object.entries(ROTULO_STATUS_SOLICITACAO)
-                    .filter(([valor]) => !filtroTipo || STATUS_POR_TIPO[filtroTipo]?.includes(valor))
-                    .map(([valor, rotulo]) => (
-                      <option key={valor} value={valor}>
-                        {rotulo}
-                      </option>
-                    ))}
-                  {OPCOES_STATUS_EXTRA.filter(
-                    ({ valor }) => !filtroTipo || STATUS_POR_TIPO[filtroTipo]?.includes(valor),
-                  ).map(({ valor, texto }) => (
+                  {opcoesDeStatus.map(([valor, rotulo]) => (
                     <option key={valor} value={valor}>
-                      {texto}
+                      {rotulo}
                     </option>
                   ))}
                 </select>
@@ -340,36 +433,30 @@ export function Solicitacoes() {
               {carregando && <EsqueletoTabela colunas={5} />}
               {!carregando &&
                 !falhaCarregamento &&
-                solicitacoesExibidas.slice(inicio, inicio + porPagina).map((s) => (
-                  <tr key={s.id}>
+                solicitacoesExibidas.slice(inicio, inicio + porPagina).map((l) => (
+                  <tr key={l.chave}>
                     <td className="gestao-equipamento cartao-nome">
-                      <span className="req-numero">{codigoSolicitacao(s.numero)}</span>
-                      <Link
-                        className="inventario-equipamento-link"
-                        to={`/solicitacoes/${s.id}`}
-                        aria-label={`Ver solicitação de ${tituloSolicitacao(s)}`}
-                      >
-                        {tituloSolicitacao(s)}
+                      <span className="req-numero">{l.numero}</span>
+                      <Link className="inventario-equipamento-link" to={l.para} aria-label={l.rotuloLink}>
+                        {l.titulo}
                       </Link>
                       <div className="inventario-mobile-meta">
-                        <span className="inventario-mobile-unidade">{s.unidadeOrigem.nome} · </span>
-                        {formatarData(s.criadoEm)}
+                        <span className="inventario-mobile-unidade">{l.unidade} · </span>
+                        {formatarData(l.criadoEm)}
                       </div>
                     </td>
                     <td className="cartao-tipo">
-                      <span className="inventario-data">{ROTULO_TIPO_SOLICITACAO[s.tipo]}</span>
-                      {s.origemRecurso === 'EMENDA_PARLAMENTAR' && (
-                        <span className="badge badge-purple solicitacoes-selo">Emenda</span>
-                      )}
-                      {s.automatica && <span className="badge badge-gray solicitacoes-selo">Automática</span>}
+                      <span className="inventario-data">{l.tipoTexto}</span>
+                      {l.emenda && <span className="badge badge-purple solicitacoes-selo">Emenda</span>}
+                      {l.automatica && <span className="badge badge-gray solicitacoes-selo">Automática</span>}
                     </td>
                     <td className="inventario-unidade cartao-unidade">
-                      <strong>{s.unidadeOrigem.nome}</strong>
+                      <strong>{l.unidade}</strong>
                     </td>
                     <td className="cartao-status">
-                      <StatusPill valor={statusExibido(s).valor}>{statusExibido(s).texto}</StatusPill>
+                      <StatusPill valor={l.statusValor}>{l.statusTexto}</StatusPill>
                     </td>
-                    <td className="inventario-data cartao-data">{formatarData(s.criadoEm)}</td>
+                    <td className="inventario-data cartao-data">{formatarData(l.criadoEm)}</td>
                   </tr>
                 ))}
             </tbody>

@@ -4,12 +4,12 @@ import { api } from '../../api/client';
 import { PaginaCadastro } from '../../components/PaginaCadastro';
 import { useCarga } from '../../hooks/useCarga';
 import { useMensagemTemporaria } from '../../hooks/useMensagemTemporaria';
-import type { Unidade } from '../../types';
+import type { PrestadorServico, Unidade } from '../../types';
 import { semAlteracoes } from '../../utils/form';
 import { ROTULO_PERFIL } from '../../utils/format';
 import type { UsuarioLista } from './Usuarios';
 
-const VAZIO = { nome: '', email: '', matricula: '', senha: '', perfil: 'UNIDADE', unidadeId: '', ativo: true };
+const VAZIO = { nome: '', email: '', matricula: '', senha: '', perfil: 'UNIDADE', unidadeId: '', prestadorId: '', ativo: true };
 
 export function UsuarioFormulario() {
   const { id } = useParams();
@@ -25,11 +25,13 @@ export function UsuarioFormulario() {
 
   const { dados, carregando, falha } = useCarga(
     async () => {
-      const [unidades, usuarios] = await Promise.all([
+      const [unidades, usuarios, prestadores] = await Promise.all([
         api.get<Unidade[]>('/unidades'),
         editando ? api.get<UsuarioLista[]>('/usuarios') : Promise.resolve([] as UsuarioLista[]),
+        // Só a terceirizada usa a lista; se falhar, o restante do cadastro continua e o campo avisa
+        api.get<PrestadorServico[]>('/prestadores').catch(() => null),
       ]);
-      return { unidades, usuarios };
+      return { unidades, usuarios, prestadores };
     },
     true,
     'Não foi possível carregar os dados. Recarregue a página para tentar novamente.',
@@ -49,6 +51,7 @@ export function UsuarioFormulario() {
       senha: '',
       perfil: encontrado.perfil,
       unidadeId: encontrado.unidadeId ?? '',
+      prestadorId: encontrado.prestadorId ?? '',
       ativo: encontrado.ativo,
     };
     setUsuario(encontrado);
@@ -72,11 +75,16 @@ export function UsuarioFormulario() {
           nome: form.nome,
           perfil: form.perfil,
           unidadeId: form.unidadeId || null,
+          prestadorId: form.perfil === 'TERCEIRIZADA' ? form.prestadorId || null : null,
           ativo: form.ativo,
           ...(form.senha ? { senha: form.senha } : {}),
         });
       } else {
-        await api.post('/usuarios', { ...form, unidadeId: form.unidadeId || null });
+        await api.post('/usuarios', {
+          ...form,
+          unidadeId: form.unidadeId || null,
+          prestadorId: form.perfil === 'TERCEIRIZADA' ? form.prestadorId || null : null,
+        });
       }
       void navigate('/configuracoes/usuarios', { replace: true });
     } catch (err) {
@@ -181,6 +189,25 @@ export function UsuarioFormulario() {
               ))}
             </select>
           </div>
+          {form.perfil === 'TERCEIRIZADA' && (
+            <div className="field">
+              <label htmlFor="usuario-prestador">Prestador de serviço</label>
+              <select
+                id="usuario-prestador"
+                value={form.prestadorId}
+                onChange={(e) => setForm({ ...form, prestadorId: e.target.value })}
+                disabled={bloqueado}
+                required
+              >
+                <option value="">{dados?.prestadores === null ? 'Não foi possível carregar os prestadores' : 'Selecione…'}</option>
+                {(dados?.prestadores ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {editando && (
             <div className="field">
               <label htmlFor="usuario-status">Status</label>

@@ -39,12 +39,12 @@ describe('Botões de abrir chamado no detalhe do equipamento', () => {
     mockFetch({ '/equipamentos/e1': { body: equipamento }, ...eu('UNIDADE') });
     render(<App />);
 
-    expect(await screen.findByRole('link', { name: 'Abrir manutenção' })).toHaveAttribute('href', '/manutencoes/nova?equipamento=e1');
+    expect(await screen.findByRole('link', { name: 'Abrir manutenção' })).toHaveAttribute('href', '/solicitacoes/nova?tipo=MANUTENCAO&equipamento=e1');
     expect(screen.getByRole('link', { name: 'Abrir solicitação' })).toHaveAttribute('href', '/solicitacoes/nova?equipamento=e1');
   });
 
   it.each([
-    ['gestor de patrimônio', () => ({ ...eu('GESTOR_PATRIMONIO', null) }), equipamento],
+    ['gestor de patrimônio', () => ({ ...eu('OPERADOR', null) }), equipamento],
     ['unidade que não é a dona', () => ({ ...eu('UNIDADE', 'u2') }), equipamento],
     ['equipamento baixado', () => ({ ...eu('UNIDADE') }), { ...equipamento, status: 'BAIXADO' }],
   ])('não oferece os botões para %s', async (_nome, perfil, dados) => {
@@ -62,12 +62,15 @@ describe('Formulários abertos a partir do item', () => {
     window.history.replaceState(null, '', '/manutencoes/nova?equipamento=e1');
     mockFetch({
       '/equipamentos?status=ATIVO': { body: [equipamento] },
+      '/unidades': { body: [unidade] },
+      '/categorias': { body: [] },
       '/configuracoes/atendimento': { body: { whatsapp: null } },
       ...eu('UNIDADE'),
     });
     render(<App />);
-    await waitFor(() => expect(screen.getByLabelText('Equipamento')).toBeEnabled());
-    expect(screen.getByLabelText('Equipamento')).toHaveValue('e1');
+    // O link antigo de "nova manutenção" abre o formulário de solicitação já no tipo Manutenção
+    await waitFor(() => expect(screen.getByLabelText('Equipamento *')).toHaveValue('e1'));
+    expect(screen.getByLabelText('Tipo')).toHaveValue('MANUTENCAO');
     expect(screen.queryByLabelText('Justificativa')).not.toBeInTheDocument();
   });
 
@@ -76,11 +79,13 @@ describe('Formulários abertos a partir do item', () => {
     const emprestado = { ...equipamento, id: 'e9', tombamento: '99999', unidade: { id: 'u9', nome: 'Outra UBS' } };
     mockFetch({
       '/equipamentos?status=ATIVO': { body: [equipamento, emprestado] },
+      '/unidades': { body: [unidade] },
+      '/categorias': { body: [] },
       '/configuracoes/atendimento': { body: { whatsapp: null } },
       ...eu('UNIDADE'),
     });
     render(<App />);
-    await waitFor(() => expect(screen.getByLabelText('Equipamento')).toBeEnabled());
+    await screen.findByRole('option', { name: /12345\/2024/ });
     expect(screen.getByRole('option', { name: /12345\/2024/ })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: /99999/ })).not.toBeInTheDocument();
   });
@@ -102,9 +107,11 @@ describe('Formulários abertos a partir do item', () => {
 
 describe('"Não encontrou o item?"', () => {
   function abrirManutencao(whatsapp: string | null) {
-    window.history.replaceState(null, '', '/manutencoes/nova');
+    window.history.replaceState(null, '', '/solicitacoes/nova?tipo=MANUTENCAO');
     mockFetch({
       '/equipamentos?status=ATIVO': { body: [equipamento] },
+      '/unidades': { body: [unidade] },
+      '/categorias': { body: [] },
       '/configuracoes/atendimento': { body: { whatsapp } },
       ...eu('UNIDADE'),
     });
@@ -123,7 +130,7 @@ describe('"Não encontrou o item?"', () => {
 
   it('some quando não há contato configurado', async () => {
     abrirManutencao(null);
-    await waitFor(() => expect(screen.getByLabelText('Equipamento')).toBeEnabled());
+    await screen.findByRole('option', { name: /12345\/2024/ });
     expect(screen.queryByText(/Não encontrou o item/)).not.toBeInTheDocument();
   });
 });
@@ -134,7 +141,7 @@ describe('Configurações › Atendimento', () => {
     const chamadas = mockFetch({
       '/configuracoes/atendimento': (init) =>
         init?.method === 'PUT' ? { body: { whatsapp: '5547999999999' } } : { body: { whatsapp: null } },
-      ...eu('GESTOR_PATRIMONIO', null),
+      ...eu('OPERADOR', null),
     });
     render(<App />);
 

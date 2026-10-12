@@ -67,10 +67,12 @@ export class ApiError extends Error {
 // `silencioso`: requisição em segundo plano (atualizações automáticas); não acende a barra de carregamento global.
 interface OpcoesRequisicao {
   silencioso?: boolean;
+  // Usa o token do administrador que está "entrando como" outro usuário (só para trocar de usuário sem voltar antes)
+  comoMestre?: boolean;
 }
 
-async function request<T>(path: string, options: RequestInit = {}, { silencioso }: OpcoesRequisicao = {}): Promise<T> {
-  const tokenAtual = getToken();
+async function request<T>(path: string, options: RequestInit = {}, { silencioso, comoMestre }: OpcoesRequisicao = {}): Promise<T> {
+  const tokenAtual = comoMestre ? getTokenMestre() : getToken();
   const headers: Record<string, string> = {
     ...(options.body && !(options.body instanceof FormData)
       ? { 'Content-Type': 'application/json' }

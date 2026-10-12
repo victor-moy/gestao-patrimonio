@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 
-// WhatsApp do atendimento (só dígitos, com 55) configurado pelo Gestor de Patrimônio, ou null
+// WhatsApp do atendimento (só dígitos, com 55) configurado pelo Administrador, ou null
 export function useAtendimento() {
   const [whatsapp, setWhatsapp] = useState<string | null>(null);
 

@@ -43,7 +43,7 @@ describe('Contato de atendimento (item não encontrado)', () => {
     prismaMock.configuracaoSistema.findUnique.mockResolvedValue(null);
     const res = await request(app)
       .put('/configuracoes/atendimento')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ whatsapp: '(47) 99999-9999' });
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ whatsapp: '5547999999999' });
@@ -53,7 +53,7 @@ describe('Contato de atendimento (item não encontrado)', () => {
     expect(prismaMock.logAuditoria.create).toHaveBeenCalled();
   });
 
-  it.each(['UNIDADE', 'GESTOR_MANUTENCAO', 'GALPAO'] as const)('%s não pode alterar', async (perfil) => {
+  it.each(['UNIDADE', 'GALPAO', 'TERCEIRIZADA'] as const)('%s não pode alterar', async (perfil) => {
     const res = await request(app)
       .put('/configuracoes/atendimento')
       .set(auth(perfil, { unidadeId: 'u1' }))
@@ -63,14 +63,14 @@ describe('Contato de atendimento (item não encontrado)', () => {
   });
 
   it('número inválido é recusado', async () => {
-    const res = await request(app).put('/configuracoes/atendimento').set(auth('GESTOR_PATRIMONIO')).send({ whatsapp: '123' });
+    const res = await request(app).put('/configuracoes/atendimento').set(auth('OPERADOR')).send({ whatsapp: '123' });
     expect(res.status).toBe(422);
     expect(prismaMock.configuracaoSistema.upsert).not.toHaveBeenCalled();
   });
 
   it('campo vazio remove a configuração', async () => {
     prismaMock.configuracaoSistema.findUnique.mockResolvedValue({ chave: 'atendimento.whatsapp', valor: '5547999999999' } as never);
-    const res = await request(app).put('/configuracoes/atendimento').set(auth('GESTOR_PATRIMONIO')).send({ whatsapp: '  ' });
+    const res = await request(app).put('/configuracoes/atendimento').set(auth('OPERADOR')).send({ whatsapp: '  ' });
     expect(res.body).toEqual({ whatsapp: null });
     expect(prismaMock.configuracaoSistema.delete).toHaveBeenCalled();
   });

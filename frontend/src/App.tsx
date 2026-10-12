@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { BarraCarregamento } from './components/BarraCarregamento';
 import { Layout } from './components/Layout';
@@ -8,8 +8,6 @@ import { Inicio } from './pages/Inicio';
 import { Inventario } from './pages/Inventario';
 import { NovoEquipamento } from './pages/NovoEquipamento';
 import { EquipamentoDetalhe } from './pages/EquipamentoDetalhe';
-import { Manutencoes } from './pages/Manutencoes';
-import { NovaManutencao } from './pages/NovaManutencao';
 import { ManutencaoDetalhe } from './pages/ManutencaoDetalhe';
 import { Solicitacoes } from './pages/Solicitacoes';
 import { SolicitacaoDetalhe } from './pages/SolicitacaoDetalhe';
@@ -29,12 +27,25 @@ import { Unidades } from './pages/configuracoes/Unidades';
 import { UnidadeFormulario } from './pages/configuracoes/UnidadeFormulario';
 import { Categorias } from './pages/configuracoes/Categorias';
 import { CategoriaFormulario } from './pages/configuracoes/CategoriaFormulario';
+import { Prestadores } from './pages/configuracoes/Prestadores';
+import { PrestadorFormulario } from './pages/configuracoes/PrestadorFormulario';
+import { ServicosContrato } from './pages/configuracoes/ServicosContrato';
+import { ServicoContratoFormulario } from './pages/configuracoes/ServicoContratoFormulario';
+import { EscoposServico } from './pages/configuracoes/EscoposServico';
+import { EscopoServicoFormulario } from './pages/configuracoes/EscopoServicoFormulario';
 import { Atendimento } from './pages/configuracoes/Atendimento';
 import { Tipos } from './pages/configuracoes/Tipos';
 import { TipoFormulario } from './pages/configuracoes/TipoFormulario';
 
+// Links antigos de "nova manutenção" (inclusive com o equipamento escolhido) abrem o formulário de solicitação já no tipo Manutenção
+function NovaManutencaoRedireciona() {
+  const { search } = useLocation();
+  const equipamento = new URLSearchParams(search).get('equipamento');
+  return <Navigate to={`/solicitacoes/nova?tipo=MANUTENCAO${equipamento ? `&equipamento=${encodeURIComponent(equipamento)}` : ''}`} replace />;
+}
+
 function Restrita({ children }: { children: ReactNode }) {
-  return <RotaRestrita perfis={['GESTOR_PATRIMONIO']}>{children}</RotaRestrita>;
+  return <RotaRestrita perfis={['OPERADOR']}>{children}</RotaRestrita>;
 }
 
 function RotasProtegidas() {
@@ -59,8 +70,9 @@ function RotasProtegidas() {
           <Route path="/inventario" element={<Inventario />} />
           <Route path="/inventario/novo" element={<NovoEquipamento />} />
           <Route path="/inventario/:id" element={<EquipamentoDetalhe />} />
-          <Route path="/manutencoes" element={<Manutencoes />} />
-          <Route path="/manutencoes/nova" element={<NovaManutencao />} />
+          {/* A manutenção virou um tipo de solicitação: a lista e o formulário são os de Solicitações */}
+          <Route path="/manutencoes" element={<Navigate to="/solicitacoes?tipo=MANUTENCAO" replace />} />
+          <Route path="/manutencoes/nova" element={<NovaManutencaoRedireciona />} />
           <Route path="/manutencoes/:id" element={<ManutencaoDetalhe />} />
           <Route path="/solicitacoes" element={<Solicitacoes />} />
           <Route path="/solicitacoes/nova" element={<NovaSolicitacao />} />
@@ -76,13 +88,24 @@ function RotasProtegidas() {
           <Route path="/configuracoes/unidades" element={<Restrita><Unidades /></Restrita>} />
           <Route path="/configuracoes/unidades/nova" element={<Restrita><UnidadeFormulario /></Restrita>} />
           <Route path="/configuracoes/unidades/:id" element={<Restrita><UnidadeFormulario /></Restrita>} />
-          <Route path="/configuracoes/categorias" element={<Restrita><Categorias /></Restrita>} />
-          <Route path="/configuracoes/categorias/nova" element={<Restrita><CategoriaFormulario /></Restrita>} />
-          <Route path="/configuracoes/categorias/:id" element={<Restrita><CategoriaFormulario /></Restrita>} />
+          <Route path="/configuracoes/itens" element={<Navigate to="/configuracoes/itens/categorias" replace />} />
+          <Route path="/configuracoes/servicos" element={<Navigate to="/configuracoes/servicos/prestadores" replace />} />
+          <Route path="/configuracoes/itens/categorias" element={<Restrita><Categorias /></Restrita>} />
+          <Route path="/configuracoes/itens/categorias/nova" element={<Restrita><CategoriaFormulario /></Restrita>} />
+          <Route path="/configuracoes/itens/categorias/:id" element={<Restrita><CategoriaFormulario /></Restrita>} />
+          <Route path="/configuracoes/servicos/prestadores" element={<Restrita><Prestadores /></Restrita>} />
+          <Route path="/configuracoes/servicos/prestadores/novo" element={<Restrita><PrestadorFormulario /></Restrita>} />
+          <Route path="/configuracoes/servicos/prestadores/:id" element={<Restrita><PrestadorFormulario /></Restrita>} />
+          <Route path="/configuracoes/servicos/tipos" element={<Restrita><ServicosContrato /></Restrita>} />
+          <Route path="/configuracoes/servicos/tipos/novo" element={<Restrita><ServicoContratoFormulario /></Restrita>} />
+          <Route path="/configuracoes/servicos/tipos/:id" element={<Restrita><ServicoContratoFormulario /></Restrita>} />
+          <Route path="/configuracoes/servicos/escopos" element={<Restrita><EscoposServico /></Restrita>} />
+          <Route path="/configuracoes/servicos/escopos/novo" element={<Restrita><EscopoServicoFormulario /></Restrita>} />
+          <Route path="/configuracoes/servicos/escopos/:id" element={<Restrita><EscopoServicoFormulario /></Restrita>} />
           <Route path="/configuracoes/atendimento" element={<Restrita><Atendimento /></Restrita>} />
-          <Route path="/configuracoes/tipos" element={<Restrita><Tipos /></Restrita>} />
-          <Route path="/configuracoes/tipos/novo" element={<Restrita><TipoFormulario /></Restrita>} />
-          <Route path="/configuracoes/tipos/:id" element={<Restrita><TipoFormulario /></Restrita>} />
+          <Route path="/configuracoes/itens/tipos" element={<Restrita><Tipos /></Restrita>} />
+          <Route path="/configuracoes/itens/tipos/novo" element={<Restrita><TipoFormulario /></Restrita>} />
+          <Route path="/configuracoes/itens/tipos/:id" element={<Restrita><TipoFormulario /></Restrita>} />
           <Route path="/conversas" element={<Conversas />} />
           <Route path="/conversas/:contexto/:id" element={<ConversaPagina />} />
           <Route path="/atas" element={<Atas />} />

@@ -16,7 +16,7 @@ export function rotuloEventoManutencao(evento: EventoManutencao) {
   if (evento.acao === 'CONFIRMAR_RETORNO_MANUTENCAO') {
     return evento.perfil === 'UNIDADE'
       ? 'Retorno confirmado pela unidade'
-      : 'Retorno confirmado pelo gestor';
+      : 'Retorno confirmado pelo administrador';
   }
   const conhecido = ROTULO_EVENTO[evento.acao];
   if (conhecido) return conhecido;

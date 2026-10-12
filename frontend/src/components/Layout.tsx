@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import './Gestao.css';
 import './Polaris.css';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
@@ -7,6 +7,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useConversas, useNaoLidas } from '../hooks/useConversas';
 import { caminhoConversa, codigoConversa, tituloConversa } from '../utils/conversas';
 import { caminhoRelatorio, SUBMENUS_RELATORIOS } from '../utils/relatorios';
+import { EntrarComoMenu } from './EntrarComoMenu';
 import { ContagemNaoLidas } from './ContagemNaoLidas';
 import { LogoSistema } from './LogoSistema';
 import {
@@ -20,12 +21,10 @@ import {
   IconeInicio,
   IconeInventario,
   IconeLogout,
-  IconeManutencoes,
   IconeMenu,
   IconeRelatorios,
   IconeUnidades,
   IconeUsuarios,
-  IconeCategorias,
   IconeSolicitacoes,
 } from './icons';
 
@@ -41,33 +40,61 @@ interface TabDef {
 // Abas conforme o header do frame "Gestor" do Figma (6 abas; Atas é
 // acessada pelo card "Controle de Atas" do painel e pelo menu do usuário)
 const TABS: TabDef[] = [
-  { para: '/', rotulo: 'Início', icone: <IconeInicio />, perfis: ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO', 'UNIDADE', 'GALPAO'] },
-  { para: '/inventario', rotulo: 'Inventário', icone: <IconeInventario />, perfis: ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO', 'UNIDADE', 'GALPAO'] },
-  { para: '/manutencoes', rotulo: 'Manutenções', icone: <IconeManutencoes />, perfis: ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO', 'UNIDADE'] },
-  { para: '/solicitacoes', rotulo: 'Solicitações', icone: <IconeSolicitacoes />, perfis: ['GESTOR_PATRIMONIO', 'UNIDADE', 'GALPAO'] },
-  { para: '/estoque', rotulo: 'Estoque', icone: <IconeEstoque />, perfis: ['GESTOR_PATRIMONIO', 'GALPAO'] },
-  { para: '/atas', rotulo: 'Atas', icone: <IconeAtas />, perfis: ['GESTOR_PATRIMONIO'] },
-  { para: '/contratos', rotulo: 'Contratos', icone: <IconeContratos />, perfis: ['GESTOR_MANUTENCAO', 'GESTOR_PATRIMONIO'] },
+  { para: '/', rotulo: 'Início', icone: <IconeInicio />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA'] },
+  { para: '/inventario', rotulo: 'Inventário', icone: <IconeInventario />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO'] },
+  { para: '/solicitacoes', rotulo: 'Solicitações', icone: <IconeSolicitacoes />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA'] },
+  { para: '/estoque', rotulo: 'Estoque', icone: <IconeEstoque />, perfis: ['OPERADOR', 'GALPAO'] },
+  { para: '/atas', rotulo: 'Atas', icone: <IconeAtas />, perfis: ['OPERADOR'] },
+  { para: '/contratos', rotulo: 'Contratos', icone: <IconeContratos />, perfis: ['OPERADOR', 'TERCEIRIZADA'] },
   {
     para: '/relatorios',
     rotulo: 'Relatórios',
     icone: <IconeRelatorios />,
-    perfis: ['GESTOR_PATRIMONIO'],
+    perfis: ['OPERADOR'],
     sub: SUBMENUS_RELATORIOS.map((item) => ({ para: caminhoRelatorio(item.valor), rotulo: item.rotulo })),
   },
 ];
 
-// Navegação própria da página de Configurações
-const SECOES_CONFIGURACOES = [
+// Navegação própria da página de Configurações; grupos abrem seus submenus enquanto a seção está ativa
+interface SecaoConfiguracoes {
+  para: string;
+  rotulo: string;
+  icone: ReactNode;
+  prefixo?: string;
+  sub?: Array<{ para: string; rotulo: string }>;
+}
+
+const SECOES_CONFIGURACOES: SecaoConfiguracoes[] = [
   { para: '/configuracoes/usuarios', rotulo: 'Usuários', icone: <IconeUsuarios /> },
   { para: '/configuracoes/unidades', rotulo: 'Unidades', icone: <IconeUnidades /> },
-  { para: '/configuracoes/categorias', rotulo: 'Categorias de itens', icone: <IconeCategorias /> },
-  { para: '/configuracoes/tipos', rotulo: 'Tipos de itens', icone: <IconeInventario /> },
+  {
+    para: '/configuracoes/itens',
+    prefixo: '/configuracoes/itens',
+    rotulo: 'Itens',
+    icone: <IconeInventario />,
+    sub: [
+      { para: '/configuracoes/itens/categorias', rotulo: 'Categorias' },
+      { para: '/configuracoes/itens/tipos', rotulo: 'Tipos' },
+    ],
+  },
+  {
+    para: '/configuracoes/servicos',
+    prefixo: '/configuracoes/servicos',
+    rotulo: 'Serviços',
+    icone: <IconeContratos />,
+    sub: [
+      { para: '/configuracoes/servicos/prestadores', rotulo: 'Prestadores' },
+      { para: '/configuracoes/servicos/tipos', rotulo: 'Tipos' },
+      { para: '/configuracoes/servicos/escopos', rotulo: 'Escopos' },
+    ],
+  },
   { para: '/configuracoes/atendimento', rotulo: 'Atendimento', icone: <IconeConversas /> },
 ];
 
 export function Layout() {
-  const { usuario, logout, impersonando, voltarAoMestre } = useAuth();
+  const { usuario, logout, impersonando, podeTrocarUsuario } = useAuth();
+  const donoMenuUsuario = useRef<HTMLDivElement>(null);
+  const botaoMenuUsuario = useRef<HTMLButtonElement>(null);
   const location = useLocation();
   const [menuAberto, setMenuAberto] = useState(false);
   const [sidebarAberta, setSidebarAberta] = useState(false);
@@ -86,7 +113,7 @@ export function Layout() {
       ? 'Início'
       : location.pathname.startsWith('/inventario')
       ? 'Inventário'
-      : location.pathname.startsWith('/solicitacoes')
+      : location.pathname.startsWith('/solicitacoes') || location.pathname.startsWith('/manutencoes')
         ? 'Solicitações'
         : location.pathname.startsWith('/estoque')
           ? 'Estoque'
@@ -100,8 +127,6 @@ export function Layout() {
           ? 'Configurações'
         : location.pathname.startsWith('/conversas')
           ? 'Conversas'
-        : location.pathname.startsWith('/manutencoes')
-          ? 'Manutenções'
         : null;
 
   const fecharSidebar = () => setSidebarAberta(false);
@@ -113,6 +138,26 @@ export function Layout() {
       document.title = 'Gestão Patrimonial';
     };
   }, [naoLidas]);
+
+  // O menu do usuário fecha ao clicar fora ou com Escape (devolvendo o foco ao botão); não fecha ao passar o mouse
+  useEffect(() => {
+    if (!menuAberto) return;
+    const aoClicar = (e: MouseEvent) => {
+      if (!donoMenuUsuario.current?.contains(e.target as Node)) setMenuAberto(false);
+    };
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setMenuAberto(false);
+        botaoMenuUsuario.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', aoClicar);
+    document.addEventListener('keydown', aoTeclar);
+    return () => {
+      document.removeEventListener('mousedown', aoClicar);
+      document.removeEventListener('keydown', aoTeclar);
+    };
+  }, [menuAberto]);
 
   useEffect(() => {
     if (!sidebarAberta) return;
@@ -158,14 +203,30 @@ export function Layout() {
         ) : emConfiguracoes ? (
         <nav className="sidebar-nav" aria-label="Navegação de configurações">
           {SECOES_CONFIGURACOES.map((item) => (
-            <NavLink
-              key={item.para}
-              to={item.para}
-              onClick={fecharSidebar}
-              className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
-            >
-              {item.icone} {item.rotulo}
-            </NavLink>
+            <Fragment key={item.para}>
+              <NavLink
+                to={item.sub ? item.sub[0].para : item.para}
+                // Grupos com submenu não ficam marcados: quem fica ativo é o submenu
+                className={({ isActive }) => `sidebar-link${isActive && !item.sub ? ' active' : ''}`}
+                onClick={fecharSidebar}
+              >
+                {item.icone} {item.rotulo}
+              </NavLink>
+              {item.sub && item.prefixo && location.pathname.startsWith(item.prefixo) && (
+                <div className="sidebar-submenu" role="group" aria-label={`Submenus de ${item.rotulo}`}>
+                  {item.sub.map((sub) => (
+                    <NavLink
+                      key={sub.para}
+                      to={sub.para}
+                      onClick={fecharSidebar}
+                      className={({ isActive }) => `sidebar-sublink${isActive ? ' active' : ''}`}
+                    >
+                      {sub.rotulo}
+                    </NavLink>
+                  ))}
+                </div>
+              )}
+            </Fragment>
           ))}
         </nav>
         ) : (
@@ -177,7 +238,10 @@ export function Layout() {
                 // Itens com submenu não ficam marcados: quem fica ativo é o submenu
                 end={tab.para === '/' || Boolean(tab.sub)}
                 onClick={fecharSidebar}
-                className={({ isActive }) => `sidebar-link${isActive ? ' active' : ''}`}
+                // A manutenção é um tipo de solicitação: seu detalhe (/manutencoes/:id) mantém "Solicitações" marcado
+                className={({ isActive }) =>
+                  `sidebar-link${isActive || (tab.para === '/solicitacoes' && location.pathname.startsWith('/manutencoes')) ? ' active' : ''}`
+                }
               >
                 {tab.icone} {tab.rotulo}
               </NavLink>
@@ -209,7 +273,7 @@ export function Layout() {
               <IconeConversas /> Conversas
               {naoLidas > 0 && <ContagemNaoLidas total={naoLidas} />}
             </NavLink>
-            {usuario.perfil === 'GESTOR_PATRIMONIO' && (
+            {usuario.perfil === 'OPERADOR' && (
               <NavLink to="/configuracoes" onClick={fecharSidebar} className="sidebar-link sidebar-configuracoes">
                 <IconeConfiguracoes /> Configurações
               </NavLink>
@@ -232,10 +296,11 @@ export function Layout() {
             <strong>Gestão Patrimonial</strong>
           </Link>
           <div className="topbar-actions">
-            <div className="topbar-user">
+            <div className="topbar-user" ref={donoMenuUsuario}>
               <button
                 type="button"
                 className="user-button"
+                ref={botaoMenuUsuario}
                 onClick={() => setMenuAberto((v) => !v)}
                 aria-label="Menu do usuário"
                 aria-expanded={menuAberto}
@@ -249,18 +314,8 @@ export function Layout() {
                 </span>
               </button>
               {menuAberto && (
-                <div className="user-menu" onMouseLeave={() => setMenuAberto(false)}>
-                  {impersonando && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuAberto(false);
-                        void voltarAoMestre();
-                      }}
-                    >
-                      <IconeUsuarios /> Redefinir usuário
-                    </button>
-                  )}
+                <div className={`user-menu${podeTrocarUsuario ? ' user-menu--larga' : ''}`}>
+                  {podeTrocarUsuario && <EntrarComoMenu aoEntrar={() => setMenuAberto(false)} />}
                   <button type="button" onClick={sair}><IconeLogout /> Sair</button>
                 </div>
               )}

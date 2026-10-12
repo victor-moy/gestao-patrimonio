@@ -9,7 +9,7 @@ app.listen(env.port, () => {
   console.log(`SGP API disponível em http://localhost:${env.port}`);
 });
 
-// SLA de 7 dias: fecha automaticamente solicitações sem retorno do Gestor.
+// SLA de 7 dias: fecha automaticamente solicitações sem retorno do Administrador.
 // Não roda em testes (que sobem `criarApp()` diretamente, sem passar por este arquivo).
 if (process.env.NODE_ENV !== 'test') {
   cron.schedule('0 6 * * *', () => {

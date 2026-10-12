@@ -25,7 +25,7 @@ const upload = multer({
 importacaoRouter.post(
   '/csv',
   autenticar,
-  permitir(Perfil.GALPAO, Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.GALPAO, Perfil.OPERADOR),
   (req, res, next) => (env.rateLimitAtivo ? limiteImportacao(req, res, next) : next()),
   upload.single('arquivo'),
   async (req, res) => {

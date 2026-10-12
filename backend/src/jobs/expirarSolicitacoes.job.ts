@@ -4,7 +4,7 @@ import { notificar } from '../services/notificacao.service';
 
 const SLA_DIAS = 7;
 
-// Solicitação sem retorno do Gestor de Patrimônio por SLA_DIAS dias é
+// Solicitação sem retorno do Administrador por SLA_DIAS dias é
 // fechada automaticamente pelo sistema ("chamado fechado por falta de
 // retorno", confirmado pelo cliente). Só PENDENTE_APROVACAO — uma vez
 // aprovada, AGUARDANDO_DISPONIBILIDADE pode esperar indefinidamente
@@ -41,10 +41,10 @@ export async function expirarSolicitacoesPendentes() {
     await notificar(
       solicitacao.unidadeOrigem.emailBase,
       'Solicitação encerrada por falta de retorno',
-      `Sua solicitação foi fechada automaticamente pelo sistema após ${SLA_DIAS} dias sem retorno do Gestor de Patrimônio.`,
+      `Sua solicitação foi fechada automaticamente pelo sistema após ${SLA_DIAS} dias sem retorno do Administrador.`,
     );
     const gestores = await prisma.usuario.findMany({
-      where: { perfil: 'GESTOR_PATRIMONIO', ativo: true },
+      where: { perfil: 'OPERADOR', ativo: true },
       select: { email: true },
     });
     for (const gestor of gestores) {

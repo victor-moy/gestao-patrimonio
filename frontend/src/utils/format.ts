@@ -87,13 +87,15 @@ export const ROTULO_TIPO_SOLICITACAO: Record<string, string> = {
   CESSAO_USO: 'Cessão de Uso',
   EMPRESTIMO: 'Empréstimo',
   RECOLHA: 'Recolha',
+  // Manutenção é tratada como mais um tipo de solicitação nas telas, mas segue o próprio fluxo (MAN-0001)
+  MANUTENCAO: 'Manutenção',
 };
 
 export const ROTULO_PERFIL: Record<string, string> = {
-  GESTOR_PATRIMONIO: 'Gestor de Patrimônio',
-  GESTOR_MANUTENCAO: 'Gestor de Manutenção',
+  OPERADOR: 'Administrador',
   UNIDADE: 'Unidade de Atendimento',
   GALPAO: 'Galpão',
+  TERCEIRIZADA: 'Terceirizada',
 };
 
 export const ROTULO_MOVIMENTACAO: Record<string, string> = {

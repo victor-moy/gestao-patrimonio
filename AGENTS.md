@@ -23,14 +23,14 @@ O frontend usa `/api` em produção. O Nginx remove esse prefixo ao encaminhar p
 
 ## Perfis e limites de acesso
 
-- `GESTOR_PATRIMONIO`: visão global, decisões patrimoniais, configurações, estoque e relatórios.
-- `GESTOR_MANUTENCAO`: ciclo de manutenção e contratos relacionados.
+- `OPERADOR` (exibido como **Administrador**; o código e o banco usam `OPERADOR`): reúne os antigos Gestor de Patrimônio e Gestor de Manutenção — visão global, decisões patrimoniais, ciclo de manutenção, contratos, configurações, estoque e relatórios. Não há separação de funções entre os dois conjuntos: a rastreabilidade vem da auditoria.
 - `UNIDADE`: dados da própria unidade e dos equipamentos temporariamente sob sua guarda.
 - `GALPAO`: operações físicas do galpão ao qual o usuário está vinculado.
+- `TERCEIRIZADA`: usuário de uma empresa prestadora de serviço, vinculado a um prestador (`prestadorId` no token). Só enxerga manutenções e contratos do próprio prestador, lança orçamento, confirma o fim do reparo e conversa na manutenção. É um perfil externo: o acesso é por **lista de permissão** em `autenticar` (`middlewares/auth.ts`), negado por padrão; qualquer rota nova só fica disponível a ele se for incluída ali de propósito e testada.
 
-Nunca confie apenas na ocultação de controles no frontend. Toda leitura e mutação deve ser restringida no backend por RBAC e, quando aplicável, pelo `unidadeId` do token. Para `GALPAO`, o galpão da operação vem sempre do token (nunca do corpo ou da query); só o Gestor de Patrimônio escolhe outro galpão.
+Nunca confie apenas na ocultação de controles no frontend. Toda leitura e mutação deve ser restringida no backend por RBAC e, quando aplicável, pelo `unidadeId` do token. Para `GALPAO`, o galpão da operação vem sempre do token (nunca do corpo ou da query); só o Administrador escolhe outro galpão.
 
-Mapa de acesso atual: Atas — Gestor de Patrimônio; Contratos — Gestor de Manutenção e Gestor de Patrimônio (exclusão só Gestor de Patrimônio); Configurações na interface (usuários, unidades, categorias de itens, tipos de itens) e Relatórios — Gestor de Patrimônio; Estoque — Galpão e Gestor de Patrimônio; Conversa (chat) — quem já enxerga a solicitação (Gestor de Patrimônio, Unidade da própria unidade, Galpão) ou a manutenção (Gestor de Patrimônio, Gestor de Manutenção, Unidade da própria unidade); mensagens são imutáveis e o e-mail de aviso nunca inclui o texto. O acesso direto segue essa regra, mas a lista `/conversas` e as mensagens não lidas são filtradas por perfil e unidade: a Unidade vê as da própria unidade, o Galpão as solicitações, e os Gestores (Patrimônio e Manutenção) só as em que estão envolvidos (escreveram, criaram ou decidiram o pedido), mais a fila dos pedidos pendentes sem decisão. A leitura é por usuário (`LeituraConversa`): cada pessoa só altera a própria.
+Mapa de acesso atual: Atas — Administrador; Contratos — Administrador (a terceirizada consulta, em leitura, os do próprio prestador); Configurações na interface (usuários, unidades, categorias de itens, tipos de itens, prestadores de serviço, tipos de serviço, escopos) e Relatórios — Administrador; Estoque — Galpão e Administrador; Conversa (chat) — quem já enxerga a solicitação (Administrador, Unidade da própria unidade, Galpão) ou a manutenção (Administrador, Unidade da própria unidade, Terceirizada do contrato); mensagens são imutáveis e o e-mail de aviso nunca inclui o texto. O acesso direto segue essa regra, mas a lista `/conversas` e as mensagens não lidas são filtradas por perfil e unidade: a Unidade vê as da própria unidade, o Galpão as solicitações, e o Administrador só as em que está envolvido (escreveu, criou ou decidiu o pedido), mais a fila dos pedidos pendentes sem decisão. A leitura é por usuário (`LeituraConversa`): cada pessoa só altera a própria.
 
 ## Invariantes de domínio
 
@@ -41,7 +41,7 @@ Preserve estas regras em qualquer alteração:
 3. Estoque e saldo de ata nunca podem ficar negativos, inclusive sob requisições concorrentes. Prefira atualização condicional no banco (`updateMany` com `quantidade/saldo >= valor` e checagem de `count`); uma leitura seguida de `decrement` não é proteção suficiente. O saldo da ata só é consumido no lançamento do pedido no Branet; ao vincular, o saldo disponível já desconta o que está comprometido em outras solicitações `RESERVADO` (linha da ata travada com `FOR UPDATE`).
 4. Equipamento em manutenção não pode participar de fluxo incompatível.
 5. Empréstimo mantém a unidade proprietária e usa `unidadeTemporariaId` para a detentora.
-6. Retorno de manutenção exige confirmação da Unidade e do Gestor de Manutenção.
+6. Retorno de manutenção exige confirmação da Unidade e do Administrador.
 7. Baixa por manutenção cria automaticamente uma solicitação de substituição.
 8. Ações críticas precisam de `LogAuditoria`, idealmente na mesma transação da mutação.
 9. Notificações só devem ser disparadas depois de uma transação bem-sucedida.
@@ -113,7 +113,7 @@ O gate atual exige no mínimo 75% de linhas no backend e 25% no frontend. Não r
 
 - Não registre tokens, senhas, segredos, conteúdo integral de anexos ou dados pessoais desnecessários.
 - Qualquer integração que envie dados a terceiros (IA, e-mail, analytics) precisa de decisão explícita: minimize o conteúdo, documente a finalidade e mantenha limites de tamanho e custo. Hoje não há integração de IA no produto.
-- Tokens no navegador e a funcionalidade de impersonação são áreas sensíveis; mudanças nelas exigem testes específicos.
+- Tokens no navegador e a funcionalidade de impersonação são áreas sensíveis (só o Administrador assume outros usuários: a regra fica em `auth.service.ts`, nunca só na tela); mudanças nelas exigem testes específicos.
 - Rode o audit de dependências e descreva vulnerabilidades novas ou remanescentes no PR.
 - Consulte `SECURITY.md` e `documentation/reviews/` antes de mudanças de segurança.
 

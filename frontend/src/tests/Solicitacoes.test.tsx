@@ -98,6 +98,7 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
     localStorage.setItem('sgp_token', 'token-teste');
     mockFetch({
       ...me,
+      '/manutencoes': { body: [] },
       '/solicitacoes': {
         body: [
           {
@@ -134,6 +135,7 @@ describe('Solicitações (UC10/UC13/UC16)', () => {
     localStorage.setItem('sgp_token', 'token-teste');
     mockFetch({
       ...me,
+      '/manutencoes': { body: [] },
       '/solicitacoes': {
         body: [
           {
@@ -200,6 +202,8 @@ function abrirLista(rotas: Parameters<typeof mockFetch>[0], perfil = 'UNIDADE') 
   window.history.replaceState(null, '', '/solicitacoes');
   const chamadas = mockFetch({
     '/auth/me': { body: { ...me['/auth/me'].body, perfil } },
+    // A lista de Solicitações também traz as manutenções (perfis que as enxergam)
+    ...(perfil === 'GALPAO' ? {} : { '/manutencoes': { body: [] } }),
     ...rotas,
   });
   render(<App />);
@@ -241,7 +245,7 @@ it('gestor aprova a solicitação pela página de detalhe e permanece nela', asy
       body: aprovada ? { ...pedido, status: 'RESERVADO' } : pedido,
     }),
     '/solicitacoes': { body: [pedido] },
-  }, 'GESTOR_PATRIMONIO');
+  }, 'OPERADOR');
   expect(await screen.findByText('SOL-0012')).toBeInTheDocument();
   await userEvent.click(await screen.findByRole('link', { name: 'Ver solicitação de Autoclave de teste' }));
   expect(await screen.findByLabelText('Número SOL-0012')).toBeInTheDocument();
@@ -320,7 +324,7 @@ it('gestor ajusta o tombamento, o formulário fecha e a confirmação aparece', 
     },
     '/solicitacoes/s1': () => ({ body: validacao() }),
     '/solicitacoes': { body: [validacao()] },
-  }, 'GESTOR_PATRIMONIO');
+  }, 'OPERADOR');
   await userEvent.click(await screen.findByRole('link', { name: 'Ver solicitação de Autoclave de teste' }));
   await userEvent.click(await screen.findByRole('button', { name: 'Ajustar tombamento' }));
   const campo = screen.getByRole('textbox', { name: 'Tombamento do item 1' });
@@ -347,7 +351,7 @@ it('empréstimo é aprovado com um clique, sem segunda confirmação', async () 
     },
     '/solicitacoes/s1': () => ({ body: aprovada ? { ...emprestimo, status: 'AGUARDANDO_SAIDA' } : emprestimo }),
     '/solicitacoes': { body: [emprestimo] },
-  }, 'GESTOR_PATRIMONIO');
+  }, 'OPERADOR');
   await userEvent.click(await screen.findByRole('link', { name: 'Ver solicitação de Monitor' }));
   // Informações: o nome do item em cima e o tombamento embaixo
   const informacoes = (await screen.findByRole('heading', { name: 'Informações da solicitação' })).closest('section') as HTMLElement;

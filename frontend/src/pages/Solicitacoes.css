@@ -46,6 +46,7 @@
   font-size: 11px;
   font-weight: 400;
 }
+.solicitacao-acoes .itens-aviso--acao { margin: 12px 0 0; color: var(--text-secondary); font-size: 11px; }
 .solicitacao-acoes input:not([type='checkbox']),
 .solicitacao-acoes select {
   height: 34px;
@@ -113,6 +114,13 @@
 .solicitacao-resumo .equipamento-secao { align-self: stretch; }
 /* Folga para o anel de foco dos campos não ser cortado pelo overflow da animação. */
 .solicitacao-acoes .actions-expand > div { padding: 3px; margin: -3px; }
+/* Recolhido, nada do conteúdo (nem a folga acima) pode aparecer: some depois da animação de fechar. */
+.solicitacao-acoes .actions-expand:not(.aberto) > div {
+  padding: 0;
+  margin: 0;
+  visibility: hidden;
+  transition: visibility 0s linear 0.22s;
+}
 
 .solicitacao-anexo-imagem { max-width: 240px; border-radius: 8px; }
 .btn-link { padding: 0; border: 0; background: none; color: #005bd3; font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; }

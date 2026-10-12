@@ -78,7 +78,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     } as never);
     const res = await request(app)
       .post('/solicitacoes')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [{ tipoEquipamentoId: UUID, numerosPatrimonio: ['12345/2026'] }],
@@ -120,7 +120,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     } as never);
     const res = await request(app)
       .post('/solicitacoes')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [
@@ -137,7 +137,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
   it('cessão de uso exige o nº de patrimônio de cada item', async () => {
     const res = await request(app)
       .post('/solicitacoes')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [{ tipoEquipamentoId: UUID }],
@@ -165,7 +165,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
   it('cessão de uso exige ao menos um item', async () => {
     const res = await request(app)
       .post('/solicitacoes')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         entidadeExternaNome: 'Hospital Regional (outro município)',
@@ -178,7 +178,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
   it('cessão de uso exige o nome da entidade externa', async () => {
     const res = await request(app)
       .post('/solicitacoes')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [{ tipoEquipamentoId: UUID, quantidade: 1 }],
@@ -194,7 +194,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
     ] as never);
     const res = await request(app)
       .post('/solicitacoes')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         titulo: 'Título do pedido', tipo: 'CESSAO_USO',
         itens: [{ tipoEquipamentoId: UUID, numerosPatrimonio: ['12345/2026'] }],
@@ -374,7 +374,7 @@ describe('Solicitações — criação (UC10/UC13/UC16, RN02, RN05)', () => {
 
   it('a busca da lista também procura no título', async () => {
     prismaMock.solicitacao.findMany.mockResolvedValue([]);
-    await request(app).get('/solicitacoes?busca=consultorio').set(auth('GESTOR_PATRIMONIO'));
+    await request(app).get('/solicitacoes?busca=consultorio').set(auth('OPERADOR'));
     const where = (prismaMock.solicitacao.findMany.mock.calls[0][0] as { where: { OR: unknown[] } }).where;
     expect(where.OR).toContainEqual({ titulo: { contains: 'consultorio', mode: 'insensitive' } });
   });
@@ -625,7 +625,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/negar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ motivo: 'Sem disponibilidade' });
     expect(res.status).toBe(200);
     expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
@@ -639,7 +639,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/negar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ motivo: 'Mudança de plano' });
     expect(res.status).toBe(422);
     expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
@@ -654,7 +654,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ prioridade: 2 });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('AGUARDANDO_DISPONIBILIDADE');
@@ -665,7 +665,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     prismaMock.solicitacao.findUnique.mockResolvedValue(ampliacaoPendente as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(422);
     expect(res.body.mensagem).toContain('prioridade');
@@ -685,7 +685,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ prioridade: 3 });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('RESERVADO');
@@ -707,7 +707,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ prioridade: 1 });
     expect(res.status).toBe(200);
     expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
@@ -731,7 +731,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ etapaRecolha: 'PATRIMONIO' });
     expect(res.status).toBe(200);
     expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
@@ -757,7 +757,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ etapaRecolha: 'BRANET' });
     expect(res.status).toBe(200);
     expect(prismaMock.solicitacao.update).toHaveBeenCalledWith(
@@ -775,7 +775,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({});
     expect(res.status).toBe(422);
     expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
@@ -797,7 +797,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/vincular-ata')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ ataId: UUID, valorVinculado: 5000 });
     expect(res.status).toBe(422);
     expect(res.body.mensagem).toContain('vencida');
@@ -819,7 +819,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/vincular-ata')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ ataId: UUID, valorVinculado: 5000 });
     expect(res.status).toBe(422);
     expect(res.body.mensagem).toContain('Saldo insuficiente');
@@ -846,7 +846,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/vincular-ata')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ ataId: UUID, valorVinculado: 5000 });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('RESERVADO');
@@ -861,7 +861,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     prismaMock.estoqueGalpao.findMany.mockResolvedValue([] as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/tentar-reservar-estoque')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(422);
     expect(res.body.mensagem).toContain('estoque suficiente');
@@ -881,7 +881,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/tentar-reservar-estoque')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('RESERVADO');
@@ -902,7 +902,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('AGUARDANDO_SAIDA');
@@ -917,7 +917,7 @@ describe('Solicitações — aprovação e atas (UC17, RN08, RN09, FA03, FA04)',
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/aprovar')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(422);
     expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
@@ -955,7 +955,7 @@ describe('Solicitações — cessão externa, empréstimo e recolha (UC12, UC14,
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/lancar-branet')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ numeroPedidoBranet: '99999' });
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('CONCLUIDA');
@@ -1063,7 +1063,7 @@ describe('Solicitações — cessão externa, empréstimo e recolha (UC12, UC14,
   it('bloqueia o Gestor de Patrimônio de confirmar saída — só a unidade de origem', async () => {
     const res = await request(app)
       .post('/solicitacoes/sol-1/confirmar-saida')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(403);
     expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
@@ -1072,7 +1072,7 @@ describe('Solicitações — cessão externa, empréstimo e recolha (UC12, UC14,
   it('bloqueia o Gestor de Patrimônio de confirmar retorno — só a unidade de origem', async () => {
     const res = await request(app)
       .post('/solicitacoes/sol-1/confirmar-retorno')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(403);
     expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
@@ -1156,7 +1156,7 @@ describe('Solicitações — Gestor lança no Branet (tombamento + nº do pedido
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/lancar-branet')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         numeroPedidoBranet: 'PED-123',
         itens: [{ tombamento: '20001/2026', descricao: 'Autoclave nova' }],
@@ -1194,7 +1194,7 @@ describe('Solicitações — Gestor lança no Branet (tombamento + nº do pedido
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/lancar-branet')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         numeroPedidoBranet: 'PED-124',
         itens: [{ tombamento: '20005/2026', descricao: 'Autoclave nova' }],
@@ -1225,7 +1225,7 @@ describe('Solicitações — Gestor lança no Branet (tombamento + nº do pedido
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/lancar-branet')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         numeroPedidoBranet: 'PED-125',
         itens: [{ tombamento: '20002/2026', descricao: 'Autoclave nova' }],
@@ -1244,7 +1244,7 @@ describe('Solicitações — Gestor lança no Branet (tombamento + nº do pedido
     prismaMock.equipamento.findMany.mockResolvedValue([{ tombamento: '20001/2026' }] as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/lancar-branet')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         numeroPedidoBranet: 'PED-126',
         itens: [{ tombamento: '20001/2026', descricao: 'Autoclave' }],
@@ -1256,7 +1256,7 @@ describe('Solicitações — Gestor lança no Branet (tombamento + nº do pedido
     prismaMock.solicitacao.findUnique.mockResolvedValue({ ...ampliacaoReservada, quantidade: 2 } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/lancar-branet')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         numeroPedidoBranet: 'PED-127',
         itens: [{ tombamento: '20001/2026', descricao: 'Autoclave' }],
@@ -1272,7 +1272,7 @@ describe('Solicitações — Gestor lança no Branet (tombamento + nº do pedido
     prismaMock.estoqueGalpao.findMany.mockResolvedValue([]);
     const res = await request(app)
       .post('/solicitacoes/sol-1/lancar-branet')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         numeroPedidoBranet: 'PED-128',
         itens: [{ tombamento: '20001/2026', descricao: 'Autoclave' }],
@@ -1355,7 +1355,7 @@ describe('Solicitações — confirmação de recebimento OK/Não OK (feedback 1
     prismaMock.solicitacao.findUnique.mockResolvedValue(aguardandoEntrega as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/confirmar-recebimento')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ ok: true, itens: [{ equipamentoId: EQUIP_UUID, tombamentoConfirmado: '20001/2026' }] });
     expect(res.status).toBe(403);
     expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
@@ -1397,7 +1397,7 @@ describe('Solicitações — validação final, ajuste de tombamento e conclusã
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/concluir')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('CONCLUIDA');
@@ -1410,7 +1410,7 @@ describe('Solicitações — validação final, ajuste de tombamento e conclusã
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/concluir')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(422);
   });
@@ -1431,7 +1431,7 @@ describe('Solicitações — validação final, ajuste de tombamento e conclusã
     } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/concluir')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send();
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('CONCLUIDA');
@@ -1449,7 +1449,7 @@ describe('Solicitações — validação final, ajuste de tombamento e conclusã
     prismaMock.solicitacao.update.mockResolvedValue(aguardandoValidacao as never);
     const res = await request(app)
       .patch('/solicitacoes/sol-1/ajustar-tombamento')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ itens: [{ equipamentoId: EQUIP_UUID, tombamento: '20001/2026' }] });
     expect(res.status).toBe(200);
     expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
@@ -1467,7 +1467,7 @@ describe('Solicitações — validação final, ajuste de tombamento e conclusã
     } as never);
     const res = await request(app)
       .patch('/solicitacoes/sol-1/ajustar-tombamento')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ itens: [{ equipamentoId: EQUIP_UUID, tombamento: '20001/2026' }] });
     expect(res.status).toBe(422);
   });
@@ -1476,7 +1476,7 @@ describe('Solicitações — validação final, ajuste de tombamento e conclusã
     prismaMock.solicitacao.findUnique.mockResolvedValue(aguardandoValidacao as never);
     const res = await request(app)
       .patch('/solicitacoes/sol-1/ajustar-tombamento')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ itens: [{ equipamentoId: 'eq-de-outra-solicitacao', tombamento: '20001/2026' }] });
     expect(res.status).toBe(422);
   });
@@ -1502,7 +1502,7 @@ describe('Solicitações — sinalização de disponibilidade (card avisa quando
     ] as never);
     const res = await request(app)
       .get('/solicitacoes/sol-2')
-      .set(auth('GESTOR_PATRIMONIO'));
+      .set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     expect(res.body.disponivelParaReserva).toBe(true);
   });
@@ -1514,7 +1514,7 @@ describe('Solicitações — sinalização de disponibilidade (card avisa quando
     ] as never);
     const res = await request(app)
       .get('/solicitacoes/sol-2')
-      .set(auth('GESTOR_PATRIMONIO'));
+      .set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     expect(res.body.disponivelParaReserva).toBe(false);
   });
@@ -1527,7 +1527,7 @@ describe('Solicitações — sinalização de disponibilidade (card avisa quando
     prismaMock.estoqueGalpao.findMany.mockResolvedValue([
       { id: 'est-1', unidadeId: 'galpao-1', tipoEquipamentoId: 'tipo-1', quantidade: 10 },
     ] as never);
-    const res = await request(app).get('/solicitacoes').set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get('/solicitacoes').set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     const [aguardando, pendente] = res.body;
     expect(aguardando.disponivelParaReserva).toBe(true);
@@ -1539,7 +1539,7 @@ describe('Solicitações — sinalização de disponibilidade (card avisa quando
     prismaMock.estoqueGalpao.findMany.mockResolvedValue([] as never);
     await request(app)
       .get('/solicitacoes?status=AGUARDANDO_DISPONIBILIDADE')
-      .set(auth('GESTOR_PATRIMONIO'));
+      .set(auth('OPERADOR'));
     expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         orderBy: [{ prioridade: { sort: 'asc', nulls: 'last' } }, { criadoEm: 'asc' }],
@@ -1549,7 +1549,7 @@ describe('Solicitações — sinalização de disponibilidade (card avisa quando
 
   it('mantém mais recente primeiro nos demais filtros', async () => {
     prismaMock.solicitacao.findMany.mockResolvedValue([] as never);
-    await request(app).get('/solicitacoes').set(auth('GESTOR_PATRIMONIO'));
+    await request(app).get('/solicitacoes').set(auth('OPERADOR'));
     expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ orderBy: [{ criadoEm: 'desc' }] }),
     );
@@ -1603,7 +1603,7 @@ describe('GET /solicitacoes/:id/historico', () => {
       },
     ] as never);
 
-    const res = await request(app).get('/solicitacoes/sol-1/historico').set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get('/solicitacoes/sol-1/historico').set(auth('OPERADOR'));
 
     expect(res.status).toBe(200);
     expect(prismaMock.logAuditoria.findMany).toHaveBeenCalledWith(
@@ -1658,7 +1658,7 @@ describe('Solicitações — proteção contra corrida em estoque e saldo de ata
     (prismaMock.estoqueGalpao.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
     const res = await request(app)
       .post('/solicitacoes/sol-1/tentar-reservar-estoque')
-      .set(auth('GESTOR_PATRIMONIO'));
+      .set(auth('OPERADOR'));
     expect(res.status).toBe(422);
     expect(prismaMock.solicitacao.update).not.toHaveBeenCalled();
   });
@@ -1675,7 +1675,7 @@ describe('Solicitações — proteção contra corrida em estoque e saldo de ata
     prismaMock.solicitacao.update.mockResolvedValue({ ...ampliacao, status: 'RESERVADO' } as never);
     const res = await request(app)
       .post('/solicitacoes/sol-1/tentar-reservar-estoque')
-      .set(auth('GESTOR_PATRIMONIO'));
+      .set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     expect(prismaMock.estoqueGalpao.updateMany).toHaveBeenCalledTimes(2);
   });
@@ -1689,7 +1689,7 @@ describe('Solicitações — proteção contra corrida em estoque e saldo de ata
     });
     const res = await request(app)
       .post('/solicitacoes/sol-1/vincular-ata')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ ataId: UUID, valorVinculado: 3000 });
     expect(res.status).toBe(422);
     expect(res.body.mensagem).toContain('Saldo insuficiente');
@@ -1709,7 +1709,7 @@ describe('Solicitações — proteção contra corrida em estoque e saldo de ata
     (prismaMock.ata.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
     const res = await request(app)
       .post('/solicitacoes/sol-1/lancar-branet')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ numeroPedidoBranet: 'PED-1', itens: [{ tombamento: '20005/2026', descricao: 'Autoclave' }] });
     expect(res.status).toBe(422);
     expect(res.body.mensagem).toContain('Saldo insuficiente');

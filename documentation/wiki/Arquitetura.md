@@ -40,14 +40,14 @@ O sistema é estruturado em cinco camadas funcionais:
 
 ## Modelo de Dados (resumo)
 
-- **usuario** — servidores com acesso ao sistema: nome, e-mail institucional, matrícula, perfil (`GESTOR_PATRIMONIO` / `GESTOR_MANUTENCAO` / `UNIDADE` / `GALPAO`), unidade de atuação, flag de ativação.
+- **usuario** — servidores com acesso ao sistema: nome, e-mail institucional, matrícula, perfil (`OPERADOR` / `UNIDADE` / `GALPAO` / `TERCEIRIZADA`), unidade de atuação, flag de ativação.
 - **unidade** — unidades da rede (UBS, UME, CAC ou GALPAO), endereço, e-mail base, responsável.
 - **categoria** / **tipo_equipamento** — agrupamento de equipamentos espelhando a estrutura do e-Pública.
 - **equipamento** — entidade central: tombamento único e imutável (RN01), descrição, tipo, unidade de localização atual, estado de conservação, status operacional e flag de emenda parlamentar (RN10).
 - **movimentacao** — log imutável de todo evento que altera localização ou status de um equipamento (nenhum registro é excluído).
 - **solicitacao** — centraliza os quatro tipos de demanda operacional (novo item, cessão de uso, empréstimo, recolha), cada um com seu ciclo de status.
 - **manutencao** — ciclo completo de uma ordem de manutenção: solicitação, aprovação, orçamento, validação, execução, confirmação dupla de retorno (RN11).
-- **contrato** — empresas terceirizadas de manutenção e seus contratos vigentes.
+- **prestador_servico** — empresas contratadas; **servico_contrato** — catálogo de tipos de serviço; **escopo_servico** — escopos (Manutenção preventiva, Manutenção corretiva…); **contrato** — contratos vigentes de um prestador; **contrato_item** — itens do contrato (tipo de serviço + escopo + valor) (`valor_total` do contrato é a soma, recalculada a cada gravação).
 - **ata** — atas de registro de preços, saldo decrementado automaticamente a cada aprovação (RF32), alertas de vencimento/saldo crítico (RF33).
 - **log_auditoria** — todas as ações críticas, com snapshot do estado anterior e posterior em JSON (RNF06).
 

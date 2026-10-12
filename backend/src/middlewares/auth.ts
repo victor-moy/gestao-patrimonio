@@ -9,12 +9,34 @@ export interface AuthPayload {
   nome: string;
   perfil: Perfil;
   unidadeId: string | null;
+  // Só no perfil TERCEIRIZADA: o prestador de serviço do usuário (sempre vem do token, nunca do corpo/query)
+  prestadorId: string | null;
 }
 
 declare module 'express-serve-static-core' {
   interface Request {
     usuario?: AuthPayload;
   }
+}
+
+// Perfil externo (empresa prestadora): lista de permissão, negado por padrão. Vale em toda rota que usa
+// `autenticar`, inclusive as que não restringem perfil, para um endpoint novo nunca ficar aberto por esquecimento.
+const ID = '[0-9a-fA-F-]{36}';
+const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
+  ['GET', /^\/auth\/me$/],
+  ['GET', /^\/manutencoes$/],
+  ['GET', new RegExp(`^/manutencoes/${ID}$`)],
+  ['GET', new RegExp(`^/manutencoes/${ID}/historico$`)],
+  ['POST', new RegExp(`^/manutencoes/${ID}/(orcamento|registrar-retorno)$`)],
+  ['GET', new RegExp(`^/manutencoes/${ID}/mensagens$`)],
+  ['POST', new RegExp(`^/manutencoes/${ID}/mensagens(/lida)?$`)],
+  ['GET', /^\/conversas(\/nao-lidas)?$/],
+  ['GET', /^\/contratos$/],
+];
+
+export function terceirizadaPodeAcessar(metodo: string, caminho: string) {
+  const limpo = caminho.split('?')[0].replace(/\/+$/, '') || '/';
+  return ROTAS_TERCEIRIZADA.some(([m, re]) => m === metodo && re.test(limpo));
 }
 
 // RF01/RF04/RNF05 — valida o JWT em toda rota protegida
@@ -31,9 +53,13 @@ export function autenticar(req: Request, _res: Response, next: NextFunction) {
       nome: String(payload.nome),
       perfil: payload.perfil as Perfil,
       unidadeId: (payload.unidadeId as string | null) ?? null,
+      prestadorId: (payload.prestadorId as string | null) ?? null,
     };
-    next();
   } catch {
     throw new AppError('Sessão expirada ou token inválido. Faça login novamente.', 401);
   }
+  if (req.usuario.perfil === 'TERCEIRIZADA' && !terceirizadaPodeAcessar(req.method, req.originalUrl)) {
+    throw new AppError('Seu perfil não possui permissão para esta operação.', 403);
+  }
+  next();
 }

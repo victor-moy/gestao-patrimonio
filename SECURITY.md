@@ -26,7 +26,7 @@ As áreas de maior sensibilidade são autenticação JWT, impersonação, RBAC p
 - Anexos de solicitação e laudos exigem autenticação e respeitam a unidade do usuário; só as imagens do catálogo de tipos são públicas.
 - Uploads validam o tipo real do arquivo (assinatura/magic bytes), não só o MIME informado.
 - Estoque e saldo de ata usam débito condicional no banco (e trava de linha na ata), evitando valores negativos sob concorrência.
-- O galpão só opera e lista o próprio estoque; o Gestor de Patrimônio informa o galpão explicitamente.
+- O galpão só opera e lista o próprio estoque; o Administrador informa o galpão explicitamente.
 - O frontend (Nginx) envia `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy` e `Permissions-Policy`; `index.html` nunca fica em cache e `/api/metrics` não é exposto pelo Nginx.
 - A porta da API (3333) só é publicada no loopback da máquina; o acesso normal passa pelo Nginx.
 - Dependências de produção sem vulnerabilidades conhecidas (`npm audit --omit=dev` em backend e frontend).

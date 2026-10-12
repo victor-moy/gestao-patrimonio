@@ -34,7 +34,7 @@ export async function listar(usuario: AuthPayload, filtros: { tipo?: string; sta
       : {}),
   };
   // Solicitações aguardando estoque: prioridade (1 = mais urgente, definida
-  // pelo Gestor na aprovação) + antiguidade juntas, conforme feedback do
+  // pelo Administrador na aprovação) + antiguidade juntas, conforme feedback do
   // cliente 17/08 — nos demais filtros mantém mais recente primeiro.
   const orderBy: Prisma.SolicitacaoOrderByWithRelationInput[] =
     filtros.status === 'AGUARDANDO_DISPONIBILIDADE'

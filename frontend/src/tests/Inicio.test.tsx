@@ -8,7 +8,7 @@ const usuarioGestor = {
   id: '1',
   nome: 'Gestor Teste',
   email: 'gestor@example.com',
-  perfil: 'GESTOR_PATRIMONIO',
+  perfil: 'OPERADOR',
   unidadeId: null,
 };
 

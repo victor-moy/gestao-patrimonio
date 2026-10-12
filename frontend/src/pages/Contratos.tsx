@@ -3,7 +3,7 @@ import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import type { Contrato } from '../types';
-import { ROTULO_STATUS_CONTRATO } from '../utils/cadastros';
+import { analisarContrato, ROTULO_STATUS_CONTRATO } from '../utils/cadastros';
 import { formatarData, formatarMoeda } from '../utils/format';
 import './Cadastros.css';
 import { EsqueletoTabela } from '../components/Esqueletos';
@@ -19,7 +19,10 @@ const VISUALIZACOES = [
 
 export function Contratos() {
   const { usuario } = useAuth();
-  const permitido = usuario?.perfil === 'GESTOR_MANUTENCAO' || usuario?.perfil === 'GESTOR_PATRIMONIO';
+  const permitido =
+    usuario?.perfil === 'OPERADOR' || usuario?.perfil === 'TERCEIRIZADA';
+  // A terceirizada consulta os contratos do próprio prestador, sem cadastrar nem editar
+  const somenteLeitura = usuario?.perfil === 'TERCEIRIZADA';
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('');
@@ -56,8 +59,8 @@ export function Contratos() {
       const buscaOk =
         !alvo ||
         c.numero.toLowerCase().includes(alvo) ||
-        c.empresa.toLowerCase().includes(alvo) ||
-        c.tipo.toLowerCase().includes(alvo);
+        c.prestador.nome.toLowerCase().includes(alvo) ||
+        c.itens.some((i) => i.servico.nome.toLowerCase().includes(alvo));
       return buscaOk && (!filtro || c.status === filtro);
     });
   }, [contratos, busca, filtro]);
@@ -78,11 +81,13 @@ export function Contratos() {
         <div>
           <h2 id="contratos-titulo">Contratos</h2>
         </div>
-        <div className="inventario-lista-acoes">
-          <Link to="/contratos/novo" className="btn btn-primary">
-            Novo contrato
-          </Link>
-        </div>
+        {!somenteLeitura && (
+          <div className="inventario-lista-acoes">
+            <Link to="/contratos/novo" className="btn btn-primary">
+              Novo contrato
+            </Link>
+          </div>
+        )}
       </div>
 
 
@@ -98,46 +103,65 @@ export function Contratos() {
           onBusca={setBusca}
         />
 
-        <div className="gestao-tabela-scroll lista-cartoes lista-cartoes--contratos" role="region" aria-label="Contratos" tabIndex={0} aria-busy={carregando}>
+        <div className="gestao-tabela-scroll lista-cartoes lista-cartoes--atas" role="region" aria-label="Contratos" tabIndex={0} aria-busy={carregando}>
           <table>
             <caption className="gestao-sr-only">Contratos de manutenção e serviços</caption>
             <thead>
               <tr>
                 <th scope="col">Contrato</th>
-                <th scope="col">Fornecedor</th>
-                <th scope="col">Vigência</th>
-                <th scope="col">Valor</th>
-                <th scope="col">Status</th>
+                <th scope="col">Valor total</th>
+                <th scope="col">Saldo</th>
+                <th scope="col">Utilizado</th>
+                <th scope="col">Vencimento</th>
+                <th scope="col">Situação</th>
               </tr>
             </thead>
             <tbody>
-              {carregando && <EsqueletoTabela colunas={5} />}
+              {carregando && <EsqueletoTabela colunas={6} />}
               {!carregando &&
                 !falha &&
-                visiveis.slice(inicio, inicio + POR_PAGINA).map((c) => (
-                  <tr key={c.id}>
-                    <td className="gestao-equipamento cartao-nome">
-                      <Link
-                        className="inventario-equipamento-link"
-                        to={`/contratos/${c.id}`}
-                        aria-label={`Editar contrato ${c.numero}`}
-                      >
-                        {c.numero}
-                      </Link>
-                      <div className="cadastro-sub">{c.tipo}</div>
-                    </td>
-                    <td className="inventario-unidade cartao-fornecedor">
-                      <strong>{c.empresa}</strong>
-                    </td>
-                    <td className="inventario-data cartao-vigencia" data-label="Vigência">
-                      {formatarData(c.vigenciaInicio)} – {formatarData(c.vigenciaFim)}
-                    </td>
-                    <td className="inventario-data cartao-valor" data-label="Valor">{c.valorTotal ? formatarMoeda(c.valorTotal) : '—'}</td>
-                    <td className="cartao-status">
-                      <StatusPill valor={c.status}>{ROTULO_STATUS_CONTRATO[c.status]}</StatusPill>
-                    </td>
-                  </tr>
-                ))}
+                visiveis.slice(inicio, inicio + POR_PAGINA).map((c) => {
+                  const a = analisarContrato(c);
+                  return (
+                    <tr key={c.id}>
+                      <td className="gestao-equipamento cartao-nome">
+                        <Link
+                          className="inventario-equipamento-link"
+                          to={`/contratos/${c.id}`}
+                          aria-label={`${somenteLeitura ? 'Ver' : 'Editar'} contrato ${c.numero}`}
+                        >
+                          {c.numero}
+                        </Link>
+                        <div className="cadastro-sub">{c.prestador.nome}</div>
+                      </td>
+                      <td className="inventario-data cartao-valor" data-label="Valor total">
+                        {a.valorTotal === null ? '—' : formatarMoeda(a.valorTotal)}
+                      </td>
+                      <td className="inventario-data cartao-saldo" data-label="Saldo">
+                        {a.saldo === null ? '—' : formatarMoeda(a.saldo)}
+                      </td>
+                      <td className="cartao-uso" data-label="Utilizado">
+                        {a.utilizado === null ? (
+                          '—'
+                        ) : (
+                          <>
+                            <div className="cadastro-progresso" aria-label={`${a.utilizado.toFixed(0)}% do saldo utilizado`}>
+                              <div className="cadastro-progresso-fill" style={{ width: `${Math.min(100, a.utilizado)}%` }} />
+                            </div>
+                            <span className="cadastro-sub">{a.utilizado.toFixed(0)}%</span>
+                          </>
+                        )}
+                      </td>
+                      <td className="inventario-data cartao-vencimento" data-label="Vencimento">{formatarData(c.vigenciaFim)}</td>
+                      <td className="cartao-status">
+                        <div className="cadastro-selos">
+                          <StatusPill valor={c.status}>{ROTULO_STATUS_CONTRATO[c.status]}</StatusPill>
+                          {a.saldoBaixo && <StatusPill valor="SALDO_BAIXO">Saldo baixo</StatusPill>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

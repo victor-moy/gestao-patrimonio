@@ -71,7 +71,7 @@ const criarSchema = z.object({
 
 solicitacoesRouter.post(
   '/',
-  permitir(Perfil.UNIDADE, Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
   validarBody(criarSchema),
   async (req, res) => {
     const ids = await service.criar(req.usuario!, req.body);
@@ -79,14 +79,14 @@ solicitacoesRouter.post(
   },
 );
 
-// RN04 — somente o Gestor de Patrimônio aprova. Pra Ampliação/Substituição o
+// RN04 — somente o Administrador aprova. Pra Ampliação/Substituição o
 // próprio sistema decide reservado ou aguardando disponibilidade. Prioridade
-// (1–3, opcional) é definida pelo Gestor, não pelo solicitante (feedback
-// 17/08). Pra Recolha, o Gestor escolhe direto em qual das duas etapas ela
+// (1–3, opcional) é definida pelo Administrador, não pelo solicitante (feedback
+// 17/08). Pra Recolha, o Administrador escolhe direto em qual das duas etapas ela
 // já está (Patrimônio ou Branet) — não escolhe mais um galpão (feedback 27/08).
 solicitacoesRouter.post(
   '/:id/aprovar',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(
     z.object({
       prioridade: z.number().int().min(1).max(3).optional(),
@@ -107,7 +107,7 @@ solicitacoesRouter.post(
 
 solicitacoesRouter.post(
   '/:id/negar',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(z.object({ motivo: z.string().min(3, 'informe o motivo') })),
   async (req, res) => {
     res.json(await service.negar(req.usuario!, req.params.id, req.body.motivo));
@@ -117,7 +117,7 @@ solicitacoesRouter.post(
 // FA04 — retomada manual do vínculo quando surge ata com saldo
 solicitacoesRouter.post(
   '/:id/vincular-ata',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(
     z.object({
       ataId: z.string().uuid(),
@@ -134,20 +134,20 @@ solicitacoesRouter.post(
 // Retry manual de reserva de estoque pra quem está aguardando disponibilidade
 solicitacoesRouter.post(
   '/:id/tentar-reservar-estoque',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   async (req, res) => {
     res.json(await service.tentarReservarEstoque(req.usuario!, req.params.id));
   },
 );
 
-// Gestor de Patrimônio marca que o pedido foi lançado no Branet, informando
+// Administrador marca que o pedido foi lançado no Branet, informando
 // o número do pedido: Ampliação/Substituição (RESERVADO → AGUARDANDO_ENTREGA)
 // também informam o tombamento de cada item — não é mais uma etapa separada
 // do Galpão (feedback 17/08); Cessão de Uso (RESERVADO → CONCLUIDA) não
 // gera tombamento novo, então não envia `itens`.
 solicitacoesRouter.post(
   '/:id/lancar-branet',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(
     z.object({
       numeroPedidoBranet: z.string().min(1, 'informe o número do pedido'),
@@ -174,7 +174,7 @@ solicitacoesRouter.post(
   },
 );
 
-// Só a unidade de origem confirma a saída — nem o Gestor de Patrimônio pode
+// Só a unidade de origem confirma a saída — nem o Administrador pode
 // fazer isso por ela (mesmo padrão de confirmar-recolha).
 solicitacoesRouter.post(
   '/:id/confirmar-saida',
@@ -200,14 +200,14 @@ const confirmarRecebimentoSchema = z.object({
 
 solicitacoesRouter.post(
   '/:id/confirmar-recebimento',
-  permitir(Perfil.UNIDADE, Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
   validarBody(confirmarRecebimentoSchema),
   async (req, res) => {
     res.json(await service.confirmarRecebimento(req.usuario!, req.params.id, req.body));
   },
 );
 
-// Só a unidade de origem confirma o retorno do empréstimo — nem o Gestor de
+// Só a unidade de origem confirma o retorno do empréstimo — nem o Administrador de
 // Patrimônio pode fazer isso por ela.
 solicitacoesRouter.post(
   '/:id/confirmar-retorno',
@@ -222,7 +222,7 @@ solicitacoesRouter.post(
 // apontada na confirmação de recebimento antes de concluir (feedback 17/08)
 solicitacoesRouter.patch(
   '/:id/ajustar-tombamento',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(
     z.object({
       itens: z
@@ -241,10 +241,10 @@ solicitacoesRouter.patch(
   },
 );
 
-// Validação final do Gestor de Patrimônio, depois que a unidade já confirmou
+// Validação final do Administrador, depois que a unidade já confirmou
 solicitacoesRouter.post(
   '/:id/concluir',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   async (req, res) => {
     res.json(await service.concluirSolicitacao(req.usuario!, req.params.id));
   },
@@ -264,7 +264,7 @@ solicitacoesRouter.post(
 // de que a ampliação foi autorizada dentro de um projeto interno
 solicitacoesRouter.post(
   '/:id/anexo',
-  permitir(Perfil.UNIDADE, Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
   uploadAnexoSolicitacao.single('anexo'),
   assinaturaAnexo,
   async (req, res) => {

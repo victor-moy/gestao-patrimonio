@@ -66,7 +66,7 @@ export function EquipamentoDetalhe() {
               <Link className="btn btn-outline" to={`/solicitacoes/nova?equipamento=${equipamento.id}`}>
                 Abrir solicitação
               </Link>
-              <Link className="btn btn-outline" to={`/manutencoes/nova?equipamento=${equipamento.id}`}>
+              <Link className="btn btn-outline" to={`/solicitacoes/nova?tipo=MANUTENCAO&equipamento=${equipamento.id}`}>
                 Abrir manutenção
               </Link>
             </div>

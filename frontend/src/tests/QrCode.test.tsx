@@ -35,7 +35,7 @@ describe('QR Code do equipamento', () => {
     mockFetch({
       '/equipamentos/e1': { body: equipamento },
       '/auth/me': {
-        body: { id: '1', nome: 'Gestora', email: 'g@joinville.sc.gov.br', matricula: '1', perfil: 'GESTOR_PATRIMONIO', unidadeId: null, unidadeNome: null },
+        body: { id: '1', nome: 'Gestora', email: 'g@joinville.sc.gov.br', matricula: '1', perfil: 'OPERADOR', unidadeId: null, unidadeNome: null },
       },
       '/dashboard/alertas': { body: [] },
     });
@@ -75,7 +75,7 @@ describe('QR Code do equipamento', () => {
     mockFetch({
       '/equipamentos/e1': { body: equipamento },
       '/auth/me': {
-        body: { id: '1', nome: 'Gestora', email: 'g@joinville.sc.gov.br', matricula: '1', perfil: 'GESTOR_PATRIMONIO', unidadeId: null, unidadeNome: null },
+        body: { id: '1', nome: 'Gestora', email: 'g@joinville.sc.gov.br', matricula: '1', perfil: 'OPERADOR', unidadeId: null, unidadeNome: null },
       },
       '/dashboard/alertas': { body: [] },
     });

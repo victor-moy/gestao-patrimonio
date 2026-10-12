@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { EstadoConservacao, Perfil } from '@prisma/client';
+import { EstadoConservacao, Perfil, StatusManutencao } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
@@ -12,19 +12,34 @@ export const manutencoesRouter = Router();
 
 manutencoesRouter.use(autenticar);
 
-manutencoesRouter.get('/', async (req, res) => {
+// Leitura: só quem trabalha com manutenção. O Galpão não tem acesso (e a terceirizada só vê as do seu contrato)
+const leitura = permitir(Perfil.OPERADOR, Perfil.UNIDADE, Perfil.TERCEIRIZADA);
+
+// Minimização de dados: a terceirizada não precisa do e-mail institucional da unidade (usado só nos avisos do sistema)
+function paraPerfil<T extends { unidade: { emailBase?: string | null } }>(perfil: Perfil, manutencao: T): T {
+  if (perfil !== Perfil.TERCEIRIZADA) return manutencao;
+  const unidade = { ...manutencao.unidade };
+  delete unidade.emailBase;
+  return { ...manutencao, unidade } as T;
+}
+
+manutencoesRouter.get('/', leitura, async (req, res) => {
+  const bruto = req.query.status;
+  if (bruto !== undefined && (typeof bruto !== 'string' || !(bruto in StatusManutencao))) {
+    throw new AppError('Status inválido.', 422);
+  }
   const manutencoes = await service.listar(req.usuario!, {
-    status: req.query.status as string | undefined,
-    busca: req.query.busca as string | undefined,
+    status: bruto as StatusManutencao | undefined,
+    busca: typeof req.query.busca === 'string' ? req.query.busca : undefined,
   });
-  res.json(manutencoes);
+  res.json(manutencoes.map((m) => paraPerfil(req.usuario!.perfil, m)));
 });
 
-manutencoesRouter.get('/:id', async (req, res) => {
-  res.json(await service.buscarPorId(req.usuario!, req.params.id));
+manutencoesRouter.get('/:id', leitura, async (req, res) => {
+  res.json(paraPerfil(req.usuario!.perfil, await service.buscarPorId(req.usuario!, req.params.id)));
 });
 
-manutencoesRouter.get('/:id/historico', async (req, res) => {
+manutencoesRouter.get('/:id/historico', leitura, async (req, res) => {
   res.json(await service.historico(req.usuario!, req.params.id));
 });
 
@@ -41,7 +56,7 @@ const solicitarSchema = z.object({
 // UC05 — a Unidade solicita manutenção
 manutencoesRouter.post(
   '/',
-  permitir(Perfil.UNIDADE, Perfil.GESTOR_MANUTENCAO),
+  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
   validarBody(solicitarSchema),
   async (req, res) => {
     const manutencao = await service.solicitar(req.usuario!, req.body);
@@ -49,37 +64,37 @@ manutencoesRouter.post(
   },
 );
 
-// RN03 — somente o Gestor de Manutenção decide
+// RN03 — somente o Administrador decide
 manutencoesRouter.post(
   '/:id/aprovar',
-  permitir(Perfil.GESTOR_MANUTENCAO),
-  validarBody(z.object({ contratoId: z.string().uuid().optional() })),
+  permitir(Perfil.OPERADOR),
+  validarBody(z.object({ contratoItemId: z.string().uuid('selecione o item de contrato que cobre a manutenção') })),
   async (req, res) => {
-    res.json(await service.aprovar(req.usuario!, req.params.id, req.body.contratoId));
+    res.json(await service.aprovar(req.usuario!, req.params.id, req.body.contratoItemId));
   },
 );
 
 manutencoesRouter.post(
   '/:id/negar',
-  permitir(Perfil.GESTOR_MANUTENCAO),
+  permitir(Perfil.OPERADOR),
   validarBody(z.object({ motivo: z.string().min(3, 'informe o motivo da negação') })),
   async (req, res) => {
     res.json(await service.negar(req.usuario!, req.params.id, req.body.motivo));
   },
 );
 
+// Só a terceirizada do contrato lança o orçamento (o item de contrato é o escolhido na aprovação)
 manutencoesRouter.post(
   '/:id/orcamento',
-  permitir(Perfil.GESTOR_MANUTENCAO),
+  permitir(Perfil.TERCEIRIZADA),
   validarBody(
     z.object({
       valor: z.number().positive('o valor do orçamento deve ser positivo'),
       descricao: z.string().optional(),
-      contratoId: z.string().uuid().optional(),
     }),
   ),
   async (req, res) => {
-    res.json(await service.registrarOrcamento(req.usuario!, req.params.id, req.body));
+    res.json(paraPerfil(req.usuario!.perfil, await service.registrarOrcamento(req.usuario!, req.params.id, req.body)));
   },
 );
 
@@ -89,7 +104,7 @@ const booleanFlexivel = z.union([z.boolean(), z.enum(['true', 'false'])]).transf
 // Laudo de baixa (RF16) é um upload de PDF — só é exigido quando aprovado=false
 manutencoesRouter.post(
   '/:id/validar-orcamento',
-  permitir(Perfil.GESTOR_MANUTENCAO),
+  permitir(Perfil.OPERADOR),
   uploadLaudoPdf.single('laudo'),
   assinaturaPdf,
   validarBody(z.object({ aprovado: booleanFlexivel })),
@@ -104,33 +119,21 @@ manutencoesRouter.post(
   },
 );
 
-manutencoesRouter.post(
-  '/:id/baixa',
-  permitir(Perfil.GESTOR_MANUTENCAO),
-  uploadLaudoPdf.single('laudo'),
-  assinaturaPdf,
-  async (req, res) => {
-    if (!req.file) {
-      throw new AppError('Envie o laudo técnico da baixa em PDF no campo "laudo".', 422);
-    }
-    const laudoUrl = `/uploads/laudos/${req.file.filename}`;
-    res.json(await service.emitirBaixa(req.usuario!, req.params.id, laudoUrl));
-  },
-);
-
+// Só a terceirizada confirma que o reparo terminou; depois disso Unidade e Administrador confirmam o retorno.
+// Em execução, o Administrador não emite baixa nem marca retorno: a baixa só nasce da rejeição do orçamento.
 manutencoesRouter.post(
   '/:id/registrar-retorno',
-  permitir(Perfil.GESTOR_MANUTENCAO),
+  permitir(Perfil.TERCEIRIZADA),
   validarBody(z.object({ custoFinal: z.number().nonnegative().optional() })),
   async (req, res) => {
-    res.json(await service.registrarRetorno(req.usuario!, req.params.id, req.body.custoFinal));
+    res.json(paraPerfil(req.usuario!.perfil, await service.registrarRetorno(req.usuario!, req.params.id, req.body.custoFinal)));
   },
 );
 
-// RN11 — confirmação dupla (Unidade + Gestor de Manutenção)
+// RN11 — confirmação dupla (Unidade + Administrador)
 manutencoesRouter.post(
   '/:id/confirmar-retorno',
-  permitir(Perfil.UNIDADE, Perfil.GESTOR_MANUTENCAO),
+  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
   validarBody(z.object({ estadoPosManutencao: z.nativeEnum(EstadoConservacao).optional() })),
   async (req, res) => {
     res.json(

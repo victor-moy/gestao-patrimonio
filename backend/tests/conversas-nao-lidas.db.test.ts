@@ -41,8 +41,8 @@ rodar('Mensagens não lidas (PostgreSQL real)', () => {
       });
     const [unid, gA, gB, outro] = await Promise.all([
       novoUsuario('unidade', Perfil.UNIDADE, u1.id),
-      novoUsuario('gestorA', Perfil.GESTOR_PATRIMONIO),
-      novoUsuario('gestorB', Perfil.GESTOR_PATRIMONIO),
+      novoUsuario('gestorA', Perfil.OPERADOR),
+      novoUsuario('gestorB', Perfil.OPERADOR),
       novoUsuario('outra', Perfil.UNIDADE, u2.id),
     ]);
     Object.assign(ids, { unidade: u1.id, outraUnidade: u2.id, unidadeUser: unid.id, gestorA: gA.id, gestorB: gB.id, outraUnidadeUser: outro.id });
@@ -76,7 +76,7 @@ rodar('Mensagens não lidas (PostgreSQL real)', () => {
 
   it('conta só mensagens de outras pessoas e ignora as próprias', async () => {
     expect(await naoLidasDe(usuario(Perfil.UNIDADE, ids.unidadeUser, ids.unidade), ids.pedidoDecidido)).toBe(2);
-    expect(await naoLidasDe(usuario(Perfil.GESTOR_PATRIMONIO, ids.gestorA), ids.pedidoDecidido)).toBe(1);
+    expect(await naoLidasDe(usuario(Perfil.OPERADOR, ids.gestorA), ids.pedidoDecidido)).toBe(1);
     expect((await service.contarNaoLidas(usuario(Perfil.UNIDADE, ids.unidadeUser, ids.unidade))).total).toBe(2);
   });
 
@@ -93,7 +93,7 @@ rodar('Mensagens não lidas (PostgreSQL real)', () => {
   });
 
   it('o upsert é atômico: chamadas concorrentes geram um único registro e nenhuma falha', async () => {
-    const u = usuario(Perfil.GESTOR_PATRIMONIO, ids.gestorA);
+    const u = usuario(Perfil.OPERADOR, ids.gestorA);
     const resultados = await Promise.allSettled(
       Array.from({ length: 25 }, (_, i) =>
         service.marcarLida(u, 'solicitacao', ids.pedidoDecidido, new Date(Date.UTC(2026, 9, 10, 10, i))),
@@ -110,14 +110,14 @@ rodar('Mensagens não lidas (PostgreSQL real)', () => {
   });
 
   it('gestor só enxerga conversa em que está envolvido; pedido pendente sem decisão é fila de todos', async () => {
-    const gestorB = usuario(Perfil.GESTOR_PATRIMONIO, ids.gestorB);
+    const gestorB = usuario(Perfil.OPERADOR, ids.gestorB);
     const lista = await service.listarConversas(gestorB);
     expect(lista.map((c) => c.id)).toContain(ids.pedidoPendente); // fila
     expect(lista.map((c) => c.id)).not.toContain(ids.pedidoDecidido); // decidido por outro gestor
     // ao decidir, o pedido sai da fila dos demais e passa a ser do gestor que decidiu
     await prisma.solicitacao.update({ where: { id: ids.pedidoPendente }, data: { decididoPorId: ids.gestorA, status: StatusSolicitacao.AGUARDANDO_ENTREGA } });
     expect((await service.listarConversas(gestorB)).map((c) => c.id)).not.toContain(ids.pedidoPendente);
-    expect((await service.listarConversas(usuario(Perfil.GESTOR_PATRIMONIO, ids.gestorA))).map((c) => c.id)).toContain(ids.pedidoPendente);
+    expect((await service.listarConversas(usuario(Perfil.OPERADOR, ids.gestorA))).map((c) => c.id)).toContain(ids.pedidoPendente);
     // escrever na conversa torna o gestor B envolvido
     await msg({ solicitacaoId: ids.pedidoPendente }, ids.gestorB, 'entrei', '2026-10-10T12:00:00Z');
     expect((await service.listarConversas(gestorB)).map((c) => c.id)).toContain(ids.pedidoPendente);
@@ -129,7 +129,7 @@ rodar('Mensagens não lidas (PostgreSQL real)', () => {
       prisma.$executeRaw`INSERT INTO "conversa_leitura" ("id","usuario_id","lida_ate") VALUES (${randomUUID()}, ${ids.gestorA}, now())`,
     ).rejects.toThrow();
     const temp = await prisma.solicitacao.create({ data: { tipo: 'AMPLIACAO', justificativa: 'teste', unidadeOrigemId: ids.unidade, criadoPorId: ids.unidadeUser } });
-    await service.marcarLida(usuario(Perfil.GESTOR_PATRIMONIO, ids.gestorA), 'solicitacao', temp.id, new Date());
+    await service.marcarLida(usuario(Perfil.OPERADOR, ids.gestorA), 'solicitacao', temp.id, new Date());
     expect(await prisma.leituraConversa.count({ where: { solicitacaoId: temp.id } })).toBe(1);
     await prisma.solicitacao.delete({ where: { id: temp.id } });
     expect(await prisma.leituraConversa.count({ where: { solicitacaoId: temp.id } })).toBe(0);

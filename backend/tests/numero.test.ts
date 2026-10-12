@@ -31,21 +31,21 @@ describe('numeroDaBusca', () => {
 describe('Busca por número da requisição', () => {
   it('solicitações: SOL-0012 filtra pelo número', async () => {
     prismaMock.solicitacao.findMany.mockResolvedValue([]);
-    await request(app).get('/solicitacoes?busca=SOL-0012').set(auth('GESTOR_PATRIMONIO'));
+    await request(app).get('/solicitacoes?busca=SOL-0012').set(auth('OPERADOR'));
     const where = (prismaMock.solicitacao.findMany.mock.calls[0][0] as { where: { OR: unknown[] } }).where;
     expect(where.OR).toContainEqual({ numero: 12 });
   });
 
   it('manutenções: MAN-0007 filtra pelo número', async () => {
     prismaMock.manutencao.findMany.mockResolvedValue([]);
-    await request(app).get('/manutencoes?busca=MAN-0007').set(auth('GESTOR_MANUTENCAO'));
+    await request(app).get('/manutencoes?busca=MAN-0007').set(auth('OPERADOR'));
     const where = (prismaMock.manutencao.findMany.mock.calls[0][0] as { where: { OR: unknown[] } }).where;
     expect(where.OR).toContainEqual({ numero: 7 });
   });
 
   it('texto comum não vira filtro por número', async () => {
     prismaMock.solicitacao.findMany.mockResolvedValue([]);
-    await request(app).get('/solicitacoes?busca=autoclave').set(auth('GESTOR_PATRIMONIO'));
+    await request(app).get('/solicitacoes?busca=autoclave').set(auth('OPERADOR'));
     const where = (prismaMock.solicitacao.findMany.mock.calls[0][0] as { where: { OR: Array<Record<string, unknown>> } }).where;
     expect(where.OR.some((c) => 'numero' in c)).toBe(false);
   });

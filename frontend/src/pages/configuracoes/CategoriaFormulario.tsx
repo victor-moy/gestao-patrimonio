@@ -45,11 +45,11 @@ export function CategoriaFormulario() {
 
   function voltar() {
     if (location.key !== 'default') void navigate(-1);
-    else void navigate('/configuracoes/categorias');
+    else void navigate('/configuracoes/itens/categorias');
   }
 
   function concluir() {
-    void navigate('/configuracoes/categorias', { replace: true });
+    void navigate('/configuracoes/itens/categorias', { replace: true });
   }
 
   async function aoEnviar(e: FormEvent) {

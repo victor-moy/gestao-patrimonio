@@ -33,7 +33,7 @@ export function Tipos() {
         nenhumEncontrado: 'Nenhum tipo encontrado',
       }}
       acoes={
-        <Link to="/configuracoes/tipos/novo" className="btn btn-primary">
+        <Link to="/configuracoes/itens/tipos/novo" className="btn btn-primary">
           Novo tipo
         </Link>
       }
@@ -50,7 +50,7 @@ export function Tipos() {
             <>
               <Link
                 className="inventario-equipamento-link"
-                to={`/configuracoes/tipos/${t.id}`}
+                to={`/configuracoes/itens/tipos/${t.id}`}
                 aria-label={`Editar tipo ${t.nome}`}
               >
                 {t.nome}

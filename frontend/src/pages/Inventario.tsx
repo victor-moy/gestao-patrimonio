@@ -21,7 +21,7 @@ import { StatusPill } from '../components/StatusPill';
 
 export function Inventario() {
   const { usuario } = useAuth();
-  const podeEditar = usuario?.perfil === 'GALPAO' || usuario?.perfil === 'GESTOR_PATRIMONIO';
+  const podeEditar = usuario?.perfil === 'GALPAO' || usuario?.perfil === 'OPERADOR';
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [busca, setBusca] = useState('');

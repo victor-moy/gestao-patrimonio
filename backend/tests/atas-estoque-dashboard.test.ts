@@ -17,7 +17,7 @@ describe('Atas (UC19/UC20, RF33-RF35)', () => {
     } as never);
     const res = await request(app)
       .post('/atas')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         numero: '067/2026',
         fornecedor: 'OdontoMed Equipamentos',
@@ -36,7 +36,7 @@ describe('Atas (UC19/UC20, RF33-RF35)', () => {
     prismaMock.ata.findUnique.mockResolvedValue({ id: 'ata-1' } as never);
     const res = await request(app)
       .post('/atas')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({
         numero: '067/2026',
         fornecedor: 'OdontoMed Equipamentos',
@@ -66,7 +66,7 @@ describe('Atas (UC19/UC20, RF33-RF35)', () => {
         ativo: true,
       },
     ] as never);
-    const res = await request(app).get('/atas/alertas').set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get('/atas/alertas').set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     const tipos = res.body.map((a: { tipo: string }) => a.tipo);
     expect(tipos).toContain('VENCIMENTO');
@@ -158,7 +158,7 @@ describe('Estoque do galpão (RF31/RF32)', () => {
     ]);
     const res = await request(app)
       .get('/estoque?unidadeId=galpao-1')
-      .set(auth('GESTOR_PATRIMONIO'));
+      .set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     expect(res.body[0]).toMatchObject({ quantidade: 5, reservado: 3 });
   });
@@ -187,7 +187,7 @@ describe('Dashboard (UC21, RF36/RF37)', () => {
     ]);
     prismaMock.unidade.findMany.mockResolvedValue([{ id: 'u-1', nome: 'UBS Norte' }] as never);
 
-    const res = await request(app).get('/dashboard').set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get('/dashboard').set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     expect(res.body.totalEquipamentos).toBe(280);
     expect(res.body.emManutencao).toBe(18);
@@ -206,7 +206,7 @@ describe('Dashboard (UC21, RF36/RF37)', () => {
         unidadeDestino: { nome: 'UBS Norte' },
       },
     ] as never);
-    const res = await request(app).get('/dashboard/alertas').set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get('/dashboard/alertas').set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     expect(res.body[0].tipo).toBe('EMPRESTIMO_ATRASADO');
   });

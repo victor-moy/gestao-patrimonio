@@ -25,6 +25,18 @@ describe('Chat da solicitação', () => {
     expect(res.status).toBe(401);
   });
 
+  it('terceirizada conversa só nas manutenções de contrato do próprio prestador, e nunca em solicitações', async () => {
+    const t = auth('TERCEIRIZADA', { sub: 'terc-1', prestadorId: 'prest-1' });
+    prismaMock.manutencao.findUnique.mockResolvedValueOnce({ ...manutencao, contrato: { prestadorId: 'outro' } } as never);
+    expect((await request(app).get(`/manutencoes/${ID}/mensagens`).set(t)).status).toBe(403);
+    prismaMock.manutencao.findUnique.mockResolvedValueOnce({ ...manutencao, contrato: null } as never);
+    expect((await request(app).get(`/manutencoes/${ID}/mensagens`).set(t)).status).toBe(403);
+    prismaMock.manutencao.findUnique.mockResolvedValue({ ...manutencao, contrato: { prestadorId: 'prest-1' } } as never);
+    prismaMock.mensagemChat.findMany.mockResolvedValue([] as never);
+    expect((await request(app).get(`/manutencoes/${ID}/mensagens`).set(t)).status).toBe(200);
+    expect((await request(app).get(`/solicitacoes/${ID}/mensagens`).set(t)).status).toBe(403);
+  });
+
   it('a unidade da solicitação lista as mensagens em ordem cronológica', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue(solicitacao as never);
     prismaMock.mensagemChat.findMany.mockResolvedValue([mensagem] as never);
@@ -43,7 +55,7 @@ describe('Chat da solicitação', () => {
     prismaMock.mensagemChat.findMany.mockResolvedValue([]);
     await request(app)
       .get(`/solicitacoes/${ID}/mensagens?depois=2026-10-10T10:00:00.000Z`)
-      .set(auth('GESTOR_PATRIMONIO'));
+      .set(auth('OPERADOR'));
     expect(prismaMock.mensagemChat.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { solicitacaoId: ID, criadoEm: { gt: new Date('2026-10-10T10:00:00.000Z') } },
@@ -52,7 +64,7 @@ describe('Chat da solicitação', () => {
   });
 
   it('rejeita "depois" inválido', async () => {
-    const res = await request(app).get(`/solicitacoes/${ID}/mensagens?depois=ontem`).set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get(`/solicitacoes/${ID}/mensagens?depois=ontem`).set(auth('OPERADOR'));
     expect(res.status).toBe(422);
   });
 
@@ -68,14 +80,9 @@ describe('Chat da solicitação', () => {
     expect(prismaMock.mensagemChat.create).not.toHaveBeenCalled();
   });
 
-  it('Gestor de Manutenção não participa de conversas de solicitação', async () => {
-    const res = await request(app).get(`/solicitacoes/${ID}/mensagens`).set(auth('GESTOR_MANUTENCAO'));
-    expect(res.status).toBe(403);
-  });
-
   it('solicitação inexistente retorna 404', async () => {
     prismaMock.solicitacao.findUnique.mockResolvedValue(null);
-    const res = await request(app).get(`/solicitacoes/${ID}/mensagens`).set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get(`/solicitacoes/${ID}/mensagens`).set(auth('OPERADOR'));
     expect(res.status).toBe(404);
   });
 
@@ -99,7 +106,7 @@ describe('Chat da solicitação', () => {
     prismaMock.mensagemChat.create.mockResolvedValue(mensagem as never);
     await request(app)
       .post(`/solicitacoes/${ID}/mensagens`)
-      .set(auth('GESTOR_PATRIMONIO', { nome: 'Samuel' }))
+      .set(auth('OPERADOR', { nome: 'Samuel' }))
       .send({ texto: 'Segredo do conteúdo' });
     const dados = (prismaMock.notificacao.create.mock.calls[0][0] as { data: { corpo: string; destinatario: string } }).data;
     expect(dados.destinatario).toBe('sul@joinville.sc.gov.br');
@@ -112,7 +119,7 @@ describe('Chat da solicitação', () => {
     ['longa demais', 'a'.repeat(2001)],
   ])('recusa mensagem %s', async (_nome, texto) => {
     prismaMock.solicitacao.findUnique.mockResolvedValue(solicitacao as never);
-    const res = await request(app).post(`/solicitacoes/${ID}/mensagens`).set(auth('GESTOR_PATRIMONIO')).send({ texto });
+    const res = await request(app).post(`/solicitacoes/${ID}/mensagens`).set(auth('OPERADOR')).send({ texto });
     expect(res.status).toBe(422);
     expect(prismaMock.mensagemChat.create).not.toHaveBeenCalled();
   });
@@ -124,7 +131,7 @@ describe('Chat da manutenção', () => {
     prismaMock.mensagemChat.create.mockResolvedValue(mensagem as never);
     const res = await request(app)
       .post(`/manutencoes/${ID}/mensagens`)
-      .set(auth('GESTOR_MANUTENCAO', { sub: 'gm-1' }))
+      .set(auth('OPERADOR', { sub: 'gm-1' }))
       .send({ texto: 'Orçamento chegou' });
     expect(res.status).toBe(201);
     expect(prismaMock.mensagemChat.create).toHaveBeenCalledWith(
@@ -161,7 +168,7 @@ describe('Lista de conversas', () => {
     prismaMock.manutencao.findMany.mockResolvedValue([
       { id: 'm1', unidade: { nome: 'UBS Norte' }, equipamento: { descricao: 'Microscópio' }, mensagens: ultima('recente', '2026-10-10T10:00:00Z') },
     ] as never);
-    const res = await request(app).get('/conversas').set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get('/conversas').set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     expect(res.body.map((c: { id: string }) => c.id)).toEqual(['m1', 's1']);
     expect(res.body[1]).toMatchObject({ contexto: 'solicitacao', tipoSolicitacao: 'AMPLIACAO', item: 'Autoclave', ultimoTexto: 'antiga' });
@@ -181,14 +188,15 @@ describe('Lista de conversas', () => {
     );
   });
 
-  it('Galpão vê só solicitações; Gestor de Manutenção só manutenções', async () => {
+  it('Galpão vê só solicitações; o Administrador vê solicitações e manutenções', async () => {
     prismaMock.solicitacao.findMany.mockResolvedValue([]);
     prismaMock.manutencao.findMany.mockResolvedValue([]);
     await request(app).get('/conversas').set(auth('GALPAO', { unidadeId: 'g1' }));
     expect(prismaMock.manutencao.findMany).not.toHaveBeenCalled();
     prismaMock.solicitacao.findMany.mockClear();
-    await request(app).get('/conversas').set(auth('GESTOR_MANUTENCAO'));
-    expect(prismaMock.solicitacao.findMany).not.toHaveBeenCalled();
+    await request(app).get('/conversas').set(auth('OPERADOR'));
+    expect(prismaMock.solicitacao.findMany).toHaveBeenCalled();
+    expect(prismaMock.manutencao.findMany).toHaveBeenCalled();
   });
 
   it('exige autenticação', async () => {
@@ -209,43 +217,31 @@ describe('Mensagens não lidas', () => {
     expect(res.body[0]).toMatchObject({ id: 's1', naoLidas: 3 });
   });
 
-  it('Gestor de Patrimônio só lista solicitações em que está envolvido, mais a fila de pendentes sem decisão', async () => {
+  it('Administrador lista só o que fez parte, mais a fila dos pedidos pendentes sem decisão (solicitações e manutenções)', async () => {
     prismaMock.solicitacao.findMany.mockResolvedValue([]);
     prismaMock.manutencao.findMany.mockResolvedValue([]);
-    await request(app).get('/conversas').set(auth('GESTOR_PATRIMONIO', { sub: 'gp-1' }));
+    await request(app).get('/conversas').set(auth('OPERADOR', { sub: 'op-1' }));
     expect(prismaMock.solicitacao.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           mensagens: { some: {} },
           OR: [
-            { mensagens: { some: { autorId: 'gp-1' } } },
-            { criadoPorId: 'gp-1' },
-            { decididoPorId: 'gp-1' },
+            { mensagens: { some: { autorId: 'op-1' } } },
+            { criadoPorId: 'op-1' },
+            { decididoPorId: 'op-1' },
             { status: 'PENDENTE_APROVACAO', decididoPorId: null },
           ],
         },
       }),
     );
-    // nas manutenções o Gestor de Patrimônio não tem fila: só o que fez parte
-    const where = (prismaMock.manutencao.findMany.mock.calls[0][0] as { where: { OR: unknown[] } }).where;
-    expect(where.OR).toEqual([
-      { mensagens: { some: { autorId: 'gp-1' } } },
-      { solicitanteId: 'gp-1' },
-      { decididoPorId: 'gp-1' },
-    ]);
-  });
-
-  it('Gestor de Manutenção tem a fila das manutenções pendentes e o mesmo filtro de envolvimento', async () => {
-    prismaMock.manutencao.findMany.mockResolvedValue([]);
-    await request(app).get('/conversas').set(auth('GESTOR_MANUTENCAO', { sub: 'gm-1' }));
     expect(prismaMock.manutencao.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
           mensagens: { some: {} },
           OR: [
-            { mensagens: { some: { autorId: 'gm-1' } } },
-            { solicitanteId: 'gm-1' },
-            { decididoPorId: 'gm-1' },
+            { mensagens: { some: { autorId: 'op-1' } } },
+            { solicitanteId: 'op-1' },
+            { decididoPorId: 'op-1' },
             { status: 'PENDENTE_APROVACAO', decididoPorId: null },
           ],
         },
@@ -291,7 +287,7 @@ describe('Mensagens não lidas', () => {
     const antes = Date.now();
     await request(app)
       .post(`/manutencoes/${ID}/mensagens/lida`)
-      .set(auth('GESTOR_MANUTENCAO'))
+      .set(auth('OPERADOR'))
       .send({ ate: '2999-01-01T00:00:00.000Z' });
     const data = ((prismaMock.$executeRaw as jest.Mock).mock.calls[0][0] as { values: unknown[] }).values.find((v) => v instanceof Date) as Date;
     expect(data.getTime()).toBeGreaterThanOrEqual(antes);
@@ -307,16 +303,16 @@ describe('Mensagens não lidas', () => {
     expect(outra.status).toBe(403);
     const perfil = await request(app)
       .post(`/solicitacoes/${ID}/mensagens/lida`)
-      .set(auth('GESTOR_MANUTENCAO'))
+      .set(auth('TERCEIRIZADA', { prestadorId: 'p-1' }))
       .send({ ate: '2026-10-10T10:00:00.000Z' });
     expect(perfil.status).toBe(403);
     expect(prismaMock.$executeRaw).not.toHaveBeenCalled();
   });
 
   it('recusa data inválida ou ausente e exige autenticação', async () => {
-    const invalida = await request(app).post(`/solicitacoes/${ID}/mensagens/lida`).set(auth('GESTOR_PATRIMONIO')).send({ ate: 'ontem' });
+    const invalida = await request(app).post(`/solicitacoes/${ID}/mensagens/lida`).set(auth('OPERADOR')).send({ ate: 'ontem' });
     expect(invalida.status).toBe(422);
-    const ausente = await request(app).post(`/solicitacoes/${ID}/mensagens/lida`).set(auth('GESTOR_PATRIMONIO')).send({});
+    const ausente = await request(app).post(`/solicitacoes/${ID}/mensagens/lida`).set(auth('OPERADOR')).send({});
     expect(ausente.status).toBe(422);
     expect((await request(app).post(`/solicitacoes/${ID}/mensagens/lida`).send({ ate: '2026-10-10T10:00:00.000Z' })).status).toBe(401);
   });

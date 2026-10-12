@@ -63,7 +63,7 @@ const equipamentos = [
 describe('Inventário (UC03/UC04)', () => {
   it('lista equipamentos com status, conservação e flag de emenda', async () => {
     mockFetch({
-      ...autenticarComo('GESTOR_PATRIMONIO'),
+      ...autenticarComo('OPERADOR'),
       '/equipamentos': { body: equipamentos },
       '/unidades': { body: [] },
       '/categorias': { body: [] },
@@ -153,7 +153,7 @@ describe('Inventário (UC03/UC04)', () => {
 
   it('abre o equipamento em uma página de detalhe e permite voltar à lista', async () => {
     mockFetch({
-      ...autenticarComo('GESTOR_PATRIMONIO'),
+      ...autenticarComo('OPERADOR'),
       '/equipamentos/eq-1': {
         body: {
           ...equipamentos[0],
@@ -193,7 +193,7 @@ it('pagina os resultados e reinicia a página ao filtrar por status', async () =
     tombamento: `PAT-${String(i + 1).padStart(3, '0')}`,
   }));
   const chamadas = mockFetch({
-    ...autenticarComo('GESTOR_PATRIMONIO'),
+    ...autenticarComo('OPERADOR'),
     '/equipamentos?status=EM_MANUTENCAO': { body: [equipamentos[1]] },
     '/equipamentos': { body: lista },
     '/unidades': { body: [] },
@@ -218,7 +218,7 @@ it('pagina os resultados e reinicia a página ao filtrar por status', async () =
 
 it('mantém status adicionais, combina busca e unidade e permite limpar filtros vazios', async () => {
   const chamadas = mockFetch({
-    ...autenticarComo('GESTOR_PATRIMONIO'),
+    ...autenticarComo('OPERADOR'),
     '/equipamentos?busca=xyz': { body: [] },
     '/equipamentos': { body: equipamentos },
     '/unidades': { body: [{ id: 'u1', nome: 'UBS Centro' }] },
@@ -256,7 +256,7 @@ it('mantém status adicionais, combina busca e unidade e permite limpar filtros 
 it('distingue falha de consulta de inventário vazio e permite tentar novamente', async () => {
   let falhar = true;
   mockFetch({
-    ...autenticarComo('GESTOR_PATRIMONIO'),
+    ...autenticarComo('OPERADOR'),
     '/equipamentos': () =>
       falhar ? { status: 500, body: { mensagem: 'Falha temporária' } } : { body: equipamentos },
     '/unidades': { body: [] },

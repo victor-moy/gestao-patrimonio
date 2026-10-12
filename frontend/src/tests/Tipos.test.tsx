@@ -11,7 +11,7 @@ const gestor = {
       nome: 'Gestora Teste',
       email: 'gestora@joinville.sc.gov.br',
       matricula: '10001',
-      perfil: 'GESTOR_PATRIMONIO',
+      perfil: 'OPERADOR',
       unidadeId: null,
       unidadeNome: null,
     },
@@ -61,7 +61,7 @@ describe('Tipos de itens', () => {
 
   it('lista os tipos com categoria, preço e quantidade de equipamentos', async () => {
     rotas();
-    abrir('/configuracoes/tipos');
+    abrir('/configuracoes/itens/tipos');
 
     const link = await screen.findByRole('link', { name: 'Editar tipo Autoclave vertical 50L' });
     const linha = link.closest('tr')!;
@@ -74,7 +74,7 @@ describe('Tipos de itens', () => {
   it('mostra falha de carregamento da lista com nova tentativa', async () => {
     rotas({ '/categorias/tipos': { status: 500, body: { mensagem: 'Servidor indisponível' } } });
     const alerta = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
-    abrir('/configuracoes/tipos');
+    abrir('/configuracoes/itens/tipos');
 
     await waitFor(() => expect(alerta).toHaveBeenCalledWith('Servidor indisponível'));
     expect(screen.getByRole('button', { name: /tentar novamente/i })).toBeInTheDocument();
@@ -85,7 +85,7 @@ describe('Tipos de itens', () => {
       '/categorias/tipos': (init) =>
         init?.method === 'POST' ? { body: { ...tipo, id: 'novo' } } : { body: [tipo] },
     });
-    abrir('/configuracoes/tipos/novo');
+    abrir('/configuracoes/itens/tipos/novo');
 
     const codigo = await screen.findByLabelText('Código');
     // os campos ficam desabilitados enquanto os dados carregam
@@ -95,17 +95,24 @@ describe('Tipos de itens', () => {
     await waitFor(() => expect(screen.getByRole('option', { name: 'Esterilização' })).toBeInTheDocument());
     await userEvent.selectOptions(screen.getByLabelText('Categoria'), 'c1');
     await userEvent.type(screen.getByLabelText('Preço de referência (R$)'), '100');
+    expect(screen.queryByLabelText('Preço de mercado (R$)')).not.toBeInTheDocument();
+    const permitida = screen.getByLabelText('Manutenção permitida');
+    expect(permitida).toHaveValue('ambas');
+    expect(within(permitida).getByRole('option', { name: 'Nenhuma' })).toBeInTheDocument();
+    await userEvent.selectOptions(permitida, 'Corretiva');
     await userEvent.type(screen.getByLabelText('Descrição'), 'Digital');
     const arquivo = new File(['x'], 'raiox.png', { type: 'image/png' });
     await userEvent.upload(document.getElementById('tipo-imagem') as HTMLInputElement, arquivo);
     expect(screen.getByRole('button', { name: 'Trocar imagem do item' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
-    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/tipos'));
+    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/itens/tipos'));
     const post = chamadas.find((c) => c.init?.method === 'POST' && c.url.endsWith('/categorias/tipos'));
     expect(JSON.parse(String(post?.init?.body))).toMatchObject({
       codigo: 'RX-1',
       nome: 'Raio-X',
+      permitePreventiva: false,
+      permiteCorretiva: true,
       categoriaId: 'c1',
       preco: 100,
       descricao: 'Digital',
@@ -115,14 +122,14 @@ describe('Tipos de itens', () => {
 
   it('edita um tipo existente e limpa o preço', async () => {
     const chamadas = rotas({ '/categorias/tipos/t1': { body: tipo } });
-    abrir('/configuracoes/tipos/t1');
+    abrir('/configuracoes/itens/tipos/t1');
 
     const codigo = await screen.findByLabelText('Código');
     await waitFor(() => expect(codigo).toHaveValue('AUT-V50'));
     await userEvent.clear(screen.getByLabelText('Preço de referência (R$)'));
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
-    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/tipos'));
+    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/itens/tipos'));
     const patch = chamadas.find((c) => c.init?.method === 'PATCH');
     expect(JSON.parse(String(patch?.init?.body)).preco).toBeNull();
   });
@@ -138,7 +145,7 @@ describe('Tipos de itens', () => {
     });
     const alerta = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValue(true);
-    abrir('/configuracoes/tipos/t1');
+    abrir('/configuracoes/itens/tipos/t1');
 
     const excluir = await screen.findByRole('button', { name: 'Excluir' });
     await userEvent.click(excluir);
@@ -147,12 +154,12 @@ describe('Tipos de itens', () => {
     await userEvent.click(excluir);
     await waitFor(() => expect(alerta).toHaveBeenCalledWith('Tipo em uso.'));
     await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
-    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/tipos'));
+    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/itens/tipos'));
   });
 
   it('avisa quando o tipo não existe', async () => {
     rotas();
-    abrir('/configuracoes/tipos/inexistente');
+    abrir('/configuracoes/itens/tipos/inexistente');
 
     expect(await screen.findByText('Tipo não encontrado.')).toBeInTheDocument();
   });

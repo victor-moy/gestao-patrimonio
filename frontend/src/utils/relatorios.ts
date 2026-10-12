@@ -1,10 +1,14 @@
-export type OpcaoRelatorio = 'visao-geral' | 'emprestimos' | 'cessoes' | 'itens-estoque';
+export type OpcaoRelatorio = 'visao-geral' | 'manutencoes' | 'emprestimos' | 'cessoes' | 'ampliacao';
 
 // Cada relatório é um submenu de "Relatórios" na navegação lateral (rota própria).
 export const SUBMENUS_RELATORIOS: Array<{ valor: OpcaoRelatorio; rotulo: string }> = [
   {
     valor: 'visao-geral',
     rotulo: 'Visão geral',
+  },
+  {
+    valor: 'ampliacao',
+    rotulo: 'Ampliação',
   },
   {
     valor: 'emprestimos',
@@ -15,8 +19,8 @@ export const SUBMENUS_RELATORIOS: Array<{ valor: OpcaoRelatorio; rotulo: string 
     rotulo: 'Cessões de uso',
   },
   {
-    valor: 'itens-estoque',
-    rotulo: 'Itens e estoque',
+    valor: 'manutencoes',
+    rotulo: 'Manutenções',
   },
 ];
 
