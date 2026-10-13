@@ -4,17 +4,18 @@ import { Perfil, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { env } from '../../config/env';
 import { AppError } from '../../errors/AppError';
-import type { AuthPayload } from '../../middlewares/auth';
+import type { AuthPayload, ImpersonadoPor } from '../../middlewares/auth';
 
 type UsuarioComUnidade = Prisma.UsuarioGetPayload<{ include: { unidade: true; prestador: true } }>;
 
-function gerarSessao(usuario: UsuarioComUnidade) {
+function gerarSessao(usuario: UsuarioComUnidade, impersonadoPor?: ImpersonadoPor) {
   const token = jwt.sign(
     {
       nome: usuario.nome,
       perfil: usuario.perfil,
       unidadeId: usuario.unidadeId,
       prestadorId: usuario.prestadorId,
+      ...(impersonadoPor ? { impersonadoPor } : {}),
     },
     env.jwtSecret,
     { subject: usuario.id, expiresIn: env.jwtExpiresIn } as jwt.SignOptions,
@@ -101,5 +102,11 @@ export async function impersonar(usuarioId: string, ator: AuthPayload) {
   if (regra !== 'todos' && !regra.includes(usuario.perfil)) {
     throw new AppError('Seu perfil não pode entrar como este tipo de usuário.', 403);
   }
-  return gerarSessao(usuario);
+  if (usuario.id === ator.sub && !ator.impersonadoPor) return gerarSessao(usuario);
+  const original: ImpersonadoPor = ator.impersonadoPor ?? {
+    id: ator.sub,
+    nome: ator.nome,
+    perfil: ator.perfil,
+  };
+  return gerarSessao(usuario, original);
 }

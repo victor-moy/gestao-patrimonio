@@ -100,9 +100,11 @@ authRouter.post(
       entidade: 'usuario',
       entidadeId: req.params.id,
       dadosDepois: {
-        impersonadoPor: req.usuario!.sub,
-        impersonadoPorNome: req.usuario!.nome,
-        impersonadoPorPerfil: req.usuario!.perfil,
+        impersonadoPor: {
+          id: req.usuario!.sub,
+          nome: req.usuario!.nome,
+          perfil: req.usuario!.perfil,
+        },
       },
     });
     res.json(resultado);

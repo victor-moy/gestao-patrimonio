@@ -9,7 +9,7 @@ export async function comprometidoPorItem(cliente: Cliente, itemIds: string[], e
   const mapa = new Map<string, number>();
   if (itemIds.length === 0) return mapa;
   const linhas = await cliente.$queryRaw<Array<{ item: string; total: Prisma.Decimal | number | string | null }>>`
-    SELECT contrato_item_id AS item, SUM(COALESCE(custo_final, orcamento_valor, 0)) AS total
+    SELECT contrato_item_id AS item, SUM(COALESCE(NULLIF(custo_final, 0), orcamento_valor, 0)) AS total
     FROM manutencao
     WHERE contrato_item_id IN (${Prisma.join(itemIds)})
       AND status NOT IN ('NEGADA', 'BAIXADO')

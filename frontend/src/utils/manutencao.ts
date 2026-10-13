@@ -4,6 +4,7 @@ const ROTULO_EVENTO: Record<string, string> = {
   ABRIR_MANUTENCAO: 'Manutenção solicitada',
   APROVAR_MANUTENCAO: 'Manutenção aprovada',
   NEGAR_MANUTENCAO: 'Manutenção negada',
+  TROCAR_ITEM_CONTRATO: 'Item de contrato alterado',
   REGISTRAR_ORCAMENTO: 'Orçamento registrado',
   APROVAR_ORCAMENTO: 'Orçamento aprovado',
   EMITIR_LAUDO_BAIXA: 'Laudo de baixa emitido',

@@ -27,7 +27,7 @@ Extraído da seção 2.3–2.5 do [RFC v1.0](https://github.com/victor-moy/gesta
 | ID | Requisito |
 |---|---|
 | RF11 | O sistema deve permitir que a Unidade abra uma solicitação de manutenção para um equipamento, informando apenas a descrição do problema (sem justificativa). |
-| RF12 | O sistema deve permitir que o Administrador aprove ou negue uma solicitação de manutenção, com registro de justificativa. |
+| RF12 | O sistema deve permitir que o Administrador aprove ou negue uma solicitação de manutenção, com registro de justificativa. Enquanto a manutenção aguarda orçamento, o Administrador ainda pode negar (o equipamento volta a ativo) ou trocar o item de contrato. |
 | RF13 | O sistema deve alterar o status do equipamento para "em manutenção" após aprovação da solicitação. |
 | RF14 | O sistema deve permitir que a empresa terceirizada (perfil Terceirizada) registre o orçamento da manutenção; o Administrador não registra orçamento. |
 | RF15 | O sistema deve permitir que o Administrador aprove ou rejeite o orçamento registrado. |
@@ -138,7 +138,7 @@ Extraído da seção 2.3–2.5 do [RFC v1.0](https://github.com/victor-moy/gesta
 |---|---|
 | RN01 | O número de tombamento é único por equipamento e não pode ser alterado após o cadastro. |
 | RN02 | Um equipamento com status "em manutenção" não pode ser cedido, emprestado ou baixado até o encerramento do ciclo de manutenção. |
-| RN03 | Somente o Administrador pode aprovar solicitações de manutenção, validar orçamentos, emitir laudos de baixa, aprovar cessões de uso e novos itens. Como um único perfil reúne as duas áreas, não há mais separação de funções entre quem decide manutenções e quem decide patrimônio: toda decisão fica registrada na auditoria (quem, o quê, quando). |
+| RN03 | Somente o Administrador pode aprovar solicitações de manutenção, validar orçamentos, emitir laudos de baixa, aprovar cessões de uso e novos itens. Como um único perfil reúne as duas áreas, não há mais separação de funções entre quem decide manutenções e quem decide patrimônio: toda decisão fica registrada na auditoria (quem, o quê, quando). Quando o Administrador está “entrando como” outro usuário, o token e cada `LogAuditoria` posterior registram também quem era o ator (`impersonadoPor`). |
 | RN04 | (Unificada em RN03.) |
 | RN05 | O empréstimo entre unidades não requer aprovação do Administrador, mas deve ser registrado no sistema pela unidade cedente. |
 | RN06 | Durante um empréstimo, o tombamento do equipamento permanece vinculado à unidade de origem. A unidade receptora aparece apenas como detentora temporária. |

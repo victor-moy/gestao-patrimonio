@@ -28,10 +28,12 @@ const includePadrao = {
 const PERFIS_UNIFICADOS = ['GESTOR_PATRIMONIO', 'GESTOR_MANUTENCAO'];
 
 export async function listar(usuario: AuthPayload, filtros: { status?: StatusManutencao; busca?: string }) {
+  if (usuario.perfil === 'TERCEIRIZADA' && !usuario.prestadorId) return [];
+  const prestadorId = usuario.prestadorId;
   const where: Prisma.ManutencaoWhereInput = {
     ...(usuario.perfil === 'UNIDADE' ? { unidadeId: usuario.unidadeId ?? '' } : {}),
     // Terceirizada: só as manutenções cobertas por contratos do seu prestador (o prestador vem do token)
-    ...(usuario.perfil === 'TERCEIRIZADA' ? { contrato: { prestadorId: usuario.prestadorId ?? '' } } : {}),
+    ...(usuario.perfil === 'TERCEIRIZADA' && prestadorId ? { contrato: { prestadorId } } : {}),
     ...(filtros.status ? { status: filtros.status } : {}),
     ...(filtros.busca
       ? {
@@ -148,8 +150,9 @@ export async function solicitar(
 type TipoManutencaoItem = { permitePreventiva: boolean; permiteCorretiva: boolean };
 
 // O vínculo da manutenção é com um item de contrato (serviço + escopo); o contrato vem dele. Regras: contrato
-// vigente, escopo compatível com o que o tipo de item aceita e saldo disponível. A linha do item fica travada
-// até o fim da transação para duas aprovações simultâneas não gastarem o mesmo saldo.
+// vigente, escopo compatível com o que o tipo de item aceita e saldo disponível. O saldo só é consumido no
+// orçamento (ou no custo final); a aprovação só recusa item já esgotado. A linha do item fica travada até o
+// fim da transação. Enquanto aguarda orçamento, o Administrador pode trocar o item ou negar o chamado.
 async function vincularItem(
   tx: Prisma.TransactionClient,
   contratoItemId: string,
@@ -245,11 +248,12 @@ export async function aprovar(usuario: AuthPayload, id: string, contratoItemId: 
   return atualizada;
 }
 
-// FA01 — negação com motivo; equipamento permanece ativo
+// FA01 — negação com motivo. Também vale em AGUARDANDO_ORCAMENTO: o equipamento volta a ativo.
 export async function negar(usuario: AuthPayload, id: string, motivo: string) {
   const manutencao = await buscarPorId(usuario, id);
-  if (manutencao.status !== 'PENDENTE_APROVACAO') {
-    throw new AppError('Somente solicitações pendentes podem ser negadas.', 422);
+  const aposAprovacao = manutencao.status === 'AGUARDANDO_ORCAMENTO';
+  if (manutencao.status !== 'PENDENTE_APROVACAO' && !aposAprovacao) {
+    throw new AppError('Somente solicitações pendentes ou aguardando orçamento podem ser negadas.', 422);
   }
   const atualizada = await prisma.$transaction(async (tx) => {
     const m = await tx.manutencao.update({
@@ -257,6 +261,21 @@ export async function negar(usuario: AuthPayload, id: string, motivo: string) {
       data: { status: 'NEGADA', motivoNegacao: motivo, decididoPorId: usuario.sub },
       include: includePadrao,
     });
+    if (aposAprovacao) {
+      await tx.equipamento.update({
+        where: { id: m.equipamentoId },
+        data: { status: 'ATIVO' },
+      });
+      await tx.movimentacao.create({
+        data: {
+          equipamentoId: m.equipamentoId,
+          tipo: 'RETORNO_MANUTENCAO',
+          descricao: `Manutenção negada após aprovação (aguardava orçamento). Motivo: ${motivo}`,
+          unidadeDestinoId: m.unidadeId,
+          usuarioId: usuario.sub,
+        },
+      });
+    }
     await registrarAuditoria(
       {
         usuarioId: usuario.sub,
@@ -276,6 +295,33 @@ export async function negar(usuario: AuthPayload, id: string, motivo: string) {
     `A solicitação de manutenção do equipamento ${atualizada.equipamento.tombamento} foi negada. Motivo: ${motivo}`,
   );
   return atualizada;
+}
+
+export async function trocarItem(usuario: AuthPayload, id: string, contratoItemId: string) {
+  const manutencao = await buscarPorId(usuario, id);
+  if (manutencao.status !== 'AGUARDANDO_ORCAMENTO') {
+    throw new AppError('O item de contrato só pode ser trocado enquanto a manutenção aguarda orçamento.', 422);
+  }
+  return prisma.$transaction(async (tx) => {
+    const vinculo = await vincularItem(tx, contratoItemId, manutencao.equipamento.tipoEquipamento, id);
+    const atualizada = await tx.manutencao.update({
+      where: { id },
+      data: vinculo,
+      include: includePadrao,
+    });
+    await registrarAuditoria(
+      {
+        usuarioId: usuario.sub,
+        acao: 'TROCAR_ITEM_CONTRATO',
+        entidade: 'manutencao',
+        entidadeId: id,
+        dadosAntes: { contratoItemId: manutencao.contratoItemId, contratoId: manutencao.contratoId },
+        dadosDepois: { contratoItemId: vinculo.contratoItemId, contratoId: vinculo.contratoId },
+      },
+      tx,
+    );
+    return atualizada;
+  });
 }
 
 // UC07/RF14 — registro do orçamento retornado pela terceirizada
@@ -446,13 +492,12 @@ export async function registrarRetorno(usuario: AuthPayload, id: string, custoFi
   if (manutencao.status !== 'EM_EXECUCAO') {
     throw new AppError('Somente manutenções em execução podem registrar retorno.', 422);
   }
-  // A terceirizada informa o custo do reparo, mas não pode ultrapassar o orçamento aprovado
-  if (
-    usuario.perfil === 'TERCEIRIZADA' &&
-    custoFinal !== undefined &&
-    manutencao.orcamentoValor !== null &&
-    custoFinal > Number(manutencao.orcamentoValor)
-  ) {
+  if (manutencao.orcamentoValor === null) {
+    throw new AppError('Não há orçamento aprovado para registrar o retorno.', 422);
+  }
+  const orcamento = Number(manutencao.orcamentoValor);
+  // Zero não é custo real: o saldo do item cairia no COALESCE e devolveria o valor do orçamento.
+  if (custoFinal !== undefined && custoFinal > orcamento) {
     throw new AppError('O custo final não pode ser maior que o orçamento aprovado.', 422);
   }
   return prisma.$transaction(async (tx) => {
@@ -460,7 +505,7 @@ export async function registrarRetorno(usuario: AuthPayload, id: string, custoFi
       where: { id },
       data: {
         status: 'AGUARDANDO_RETORNO',
-        custoFinal: custoFinal ?? manutencao.orcamentoValor,
+        custoFinal: custoFinal ?? orcamento,
       },
       include: includePadrao,
     });

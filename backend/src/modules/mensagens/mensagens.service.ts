@@ -145,7 +145,11 @@ function filtrosDeVisibilidade(usuario: AuthPayload) {
     ? {
         mensagens: { some: {} },
         ...(ehUnidade ? { unidadeId } : {}),
-        ...(usuario.perfil === Perfil.TERCEIRIZADA ? { contrato: { prestadorId: usuario.prestadorId ?? '' } } : {}),
+        ...(usuario.perfil === Perfil.TERCEIRIZADA
+          ? usuario.prestadorId
+            ? { contrato: { prestadorId: usuario.prestadorId } }
+            : { id: { in: [] } }
+          : {}),
         ...(ehGestor
           ? {
               OR: [

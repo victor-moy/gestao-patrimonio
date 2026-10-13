@@ -534,6 +534,27 @@ describe('Manutenções', () => {
       await screen.findByRole('heading', { name: /Autoclave|Não atinge|MAN/ });
       expect(screen.queryByLabelText('Valor do orçamento (R$) *')).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Registrar orçamento' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Trocar item' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Negar manutenção' })).toBeInTheDocument();
+    });
+
+    it('aguardando orçamento o Administrador troca o item e pode negar o chamado', async () => {
+      const chamadas = mockFetch({
+        ...entrarComo('OPERADOR', '/manutencoes/m1'),
+        '/manutencoes/m1/item': { body: {} },
+        '/manutencoes/m1/historico': { body: [] },
+        '/manutencoes/m1': { body: { ...doContrato, status: 'AGUARDANDO_ORCAMENTO' } },
+        '/contratos': { body: [contratoComItem()] },
+      });
+      render(<App />);
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Trocar item' }));
+      await userEvent.selectOptions(await screen.findByLabelText('Item do contrato'), 'i1');
+      await userEvent.click(screen.getByRole('button', { name: 'Confirmar item' }));
+      await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/item'))).toBe(true));
+      expect(JSON.parse(String(chamadas.find((c) => c.url.endsWith('/manutencoes/m1/item'))?.init?.body))).toEqual({
+        contratoItemId: 'i1',
+      });
     });
 
     it('lança o orçamento e não vê as ações de decisão do gestor', async () => {

@@ -3,7 +3,13 @@ import { Perfil } from '@prisma/client';
 
 export function tokenPara(
   perfil: Perfil,
-  opcoes: { sub?: string; unidadeId?: string | null; prestadorId?: string | null; nome?: string } = {},
+  opcoes: {
+    sub?: string;
+    unidadeId?: string | null;
+    prestadorId?: string | null;
+    nome?: string;
+    impersonadoPor?: { id: string; nome: string; perfil: Perfil };
+  } = {},
 ) {
   return jwt.sign(
     {
@@ -11,6 +17,7 @@ export function tokenPara(
       perfil,
       unidadeId: opcoes.unidadeId ?? null,
       prestadorId: opcoes.prestadorId ?? null,
+      ...(opcoes.impersonadoPor ? { impersonadoPor: opcoes.impersonadoPor } : {}),
     },
     'segredo-de-teste',
     { subject: opcoes.sub ?? 'user-1', expiresIn: '30m' },

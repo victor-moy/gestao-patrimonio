@@ -33,6 +33,10 @@ const selecaoItens = {
 } satisfies Prisma.Contrato$itensArgs;
 
 contratosRouter.get('/', async (req, res) => {
+  if (req.usuario!.perfil === Perfil.TERCEIRIZADA && !req.usuario!.prestadorId) {
+    res.json([]);
+    return;
+  }
   const busca = typeof req.query.busca === 'string' ? req.query.busca : undefined;
   const buscaGestor: Prisma.ContratoWhereInput | undefined = busca
     ? {
@@ -47,7 +51,7 @@ contratosRouter.get('/', async (req, res) => {
   const where: Prisma.ContratoWhereInput | undefined =
     req.usuario!.perfil === Perfil.TERCEIRIZADA
       ? {
-          prestadorId: req.usuario!.prestadorId ?? '',
+          prestadorId: req.usuario!.prestadorId as string,
           ...(busca ? { numero: { contains: busca, mode: 'insensitive' } } : {}),
         }
       : buscaGestor;
@@ -161,7 +165,7 @@ contratosRouter.patch(
     };
     const antes = await prisma.contrato.findUnique({
       where: { id: req.params.id },
-      include: { itens: { select: { id: true, servicoId: true } } },
+      include: { itens: { select: { id: true, servicoId: true, escopoId: true } } },
     });
     if (!antes) throw new AppError('Contrato não encontrado.', 404);
     if (dados.numero && dados.numero !== antes.numero) {
@@ -173,6 +177,15 @@ contratosRouter.patch(
     }
 
     const contrato = await prisma.$transaction(async (tx) => {
+      if (dados.prestadorId && dados.prestadorId !== antes.prestadorId) {
+        const ligadas = await tx.manutencao.count({ where: { contratoId: antes.id } });
+        if (ligadas > 0) {
+          throw new AppError(
+            'Não é possível trocar o prestador: o contrato já tem manutenções vinculadas.',
+            422,
+          );
+        }
+      }
       // Lista vazia em contrato legado: mantém o valor total que já existia.
       const substituir = itens !== undefined && itens.length > 0;
       await validarReferencias(tx, dados.prestadorId, substituir ? itens : []);
@@ -207,6 +220,16 @@ contratosRouter.patch(
         }
         for (const item of novos.values()) {
           const id = existentes.get(item.servicoId);
+          const anterior = antes.itens.find((i) => i.servicoId === item.servicoId);
+          if (id && anterior && item.escopoId !== anterior.escopoId) {
+            const ligadas = await tx.manutencao.count({ where: { contratoItemId: id } });
+            if (ligadas > 0) {
+              throw new AppError(
+                'Não é possível alterar o escopo de um item vinculado a manutenções.',
+                422,
+              );
+            }
+          }
           if (id) await tx.contratoItem.update({ where: { id }, data: { valor: item.valor, escopoId: item.escopoId } });
           else await tx.contratoItem.create({ data: { ...item, contratoId: antes.id } });
         }

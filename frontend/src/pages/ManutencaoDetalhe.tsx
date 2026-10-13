@@ -88,7 +88,7 @@ export function ManutencaoDetalhe() {
   );
 }
 
-type Acao = 'aprovar' | 'negar' | 'rejeitar';
+type Acao = 'aprovar' | 'negar' | 'rejeitar' | 'trocar';
 
 // Campos que expandem/recolhem sem desmontar — evita o "pulo" ao abrir a ação.
 function Expansivel({ aberto, children }: { aberto: boolean; children: ReactNode }) {
@@ -171,7 +171,7 @@ function ConteudoManutencao({
 
   useEffect(() => {
     if (!acao) return;
-    const alvo = { aprovar: 'man-contrato-item', negar: 'man-motivo', rejeitar: '' }[acao];
+    const alvo = { aprovar: 'man-contrato-item', trocar: 'man-contrato-item', negar: 'man-motivo', rejeitar: '' }[acao];
     if (alvo) document.getElementById(alvo)?.focus({ preventScroll: true });
   }, [acao]);
 
@@ -204,6 +204,34 @@ function ConteudoManutencao({
     if (laudo) dados.append('laudo', laudo);
     await api.post(`/manutencoes/${m.id}/${caminho}`, dados);
   };
+
+  const campoItemContrato = (
+    <div className="field">
+      <label htmlFor="man-contrato-item">Item do contrato</label>
+      <select
+        id="man-contrato-item"
+        value={contratoItemId}
+        onChange={(e) => setContratoItemId(e.target.value)}
+        required
+      >
+        <option value="">Selecione…</option>
+        {contratosComItens.map((c) => (
+          <optgroup key={c.id} label={`${c.numero} · ${c.prestador.nome}`}>
+            {c.itens.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.servico.nome}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {contratosComItens.length === 0 && (
+        <p className="itens-aviso itens-aviso--acao" role="status">
+          Nenhum item de contrato disponível.
+        </p>
+      )}
+    </div>
+  );
 
   // Rejeitar o orçamento exige o laudo; vira um cartão próprio, no padrão dos demais blocos de ação
   const campoLaudo = (
@@ -390,33 +418,7 @@ function ConteudoManutencao({
             {ehAdministrador && m.status === 'PENDENTE_APROVACAO' && (
               <div className="actions-box actions-box--simples">
                 <Expansivel aberto={acao === 'aprovar' || acao === 'negar'}>
-                  {acaoExibida === 'aprovar' && (
-                    <div className="field">
-                      <label htmlFor="man-contrato-item">Item do contrato</label>
-                      <select
-                        id="man-contrato-item"
-                        value={contratoItemId}
-                        onChange={(e) => setContratoItemId(e.target.value)}
-                        required
-                      >
-                        <option value="">Selecione…</option>
-                        {contratosComItens.map((c) => (
-                          <optgroup key={c.id} label={`${c.numero} · ${c.prestador.nome}`}>
-                            {c.itens.map((i) => (
-                              <option key={i.id} value={i.id}>
-                                {i.servico.nome}
-                              </option>
-                            ))}
-                          </optgroup>
-                        ))}
-                      </select>
-                      {contratosComItens.length === 0 && (
-                        <p className="itens-aviso itens-aviso--acao" role="status">
-                          Nenhum item de contrato disponível.
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  {acaoExibida === 'aprovar' && campoItemContrato}
                   {acaoExibida === 'negar' && (
                     <div className="field">
                       <label htmlFor="man-motivo">Motivo da negação *</label>
@@ -452,6 +454,69 @@ function ConteudoManutencao({
                           onClick={aprovar}
                         >
                           Confirmar aprovação
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          disabled={ocupado || !motivo.trim()}
+                          onClick={() =>
+                            executar(() => api.post(`/manutencoes/${m.id}/negar`, { motivo }))
+                          }
+                        >
+                          Confirmar negação
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {ehAdministrador && m.status === 'AGUARDANDO_ORCAMENTO' && (
+              <div className="actions-box actions-box--simples">
+                <Expansivel aberto={acao === 'trocar' || acao === 'negar'}>
+                  {acaoExibida === 'trocar' && campoItemContrato}
+                  {acaoExibida === 'negar' && (
+                    <div className="field">
+                      <label htmlFor="man-motivo">Motivo da negação *</label>
+                      <input id="man-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+                      <p className="itens-aviso itens-aviso--acao" role="status">
+                        O equipamento volta a ativo. O chamado é encerrado sem orçamento.
+                      </p>
+                    </div>
+                  )}
+                </Expansivel>
+                <div className="actions-row">
+                  {acao === null || (acao !== 'trocar' && acao !== 'negar') ? (
+                    <>
+                      <button type="button" className="btn btn-outline" onClick={() => abrir('negar')}>
+                        Negar manutenção
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={ocupado}
+                        onClick={() => abrir('trocar')}
+                      >
+                        Trocar item
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" className="btn btn-outline" onClick={() => setAcao(null)}>
+                        Cancelar
+                      </button>
+                      {acao === 'trocar' ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          disabled={ocupado || !contratoItemId}
+                          onClick={() =>
+                            executar(() => api.post(`/manutencoes/${m.id}/item`, { contratoItemId }))
+                          }
+                        >
+                          Confirmar item
                         </button>
                       ) : (
                         <button
@@ -570,7 +635,7 @@ function ConteudoManutencao({
                     id="man-custo"
                     type="number"
                     step="0.01"
-                    min="0"
+                    min="0.01"
                     placeholder={m.orcamentoValor ?? ''}
                     value={custoFinal}
                     onChange={(e) => setCustoFinal(e.target.value)}
@@ -584,7 +649,7 @@ function ConteudoManutencao({
                     onClick={() =>
                       executar(() =>
                         api.post(`/manutencoes/${m.id}/registrar-retorno`, {
-                          ...(custoFinal ? { custoFinal: Number(custoFinal) } : {}),
+                          ...(Number(custoFinal) > 0 ? { custoFinal: Number(custoFinal) } : {}),
                         }),
                       )
                     }

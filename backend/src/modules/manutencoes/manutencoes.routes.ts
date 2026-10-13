@@ -23,9 +23,11 @@ function paraPerfil<T extends { unidade: { emailBase?: string | null } }>(perfil
   return { ...manutencao, unidade } as T;
 }
 
+const STATUS_MANUTENCAO = new Set<string>(Object.values(StatusManutencao));
+
 manutencoesRouter.get('/', leitura, async (req, res) => {
   const bruto = req.query.status;
-  if (bruto !== undefined && (typeof bruto !== 'string' || !(bruto in StatusManutencao))) {
+  if (bruto !== undefined && (typeof bruto !== 'string' || !STATUS_MANUTENCAO.has(bruto))) {
     throw new AppError('Status inválido.', 422);
   }
   const manutencoes = await service.listar(req.usuario!, {
@@ -83,6 +85,16 @@ manutencoesRouter.post(
   },
 );
 
+// Enquanto aguarda orçamento: o Administrador troca o item (saldo/escopo) sem cancelar o chamado
+manutencoesRouter.post(
+  '/:id/item',
+  permitir(Perfil.OPERADOR),
+  validarBody(z.object({ contratoItemId: z.string().uuid('selecione o item de contrato que cobre a manutenção') })),
+  async (req, res) => {
+    res.json(await service.trocarItem(req.usuario!, req.params.id, req.body.contratoItemId));
+  },
+);
+
 // Só a terceirizada do contrato lança o orçamento (o item de contrato é o escolhido na aprovação)
 manutencoesRouter.post(
   '/:id/orcamento',
@@ -124,7 +136,7 @@ manutencoesRouter.post(
 manutencoesRouter.post(
   '/:id/registrar-retorno',
   permitir(Perfil.TERCEIRIZADA),
-  validarBody(z.object({ custoFinal: z.number().nonnegative().optional() })),
+  validarBody(z.object({ custoFinal: z.number().positive('informe o custo real do reparo').optional() })),
   async (req, res) => {
     res.json(paraPerfil(req.usuario!.perfil, await service.registrarRetorno(req.usuario!, req.params.id, req.body.custoFinal)));
   },

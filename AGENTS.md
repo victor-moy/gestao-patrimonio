@@ -38,12 +38,12 @@ Preserve estas regras em qualquer alteração:
 
 1. Tombamento é único e imutável. A única exceção é o ajuste explicitamente previsto para itens gerados por uma solicitação ainda em `AGUARDANDO_VALIDACAO`.
 2. Alterações de status, localização, saldo ou estoque que dependem umas das outras devem ocorrer na mesma transação.
-3. Estoque e saldo de ata nunca podem ficar negativos, inclusive sob requisições concorrentes. Prefira atualização condicional no banco (`updateMany` com `quantidade/saldo >= valor` e checagem de `count`); uma leitura seguida de `decrement` não é proteção suficiente. O saldo da ata só é consumido no lançamento do pedido no Branet; ao vincular, o saldo disponível já desconta o que está comprometido em outras solicitações `RESERVADO` (linha da ata travada com `FOR UPDATE`).
+3. Estoque e saldo de ata nunca podem ficar negativos, inclusive sob requisições concorrentes. Prefira atualização condicional no banco (`updateMany` com `quantidade/saldo >= valor` e checagem de `count`); uma leitura seguida de `decrement` não é proteção suficiente. O saldo da ata só é consumido no lançamento do pedido no Branet; ao vincular, o saldo disponível já desconta o que está comprometido em outras solicitações `RESERVADO` (linha da ata travada com `FOR UPDATE`). No item de contrato o saldo só é consumido no orçamento (ou no custo final); `custoFinal` zero não libera saldo. Enquanto aguarda orçamento, o Administrador pode trocar o item ou negar o chamado (o equipamento volta a ativo).
 4. Equipamento em manutenção não pode participar de fluxo incompatível.
 5. Empréstimo mantém a unidade proprietária e usa `unidadeTemporariaId` para a detentora.
 6. Retorno de manutenção exige confirmação da Unidade e do Administrador.
 7. Baixa por manutenção cria automaticamente uma solicitação de substituição.
-8. Ações críticas precisam de `LogAuditoria`, idealmente na mesma transação da mutação.
+8. Ações críticas precisam de `LogAuditoria`, idealmente na mesma transação da mutação. Se a sessão veio de impersonação, o JWT e o log trazem `impersonadoPor` (o Administrador que assumiu), além do `usuarioId` do alvo.
 9. Notificações só devem ser disparadas depois de uma transação bem-sucedida.
 10. Erros de domínio devem usar `AppError`; entradas externas devem ser validadas com Zod.
 11. Solicitações e manutenções têm `numero` sequencial (SOL-0001 / MAN-0001) gerado pelo banco; ele é imutável, nunca reutilizado e é a referência humana (o `id` UUID segue como chave técnica).
@@ -113,7 +113,7 @@ O gate atual exige no mínimo 75% de linhas no backend e 25% no frontend. Não r
 
 - Não registre tokens, senhas, segredos, conteúdo integral de anexos ou dados pessoais desnecessários.
 - Qualquer integração que envie dados a terceiros (IA, e-mail, analytics) precisa de decisão explícita: minimize o conteúdo, documente a finalidade e mantenha limites de tamanho e custo. Hoje não há integração de IA no produto.
-- Tokens no navegador e a funcionalidade de impersonação são áreas sensíveis (só o Administrador assume outros usuários: a regra fica em `auth.service.ts`, nunca só na tela); mudanças nelas exigem testes específicos.
+- Tokens no navegador e a funcionalidade de impersonação são áreas sensíveis (só o Administrador assume outros usuários: a regra fica em `auth.service.ts`, nunca só na tela; o JWT e a auditoria levam `impersonadoPor`); mudanças nelas exigem testes específicos.
 - Rode o audit de dependências e descreva vulnerabilidades novas ou remanescentes no PR.
 - Consulte `SECURITY.md` e `documentation/reviews/` antes de mudanças de segurança.
 

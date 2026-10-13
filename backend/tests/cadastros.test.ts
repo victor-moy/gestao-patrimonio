@@ -604,6 +604,32 @@ describe('Contratos de terceirizadas', () => {
     expect(prismaMock.contrato.update).not.toHaveBeenCalled();
   });
 
+  it('não troca o prestador nem o escopo quando já há manutenção vinculada', async () => {
+    prismaMock.contrato.findUnique.mockResolvedValue({
+      id: 'c-1',
+      numero: 'CONT-2026-010',
+      prestadorId: PREST,
+      status: 'ATIVO',
+      itens: [{ id: 'it-1', servicoId: S1, escopoId: E1 }],
+    } as never);
+    prismaMock.manutencao.count.mockResolvedValue(1 as never);
+    prismaMock.$queryRaw.mockResolvedValue([] as never);
+    const prestador = await request(app)
+      .patch('/contratos/c-1')
+      .set(auth('OPERADOR'))
+      .send({ prestadorId: '88888888-8888-4888-8888-888888888888' });
+    expect(prestador.status).toBe(422);
+    expect(prismaMock.contrato.update).not.toHaveBeenCalled();
+
+    referenciasValidas();
+    const escopo = await request(app)
+      .patch('/contratos/c-1')
+      .set(auth('OPERADOR'))
+      .send({ itens: [{ servicoId: S1, valor: 10000.1, escopoId: E2 }] });
+    expect(escopo.status).toBe(422);
+    expect(prismaMock.contratoItem.update).not.toHaveBeenCalled();
+  });
+
   it('não remove item vinculado a manutenção', async () => {
     prismaMock.contrato.findUnique.mockResolvedValue({
       id: 'c-1',

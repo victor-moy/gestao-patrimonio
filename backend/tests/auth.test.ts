@@ -1,5 +1,6 @@
 import request from 'supertest';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { prismaMock } from './prisma-mock';
 import { criarApp } from '../src/app';
 import { auth } from './helpers';
@@ -28,6 +29,7 @@ describe('Autenticação (RF01, RF03, RF04, RNF04)', () => {
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
     expect(res.body.usuario.perfil).toBe('OPERADOR');
+    expect((jwt.verify(res.body.token, 'segredo-de-teste') as jwt.JwtPayload).impersonadoPor).toBeUndefined();
   });
 
   it('rejeita senha incorreta sem revelar detalhes (RNF11)', async () => {
@@ -123,8 +125,20 @@ describe('Impersonação (o Administrador "entra como" outro usuário)', () => {
       expect([perfil, res.status]).toEqual([perfil, 200]);
     }
     expect(prismaMock.logAuditoria.create.mock.calls[0][0].data.dadosDepois).toMatchObject({
-      impersonadoPorPerfil: 'OPERADOR',
+      impersonadoPor: { perfil: 'OPERADOR' },
     });
+  });
+
+  it('o token de impersonação traz o administrador; a sessão do alvo não se passa por login dele', async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue(unidadeUsuario as never);
+    const res = await request(app)
+      .post('/auth/impersonar/user-2')
+      .set(auth('OPERADOR', { sub: 'op-1', nome: 'Samuel' }))
+      .send();
+    expect(res.status).toBe(200);
+    const payload = jwt.verify(res.body.token, 'segredo-de-teste') as jwt.JwtPayload;
+    expect(payload.sub).toBe('user-2');
+    expect(payload.impersonadoPor).toEqual({ id: 'op-1', nome: 'Samuel', perfil: 'OPERADOR' });
   });
 
   it('a lista de quem pode ser assumido traz só dados básicos e inclui o próprio administrador, primeiro', async () => {
