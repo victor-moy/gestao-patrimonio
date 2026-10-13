@@ -12,13 +12,13 @@ import { lockAta } from './solicitacoes.decisao';
 // UC12/RF22 — unidade de origem confirma a saída física do equipamento do
 // empréstimo. É só nesse momento que o equipamento passa a contar no
 // inventário da unidade de destino (RN06) — antes disso (durante a
-// aprovação do Gestor) o item continua normalmente na origem.
+// aprovação do Administrador) o item continua normalmente na origem.
 export async function confirmarSaida(usuario: AuthPayload, id: string) {
   const solicitacao = await buscarPorId(usuario, id);
   if (solicitacao.tipo !== 'EMPRESTIMO' || solicitacao.status !== 'AGUARDANDO_SAIDA') {
     throw new AppError('Esta solicitação não está aguardando confirmação de saída.', 422);
   }
-  // Só a unidade de origem confirma — nem o Gestor de Patrimônio pode fazer
+  // Só a unidade de origem confirma — nem o Administrador pode fazer
   // isso por ela (mesmo padrão de confirmar-recolha).
   if (usuario.perfil !== 'UNIDADE' || solicitacao.unidadeOrigemId !== usuario.unidadeId) {
     throw new AppError('Somente a unidade de origem confirma a saída.', 403);
@@ -75,7 +75,7 @@ export interface DadosConfirmarRecebimento {
 }
 
 // Ampliação/Substituição: a unidade de origem confirma o recebimento do item
-// (que já tem tombamento desde que o Gestor lançou no Branet) — não conclui
+// (que já tem tombamento desde que o Administrador lançou no Branet) — não conclui
 // sozinha, só avança pra validação final do Patrimônio (feedback do cliente).
 export async function confirmarRecebimento(
   usuario: AuthPayload,
@@ -88,7 +88,7 @@ export async function confirmarRecebimento(
     if (solicitacao.status !== 'AGUARDANDO_ENTREGA') {
       throw new AppError('Esta solicitação não está aguardando recebimento.', 422);
     }
-    // Só a Unidade solicitante confirma — nem o Gestor de Patrimônio pode
+    // Só a Unidade solicitante confirma — nem o Administrador pode
     // fazer isso por ela (feedback do cliente 18/08).
     if (usuario.perfil !== 'UNIDADE' || solicitacao.unidadeOrigemId !== usuario.unidadeId) {
       throw new AppError('Somente a unidade solicitante confirma o recebimento.', 403);
@@ -163,7 +163,7 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
   if (solicitacao.tipo !== 'EMPRESTIMO' || solicitacao.status !== 'AGUARDANDO_RETORNO') {
     throw new AppError('Este empréstimo não está aguardando retorno.', 422);
   }
-  // Só a unidade de origem confirma — nem o Gestor de Patrimônio pode fazer
+  // Só a unidade de origem confirma — nem o Administrador pode fazer
   // isso por ela.
   if (usuario.perfil !== 'UNIDADE' || solicitacao.unidadeOrigemId !== usuario.unidadeId) {
     throw new AppError('Somente a unidade de origem confirma o retorno do empréstimo.', 403);
@@ -206,11 +206,11 @@ export async function confirmarRetorno(usuario: AuthPayload, id: string) {
   return atualizada;
 }
 
-// Gestor de Patrimônio marca que o pedido foi lançado no Branet — registro
+// Administrador marca que o pedido foi lançado no Branet — registro
 // manual, sem integração real — informando o número do pedido e o tombamento
 // de cada item (Ampliação: item novo; Substituição: item novo + baixa do
 // antigo). Absorve o que antes era uma etapa separada do Galpão (feedback do
-// cliente 17/08: quem lida com o Branet e o tombamento é o Gestor, não o Galpão).
+// cliente 17/08: quem lida com o Branet e o tombamento é o Administrador, não o Galpão).
 // Cessão de Uso reserva do estoque na própria criação (sem etapa de Ata) —
 // aqui só registra o número do pedido e já conclui direto, sem gerar
 // tombamento novo, já que o destino é externo e não é rastreado no
@@ -273,7 +273,7 @@ export async function marcarLancadoBranet(
           descricao: item.descricao,
           tipoEquipamentoId: solicitacao.tipoEquipamentoId!,
           unidadeId: solicitacao.unidadeOrigemId,
-          // Ainda não inspecionado fisicamente pelo Gestor nesse momento —
+          // Ainda não inspecionado fisicamente pelo Administrador nesse momento —
           // a Unidade confirma/ajusta no recebimento (RF novo, feedback 17/08)
           estadoConservacao: 'BOM',
           emendaParlamentar: solicitacao.origemRecurso === 'EMENDA_PARLAMENTAR',
@@ -349,7 +349,7 @@ export async function marcarLancadoBranet(
 // galpão quem confirma — feedback do cliente 26/08, mesma lógica já aplicada
 // à confirmação de recebimento: quem sabe o que realmente aconteceu é quem
 // está na ponta). Só avança pra Aguardando Validação — quem move o
-// equipamento de unidade e conclui é o Gestor, em concluirSolicitacao.
+// equipamento de unidade e conclui é o Administrador, em concluirSolicitacao.
 // A etapa (Patrimônio/Branet) é escolhida uma vez, na aprovação, e não muda
 // depois — não é um pré-requisito pra confirmar (feedback do cliente 27/08).
 export async function confirmarRecolha(usuario: AuthPayload, id: string) {
@@ -397,7 +397,7 @@ export async function anexarArquivo(usuario: AuthPayload, id: string, anexoUrl: 
 // Exceção estreita à RN01 (tombamento normalmente imutável): só os itens
 // gerados por esta solicitação, e só enquanto ainda aguarda validação, podem
 // ter o tombamento corrigido — resolve uma divergência apontada pela Unidade
-// no recebimento antes do Gestor concluir (feedback do cliente 17/08).
+// no recebimento antes do Administrador concluir (feedback do cliente 17/08).
 export async function ajustarTombamento(
   usuario: AuthPayload,
   id: string,

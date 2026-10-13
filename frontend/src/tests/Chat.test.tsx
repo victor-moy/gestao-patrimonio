@@ -35,7 +35,7 @@ const manutencao = {
 };
 
 const mensagens = [
-  { id: 'a', texto: 'Podem enviar o orçamento?', criadoEm: '2026-10-10T10:00:00Z', autor: { id: 'g1', nome: 'Carla Fiscal', perfil: 'GESTOR_MANUTENCAO' } },
+  { id: 'a', texto: 'Podem enviar o orçamento?', criadoEm: '2026-10-10T10:00:00Z', autor: { id: 'g1', nome: 'Carla Fiscal', perfil: 'OPERADOR' } },
   { id: 'b', texto: 'Enviado hoje.', criadoEm: '2026-10-10T10:05:00Z', autor: { id: 'u1', nome: 'Ana Unidade', perfil: 'UNIDADE' } },
 ];
 

@@ -8,7 +8,7 @@ export const TIPOS_COM_ATA = ['AMPLIACAO', 'SUBSTITUICAO'];
 // Aguardando Disponibilidade com estoque já disponível vira um badge próprio
 // (verde, "Disponível para Reserva") em vez do status + um badge separado.
 // Recolha ganha rótulos próprios: Pendente Aprovação de Recolha, e depois
-// Aguardando Recolha (Patrimônio) ou (Branet) — escolhido pelo Gestor de
+// Aguardando Recolha (Patrimônio) ou (Branet) — escolhido pelo Administrador de
 // uma vez, na aprovação, e não muda depois (feedback do cliente 26/08 e 27/08).
 export function statusExibido(s: Solicitacao) {
   if (s.status === 'AGUARDANDO_DISPONIBILIDADE' && s.disponivelParaReserva) {

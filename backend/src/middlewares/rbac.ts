@@ -3,8 +3,8 @@ import { Perfil } from '@prisma/client';
 import { AppError } from '../errors/AppError';
 
 // RNF05 — controle de acesso baseado em perfis (RBAC).
-// RN03: só o Gestor de Manutenção decide manutenções/orçamentos/laudos.
-// RN04: só o Gestor de Patrimônio decide cessões e novos itens.
+// RN03: só o Administrador decide manutenções/orçamentos/laudos.
+// RN04: só o Administrador decide cessões e novos itens.
 export function permitir(...perfis: Perfil[]) {
   return (req: Request, _res: Response, next: NextFunction) => {
     if (!req.usuario) {

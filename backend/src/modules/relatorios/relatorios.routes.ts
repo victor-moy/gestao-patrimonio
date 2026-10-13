@@ -2,14 +2,15 @@ import { Router } from 'express';
 import { Perfil } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
+import { AppError } from '../../errors/AppError';
 import * as service from './relatorios.service';
 
 export const relatoriosRouter = Router();
 
-// Relatórios sobre Solicitações — exclusivos do Gestor de Patrimônio, que é
+// Relatórios (solicitações e manutenções) — exclusivos do Administrador, que é
 // quem decide todos os 5 tipos (RN04); diferente do /dashboard (equipamento/
-// manutenção), que também é usado pelo Gestor de Manutenção.
-relatoriosRouter.use(autenticar, permitir(Perfil.GESTOR_PATRIMONIO));
+// manutenção), que também é usado pelo Administrador.
+relatoriosRouter.use(autenticar, permitir(Perfil.OPERADOR));
 
 function periodo(req: import('express').Request) {
   return {
@@ -73,6 +74,29 @@ relatoriosRouter.get('/cessoes', async (req, res) => {
       ...periodo(req),
       unidadeIds: unidadeIds(req),
       tipoEquipamentoId: tipoEquipamentoId(req),
+      busca: busca(req),
+    }),
+  );
+});
+
+const SITUACOES = ['EM_ANDAMENTO', 'CONCLUIDA', 'NEGADA', 'BAIXADO'] as const;
+
+relatoriosRouter.get('/manutencoes', async (req, res) => {
+  const situacao = req.query.situacao as string | undefined;
+  if (situacao && !(SITUACOES as readonly string[]).includes(situacao)) {
+    throw new AppError('Situação inválida.', 422);
+  }
+  const datas = periodo(req);
+  for (const d of [datas.dataInicio, datas.dataFim]) {
+    if (d && Number.isNaN(d.getTime())) throw new AppError('Data inválida.', 422);
+  }
+  res.json(
+    await service.manutencoes({
+      ...datas,
+      unidadeIds: unidadeIds(req),
+      tipoEquipamentoId: tipoEquipamentoId(req),
+      prestadorId: (req.query.prestadorId as string | undefined) || undefined,
+      situacao: situacao as service.SituacaoManutencao | undefined,
       busca: busca(req),
     }),
   );

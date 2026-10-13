@@ -11,7 +11,7 @@ const gestor = {
       nome: 'Gestora Teste',
       email: 'gestora@joinville.sc.gov.br',
       matricula: '10001',
-      perfil: 'GESTOR_PATRIMONIO',
+      perfil: 'OPERADOR',
       unidadeId: null,
       unidadeNome: null,
     },
@@ -100,7 +100,7 @@ describe('Formulário de usuário', () => {
     abrir('/configuracoes/usuarios/novo');
 
     await campo('Nome completo');
-    await userEvent.selectOptions(screen.getByLabelText('Perfil de acesso'), 'GESTOR_PATRIMONIO');
+    await userEvent.selectOptions(screen.getByLabelText('Perfil de acesso'), 'OPERADOR');
 
     expect(screen.getByLabelText('Unidade')).not.toBeRequired();
   });

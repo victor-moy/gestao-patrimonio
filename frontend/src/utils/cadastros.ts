@@ -1,4 +1,4 @@
-import type { Ata } from '../types';
+import type { Ata, Contrato } from '../types';
 
 export type SituacaoAta = 'ATIVA' | 'VENCENDO' | 'VENCIDA' | 'INATIVA';
 
@@ -36,10 +36,16 @@ export const ROTULO_STATUS_CONTRATO: Record<string, string> = {
   EXPIRADO: 'Expirado',
 };
 
-export const TIPOS_CONTRATO = [
-  'Manutenção Preventiva',
-  'Manutenção Corretiva',
-  'Calibração',
-  'Garantia Estendida',
-  'Serviços Gerais',
-];
+// Números da listagem de contratos: valor total e saldo (soma do saldo dos itens). Contrato antigo, sem
+// itens, não tem como calcular saldo nem uso.
+export function analisarContrato(contrato: Contrato) {
+  const valorTotal = contrato.valorTotal === null || contrato.valorTotal === '' ? null : Number(contrato.valorTotal);
+  const saldo = contrato.itens.length > 0 ? contrato.itens.reduce((soma, i) => soma + i.saldo, 0) : null;
+  const calculavel = valorTotal !== null && valorTotal > 0 && saldo !== null;
+  return {
+    valorTotal,
+    saldo,
+    utilizado: calculavel ? ((valorTotal - saldo) / valorTotal) * 100 : null,
+    saldoBaixo: calculavel && saldo / valorTotal < 0.1,
+  };
+}

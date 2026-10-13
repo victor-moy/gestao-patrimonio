@@ -23,14 +23,14 @@ O guia de UX está em [`documentation/DESIGN-SYSTEM.md`](https://github.com/vict
 
 ## Visão geral do sistema
 
-O SGP atende cinco perfis de usuário — Gestor de Patrimônio, Gestor de Manutenção, Unidade de Atendimento, Galpão e um perfil automático do próprio Sistema — em torno de sete módulos principais:
+O SGP atende cinco perfis de usuário — Administrador, Unidade de Atendimento, Galpão, Terceirizada e um perfil automático do próprio Sistema — em torno de sete módulos principais:
 
 - **Inventário** — cadastro e consulta de equipamentos por número de tombamento (único e imutável), com importação via CSV e QR Code por equipamento (leva direto ao detalhe).
 - **Manutenções** — fluxo completo: solicitação → aprovação → orçamento da terceirizada → validação → execução ou laudo de baixa → confirmação dupla de retorno.
 - **Solicitações** — cinco tipos de fluxo: Substituição, Ampliação (novos itens), Cessão de Uso, Empréstimo e Recolha entre unidades. Solicitações e manutenções têm uma conversa interna entre os participantes.
 - **Estoque** — controle do que está no Galpão aguardando destinação, incluindo itens represados por falta de saldo em ata.
 - **Atas e Contratos** — saldo e vencimento de atas de registro de preços vinculadas às aprovações de novos itens; contratos das empresas terceirizadas de manutenção.
-- **Relatórios** — quatro relatórios, um por submenu (visão geral com funil de solicitações e ranking de unidades, empréstimos, cessões de uso e itens aguardando estoque), com filtros por período, unidade e item.
-- **Configurações** — Gestor de Patrimônio: usuários e perfis (inclusive redefinição de senha), unidades, categorias de itens e tipos de itens; também permite entrar como outro usuário, com um clique na lista, para testes (auditado).
+- **Relatórios** — cinco relatórios, um por submenu (visão geral com funil de solicitações e ranking de unidades, manutenções com custo, prazo e prestadores, empréstimos, cessões de uso e ampliação — itens aguardando estoque), com filtros por período, unidade e item.
+- **Configurações** — Administrador: usuários e perfis (inclusive redefinição de senha), unidades, categorias de itens e tipos de itens; também permite entrar como outro usuário, com um clique na lista, para testes (auditado).
 
 Mais contexto sobre o problema, benchmark de soluções existentes e justificativa de escopo está no [RFC v1.0](https://github.com/victor-moy/gestao-patrimonio/blob/main/documentation/RFC.pdf).

@@ -21,7 +21,7 @@ export function NovoEquipamento() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const podeCadastrar = usuario?.perfil === 'GALPAO' || usuario?.perfil === 'GESTOR_PATRIMONIO';
+  const podeCadastrar = usuario?.perfil === 'GALPAO' || usuario?.perfil === 'OPERADOR';
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [carregandoOpcoes, setCarregandoOpcoes] = useState(true);

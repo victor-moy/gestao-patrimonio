@@ -42,7 +42,7 @@ async function abrirFiltroPorStatus(rotulo: string) {
 describe('Estoque', () => {
   it('lista os itens do galpão com status e filtra pela visualização', async () => {
     mockFetch({
-      ...entrarComo('GESTOR_PATRIMONIO'),
+      ...entrarComo('OPERADOR'),
       '/unidades': { body: [galpao, { id: 'u1', nome: 'UBS Centro', tipo: 'UBS' }] },
       '/estoque': { body: itens },
     });
@@ -79,7 +79,7 @@ describe('Estoque', () => {
 
   it('movimenta como entrada em página própria e volta à lista com a confirmação', async () => {
     const chamadas = mockFetch({
-      ...entrarComo('GESTOR_PATRIMONIO'),
+      ...entrarComo('OPERADOR'),
       '/estoque/entrada': { status: 201, body: {} },
       '/unidades': { body: [galpao] },
       '/categorias': {
@@ -118,7 +118,7 @@ describe('Estoque', () => {
 
   it('ao escolher saída pede a unidade de destino e mostra o erro da API', async () => {
     mockFetch({
-      ...entrarComo('GESTOR_PATRIMONIO'),
+      ...entrarComo('OPERADOR'),
       '/estoque/saida': { status: 422, body: { mensagem: 'Saldo insuficiente em estoque.' } },
       '/unidades': { body: [galpao, { id: 'u1', nome: 'UBS Centro', tipo: 'UBS' }] },
       '/categorias': {

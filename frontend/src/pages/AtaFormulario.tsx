@@ -16,7 +16,7 @@ export function AtaFormulario() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const permitido = usuario?.perfil === 'GESTOR_PATRIMONIO';
+  const permitido = usuario?.perfil === 'OPERADOR';
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [ata, setAta] = useState<Ata | null>(null);
   const [carregando, setCarregando] = useState(true);

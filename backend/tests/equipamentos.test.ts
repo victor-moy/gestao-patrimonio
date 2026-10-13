@@ -24,7 +24,7 @@ const equipamentoBase = {
 describe('Inventário (RF06-RF10, RN01)', () => {
   it('lista equipamentos para o gestor (RF09)', async () => {
     prismaMock.equipamento.findMany.mockResolvedValue([equipamentoBase] as never);
-    const res = await request(app).get('/equipamentos').set(auth('GESTOR_PATRIMONIO'));
+    const res = await request(app).get('/equipamentos').set(auth('OPERADOR'));
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
     // Gestor não recebe filtro de unidade
@@ -94,7 +94,7 @@ describe('Inventário (RF06-RF10, RN01)', () => {
     prismaMock.equipamento.update.mockResolvedValue(equipamentoBase as never);
     const res = await request(app)
       .patch('/equipamentos/eq-1')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ descricao: 'Nova descrição', tombamento: '99999/2099' });
     expect(res.status).toBe(200);
     const dadosUpdate = prismaMock.equipamento.update.mock.calls[0][0].data as Record<string, unknown>;
@@ -127,7 +127,7 @@ describe('Baixa manual de equipamento (leilão, extravio, roubo)', () => {
     } as never);
     const res = await request(app)
       .post('/equipamentos/eq-1/baixa')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ motivo: 'LEILAO', observacao: 'Lote 12/2026' });
     expect(res.status).toBe(200);
     expect(prismaMock.equipamento.update).toHaveBeenCalledWith(
@@ -146,7 +146,7 @@ describe('Baixa manual de equipamento (leilão, extravio, roubo)', () => {
     } as never);
     const res = await request(app)
       .post('/equipamentos/eq-1/baixa')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ motivo: 'EXTRAVIO' });
     expect(res.status).toBe(422);
     expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
@@ -155,7 +155,7 @@ describe('Baixa manual de equipamento (leilão, extravio, roubo)', () => {
   it('rejeita motivo de baixa inválido', async () => {
     const res = await request(app)
       .post('/equipamentos/eq-1/baixa')
-      .set(auth('GESTOR_PATRIMONIO'))
+      .set(auth('OPERADOR'))
       .send({ motivo: 'INVALIDO' });
     expect(res.status).toBe(422);
   });

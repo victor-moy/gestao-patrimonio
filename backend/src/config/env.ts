@@ -2,7 +2,7 @@ const nodeEnv = process.env.NODE_ENV ?? 'development';
 const SEGREDO_DESENVOLVIMENTO = 'dev-secret';
 
 // Em produção o segredo do JWT é obrigatório e precisa ser forte: sem isso
-// qualquer um forjaria tokens (inclusive de Gestor). Falha cedo, no boot.
+// qualquer um forjaria tokens (inclusive de Administrador). Falha cedo, no boot.
 function segredoJwt() {
   const segredo = process.env.JWT_SECRET;
   if (nodeEnv === 'production') {

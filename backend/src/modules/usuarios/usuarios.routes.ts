@@ -9,11 +9,11 @@ import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
 
-// RF02 — o administrador (Gestor de Patrimônio) cadastra usuários
+// RF02 — o administrador (Administrador) cadastra usuários
 // e atribui perfis. Inclui matrícula funcional (feedback 12/05/2026).
 export const usuariosRouter = Router();
 
-usuariosRouter.use(autenticar, permitir(Perfil.GESTOR_PATRIMONIO));
+usuariosRouter.use(autenticar, permitir(Perfil.OPERADOR));
 
 const usuarioSelect = {
   id: true,
@@ -24,6 +24,8 @@ const usuarioSelect = {
   ativo: true,
   unidadeId: true,
   unidade: { select: { nome: true } },
+  prestadorId: true,
+  prestador: { select: { nome: true } },
   criadoEm: true,
 };
 
@@ -42,10 +44,22 @@ const criarSchema = z.object({
   senha: z.string().min(6, 'a senha deve ter no mínimo 6 caracteres'),
   perfil: z.nativeEnum(Perfil),
   unidadeId: z.string().uuid().nullable().optional(),
+  prestadorId: z.string().uuid().nullable().optional(),
 });
 
+// Terceirizada representa um prestador de serviço; os demais perfis não têm prestador
+async function validarPrestador(perfil: Perfil, prestadorId: string | null | undefined) {
+  if (perfil === Perfil.TERCEIRIZADA) {
+    if (!prestadorId) throw new AppError('Usuários terceirizados devem estar vinculados a um prestador de serviço.', 422);
+    const existe = await prisma.prestadorServico.findUnique({ where: { id: prestadorId }, select: { id: true } });
+    if (!existe) throw new AppError('Prestador de serviço não encontrado.', 422);
+  } else if (prestadorId) {
+    throw new AppError('Somente usuários terceirizados podem ser vinculados a um prestador de serviço.', 422);
+  }
+}
+
 usuariosRouter.post('/', validarBody(criarSchema), async (req, res) => {
-  const { nome, email, matricula, senha, perfil, unidadeId } = req.body;
+  const { nome, email, matricula, senha, perfil, unidadeId, prestadorId } = req.body;
   const jaExiste = await prisma.usuario.findFirst({
     where: { OR: [{ email }, { matricula }] },
   });
@@ -55,6 +69,7 @@ usuariosRouter.post('/', validarBody(criarSchema), async (req, res) => {
   if ((perfil === Perfil.UNIDADE || perfil === Perfil.GALPAO) && !unidadeId) {
     throw new AppError('Usuários de unidade ou galpão devem estar vinculados a uma unidade.', 422);
   }
+  await validarPrestador(perfil, prestadorId);
   const usuario = await prisma.usuario.create({
     data: {
       nome,
@@ -62,6 +77,7 @@ usuariosRouter.post('/', validarBody(criarSchema), async (req, res) => {
       matricula,
       perfil,
       unidadeId: unidadeId ?? null,
+      prestadorId: prestadorId ?? null,
       senhaHash: await bcrypt.hash(senha, 10),
     },
     select: usuarioSelect,
@@ -80,6 +96,7 @@ const atualizarSchema = z.object({
   nome: z.string().min(3).optional(),
   perfil: z.nativeEnum(Perfil).optional(),
   unidadeId: z.string().uuid().nullable().optional(),
+  prestadorId: z.string().uuid().nullable().optional(),
   ativo: z.boolean().optional(),
   senha: z.string().min(6).optional(),
 });
@@ -91,6 +108,15 @@ usuariosRouter.patch('/:id', validarBody(atualizarSchema), async (req, res) => {
   });
   if (!antes) throw new AppError('Usuário não encontrado.', 404);
   const { senha, ...dados } = req.body;
+
+  // Perfil e prestador precisam continuar coerentes depois da edição
+  const perfilFinal = (dados.perfil ?? antes.perfil) as Perfil;
+  if (perfilFinal === Perfil.TERCEIRIZADA) {
+    await validarPrestador(perfilFinal, dados.prestadorId !== undefined ? dados.prestadorId : antes.prestadorId);
+  } else {
+    await validarPrestador(perfilFinal, dados.prestadorId);
+    if (antes.prestadorId) dados.prestadorId = null;
+  }
 
   // Responsável por unidade não pode ser desativado nem transferido —
   // primeiro é preciso definir outro responsável para a unidade.

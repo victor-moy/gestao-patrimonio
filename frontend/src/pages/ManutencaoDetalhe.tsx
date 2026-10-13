@@ -88,7 +88,7 @@ export function ManutencaoDetalhe() {
   );
 }
 
-type Acao = 'aprovar' | 'negar' | 'retorno' | 'baixa' | 'rejeitar';
+type Acao = 'aprovar' | 'negar' | 'rejeitar' | 'trocar';
 
 // Campos que expandem/recolhem sem desmontar — evita o "pulo" ao abrir a ação.
 function Expansivel({ aberto, children }: { aberto: boolean; children: ReactNode }) {
@@ -126,22 +126,37 @@ function ConteudoManutencao({
   const [custoFinal, setCustoFinal] = useState('');
   const [estadoPos, setEstadoPos] = useState('BOM');
   const [contratos, setContratos] = useState<Contrato[]>([]);
-  const [contratoId, setContratoId] = useState('');
+  const [contratoItemId, setContratoItemId] = useState('');
 
-  const ehGM = usuario?.perfil === 'GESTOR_MANUTENCAO';
+  const ehAdministrador = usuario?.perfil === 'OPERADOR';
+  const ehTerceirizada = usuario?.perfil === 'TERCEIRIZADA';
+  // Itens elegíveis: contrato vigente, escopo que cobre o que o tipo de item aceita e saldo disponível
+  const tipoItem: { permitePreventiva?: boolean; permiteCorretiva?: boolean } = m.equipamento.tipoEquipamento ?? {};
+  const contratosComItens = contratos
+    .filter((c) => c.status !== 'EXPIRADO')
+    .map((c) => ({
+      ...c,
+      itens: c.itens.filter(
+        (i) =>
+          i.saldo > 0 &&
+          ((tipoItem.permitePreventiva !== false && i.escopo.cobrePreventiva) ||
+            (tipoItem.permiteCorretiva !== false && i.escopo.cobreCorretiva)),
+      ),
+    }))
+    .filter((c) => c.itens.length > 0);
   const ehUnidadeDona = usuario?.perfil === 'UNIDADE' && usuario.unidadeId === m.unidade.id;
   const titulo = tituloManutencao(m);
   // Só mostra a confirmação enquanto o lado de quem está vendo ainda não confirmou
-  const podeConfirmarRetorno = (ehGM && !m.confirmadoGestor) || (ehUnidadeDona && !m.confirmadoUnidade);
+  const podeConfirmarRetorno = (ehAdministrador && !m.confirmadoGestor) || (ehUnidadeDona && !m.confirmadoUnidade);
 
   useEffect(() => {
-    if (ehGM) {
+    if (ehAdministrador) {
       api
         .get<Contrato[]>('/contratos')
         .then(setContratos)
         .catch((e) => setErro(e instanceof Error ? e.message : 'Não foi possível carregar os contratos.'));
     }
-  }, [ehGM, setErro]);
+  }, [ehAdministrador, setErro]);
 
   // A página fica aberta entre uma ação e outra: ao mudar o status, os formulários
   // de ação voltam ao estado inicial.
@@ -151,12 +166,12 @@ function ConteudoManutencao({
     setLaudo(null);
     setOrcamento('');
     setCustoFinal('');
-    setContratoId('');
+    setContratoItemId('');
   }, [m.status]);
 
   useEffect(() => {
     if (!acao) return;
-    const alvo = { aprovar: 'man-contrato', negar: 'man-motivo', retorno: 'man-custo', baixa: '', rejeitar: '' }[acao];
+    const alvo = { aprovar: 'man-contrato-item', trocar: 'man-contrato-item', negar: 'man-motivo', rejeitar: '' }[acao];
     if (alvo) document.getElementById(alvo)?.focus({ preventScroll: true });
   }, [acao]);
 
@@ -180,7 +195,7 @@ function ConteudoManutencao({
 
   const aprovar = () =>
     executar(
-      () => api.post(`/manutencoes/${m.id}/aprovar`, contratoId ? { contratoId } : {}),
+      () => api.post(`/manutencoes/${m.id}/aprovar`, { contratoItemId }),
     );
 
   const enviarLaudo = async (caminho: string, extra?: Record<string, string>) => {
@@ -190,11 +205,44 @@ function ConteudoManutencao({
     await api.post(`/manutencoes/${m.id}/${caminho}`, dados);
   };
 
-  const campoLaudo = (
+  const campoItemContrato = (
     <div className="field">
-      <span id="man-laudo-rotulo" className="rotulo-campo">
+      <label htmlFor="man-contrato-item">Item do contrato</label>
+      <select
+        id="man-contrato-item"
+        value={contratoItemId}
+        onChange={(e) => setContratoItemId(e.target.value)}
+        required
+      >
+        <option value="">Selecione…</option>
+        {contratosComItens.map((c) => (
+          <optgroup key={c.id} label={`${c.numero} · ${c.prestador.nome}`}>
+            {c.itens.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.servico.nome}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+      {contratosComItens.length === 0 && (
+        <p className="itens-aviso itens-aviso--acao" role="status">
+          Nenhum item de contrato disponível.
+        </p>
+      )}
+    </div>
+  );
+
+  // Rejeitar o orçamento exige o laudo; vira um cartão próprio, no padrão dos demais blocos de ação
+  const campoLaudo = (
+    <div className="laudo-baixa" role="group" aria-labelledby="man-laudo-rotulo">
+      <div id="man-laudo-rotulo" className="laudo-baixa-titulo">
         Laudo de baixa (PDF) *
-      </span>
+      </div>
+      <p className="laudo-baixa-ajuda">
+        Obrigatório para rejeitar o orçamento. O equipamento será baixado e uma solicitação de substituição será aberta
+        automaticamente.
+      </p>
       <CampoAnexo
         arquivo={laudo}
         preview={null}
@@ -205,6 +253,12 @@ function ConteudoManutencao({
       />
     </div>
   );
+
+  // Orçamento a partir de 50% do preço de referência do tipo de item: o reparo não é sugerido
+  const precoReferencia = Number(m.equipamento.tipoEquipamento?.preco ?? 0);
+  const valorOrcamento = Number(m.orcamentoValor ?? 0);
+  const orcamentoAltoDemais = precoReferencia > 0 && valorOrcamento > 0 && valorOrcamento >= precoReferencia * 0.5;
+  const percentualDoPreco = precoReferencia > 0 ? Math.round((valorOrcamento / precoReferencia) * 100) : 0;
 
   const rotuloSimNao = (confirmado: boolean) => (confirmado ? 'Confirmado' : 'Pendente');
 
@@ -248,7 +302,15 @@ function ConteudoManutencao({
             {m.contrato && (
               <div>
                 <dt>Contrato</dt>
-                <dd>{m.contrato.empresa}</dd>
+                <dd>
+                  {m.contrato.numero} · {m.contrato.prestador.nome}
+                </dd>
+              </div>
+            )}
+            {m.contratoItem && (
+              <div>
+                <dt>Item do contrato</dt>
+                <dd>{m.contratoItem.servico.nome}</dd>
               </div>
             )}
             {m.orcamentoValor && (
@@ -270,7 +332,7 @@ function ConteudoManutencao({
                   <dd>{rotuloSimNao(m.confirmadoUnidade)}</dd>
                 </div>
                 <div>
-                  <dt>Confirmação do gestor</dt>
+                  <dt>Confirmação do administrador</dt>
                   <dd>{rotuloSimNao(m.confirmadoGestor)}</dd>
                 </div>
               </>
@@ -352,23 +414,11 @@ function ConteudoManutencao({
 
         <div className="solicitacao-lateral">
           <div className="solicitacao-acoes">
-            {/* Gestor de Manutenção: aprovar (contrato opcional) ou negar (motivo obrigatório) */}
-            {ehGM && m.status === 'PENDENTE_APROVACAO' && (
+            {/* Administrador: aprovar (item de contrato obrigatório) ou negar (motivo obrigatório) */}
+            {ehAdministrador && m.status === 'PENDENTE_APROVACAO' && (
               <div className="actions-box actions-box--simples">
                 <Expansivel aberto={acao === 'aprovar' || acao === 'negar'}>
-                  {acaoExibida === 'aprovar' && contratos.length > 0 && (
-                    <div className="field">
-                      <label htmlFor="man-contrato">Contrato da terceirizada</label>
-                      <select id="man-contrato" value={contratoId} onChange={(e) => setContratoId(e.target.value)}>
-                        <option value="">Selecionar depois</option>
-                        {contratos.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.empresa}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                  {acaoExibida === 'aprovar' && campoItemContrato}
                   {acaoExibida === 'negar' && (
                     <div className="field">
                       <label htmlFor="man-motivo">Motivo da negação *</label>
@@ -386,7 +436,7 @@ function ConteudoManutencao({
                         type="button"
                         className="btn btn-primary"
                         disabled={ocupado}
-                        onClick={() => (contratos.length > 0 ? abrir('aprovar') : aprovar())}
+                        onClick={() => abrir('aprovar')}
                       >
                         Aprovar manutenção
                       </button>
@@ -397,7 +447,12 @@ function ConteudoManutencao({
                         Cancelar
                       </button>
                       {acao === 'aprovar' ? (
-                        <button type="button" className="btn btn-primary" disabled={ocupado} onClick={aprovar}>
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          disabled={ocupado || !contratoItemId}
+                          onClick={aprovar}
+                        >
                           Confirmar aprovação
                         </button>
                       ) : (
@@ -418,7 +473,70 @@ function ConteudoManutencao({
               </div>
             )}
 
-            {ehGM && m.status === 'AGUARDANDO_ORCAMENTO' && (
+            {ehAdministrador && m.status === 'AGUARDANDO_ORCAMENTO' && (
+              <div className="actions-box actions-box--simples">
+                <Expansivel aberto={acao === 'trocar' || acao === 'negar'}>
+                  {acaoExibida === 'trocar' && campoItemContrato}
+                  {acaoExibida === 'negar' && (
+                    <div className="field">
+                      <label htmlFor="man-motivo">Motivo da negação *</label>
+                      <input id="man-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+                      <p className="itens-aviso itens-aviso--acao" role="status">
+                        O equipamento volta a ativo. O chamado é encerrado sem orçamento.
+                      </p>
+                    </div>
+                  )}
+                </Expansivel>
+                <div className="actions-row">
+                  {acao === null || (acao !== 'trocar' && acao !== 'negar') ? (
+                    <>
+                      <button type="button" className="btn btn-outline" onClick={() => abrir('negar')}>
+                        Negar manutenção
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={ocupado}
+                        onClick={() => abrir('trocar')}
+                      >
+                        Trocar item
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button type="button" className="btn btn-outline" onClick={() => setAcao(null)}>
+                        Cancelar
+                      </button>
+                      {acao === 'trocar' ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          disabled={ocupado || !contratoItemId}
+                          onClick={() =>
+                            executar(() => api.post(`/manutencoes/${m.id}/item`, { contratoItemId }))
+                          }
+                        >
+                          Confirmar item
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          disabled={ocupado || !motivo.trim()}
+                          onClick={() =>
+                            executar(() => api.post(`/manutencoes/${m.id}/negar`, { motivo }))
+                          }
+                        >
+                          Confirmar negação
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {ehTerceirizada && m.status === 'AGUARDANDO_ORCAMENTO' && (
               <div className="actions-box">
                 <div className="actions-title">Registrar orçamento</div>
                 <div className="field">
@@ -449,8 +567,20 @@ function ConteudoManutencao({
               </div>
             )}
 
+            {/* Alerta de custo: orçamento a partir de 50% do preço de referência do item — manutenção não sugerida */}
+            {ehAdministrador && m.status === 'ORCAMENTO_REGISTRADO' && orcamentoAltoDemais && (
+              <div className="aviso-manutencao" role="alert">
+                <strong>Manutenção não sugerida</strong>
+                <p>
+                  O orçamento de {formatarMoeda(m.orcamentoValor)} corresponde a {percentualDoPreco}% do preço de
+                  referência do item ({formatarMoeda(precoReferencia)}). Com orçamento igual ou superior a 50% do
+                  preço de referência, o reparo não é sugerido: avalie rejeitar o orçamento e baixar o equipamento.
+                </p>
+              </div>
+            )}
+
             {/* Validação do orçamento: aprovar direto ou rejeitar anexando o laudo de baixa */}
-            {ehGM && m.status === 'ORCAMENTO_REGISTRADO' && (
+            {ehAdministrador && m.status === 'ORCAMENTO_REGISTRADO' && (
               <div className="actions-box actions-box--simples">
                 <Expansivel aberto={acao === 'rejeitar'}>{acaoExibida === 'rejeitar' && campoLaudo}</Expansivel>
                 <div className="actions-row">
@@ -495,74 +625,42 @@ function ConteudoManutencao({
               </div>
             )}
 
-            {/* Em execução: registrar o retorno (custo final) ou emitir laudo de baixa */}
-            {ehGM && m.status === 'EM_EXECUCAO' && (
-              <div className="actions-box actions-box--simples">
-                <Expansivel aberto={acao === 'retorno' || acao === 'baixa'}>
-                  {acaoExibida === 'retorno' && (
-                    <div className="field">
-                      <label htmlFor="man-custo">Custo final (R$)</label>
-                      <input
-                        id="man-custo"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder={m.orcamentoValor ?? ''}
-                        value={custoFinal}
-                        onChange={(e) => setCustoFinal(e.target.value)}
-                      />
-                    </div>
-                  )}
-                  {acaoExibida === 'baixa' && campoLaudo}
-                </Expansivel>
+            {/* Terceirizada: confirma que o reparo terminou (depois, Unidade e Administrador confirmam o retorno) */}
+            {ehTerceirizada && m.status === 'EM_EXECUCAO' && (
+              <div className="actions-box">
+                <div className="actions-title">Confirmar reparo concluído</div>
+                <div className="field">
+                  <label htmlFor="man-custo">Custo final (R$)</label>
+                  <input
+                    id="man-custo"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder={m.orcamentoValor ?? ''}
+                    value={custoFinal}
+                    onChange={(e) => setCustoFinal(e.target.value)}
+                  />
+                </div>
                 <div className="actions-row">
-                  {acao !== 'retorno' && acao !== 'baixa' ? (
-                    <>
-                      <button type="button" className="btn btn-outline" onClick={() => abrir('baixa')}>
-                        Emitir laudo de baixa
-                      </button>
-                      <button type="button" className="btn btn-primary" onClick={() => abrir('retorno')}>
-                        Equipamento retornou
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button type="button" className="btn btn-outline" onClick={() => setAcao(null)}>
-                        Cancelar
-                      </button>
-                      {acao === 'retorno' ? (
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          disabled={ocupado}
-                          onClick={() =>
-                            executar(
-                              () =>
-                                api.post(`/manutencoes/${m.id}/registrar-retorno`, {
-                                  ...(custoFinal ? { custoFinal: Number(custoFinal) } : {}),
-                                }),
-                            )
-                          }
-                        >
-                          Confirmar retorno
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          disabled={ocupado || !laudo}
-                          onClick={() => executar(() => enviarLaudo('baixa'))}
-                        >
-                          Emitir laudo
-                        </button>
-                      )}
-                    </>
-                  )}
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    disabled={ocupado}
+                    onClick={() =>
+                      executar(() =>
+                        api.post(`/manutencoes/${m.id}/registrar-retorno`, {
+                          ...(Number(custoFinal) > 0 ? { custoFinal: Number(custoFinal) } : {}),
+                        }),
+                      )
+                    }
+                  >
+                    Confirmar reparo concluído
+                  </button>
                 </div>
               </div>
             )}
 
-            {/* Confirmação dupla do retorno: Unidade e Gestor de Manutenção */}
+            {/* Confirmação dupla do retorno: Unidade e Administrador */}
             {m.status === 'AGUARDANDO_RETORNO' && podeConfirmarRetorno && (
               <div className="actions-box">
                 <div className="actions-title">Confirmar retorno</div>

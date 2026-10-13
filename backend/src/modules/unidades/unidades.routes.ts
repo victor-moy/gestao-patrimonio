@@ -50,7 +50,7 @@ async function validarResponsavel(responsavelId: string, unidadeId: string) {
 
 unidadesRouter.post(
   '/',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(unidadeSchema),
   async (req, res) => {
     const existe = await prisma.unidade.findUnique({ where: { nome: req.body.nome } });
@@ -104,7 +104,7 @@ unidadesRouter.post(
 
 unidadesRouter.patch(
   '/:id',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(
     unidadeSchema.partial().extend({
       ativo: z.boolean().optional(),
@@ -133,7 +133,7 @@ unidadesRouter.patch(
   },
 );
 
-unidadesRouter.delete('/:id', permitir(Perfil.GESTOR_PATRIMONIO), async (req, res) => {
+unidadesRouter.delete('/:id', permitir(Perfil.OPERADOR), async (req, res) => {
   const unidade = await prisma.unidade.findUnique({
     where: { id: req.params.id },
     include: {

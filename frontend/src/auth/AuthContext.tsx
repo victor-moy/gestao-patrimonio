@@ -15,9 +15,12 @@ interface AuthContextValue {
   usuario: Usuario | null;
   carregando: boolean;
   impersonando: boolean;
+  // O Administrador troca de usuário, também enquanto está dentro de outro usuário
+  podeTrocarUsuario: boolean;
   login: (email: string, senha: string) => Promise<void>;
   logout: () => void;
   entrarComo: (usuarioId: string) => Promise<void>;
+  // Volta à própria conta do administrador (o token dele fica guardado enquanto assume outro usuário)
   voltarAoMestre: () => Promise<void>;
 }
 
@@ -57,14 +60,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUsuario(resposta.usuario);
   }, []);
 
-  // Gestor de Patrimônio "entra como" outro usuário — guarda o próprio token
+  // O Administrador "entra como" outro usuário — guarda o próprio token
   // pra dar pra voltar depois, sem precisar logar de novo.
   const entrarComo = useCallback(async (usuarioId: string) => {
     const tokenAtual = getToken();
+    // Já dentro de outro usuário? A troca é autorizada pelo token do administrador, que continua guardado
+    const jaImpersonando = Boolean(getTokenMestre());
     const resposta = await api.post<{ token: string; usuario: Usuario }>(
       `/auth/impersonar/${usuarioId}`,
+      undefined,
+      { comoMestre: jaImpersonando },
     );
-    if (tokenAtual && !getTokenMestre()) {
+    if (tokenAtual && !jaImpersonando) {
       setTokenMestre(tokenAtual);
     }
     setToken(resposta.token);
@@ -80,17 +87,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(tokenMestre);
     setImpersonando(false);
     try {
-      const usuarioMestre = await api.get<Usuario>('/auth/me');
-      setUsuario(usuarioMestre);
+      setUsuario(await api.get<Usuario>('/auth/me'));
       recarregarNoInicio();
     } catch {
       logout();
     }
   }, [logout]);
 
+  const podeTrocarUsuario =
+    impersonando || usuario?.perfil === 'OPERADOR';
   const value = useMemo(
-    () => ({ usuario, carregando, impersonando, login, logout, entrarComo, voltarAoMestre }),
-    [usuario, carregando, impersonando, login, logout, entrarComo, voltarAoMestre],
+    () => ({ usuario, carregando, impersonando, podeTrocarUsuario, login, logout, entrarComo, voltarAoMestre }),
+    [usuario, carregando, impersonando, podeTrocarUsuario, login, logout, entrarComo, voltarAoMestre],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

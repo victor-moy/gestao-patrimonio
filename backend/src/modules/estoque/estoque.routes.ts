@@ -19,10 +19,10 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-estoqueRouter.use(autenticar, permitir(Perfil.GALPAO, Perfil.GESTOR_PATRIMONIO));
+estoqueRouter.use(autenticar, permitir(Perfil.GALPAO, Perfil.OPERADOR));
 
 // Resolve o galpão-alvo da operação. O usuário GALPAO só opera o próprio galpão
-// (qualquer unidadeId enviado no corpo é ignorado); o Gestor de Patrimônio, que
+// (qualquer unidadeId enviado no corpo é ignorado); o Administrador, que
 // não pertence a um galpão, precisa informar qual no corpo.
 function resolverGalpaoId(req: Request): string {
   const usuario = req.usuario!;
@@ -84,7 +84,7 @@ async function calcularReservadoPorTipo(tipoEquipamentoIds: string[]) {
 }
 
 estoqueRouter.get('/', async (req, res) => {
-  // Galpão enxerga apenas o próprio estoque; o Gestor pode filtrar por qualquer galpão.
+  // Galpão enxerga apenas o próprio estoque; o Administrador pode filtrar por qualquer galpão.
   const unidadeId =
     req.usuario!.perfil === Perfil.GALPAO ? (req.usuario!.unidadeId ?? '') : (req.query.unidadeId as string | undefined);
   const itens = await prisma.estoqueGalpao.findMany({

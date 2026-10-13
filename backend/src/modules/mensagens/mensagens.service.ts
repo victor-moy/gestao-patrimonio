@@ -13,8 +13,8 @@ const LIMITE_LISTAGEM = 500;
 // Quem participa da conversa: os mesmos perfis que enxergam a solicitação/manutenção
 // na interface, respeitando a unidade quando o usuário é de Unidade.
 const PERFIS: Record<ContextoChat, Perfil[]> = {
-  solicitacao: [Perfil.GESTOR_PATRIMONIO, Perfil.UNIDADE, Perfil.GALPAO],
-  manutencao: [Perfil.GESTOR_PATRIMONIO, Perfil.GESTOR_MANUTENCAO, Perfil.UNIDADE],
+  solicitacao: [Perfil.OPERADOR, Perfil.UNIDADE, Perfil.GALPAO],
+  manutencao: [Perfil.OPERADOR, Perfil.UNIDADE, Perfil.TERCEIRIZADA],
 };
 
 interface Acesso {
@@ -39,9 +39,15 @@ async function verificarAcesso(usuario: AuthPayload, contexto: ContextoChat, id:
   }
   const m = await prisma.manutencao.findUnique({
     where: { id },
-    select: { unidadeId: true, unidade: { select: { emailBase: true } } },
+    select: { unidadeId: true, unidade: { select: { emailBase: true } }, contrato: { select: { prestadorId: true } } },
   });
   if (!m) throw new AppError('Manutenção não encontrada.', 404);
+  if (
+    usuario.perfil === Perfil.TERCEIRIZADA &&
+    (!usuario.prestadorId || m.contrato?.prestadorId !== usuario.prestadorId)
+  ) {
+    throw new AppError('Esta manutenção não pertence a um contrato do seu prestador.', 403);
+  }
   if (usuario.perfil === Perfil.UNIDADE && m.unidadeId !== usuario.unidadeId) {
     throw new AppError('Esta manutenção não pertence à sua unidade.', 403);
   }
@@ -107,14 +113,14 @@ const LIMITE_CONVERSAS = 50;
 // (pelo botão Conversar do pedido) segue a regra de `verificarAcesso`; aqui é só a listagem.
 //  - Unidade: as da própria unidade.
 //  - Galpão: as solicitações que enxerga.
-//  - Gestores (Patrimônio e Manutenção): só as em que estão envolvidos — escreveram nela, criaram o
+//  - Administradores: só as em que estão envolvidos — escreveram nela, criaram o
 //    pedido ou decidiram o pedido. Enquanto um pedido está pendente e sem decisão, ele é uma fila: todos
-//    os gestores que o decidem (Patrimônio nas solicitações, Manutenção nas manutenções) o enxergam.
+//    os administradores o enxergam.
 function filtrosDeVisibilidade(usuario: AuthPayload) {
   const uid = usuario.sub;
   const unidadeId = usuario.unidadeId ?? '';
   const ehUnidade = usuario.perfil === Perfil.UNIDADE;
-  const ehGestor = usuario.perfil === Perfil.GESTOR_PATRIMONIO || usuario.perfil === Perfil.GESTOR_MANUTENCAO;
+  const ehGestor = usuario.perfil === Perfil.OPERADOR;
 
   const solicitacao: Prisma.SolicitacaoWhereInput | null = PERFIS.solicitacao.includes(usuario.perfil)
     ? {
@@ -126,7 +132,7 @@ function filtrosDeVisibilidade(usuario: AuthPayload) {
                 { mensagens: { some: { autorId: uid } } },
                 { criadoPorId: uid },
                 { decididoPorId: uid },
-                ...(usuario.perfil === Perfil.GESTOR_PATRIMONIO
+                ...(usuario.perfil === Perfil.OPERADOR
                   ? [{ status: StatusSolicitacao.PENDENTE_APROVACAO, decididoPorId: null }]
                   : []),
               ],
@@ -139,13 +145,18 @@ function filtrosDeVisibilidade(usuario: AuthPayload) {
     ? {
         mensagens: { some: {} },
         ...(ehUnidade ? { unidadeId } : {}),
+        ...(usuario.perfil === Perfil.TERCEIRIZADA
+          ? usuario.prestadorId
+            ? { contrato: { prestadorId: usuario.prestadorId } }
+            : { id: { in: [] } }
+          : {}),
         ...(ehGestor
           ? {
               OR: [
                 { mensagens: { some: { autorId: uid } } },
                 { solicitanteId: uid },
                 { decididoPorId: uid },
-                ...(usuario.perfil === Perfil.GESTOR_MANUTENCAO
+                ...(usuario.perfil === Perfil.OPERADOR
                   ? [{ status: StatusManutencao.PENDENTE_APROVACAO, decididoPorId: null }]
                   : []),
               ],

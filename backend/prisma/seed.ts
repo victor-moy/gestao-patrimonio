@@ -53,15 +53,15 @@ async function main() {
   }
 
   // Usuários (um por perfil)
-  const criarUsuario = (nome: string, email: string, matricula: string, perfil: 'GESTOR_PATRIMONIO' | 'GESTOR_MANUTENCAO' | 'UNIDADE' | 'GALPAO', unidadeId?: string) =>
+  const criarUsuario = (nome: string, email: string, matricula: string, perfil: 'OPERADOR' | 'UNIDADE' | 'GALPAO', unidadeId?: string) =>
     prisma.usuario.upsert({
       where: { email },
       update: {},
       create: { nome, email, matricula, senhaHash, perfil, unidadeId: unidadeId ?? null },
     });
 
-  await criarUsuario('Samuel Andrade', 'gestor@joinville.sc.gov.br', '10001', 'GESTOR_PATRIMONIO');
-  await criarUsuario('Carla Fiscal', 'manutencao@joinville.sc.gov.br', '10002', 'GESTOR_MANUTENCAO');
+  await criarUsuario('Samuel Andrade', 'gestor@joinville.sc.gov.br', '10001', 'OPERADOR');
+  await criarUsuario('Carla Fiscal', 'manutencao@joinville.sc.gov.br', '10002', 'OPERADOR');
   const rodrigo = await criarUsuario('Rodrigo Silva', 'ubs.centro@joinville.sc.gov.br', '10003', 'UNIDADE', unidades['UBS Centro']);
   const ana = await criarUsuario('Ana Paula', 'ubs.norte@joinville.sc.gov.br', '10004', 'UNIDADE', unidades['UBS Norte']);
   const paulo = await criarUsuario('Paulo Roberto', 'galpao.user@joinville.sc.gov.br', '10005', 'GALPAO', galpao.id);
@@ -94,6 +94,11 @@ async function main() {
       });
       tipos[codigo] = t.id;
     }
+  }
+
+  // Preço de referência de alguns tipos de demonstração (base do alerta de 50% nos orçamentos de manutenção)
+  for (const [codigo, preco] of Object.entries({ 'AUT-V75': 38000, 'GEL-300': 6500, 'AR-12K': 3800, 'CAD-ODO': 22000 })) {
+    await prisma.tipoEquipamento.updateMany({ where: { codigo, preco: null }, data: { preco } });
   }
 
   // Equipamentos de demonstração
@@ -169,25 +174,64 @@ async function main() {
     },
   });
 
+  // Prestadores e serviços de contrato (cadastros de Configurações)
+  const tecSaude = await prisma.prestadorServico.upsert({
+    where: { nome: 'TecSaúde Manutenção Hospitalar Ltda.' },
+    update: {},
+    create: { nome: 'TecSaúde Manutenção Hospitalar Ltda.', cnpj: '12345678000190' },
+  });
+  const labEquip = await prisma.prestadorServico.upsert({
+    where: { nome: 'LabEquip Serviços' },
+    update: {},
+    create: { nome: 'LabEquip Serviços', cnpj: '98765432000110' },
+  });
+  // Usuário da empresa prestadora (perfil Terceirizada), vinculado ao prestador
+  await prisma.usuario.upsert({
+    where: { email: 'terceirizada@tecsaude.com.br' },
+    update: {},
+    create: {
+      nome: 'Técnico TecSaúde',
+      email: 'terceirizada@tecsaude.com.br',
+      matricula: '10090',
+      senhaHash,
+      perfil: 'TERCEIRIZADA',
+      prestadorId: tecSaude.id,
+    },
+  });
+  const servicos: Record<string, string> = {};
+  for (const nome of [
+    'Serviço de manutenção preventiva e corretiva',
+    'Serviço de manutenção preventiva',
+    'Serviço de calibração',
+  ]) {
+    servicos[nome] = (
+      await prisma.servicoContrato.upsert({ where: { nome }, update: {}, create: { nome } })
+    ).id;
+  }
+
+  const escopos: Record<string, string> = {};
+  for (const nome of ['Manutenção preventiva', 'Manutenção corretiva', 'Manutenção preventiva e corretiva']) {
+    escopos[nome] = (await prisma.escopoServico.upsert({ where: { nome }, update: {}, create: { nome } })).id;
+  }
+
   // Contratos de manutenção e serviços
   await prisma.contrato.upsert({
     where: { numero: 'CONT-2025-001' },
-    update: {
-      tipo: 'Manutenção Preventiva',
-      valorTotal: 45000,
-      condicoesPagamento: 'Mensal, mediante atesto do fiscal',
-    },
+    update: {},
     create: {
       numero: 'CONT-2025-001',
-      empresa: 'TecSaúde Manutenção Hospitalar Ltda.',
-      cnpj: '12345678000190',
-      tipo: 'Manutenção Preventiva',
+      prestadorId: tecSaude.id,
       objeto: 'Manutenção corretiva e preventiva de equipamentos médico-hospitalares',
       valorTotal: 45000,
-      condicoesPagamento: 'Mensal, mediante atesto do fiscal',
       status: 'ATIVO',
       vigenciaInicio: new Date('2025-01-01'),
       vigenciaFim: new Date('2026-12-31'),
+      itens: {
+        create: [
+          { servicoId: servicos['Serviço de manutenção preventiva e corretiva'], valor: 30000, escopoId: escopos['Manutenção preventiva e corretiva'] },
+          { servicoId: servicos['Serviço de manutenção preventiva'], valor: 15000, escopoId: escopos['Manutenção preventiva'] },
+        ],
+      },
     },
   });
   await prisma.contrato.upsert({
@@ -195,14 +239,15 @@ async function main() {
     update: {},
     create: {
       numero: 'CONT-2024-045',
-      empresa: 'LabEquip Serviços',
-      cnpj: '98765432000110',
-      tipo: 'Calibração',
+      prestadorId: labEquip.id,
       objeto: 'Calibração periódica de equipamentos laboratoriais',
       valorTotal: 18500,
       status: 'RENOVACAO_PENDENTE',
       vigenciaInicio: new Date('2024-05-31'),
       vigenciaFim: new Date('2025-05-31'),
+      itens: {
+        create: [{ servicoId: servicos['Serviço de calibração'], valor: 18500, escopoId: escopos['Manutenção preventiva'] }],
+      },
     },
   });
 
@@ -241,10 +286,11 @@ async function main() {
 
   console.log('Seed concluído.');
   console.log('Usuários (senha: sgp12345):');
-  console.log('  gestor@joinville.sc.gov.br      — Gestor de Patrimônio');
-  console.log('  manutencao@joinville.sc.gov.br  — Gestor de Manutenção');
+  console.log('  gestor@joinville.sc.gov.br      — Administrador');
+  console.log('  manutencao@joinville.sc.gov.br  — Administrador');
   console.log('  ubs.centro@joinville.sc.gov.br  — Unidade (UBS Centro)');
   console.log('  galpao.user@joinville.sc.gov.br — Galpão');
+  console.log('  terceirizada@tecsaude.com.br    — Terceirizada (TecSaúde)');
 }
 
 main()

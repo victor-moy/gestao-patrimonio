@@ -36,7 +36,7 @@ configuracoesRouter.get('/atendimento', async (_req, res) => {
 
 configuracoesRouter.put(
   '/atendimento',
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   validarBody(z.object({ whatsapp: z.string().nullable() })),
   async (req, res) => {
     const bruto = (req.body.whatsapp as string | null)?.trim() ?? '';

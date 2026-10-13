@@ -41,24 +41,49 @@ const ataVencida = { ...ataAtiva, id: 'a2', numero: '010/2025', fornecedor: 'Vel
 const contrato = {
   id: 'c1',
   numero: 'CONT-2026-001',
-  empresa: 'Tecnomed',
-  cnpj: null,
-  tipo: 'Manutenção Preventiva',
+  prestadorId: 'pr1',
+  prestador: { id: 'pr1', nome: 'Tecnomed' },
   objeto: 'Manutenção de autoclaves',
   valorTotal: '12000',
-  condicoesPagamento: '30 dias',
   status: 'ATIVO',
-  observacoes: null,
+  itens: [
+    {
+      id: 'i1',
+      servicoId: 'sv1',
+      valor: '12000',
+      escopoId: 'es3',
+      servico: { id: 'sv1', nome: 'Serviço de manutenção preventiva e corretiva' },
+      saldo: 12000,
+      escopo: { id: 'es3', nome: 'Preventiva e corretiva', cobrePreventiva: true, cobreCorretiva: true },
+    },
+  ],
   vigenciaInicio: '2026-01-01T00:00:00.000Z',
   vigenciaFim: '2026-12-31T00:00:00.000Z',
   ativo: true,
+};
+
+const prestadores = [{ id: 'pr1', nome: 'Tecnomed', cnpj: null, telefone: null, email: null, _count: { contratos: 1 } }];
+const servicos = [
+  { id: 'sv1', nome: 'Serviço de manutenção preventiva e corretiva', descricao: null, _count: { itens: 1 } },
+  { id: 'sv2', nome: 'Serviço de calibração', descricao: null, _count: { itens: 0 } },
+];
+const escopos = ['Preventiva', 'Corretiva', 'Preventiva e corretiva'].map((nome, n) => ({
+  id: `es${n + 1}`,
+  nome,
+  descricao: null,
+  _count: { itens: 0 },
+}));
+const catalogos = {
+  '/escopos-servico': { body: escopos },
+  '/prestadores': { body: prestadores },
+  '/servicos-contrato': { body: servicos },
 };
 
 afterEach(() => vi.restoreAllMocks());
 
 describe('Atas', () => {
   it('lista com situação e saldo baixo e filtra pela visualização', async () => {
-    mockFetch({ ...entrarComo('GESTOR_PATRIMONIO', '/atas'), '/atas': { body: [ataAtiva, ataVencida] } });
+    mockFetch({ ...entrarComo('OPERADOR', '/atas'), '/atas': { body: [ataAtiva, ataVencida] } });
     render(<App />);
 
     expect(await screen.findByRole('heading', { name: 'Atas' })).toBeInTheDocument();
@@ -74,7 +99,7 @@ describe('Atas', () => {
 
   it('cadastra uma ata em página própria e volta à lista com a confirmação', async () => {
     const chamadas = mockFetch({
-      ...entrarComo('GESTOR_PATRIMONIO', '/atas'),
+      ...entrarComo('OPERADOR', '/atas'),
       '/atas': (init) => (init?.method === 'POST' ? { status: 201, body: {} } : { body: [] }),
       '/unidades': { body: [{ id: 'u1', nome: 'UBS Centro', tipo: 'UBSF' }] },
     });
@@ -106,7 +131,7 @@ describe('Atas', () => {
 
   it('edita uma ata mantendo o número fixo', async () => {
     const chamadas = mockFetch({
-      ...entrarComo('GESTOR_PATRIMONIO', '/atas/a1'),
+      ...entrarComo('OPERADOR', '/atas/a1'),
       '/atas/a1': { body: {} },
       '/atas': { body: [ataAtiva] },
       '/unidades': { body: [] },
@@ -126,21 +151,23 @@ describe('Atas', () => {
     expect(JSON.parse(String(patch?.init?.body))).toMatchObject({ fornecedor: 'Nova Empresa', valorTotal: 100000 });
   });
 
-  it('só o Gestor de Patrimônio acessa atas', async () => {
-    mockFetch({ ...entrarComo('GESTOR_MANUTENCAO', '/atas'), '/atas': { body: [ataAtiva] } });
+  it('só o Administrador acessa atas: Unidade não vê o menu nem a tela', async () => {
+    mockFetch({ ...entrarComo('UNIDADE', '/atas'), '/atas': { body: [ataAtiva] } });
     render(<App />);
     await screen.findByRole('heading', { name: /bem-vindo/i });
     expect(screen.queryByRole('heading', { name: 'Atas' })).not.toBeInTheDocument();
     const menu = within(screen.getByRole('navigation'));
     expect(menu.queryByRole('link', { name: 'Atas' })).not.toBeInTheDocument();
-    expect(menu.getByRole('link', { name: 'Contratos' })).toBeInTheDocument();
+    expect(menu.queryByRole('link', { name: 'Contratos' })).not.toBeInTheDocument();
   });
+
 });
 
 describe('Contratos', () => {
   it('lista os contratos e filtra por status', async () => {
     mockFetch({
-      ...entrarComo('GESTOR_MANUTENCAO', '/contratos'),
+      ...entrarComo('OPERADOR', '/contratos'),
+      ...catalogos,
       '/contratos': { body: [contrato, { ...contrato, id: 'c2', numero: 'CONT-2025-009', status: 'EXPIRADO' }] },
     });
     render(<App />);
@@ -153,9 +180,34 @@ describe('Contratos', () => {
     expect(screen.queryByText('CONT-2026-001')).not.toBeInTheDocument();
   });
 
+  it('a lista de contratos segue o padrão das atas: prestador sob o número, saldo, uso e vencimento', async () => {
+    mockFetch({
+      ...entrarComo('OPERADOR', '/contratos'),
+      '/contratos': {
+        body: [
+          { ...contrato, itens: [{ ...contrato.itens[0], saldo: 3000 }] },
+          { ...contrato, id: 'c9', numero: 'CONT-ANTIGO', valorTotal: '500', itens: [] },
+        ],
+      },
+    });
+    render(<App />);
+
+    const linha = (await screen.findByRole('link', { name: 'Editar contrato CONT-2026-001' })).closest('tr')!;
+    expect(within(linha).getByText('Tecnomed')).toBeInTheDocument();
+    expect(within(linha).getByText(/12\.000,00/)).toBeInTheDocument();
+    expect(within(linha).getByText(/3\.000,00/)).toBeInTheDocument();
+    expect(within(linha).getByLabelText('75% do saldo utilizado')).toBeInTheDocument();
+    expect(within(linha).getByText(/\d{2}\/12\/2026/)).toBeInTheDocument();
+    expect(within(linha).getByText('Ativo')).toBeInTheDocument();
+    // contrato antigo, sem itens: sem saldo nem uso
+    const antigo = screen.getByRole('link', { name: 'Editar contrato CONT-ANTIGO' }).closest('tr')!;
+    expect(within(antigo).getAllByText('—')).toHaveLength(2);
+  });
+
   it('cadastra um contrato em página própria', async () => {
     const chamadas = mockFetch({
-      ...entrarComo('GESTOR_MANUTENCAO', '/contratos'),
+      ...entrarComo('OPERADOR', '/contratos'),
+      ...catalogos,
       '/contratos': (init) => (init?.method === 'POST' ? { status: 201, body: {} } : { body: [] }),
     });
     render(<App />);
@@ -163,10 +215,25 @@ describe('Contratos', () => {
     await userEvent.click(await screen.findByRole('link', { name: 'Novo contrato' }));
     expect(await screen.findByRole('heading', { name: 'Novo contrato' })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Número do contrato'), 'CONT-2026-777');
-    await userEvent.type(screen.getByLabelText('Fornecedor'), 'Tecnomed');
-    await userEvent.selectOptions(screen.getByLabelText('Tipo de contrato'), 'Calibração');
+    await screen.findByRole('option', { name: 'Tecnomed' });
+    await screen.findByRole('option', { name: 'Corretiva' });
+    await userEvent.selectOptions(screen.getByLabelText('Prestador de serviço'), 'pr1');
+    expect(screen.queryByLabelText('Tipo de contrato')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Condições de pagamento')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Observações')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Equipamento')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Descrição'), 'Calibração anual');
-    await userEvent.type(screen.getByLabelText('Condições de pagamento'), '30 dias');
+    await userEvent.selectOptions(screen.getByLabelText('Tipo de serviço'), 'sv1');
+    await userEvent.selectOptions(screen.getByLabelText('Escopo'), 'es2');
+    await userEvent.type(screen.getByLabelText('Valor do item (R$)'), '1500.50');
+    await userEvent.click(screen.getByRole('button', { name: '+ Adicionar item' }));
+    const linha2 = screen.getByRole('group', { name: 'Item 2' });
+    await userEvent.selectOptions(within(linha2).getByLabelText('Tipo de serviço'), 'sv2');
+    await userEvent.selectOptions(within(linha2).getByLabelText('Escopo'), 'es3');
+    await userEvent.type(within(linha2).getByLabelText('Valor do item (R$)'), '500');
+    expect(screen.getByText(/2\.000,50/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Remover item 2' }));
+    expect(screen.getByText(/1\.500,50/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Início da vigência'), '2026-01-01');
     await userEvent.type(screen.getByLabelText('Término da vigência'), '2026-12-31');
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
@@ -175,15 +242,18 @@ describe('Contratos', () => {
     const post = chamadas.find((c) => c.init?.method === 'POST' && c.url.endsWith('/contratos'));
     expect(JSON.parse(String(post?.init?.body))).toMatchObject({
       numero: 'CONT-2026-777',
-      tipo: 'Calibração',
       status: 'ATIVO',
+      prestadorId: 'pr1',
+      itens: [{ servicoId: 'sv1', valor: 1500.5, escopoId: 'es2' }],
     });
+    expect(JSON.parse(String(post?.init?.body))).not.toHaveProperty('tipo');
   });
 
-  it('só o Gestor de Patrimônio exclui, e com confirmação', async () => {
+  it('o Administrador exclui, e com confirmação', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     const chamadas = mockFetch({
-      ...entrarComo('GESTOR_PATRIMONIO', '/contratos/c1'),
+      ...entrarComo('OPERADOR', '/contratos/c1'),
+      ...catalogos,
       '/contratos/c1': { body: {} },
       '/contratos': { body: [contrato] },
     });
@@ -193,15 +263,5 @@ describe('Contratos', () => {
     expect(window.confirm).toHaveBeenCalled();
     expect(await screen.findByRole('heading', { name: 'Contratos' })).toBeInTheDocument();
     expect(chamadas.some((c) => c.init?.method === 'DELETE' && c.url.endsWith('/contratos/c1'))).toBe(true);
-  });
-
-  it('o Gestor de Manutenção edita mas não vê a exclusão', async () => {
-    mockFetch({
-      ...entrarComo('GESTOR_MANUTENCAO', '/contratos/c1'),
-      '/contratos': { body: [contrato] },
-    });
-    render(<App />);
-    expect(await screen.findByRole('heading', { name: 'Contrato CONT-2026-001' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Excluir' })).not.toBeInTheDocument();
   });
 });

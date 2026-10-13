@@ -45,6 +45,8 @@ const CORES: Record<string, 'green' | 'blue' | 'yellow' | 'red' | 'gray'> = {
   VENCIDA: 'red',
   INATIVA: 'gray',
   SALDO_BAIXO: 'red',
+  // Manutenção cujo orçamento passou de 50% do preço de referência do item
+  NAO_SUGERIDA: 'yellow',
   // Contratos
   RENOVACAO_PENDENTE: 'yellow',
   EXPIRADO: 'red',

@@ -3,12 +3,21 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, urlArquivo } from '../../api/client';
 import { PaginaCadastro } from '../../components/PaginaCadastro';
 import { IconeUpload } from '../../components/icons';
+import { TipoManutencaoSelect } from '../../components/TipoManutencaoSelect';
 import { useCarga } from '../../hooks/useCarga';
 import { useMensagemTemporaria } from '../../hooks/useMensagemTemporaria';
 import type { Categoria, TipoEquipamento } from '../../types';
 import { semAlteracoes } from '../../utils/form';
 
-const VAZIO = { codigo: '', nome: '', categoriaId: '', descricao: '', preco: '' };
+const VAZIO = {
+  codigo: '',
+  nome: '',
+  categoriaId: '',
+  descricao: '',
+  preco: '',
+  permitePreventiva: true,
+  permiteCorretiva: true,
+};
 
 export function TipoFormulario() {
   const { id } = useParams();
@@ -51,6 +60,8 @@ export function TipoFormulario() {
       categoriaId: encontrado.categoriaId,
       descricao: encontrado.descricao ?? '',
       preco: encontrado.preco ?? '',
+      permitePreventiva: encontrado.permitePreventiva ?? true,
+      permiteCorretiva: encontrado.permiteCorretiva ?? true,
     };
     setTipo(encontrado);
     setImagemAtual(encontrado.imagemUrl ?? null);
@@ -60,11 +71,11 @@ export function TipoFormulario() {
 
   function voltar() {
     if (location.key !== 'default') void navigate(-1);
-    else void navigate('/configuracoes/tipos');
+    else void navigate('/configuracoes/itens/tipos');
   }
 
   function concluir() {
-    void navigate('/configuracoes/tipos', { replace: true });
+    void navigate('/configuracoes/itens/tipos', { replace: true });
   }
 
   function selecionarImagem(arquivo: File) {
@@ -219,6 +230,19 @@ export function TipoFormulario() {
               min="0"
               value={form.preco}
               onChange={(e) => setForm({ ...form, preco: e.target.value })}
+              disabled={bloqueado}
+            />
+          </div>
+          <div className="field">
+            <TipoManutencaoSelect
+              id="tipo-manutencao-permitida"
+              legenda="Manutenção permitida"
+              permitirNenhuma
+              preventiva={form.permitePreventiva}
+              corretiva={form.permiteCorretiva}
+              onChange={({ preventiva, corretiva }) =>
+                setForm({ ...form, permitePreventiva: preventiva, permiteCorretiva: corretiva })
+              }
               disabled={bloqueado}
             />
           </div>

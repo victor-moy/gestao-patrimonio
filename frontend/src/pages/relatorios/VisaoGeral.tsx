@@ -7,13 +7,13 @@ import { formatarMoeda, ROTULO_TIPO_SOLICITACAO } from '../../utils/format';
 
 // Cessão de Uso fica de fora do ranking por unidade: a unidade de origem ali
 // é o galpão que tinha o estoque, não uma unidade solicitando — rankear não
-// responde à mesma pergunta que pros outros 4 tipos.
+// responde à mesma pergunta que pros outros tipos. Manutenção entra como mais um tipo.
 type TipoRanking = keyof Omit<RankingUnidadeTipo, 'unidadeId' | 'unidade'>;
-const TIPOS_RANKING: TipoRanking[] = ['SUBSTITUICAO', 'AMPLIACAO', 'EMPRESTIMO', 'RECOLHA'];
+const TIPOS_RANKING: TipoRanking[] = ['SUBSTITUICAO', 'AMPLIACAO', 'EMPRESTIMO', 'RECOLHA', 'MANUTENCAO'];
 
 // Relatório 1 — funil de Solicitações por tipo (3 grupos, já que os 13
 // status brutos ficariam ilegíveis num gráfico) + ranking de unidades com os
-// 4 tipos lado a lado num gráfico só (feedback do cliente: dinâmico, sem
+// tipos lado a lado num gráfico só (feedback do cliente: dinâmico, sem
 // escolher um tipo por vez).
 export function RelatorioVisaoGeral() {
   const [dados, setDados] = useState<VisaoGeralTipo[] | null>(null);

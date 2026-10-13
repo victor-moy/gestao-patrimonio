@@ -2,7 +2,8 @@ import { Navigate, useParams } from 'react-router-dom';
 import './Relatorios.css';
 import { RelatorioCessoes } from './relatorios/Cessoes';
 import { RelatorioEmprestimos } from './relatorios/Emprestimos';
-import { RelatorioItensEstoque } from './relatorios/ItensEstoque';
+import { RelatorioAmpliacao } from './relatorios/Ampliacao';
+import { RelatorioManutencoes } from './relatorios/Manutencoes';
 import { RelatorioVisaoGeral } from './relatorios/VisaoGeral';
 import { caminhoRelatorio, RELATORIO_PADRAO, SUBMENUS_RELATORIOS } from '../utils/relatorios';
 
@@ -23,9 +24,10 @@ export function Relatorios() {
         </div>
       </div>
       {atual.valor === 'visao-geral' && <RelatorioVisaoGeral />}
+      {atual.valor === 'manutencoes' && <RelatorioManutencoes />}
       {atual.valor === 'emprestimos' && <RelatorioEmprestimos />}
       {atual.valor === 'cessoes' && <RelatorioCessoes />}
-      {atual.valor === 'itens-estoque' && <RelatorioItensEstoque />}
+      {atual.valor === 'ampliacao' && <RelatorioAmpliacao />}
     </section>
   );
 }

@@ -1,4 +1,4 @@
-export type Perfil = 'GESTOR_PATRIMONIO' | 'GESTOR_MANUTENCAO' | 'UNIDADE' | 'GALPAO';
+export type Perfil = 'OPERADOR' | 'UNIDADE' | 'GALPAO' | 'TERCEIRIZADA';
 
 export type EstadoConservacao = 'OTIMO' | 'BOM' | 'REGULAR' | 'RUIM' | 'PESSIMO';
 export type StatusEquipamento = 'ATIVO' | 'EM_MANUTENCAO' | 'EMPRESTADO' | 'BAIXADO' | 'CEDIDO';
@@ -12,6 +12,9 @@ export interface Usuario {
   perfil: Perfil;
   unidadeId: string | null;
   unidadeNome?: string | null;
+  // Perfil Terceirizada: o prestador de serviço que o usuário representa
+  prestadorId?: string | null;
+  prestadorNome?: string | null;
   ativo?: boolean;
 }
 
@@ -44,6 +47,8 @@ export interface TipoEquipamento {
   descricao?: string | null;
   imagemUrl?: string | null;
   preco?: string | null;
+  permitePreventiva?: boolean;
+  permiteCorretiva?: boolean;
   categoriaId: string;
   categoria?: { nome: string };
   quantidadeEquipamentos?: number;
@@ -132,11 +137,12 @@ export interface Manutencao {
     id: string;
     tombamento: string;
     descricao: string;
-    tipoEquipamento?: { nome: string };
+    tipoEquipamento?: { nome: string; permitePreventiva?: boolean; permiteCorretiva?: boolean; preco?: string | null };
   };
   unidade: { id: string; nome: string };
   solicitante: { nome: string };
-  contrato?: { id: string; empresa: string } | null;
+  contrato?: { id: string; numero: string; prestador: { nome: string } } | null;
+  contratoItem?: { id: string; valor: string; servico: { nome: string }; escopo: { nome: string } } | null;
 }
 
 export type TipoSolicitacao = 'SUBSTITUICAO' | 'AMPLIACAO' | 'CESSAO_USO' | 'EMPRESTIMO' | 'RECOLHA';
@@ -260,7 +266,8 @@ export interface Alerta {
 }
 
 export interface VisaoGeralTipo {
-  tipo: TipoSolicitacao;
+  // Manutenção entra como mais um "tipo" ao lado dos de solicitação
+  tipo: TipoSolicitacao | 'MANUTENCAO';
   emAndamento: number;
   concluida: number;
   negadaCancelada: number;
@@ -273,6 +280,7 @@ export interface RankingUnidadeTipo {
   AMPLIACAO: number;
   EMPRESTIMO: number;
   RECOLHA: number;
+  MANUTENCAO: number;
 }
 
 export interface EmprestimoRelatorio {
@@ -323,20 +331,55 @@ export interface RelatorioCessoes {
 
 export type StatusContrato = 'ATIVO' | 'RENOVACAO_PENDENTE' | 'EXPIRADO';
 
+export interface ContratoItem {
+  id: string;
+  servicoId: string;
+  valor: string;
+  escopoId: string;
+  // Valor do item menos o já comprometido pelas manutenções vinculadas
+  saldo: number;
+  servico: { id: string; nome: string };
+  escopo: { id: string; nome: string; cobrePreventiva: boolean; cobreCorretiva: boolean };
+}
+
 export interface Contrato {
   id: string;
   numero: string;
-  empresa: string;
-  cnpj: string | null;
-  tipo: string;
+  prestadorId: string;
+  prestador: { id: string; nome: string };
   objeto: string;
+  // Soma dos itens (calculada pelo servidor); em contrato antigo sem itens, o valor que já existia
   valorTotal: string | null;
-  condicoesPagamento: string | null;
   status: StatusContrato;
-  observacoes: string | null;
+  itens: ContratoItem[];
   vigenciaInicio: string;
   vigenciaFim: string;
   ativo: boolean;
+}
+
+export interface PrestadorServico {
+  id: string;
+  nome: string;
+  cnpj: string | null;
+  telefone: string | null;
+  email: string | null;
+  _count: { contratos: number };
+}
+
+export interface EscopoServico {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  cobrePreventiva: boolean;
+  cobreCorretiva: boolean;
+  _count: { itens: number };
+}
+
+export interface ServicoContrato {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  _count: { itens: number };
 }
 
 export interface MensagemChat {
@@ -359,4 +402,42 @@ export interface ConversaResumo {
   ultimoAutor: string;
   // Mensagens de outras pessoas ainda não lidas por quem está logado
   naoLidas: number;
+}
+
+export type SituacaoManutencao = 'EM_ANDAMENTO' | 'CONCLUIDA' | 'NEGADA' | 'BAIXADO';
+
+export interface ManutencaoRelatorio {
+  id: string;
+  numero: number;
+  titulo: string | null;
+  status: StatusManutencao;
+  equipamento: string;
+  tombamento: string;
+  unidade: string;
+  prestador: string | null;
+  contrato: string | null;
+  orcamento: number | null;
+  custoFinal: number | null;
+  // Orçamento a partir de 50% do preço de referência do item: reparo não sugerido
+  naoSugerida: boolean;
+  criadoEm: string;
+  dataConclusao: string | null;
+}
+
+export interface RelatorioManutencoes {
+  total: number;
+  // A soma considerou só os registros mais recentes (limite do servidor)
+  truncado: boolean;
+  emAndamento: number;
+  concluidas: number;
+  negadas: number;
+  baixadas: number;
+  custoTotal: number;
+  tempoMedioDias: number | null;
+  orcamentosAltos: number;
+  porMes: Array<{ mes: string; quantidade: number; custo: number }>;
+  porPrestador: Array<{ prestadorId: string; prestador: string; quantidade: number; custo: number }>;
+  porItem: Array<{ tipoEquipamentoId: string; nome: string; quantidade: number; custo: number }>;
+  itensTotal: number;
+  itens: ManutencaoRelatorio[];
 }

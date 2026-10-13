@@ -11,7 +11,7 @@ const gestor = {
       nome: 'Gestora Teste',
       email: 'gestora@joinville.sc.gov.br',
       matricula: '10001',
-      perfil: 'GESTOR_PATRIMONIO',
+      perfil: 'OPERADOR',
       unidadeId: null,
       unidadeNome: null,
     },
@@ -36,21 +36,21 @@ describe('Formulário de categoria de itens', () => {
 
   it('cria uma categoria e volta para a lista', async () => {
     const chamadas = mockFetch({ ...gestor, '/categorias': { body: [categoria] } });
-    abrir('/configuracoes/categorias/nova');
+    abrir('/configuracoes/itens/categorias/nova');
 
     const salvar = await screen.findByRole('button', { name: /salvar|criar|cadastrar/i });
     expect(salvar).toBeDisabled();
     await userEvent.type(screen.getByLabelText('Nome da categoria'), 'Imagem');
     await userEvent.click(salvar);
 
-    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/categorias'));
+    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/itens/categorias'));
     const post = chamadas.find((c) => c.init?.method === 'POST' && c.url.endsWith('/categorias'));
     expect(JSON.parse(String(post?.init?.body))).toEqual({ nome: 'Imagem', descricao: null });
   });
 
   it('edita uma categoria existente', async () => {
     const chamadas = mockFetch({ ...gestor, '/categorias': { body: [categoria] } });
-    abrir('/configuracoes/categorias/c1');
+    abrir('/configuracoes/itens/categorias/c1');
 
     const nome = await screen.findByLabelText('Nome da categoria');
     await waitFor(() => expect(nome).toHaveValue('Esterilização'));
@@ -58,7 +58,7 @@ describe('Formulário de categoria de itens', () => {
     await userEvent.type(screen.getByLabelText('Descrição'), 'Autoclaves e seladoras');
     await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
 
-    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/categorias'));
+    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/itens/categorias'));
     const patch = chamadas.find((c) => c.init?.method === 'PATCH');
     expect(patch?.url).toContain('/categorias/c1');
     expect(JSON.parse(String(patch?.init?.body)).descricao).toBe('Autoclaves e seladoras');
@@ -67,7 +67,7 @@ describe('Formulário de categoria de itens', () => {
   it('exclui somente depois da confirmação', async () => {
     const chamadas = mockFetch({ ...gestor, '/categorias': { body: [categoria] } });
     const confirmar = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
-    abrir('/configuracoes/categorias/c1');
+    abrir('/configuracoes/itens/categorias/c1');
 
     const excluir = await screen.findByRole('button', { name: 'Excluir' });
     await userEvent.click(excluir);
@@ -76,12 +76,12 @@ describe('Formulário de categoria de itens', () => {
     await userEvent.click(excluir);
     await waitFor(() => expect(chamadas.some((c) => c.init?.method === 'DELETE')).toBe(true));
     expect(confirmar).toHaveBeenCalledTimes(2);
-    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/categorias'));
+    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/itens/categorias'));
   });
 
   it('avisa quando a categoria não existe', async () => {
     mockFetch({ ...gestor, '/categorias': { body: [categoria] } });
-    abrir('/configuracoes/categorias/inexistente');
+    abrir('/configuracoes/itens/categorias/inexistente');
 
     expect(await screen.findByText('Categoria não encontrada.')).toBeInTheDocument();
   });
@@ -93,7 +93,7 @@ describe('Formulário de categoria de itens', () => {
         init?.method === 'POST' ? { status: 409, body: { mensagem: 'Categoria já existe.' } } : { body: [] },
     });
     const alerta = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
-    abrir('/configuracoes/categorias/nova');
+    abrir('/configuracoes/itens/categorias/nova');
 
     await userEvent.type(await screen.findByLabelText('Nome da categoria'), 'Imagem');
     await userEvent.click(screen.getByRole('button', { name: /salvar|criar|cadastrar/i }));

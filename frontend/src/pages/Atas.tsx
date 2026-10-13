@@ -22,7 +22,7 @@ const VISUALIZACOES: Array<{ valor: '' | SituacaoAta; rotulo: string }> = [
 
 export function Atas() {
   const { usuario } = useAuth();
-  const permitido = usuario?.perfil === 'GESTOR_PATRIMONIO';
+  const permitido = usuario?.perfil === 'OPERADOR';
   const [atas, setAtas] = useState<Ata[]>([]);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState<'' | SituacaoAta>('');

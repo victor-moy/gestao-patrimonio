@@ -28,7 +28,7 @@ describe('Login (RF01)', () => {
             nome: 'Samuel',
             email: 'gestor@joinville.sc.gov.br',
             matricula: '10001',
-            perfil: 'GESTOR_PATRIMONIO',
+            perfil: 'OPERADOR',
             unidadeId: null,
           },
         },

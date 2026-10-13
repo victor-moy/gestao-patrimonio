@@ -62,27 +62,50 @@ authRouter.get('/me', autenticar, async (req, res) => {
       perfil: true,
       unidadeId: true,
       unidade: { select: { nome: true } },
+      prestadorId: true,
+      prestador: { select: { nome: true } },
     },
   });
   if (!usuario) throw new AppError('Usuário não encontrado.', 404);
-  res.json({ ...usuario, unidadeNome: usuario.unidade?.nome ?? null, unidade: undefined });
+  res.json({
+    ...usuario,
+    unidadeNome: usuario.unidade?.nome ?? null,
+    prestadorNome: usuario.prestador?.nome ?? null,
+    unidade: undefined,
+    prestador: undefined,
+  });
 });
 
-// Impersonação — só o Gestor de Patrimônio, pra facilitar testar outros
+// Impersonação — só o Administrador, pra facilitar testar outros
 // perfis sem precisar deslogar e logar de novo com outra conta.
+authRouter.get(
+  '/impersonaveis',
+  autenticar,
+  permitir(Perfil.OPERADOR),
+  async (req, res) => {
+    res.json(await authService.listarImpersonaveis(req.usuario!));
+  },
+);
+
 authRouter.post(
   '/impersonar/:id',
   autenticar,
-  permitir(Perfil.GESTOR_PATRIMONIO),
+  permitir(Perfil.OPERADOR),
   env.rateLimitAtivo ? limiteImpersonacao : passa,
   async (req, res) => {
-    const resultado = await authService.impersonar(req.params.id);
+    const resultado = await authService.impersonar(req.params.id, req.usuario!);
     await registrarAuditoria({
       usuarioId: req.usuario!.sub,
       acao: 'IMPERSONAR_USUARIO',
       entidade: 'usuario',
       entidadeId: req.params.id,
-      dadosDepois: { impersonadoPor: req.usuario!.sub, impersonadoPorNome: req.usuario!.nome },
+      dadosDepois: {
+        impersonadoPor: {
+          id: req.usuario!.sub,
+          nome: req.usuario!.nome,
+          perfil: req.usuario!.perfil,
+        },
+      },
     });
     res.json(resultado);
   },

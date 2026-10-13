@@ -1,25 +1,39 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { CSSProperties, FormEvent, useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
-import type { Contrato } from '../types';
-import { ROTULO_STATUS_CONTRATO, TIPOS_CONTRATO } from '../utils/cadastros';
+import type { Contrato, EscopoServico, PrestadorServico, ServicoContrato } from '../types';
+import { ROTULO_STATUS_CONTRATO } from '../utils/cadastros';
+import { formatarMoeda } from '../utils/format';
 import { semAlteracoes } from '../utils/form';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
+import { IconeFechar } from '../components/icons';
+
+interface ItemForm {
+  servicoId: string;
+  valor: string;
+  escopoId: string;
+  // Só para itens já gravados: valor menos o já comprometido pelas manutenções
+  saldo?: number;
+}
+
+const ITEM_VAZIO: ItemForm = { servicoId: '', valor: '', escopoId: '' };
 
 const VAZIO = {
   numero: '',
-  empresa: '',
-  tipo: '',
+  prestadorId: '',
   objeto: '',
-  valorTotal: '0',
-  condicoesPagamento: '',
   vigenciaInicio: '',
   vigenciaFim: '',
   status: 'ATIVO',
-  observacoes: '',
+  itens: [{ ...ITEM_VAZIO }] as ItemForm[],
 };
+
+// Soma em centavos, igual ao servidor, para o total mostrado ser o que será gravado.
+function somarValores(itens: ItemForm[]) {
+  return itens.reduce((total, i) => total + Math.round((Number(i.valor) || 0) * 100), 0) / 100;
+}
 
 // Cadastro e edição de contrato em página própria (mesmo padrão dos demais cadastros).
 export function ContratoFormulario() {
@@ -28,8 +42,11 @@ export function ContratoFormulario() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const permitido = usuario?.perfil === 'GESTOR_MANUTENCAO' || usuario?.perfil === 'GESTOR_PATRIMONIO';
-  const podeExcluir = usuario?.perfil === 'GESTOR_PATRIMONIO';
+  // A terceirizada vê o contrato do próprio prestador exatamente como o gestor, com tudo bloqueado
+  const somenteLeitura = usuario?.perfil === 'TERCEIRIZADA';
+  const permitido =
+    usuario?.perfil === 'OPERADOR' || somenteLeitura;
+  const podeExcluir = usuario?.perfil === 'OPERADOR';
   const [contrato, setContrato] = useState<Contrato | null>(null);
   const [carregando, setCarregando] = useState(editando);
   const [falha, setFalha] = useState<string | null>(null);
@@ -38,6 +55,33 @@ export function ContratoFormulario() {
   useAlertaNativo(erro, () => setErro(null));
   const [inicial, setInicial] = useState(VAZIO);
   const [form, setForm] = useState(VAZIO);
+  const [prestadores, setPrestadores] = useState<PrestadorServico[]>([]);
+  const [servicos, setServicos] = useState<ServicoContrato[]>([]);
+  const [catalogosFalha, setCatalogosFalha] = useState(false);
+  const [escopos, setEscopos] = useState<EscopoServico[]>([]);
+
+  useEffect(() => {
+    // Os cadastros de prestadores, serviços e escopos são dos gestores; em leitura as opções vêm do próprio contrato
+    if (!permitido || somenteLeitura) return;
+    let ativo = true;
+    Promise.all([
+      api.get<PrestadorServico[]>('/prestadores'),
+      api.get<ServicoContrato[]>('/servicos-contrato'),
+      api.get<EscopoServico[]>('/escopos-servico'),
+    ])
+      .then(([listaPrestadores, listaServicos, listaEscopos]) => {
+        if (!ativo) return;
+        setPrestadores(listaPrestadores);
+        setServicos(listaServicos);
+        setEscopos(listaEscopos);
+      })
+      .catch(() => {
+        if (ativo) setCatalogosFalha(true);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [permitido, somenteLeitura]);
 
   useEffect(() => {
     if (!permitido || !editando) return;
@@ -53,15 +97,18 @@ export function ContratoFormulario() {
         }
         const valores = {
           numero: c.numero,
-          empresa: c.empresa,
-          tipo: c.tipo,
+          prestadorId: c.prestadorId,
           objeto: c.objeto,
-          valorTotal: c.valorTotal ? String(c.valorTotal) : '0',
-          condicoesPagamento: c.condicoesPagamento ?? '',
           vigenciaInicio: c.vigenciaInicio.slice(0, 10),
           vigenciaFim: c.vigenciaFim.slice(0, 10),
           status: c.status,
-          observacoes: c.observacoes ?? '',
+          // Contrato antigo, sem itens, abre sem linhas até que o gestor os informe
+          itens: c.itens.map((i) => ({
+            servicoId: i.servicoId,
+            valor: String(i.valor),
+            escopoId: i.escopoId,
+            saldo: i.saldo,
+          })),
         };
         setContrato(c);
         setInicial(valores);
@@ -79,6 +126,30 @@ export function ContratoFormulario() {
   }, [permitido, editando, id]);
 
   if (!permitido) return <Navigate to="/" replace />;
+  if (somenteLeitura && !editando) return <Navigate to="/contratos" replace />;
+
+  // Em leitura, as opções dos selects são só o que o contrato já usa
+  const opcoesPrestadores = somenteLeitura && contrato ? [contrato.prestador as PrestadorServico] : prestadores;
+  const opcoesServicos = somenteLeitura && contrato ? contrato.itens.map((i) => i.servico as ServicoContrato) : servicos;
+  const opcoesEscopos = somenteLeitura && contrato ? contrato.itens.map((i) => i.escopo as EscopoServico) : escopos;
+
+  const total = form.itens.length > 0 ? somarValores(form.itens) : Number(contrato?.valorTotal ?? 0);
+  const contratoAntigoSemItens = editando && contrato !== null && contrato.itens.length === 0;
+
+  function editarItem(indice: number, parcial: Partial<ItemForm>) {
+    setForm((atual) => ({
+      ...atual,
+      itens: atual.itens.map((item, j) => (j === indice ? { ...item, ...parcial } : item)),
+    }));
+  }
+
+  function adicionarItem() {
+    setForm((atual) => ({ ...atual, itens: [...atual.itens, { ...ITEM_VAZIO }] }));
+  }
+
+  function removerItem(indice: number) {
+    setForm((atual) => ({ ...atual, itens: atual.itens.filter((_, j) => j !== indice) }));
+  }
 
   function voltar() {
     if (location.key !== 'default') void navigate(-1);
@@ -96,15 +167,16 @@ export function ContratoFormulario() {
     setEnviando(true);
     const payload = {
       numero: form.numero,
-      empresa: form.empresa,
-      tipo: form.tipo,
+      prestadorId: form.prestadorId,
       objeto: form.objeto,
-      valorTotal: Number(form.valorTotal),
-      condicoesPagamento: form.condicoesPagamento || null,
       vigenciaInicio: form.vigenciaInicio,
       vigenciaFim: form.vigenciaFim,
       status: form.status,
-      observacoes: form.observacoes || null,
+      itens: form.itens.map((i) => ({
+        servicoId: i.servicoId,
+        valor: Number(i.valor),
+        escopoId: i.escopoId,
+      })),
     };
     try {
       if (contrato) {
@@ -134,10 +206,10 @@ export function ContratoFormulario() {
     }
   }
 
-  const bloqueado = carregando || Boolean(falha);
+  const bloqueado = carregando || Boolean(falha) || somenteLeitura;
 
   return (
-    <section className="gestao-page equipamento-pagina novo-equipamento" aria-labelledby="contrato-titulo">
+    <section className="gestao-page equipamento-pagina novo-equipamento contrato-pagina" aria-labelledby="contrato-titulo">
       <div className="equipamento-pagina-cabecalho">
         <div className="equipamento-titulo-linha">
           <h2 id="contrato-titulo">{editando ? `Contrato ${contrato?.numero ?? ''}`.trim() : 'Novo contrato'}</h2>
@@ -149,16 +221,18 @@ export function ContratoFormulario() {
             </button>
           )}
           <button type="button" className="btn btn-outline" onClick={voltar}>
-            Cancelar
+            {somenteLeitura ? 'Voltar' : 'Cancelar'}
           </button>
-          <button
-            type="submit"
-            form="form-contrato"
-            className="btn btn-primary"
-            disabled={enviando || bloqueado || semAlteracoes(inicial, form)}
-          >
-            {enviando ? 'Salvando…' : 'Salvar'}
-          </button>
+          {!somenteLeitura && (
+            <button
+              type="submit"
+              form="form-contrato"
+              className="btn btn-primary"
+              disabled={enviando || bloqueado || semAlteracoes(inicial, form)}
+            >
+              {enviando ? 'Salvando…' : 'Salvar'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -181,31 +255,20 @@ export function ContratoFormulario() {
               />
             </div>
             <div className="field">
-              <label htmlFor="ct-empresa">Fornecedor</label>
-              <input
-                id="ct-empresa"
-                value={form.empresa}
-                onChange={(e) => setForm({ ...form, empresa: e.target.value })}
-                disabled={bloqueado}
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="ct-tipo">Tipo de contrato</label>
+              <label htmlFor="ct-prestador">Prestador de serviço</label>
               <select
-                id="ct-tipo"
-                value={form.tipo}
-                onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+                id="ct-prestador"
+                value={form.prestadorId}
+                onChange={(e) => setForm({ ...form, prestadorId: e.target.value })}
                 disabled={bloqueado}
                 required
               >
                 <option value="">Selecione...</option>
-                {TIPOS_CONTRATO.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
+                {opcoesPrestadores.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nome}
                   </option>
                 ))}
-                {form.tipo && !TIPOS_CONTRATO.includes(form.tipo) && <option value={form.tipo}>{form.tipo}</option>}
               </select>
             </div>
             <div className="field">
@@ -227,33 +290,10 @@ export function ContratoFormulario() {
               <label htmlFor="ct-objeto">Descrição</label>
               <textarea
                 id="ct-objeto"
-                rows={3}
+                rows={2}
                 placeholder="Descreva o objeto do contrato..."
                 value={form.objeto}
                 onChange={(e) => setForm({ ...form, objeto: e.target.value })}
-                disabled={bloqueado}
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="ct-valor">Valor total (R$)</label>
-              <input
-                id="ct-valor"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.valorTotal}
-                onChange={(e) => setForm({ ...form, valorTotal: e.target.value })}
-                disabled={bloqueado}
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="ct-pagamento">Condições de pagamento</label>
-              <input
-                id="ct-pagamento"
-                value={form.condicoesPagamento}
-                onChange={(e) => setForm({ ...form, condicoesPagamento: e.target.value })}
                 disabled={bloqueado}
                 required
               />
@@ -280,18 +320,115 @@ export function ContratoFormulario() {
                 required
               />
             </div>
-            <div className="field novo-equipamento-largura-total">
-              <label htmlFor="ct-obs">Observações</label>
-              <textarea
-                id="ct-obs"
-                rows={2}
-                placeholder="Informações adicionais..."
-                value={form.observacoes}
-                onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
-                disabled={bloqueado}
-              />
-            </div>
           </div>
+        </section>
+
+        <section className="equipamento-secao" aria-labelledby="ct-itens-titulo">
+          <h3 id="ct-itens-titulo">Itens do contrato</h3>
+          {catalogosFalha && (
+            <div className="error-banner" role="alert">
+              Não foi possível carregar prestadores, serviços e escopos. Recarregue a página para tentar novamente.
+            </div>
+          )}
+          <div
+            className="itens-lista"
+            style={{ '--colunas': `minmax(0,1fr) 220px 140px ${editando ? '140px ' : ''}34px` } as CSSProperties}
+          >
+            {form.itens.length > 0 && (
+              <div className="itens-cabecalho" aria-hidden>
+                <span>Tipo de serviço</span>
+                <span>Escopo</span>
+                <span>Valor (R$)</span>
+                {editando && <span>Saldo (R$)</span>}
+                <span />
+              </div>
+            )}
+            {form.itens.map((item, i) => (
+              <div key={i} className="itens-linha" role="group" aria-label={`Item ${i + 1}`}>
+                <div className="itens-celula" data-rotulo="Tipo de serviço">
+                  <select
+                    aria-label="Tipo de serviço"
+                    value={item.servicoId}
+                    onChange={(e) => editarItem(i, { servicoId: e.target.value })}
+                    disabled={bloqueado}
+                    required
+                  >
+                    <option value="">Selecione...</option>
+                    {opcoesServicos
+                      .filter((sv) => sv.id === item.servicoId || !form.itens.some((o) => o.servicoId === sv.id))
+                      .map((sv) => (
+                        <option key={sv.id} value={sv.id}>
+                          {sv.nome}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div className="itens-celula" data-rotulo="Escopo">
+                  <select
+                    aria-label="Escopo"
+                    value={item.escopoId}
+                    onChange={(e) => editarItem(i, { escopoId: e.target.value })}
+                    disabled={bloqueado}
+                    required
+                  >
+                    <option value="">Selecione...</option>
+                    {opcoesEscopos.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="itens-celula" data-rotulo="Valor (R$)">
+                  <input
+                    aria-label="Valor do item (R$)"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    inputMode="decimal"
+                    value={item.valor}
+                    onChange={(e) => editarItem(i, { valor: e.target.value })}
+                    disabled={bloqueado}
+                    required
+                  />
+                </div>
+                {editando && (
+                  <div className="itens-celula" data-rotulo="Saldo (R$)">
+                    <input
+                      aria-label="Saldo do item (R$)"
+                      value={item.saldo === undefined ? '—' : formatarMoeda(item.saldo)}
+                      readOnly
+                      disabled
+                    />
+                  </div>
+                )}
+                <div className="itens-celula itens-celula-remover">
+                  {!somenteLeitura && (form.itens.length > 1 || contratoAntigoSemItens) ? (
+                    <button
+                      type="button"
+                      className="itens-remover"
+                      aria-label={`Remover item ${i + 1}`}
+                      title="Remover item"
+                      disabled={bloqueado}
+                      onClick={() => removerItem(i)}
+                    >
+                      <IconeFechar />
+                    </button>
+                  ) : (
+                    <span />
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {!somenteLeitura && (
+            <button type="button" className="btn btn-outline itens-adicionar" disabled={bloqueado} onClick={adicionarItem}>
+              + Adicionar item
+            </button>
+          )}
+          <p className="itens-total" role="status" aria-live="polite">
+            Valor total do contrato: <span>{formatarMoeda(total)}</span>
+          </p>
         </section>
       </form>
     </section>

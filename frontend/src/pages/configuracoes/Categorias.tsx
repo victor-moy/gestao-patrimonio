@@ -32,7 +32,7 @@ export function Categorias() {
         nenhumEncontrado: 'Nenhuma categoria encontrada',
       }}
       acoes={
-        <Link to="/configuracoes/categorias/nova" className="btn btn-primary">
+        <Link to="/configuracoes/itens/categorias/nova" className="btn btn-primary">
           Nova categoria
         </Link>
       }
@@ -49,7 +49,7 @@ export function Categorias() {
             <>
               <Link
                 className="inventario-equipamento-link"
-                to={`/configuracoes/categorias/${c.id}`}
+                to={`/configuracoes/itens/categorias/${c.id}`}
                 aria-label={`Editar categoria ${c.nome}`}
               >
                 {c.nome}

@@ -43,7 +43,7 @@ async function abrirInventario() {
 describe('Novo equipamento (UC02)', () => {
   it('abre uma página própria, cadastra e volta ao inventário com confirmação', async () => {
     const chamadas = mockFetch({
-      ...autenticarComo('GESTOR_PATRIMONIO'),
+      ...autenticarComo('OPERADOR'),
       ...rotasBase,
       '/equipamentos': (init) =>
         init?.method === 'POST' ? { status: 201, body: { id: 'eq-9' } } : { body: [] },
@@ -77,7 +77,7 @@ describe('Novo equipamento (UC02)', () => {
 
   it('mostra o erro da API e permanece na página', async () => {
     mockFetch({
-      ...autenticarComo('GESTOR_PATRIMONIO'),
+      ...autenticarComo('OPERADOR'),
       ...rotasBase,
       '/equipamentos': (init) =>
         init?.method === 'POST'

@@ -59,7 +59,7 @@ export async function tentarReservarDoEstoque(
 
 // Indica no card se já há estoque suficiente pra reservar uma solicitação em
 // AGUARDANDO_DISPONIBILIDADE, sem reservar de fato — só pra sinalizar pro
-// Gestor de Patrimônio que vale clicar em "Tentar Reservar do Estoque".
+// Administrador que vale clicar em "Tentar Reservar do Estoque".
 export async function anotarDisponibilidade<
   T extends { status: string; tipoEquipamentoId: string | null; quantidade: number | null },
 >(solicitacoes: T[]): Promise<(T & { disponivelParaReserva: boolean })[]> {
@@ -87,9 +87,9 @@ export async function anotarDisponibilidade<
   }));
 }
 
-// Recolha não pede mais pro Gestor escolher o galpão — vai sempre pro único
+// Recolha não pede mais pro Administrador escolher o galpão — vai sempre pro único
 // galpão padrão do fluxo Branet (feedback do cliente 27/08: o que importa
-// pro Gestor é a etapa administrativa — Patrimônio ou Branet —, não pra qual
+// pro Administrador é a etapa administrativa — Patrimônio ou Branet —, não pra qual
 // dos galpões operacionais o item vai fisicamente).
 export async function buscarGalpaoPadraoRecolha() {
   const galpao = await prisma.unidade.findFirst({

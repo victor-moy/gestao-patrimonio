@@ -8,10 +8,10 @@ export const dashboardRouter = Router();
 
 dashboardRouter.use(autenticar);
 
-// RF36 — dashboard do Gestor de Patrimônio (gestores têm acesso)
+// RF36 — dashboard do Administrador
 dashboardRouter.get(
   '/',
-  permitir(Perfil.GESTOR_PATRIMONIO, Perfil.GESTOR_MANUTENCAO),
+  permitir(Perfil.OPERADOR),
   async (req, res) => {
     const dados = await service.indicadores({
       dataInicio: req.query.dataInicio ? new Date(String(req.query.dataInicio)) : undefined,
@@ -25,7 +25,7 @@ dashboardRouter.get(
 
 dashboardRouter.get(
   '/alertas',
-  permitir(Perfil.GESTOR_PATRIMONIO, Perfil.GESTOR_MANUTENCAO),
+  permitir(Perfil.OPERADOR),
   async (_req, res) => {
     res.json(await service.alertas());
   },

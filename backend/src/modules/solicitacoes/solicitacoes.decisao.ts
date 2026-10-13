@@ -1,4 +1,4 @@
-// Decisão do Gestor de Patrimônio: aprovar/negar, vínculo com ata, reserva de estoque e conclusão.
+// Decisão do Administrador: aprovar/negar, vínculo com ata, reserva de estoque e conclusão.
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
@@ -9,11 +9,11 @@ import { AuthPayload } from '../../middlewares/auth';
 import { includePadrao, TIPOS_COM_ATA, tentarReservarDoEstoque, buscarGalpaoPadraoRecolha } from './solicitacoes.comum';
 import { buscarPorId } from './solicitacoes.consulta';
 
-// UC11/UC17/RN04 — aprovação pelo Gestor de Patrimônio. Para Ampliação e
+// UC11/UC17/RN04 — aprovação pelo Administrador. Para Ampliação e
 // Substituição, o sistema decide sozinho se reserva do estoque de galpão ou
 // se fica aguardando disponibilidade — o solicitante nunca vê ata/saldo
-// (feedback do Gestor de Patrimônio: gestão de ata é assunto interno).
-// `prioridade` (1–3) é definida pelo Gestor, não pelo solicitante, e usada
+// (feedback do Administrador: gestão de ata é assunto interno).
+// `prioridade` (1–3) é definida pelo Administrador, não pelo solicitante, e usada
 // depois pra ordenar quem atender primeiro quando chega estoque novo —
 // obrigatória pra Ampliação/Substituição (feedback do cliente 18/08).
 export async function aprovar(
@@ -91,7 +91,7 @@ export async function aprovar(
   }
 
   if (solicitacao.tipo === 'RECOLHA') {
-    // Ao aprovar, o Gestor escolhe direto em qual das duas etapas a recolha
+    // Ao aprovar, o Administrador escolhe direto em qual das duas etapas a recolha
     // já está — pode ir direto pra "Branet", pulando "Patrimônio" — em vez
     // de escolher um galpão (feedback do cliente 27/08).
     if (etapaRecolha !== 'PATRIMONIO' && etapaRecolha !== 'BRANET') {
@@ -130,7 +130,7 @@ export async function aprovar(
     return atualizada;
   }
 
-  throw new AppError('Esta solicitação não passa por aprovação do Gestor de Patrimônio.', 422);
+  throw new AppError('Esta solicitação não passa por aprovação do Administrador.', 422);
 }
 
 // Bloqueio pessimista da linha da ata (SELECT ... FOR UPDATE) dentro da transação.
@@ -214,7 +214,7 @@ export async function vincularAta(
 
 // Retry manual pra quem está em AGUARDANDO_DISPONIBILIDADE sem precisar de
 // ata nova (ex.: chegou estoque via /estoque/entrada). Priorização entre
-// pedidos concorrentes é decisão manual do Gestor — ele escolhe em qual
+// pedidos concorrentes é decisão manual do Administrador — ele escolhe em qual
 // solicitação tentar reservar primeiro.
 export async function tentarReservarEstoque(usuario: AuthPayload, id: string) {
   const solicitacao = await buscarPorId(usuario, id);
@@ -255,7 +255,7 @@ export async function tentarReservarEstoque(usuario: AuthPayload, id: string) {
   return atualizada;
 }
 
-// Validação final do Gestor de Patrimônio, depois que a unidade já
+// Validação final do Administrador, depois que a unidade já
 // confirmou o recebimento (feedback do cliente: não fecha sozinho).
 export async function concluirSolicitacao(usuario: AuthPayload, id: string) {
   const solicitacao = await buscarPorId(usuario, id);
@@ -264,7 +264,7 @@ export async function concluirSolicitacao(usuario: AuthPayload, id: string) {
     throw new AppError('Esta solicitação não está aguardando validação do Patrimônio.', 422);
   }
   const atualizada = await prisma.$transaction(async (tx) => {
-    // Recolha: só agora, na validação final do Gestor, o equipamento muda de
+    // Recolha: só agora, na validação final do Administrador, o equipamento muda de
     // unidade — o galpão já foi escolhido na aprovação (feedback 26/08).
     if (solicitacao.tipo === 'RECOLHA') {
       const galpaoId = solicitacao.unidadeDestinoId!;
