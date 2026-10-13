@@ -5,7 +5,7 @@ import { expirarSolicitacoesPendentes } from './jobs/expirarSolicitacoes.job';
 
 const app = criarApp();
 
-app.listen(env.port, () => {
+app.listen(env.port, '0.0.0.0', () => {
   console.log(`SGP API disponível em http://localhost:${env.port}`);
 });
 

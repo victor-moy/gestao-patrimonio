@@ -1,0 +1,7 @@
+{
+  "install": "npm ci --prefix backend && npm --prefix backend run prisma:generate && npm ci --prefix frontend",
+  "start": "bash .cursor/scripts/dev-local.sh",
+  "ports": [
+    { "name": "SGP (frontend + /api)", "port": 8080 }
+  ]
+}

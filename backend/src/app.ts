@@ -32,7 +32,13 @@ export function criarApp() {
 
   // Atrás do Nginx (1 salto): o IP real vem de X-Forwarded-For e alimenta o limite de frequência
   app.set('trust proxy', 1);
-  app.use(helmet());
+  app.use(
+    helmet({
+      // Em dev o Vite (5180) e a API (3333) são origens diferentes; CORP same-origin
+      // faz o navegador descartar a resposta. Em produção o Nginx serve os dois no mesmo host.
+      crossOriginResourcePolicy: env.nodeEnv === 'production' ? { policy: 'same-origin' } : false,
+    }),
+  );
   app.use(
     cors({
       // Sem origens configuradas: aceita qualquer uma só em desenvolvimento
