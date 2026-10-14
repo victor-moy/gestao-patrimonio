@@ -11,6 +11,7 @@ import { equipamentosRouter } from './modules/equipamentos/equipamentos.routes';
 import { manutencoesRouter } from './modules/manutencoes/manutencoes.routes';
 import { solicitacoesRouter } from './modules/solicitacoes/solicitacoes.routes';
 import { atasRouter } from './modules/atas/atas.routes';
+import { sinapiRouter } from './modules/sinapi/sinapi.routes';
 import { contratosRouter } from './modules/contratos/contratos.routes';
 import { prestadoresRouter } from './modules/prestadores/prestadores.routes';
 import { escoposServicoRouter } from './modules/escopos-servico/escopos-servico.routes';
@@ -88,6 +89,7 @@ export function criarApp() {
   app.use('/solicitacoes', solicitacoesRouter);
   app.use('/atas', atasRouter);
   app.use('/contratos', contratosRouter);
+  app.use('/sinapi', sinapiRouter);
   app.use('/prestadores', prestadoresRouter);
   app.use('/servicos-contrato', servicosContratoRouter);
   app.use('/escopos-servico', escoposServicoRouter);

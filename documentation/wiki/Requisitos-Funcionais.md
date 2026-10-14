@@ -35,6 +35,12 @@ Extraído da seção 2.3–2.5 do [RFC v1.0](https://github.com/victor-moy/gesta
 | RF17 | O sistema deve abrir automaticamente uma solicitação de novo item ao Administrador quando um laudo de baixa for emitido. |
 | RF18 | O sistema deve permitir que a Unidade e o Administrador confirmem o retorno do equipamento após a manutenção, registrando o estado pós-serviço. |
 | RF19 | O sistema deve registrar o custo e a data de cada manutenção no histórico do equipamento. |
+| RF47 | O sistema deve permitir que a Unidade abra um chamado de **manutenção civil** (problema em unidade, sala ou instalação, como vazamento, infiltração ou problema elétrico), sem equipamento com patrimônio, informando título, local afetado, tipo de problema, descrição e até 4 fotos opcionais. A manutenção civil usa a mesma numeração (MAN-0001), a mesma conversa e o mesmo histórico da manutenção de equipamento. |
+| RF48 | Na triagem do chamado civil, o Administrador deve ver os chamados em aberto da mesma unidade e do mesmo tipo de problema (para evitar atendimento duplicado), conferir se o serviço é manutenção (e não alteração de estrutura ou layout, que pode ter outra cobertura) e encaminhá-lo escolhendo um item de contrato cujo escopo cubra manutenção civil, com vigência e saldo. Sem cobertura ou saldo, o chamado fica **aguardando providências**, não é enviado à empresa e pode ser encaminhado depois ou negado. |
+| RF49 | O sistema deve informar a Unidade quando o chamado civil for encaminhado, indicando o prestador e o contrato responsáveis. |
+| RF50 | No chamado civil não há orçamento prévio. Encaminhado o chamado, o prestador o vê como **aguardando execução** e marca **iniciar execução**. Ao concluir, ele **confirma a finalização informando os serviços e materiais executados**, escolhidos na **tabela SINAPI** com a quantidade; ele não digita preço. O preço unitário é o da tabela com o **desconto do item de contrato** (proposta vencedora, cadastrado no contrato), congelado na linha junto com o código, o preço de tabela e o percentual usados. Só se confirma a finalização com ao menos um item. O total dos itens é o custo do chamado e não pode exceder o saldo do item de contrato. |
+| RF51 | Depois que a Unidade confirma que o problema foi resolvido (ou contesta, devolvendo o chamado à execução), o Administrador dá a **aprovação final**, que autoriza a medição e conclui o chamado, ou **solicita ajustes** com motivo: o chamado volta à execução, o valor deixa de ocupar o saldo, o prestador é avisado e corrige os itens; ao finalizar de novo, o chamado volta **direto ao Administrador** (sem nova confirmação da Unidade). |
+| RF52 | Terminado o reparo, o prestador confirma a conclusão e a Unidade confirma que o problema foi resolvido (ou contesta, e o chamado volta à execução com o motivo registrado). Depois da confirmação da Unidade, o Administrador **autoriza a medição**, o que conclui o chamado e finaliza o consumo do saldo do item de contrato no valor do orçamento aprovado. |
 
 ## Cessão de Uso
 
@@ -146,9 +152,13 @@ Extraído da seção 2.3–2.5 do [RFC v1.0](https://github.com/victor-moy/gesta
 | RN08 | Uma ata de registro de preços vencida não pode ser vinculada a novas solicitações de aquisição. |
 | RN09 | O saldo de uma ata não pode ficar negativo. O sistema deve impedir aprovações que ultrapassem o saldo disponível. |
 | RN10 | Itens adquiridos por emenda parlamentar devem ser sinalizados com flag específica no cadastro, visível em todos os relatórios e históricos. |
+| RN12 | Na manutenção civil não há equipamento a bloquear nem dar baixa e não existe orçamento prévio nem revisão de orçamento. O escopo de um item de contrato só serve a um chamado civil se estiver marcado como cobrindo manutenção civil. O saldo do item segue a regra geral: o valor só é conhecido na finalização informada pelo prestador e passa a ocupar o saldo nesse momento (a finalização é recusada se exceder o saldo); contestação da Unidade ou pedido de ajustes liberam o valor, e ele fica definitivo quando o Administrador dá a aprovação final. Após pedido de ajustes do Administrador, a nova finalização do prestador volta direto à aprovação final — a Unidade não confirma de novo. |
 | RN11 | Terminado o reparo, a terceirizada confirma a conclusão. A confirmação de retorno da manutenção exige então validação de dois atores: a Unidade (como usuária do equipamento) e o Administrador (como fiscal do contrato). |
 
 ## Fora do Escopo
+
+- **Tabela SINAPI**: hoje o sistema tem só dois itens de exemplo (seed, valores demonstrativos). Ficam para depois a importação da planilha mensal da Caixa, a referência por mês/UF/desoneração, o item livre fora da tabela (precificado pelo Administrador) e o BDI.
+- **Medição da manutenção civil** (agrupamento dos serviços por prestador e período, gastos por unidade, preços de referência, BDI e desconto): prevista, mas depende de a fórmula ser validada com a equipe. Hoje o sistema só registra a **autorização da medição** de cada chamado (data e responsável na auditoria); a medição usará os chamados concluídos. A divisão de responsáveis (prestador informa os serviços executados; Unidade confirma a resolução; Administrador dá a aprovação final ou pede ajustes) segue o desenho atual até a equipe definir outra.
 
 Itens explicitamente excluídos do escopo deste projeto (seção 2.6 do RFC):
 

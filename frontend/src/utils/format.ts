@@ -54,11 +54,14 @@ export const ROTULO_TIPO_UNIDADE: Record<string, string> = {
 
 export const ROTULO_STATUS_MANUTENCAO: Record<string, string> = {
   PENDENTE_APROVACAO: 'Pendente Aprovação',
+  AGUARDANDO_PROVIDENCIAS: 'Aguardando Providências',
   NEGADA: 'Negada',
   AGUARDANDO_ORCAMENTO: 'Aguardando Orçamento',
   ORCAMENTO_REGISTRADO: 'Orçamento Registrado',
+  AGUARDANDO_EXECUCAO: 'Aguardando Execução',
   EM_EXECUCAO: 'Em Andamento',
   AGUARDANDO_RETORNO: 'Aguardando Retorno',
+  AGUARDANDO_MEDICAO: 'Aguardando Medição',
   CONCLUIDA: 'Concluída',
   BAIXADO: 'Baixado',
 };

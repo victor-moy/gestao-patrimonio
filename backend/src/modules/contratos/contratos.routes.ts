@@ -26,9 +26,10 @@ const selecaoItens = {
     id: true,
     servicoId: true,
     valor: true,
+    descontoPercentual: true,
     escopoId: true,
     servico: { select: { id: true, nome: true } },
-    escopo: { select: { id: true, nome: true, cobrePreventiva: true, cobreCorretiva: true } },
+    escopo: { select: { id: true, nome: true, cobrePreventiva: true, cobreCorretiva: true, cobreCivil: true } },
   },
 } satisfies Prisma.Contrato$itensArgs;
 
@@ -75,6 +76,7 @@ contratosRouter.get('/', async (req, res) => {
 const itemSchema = z.object({
   servicoId: z.string().uuid(),
   valor: z.number().nonnegative().max(999_999_999_999.99),
+  descontoPercentual: z.number().min(0).max(100).default(0),
   escopoId: z.string().uuid(),
 });
 
@@ -105,6 +107,7 @@ function dadosItens(itens: ItemEntrada[]) {
   return itens.map((i) => ({
     servicoId: i.servicoId,
     valor: Math.round(i.valor * 100) / 100,
+    descontoPercentual: Math.round(i.descontoPercentual * 100) / 100,
     escopoId: i.escopoId,
   }));
 }
@@ -165,7 +168,7 @@ contratosRouter.patch(
     };
     const antes = await prisma.contrato.findUnique({
       where: { id: req.params.id },
-      include: { itens: { select: { id: true, servicoId: true, escopoId: true } } },
+      include: { itens: { select: { id: true, servicoId: true, escopoId: true, descontoPercentual: true } } },
     });
     if (!antes) throw new AppError('Contrato não encontrado.', 404);
     if (dados.numero && dados.numero !== antes.numero) {
@@ -230,7 +233,7 @@ contratosRouter.patch(
               );
             }
           }
-          if (id) await tx.contratoItem.update({ where: { id }, data: { valor: item.valor, escopoId: item.escopoId } });
+          if (id) await tx.contratoItem.update({ where: { id }, data: { valor: item.valor, escopoId: item.escopoId, descontoPercentual: item.descontoPercentual } });
           else await tx.contratoItem.create({ data: { ...item, contratoId: antes.id } });
         }
       }
@@ -250,8 +253,14 @@ contratosRouter.patch(
             status: antes.status,
             itens: antes.itens.length,
             valorTotal: antes.valorTotal,
+            descontos: antes.itens.map((i) => ({ servicoId: i.servicoId, descontoPercentual: Number(i.descontoPercentual) })),
           },
-          dadosDepois: { ...dados, itens: atualizado.itens.length, valorTotal: atualizado.valorTotal },
+          dadosDepois: {
+            ...dados,
+            itens: atualizado.itens.length,
+            valorTotal: atualizado.valorTotal,
+            descontos: atualizado.itens.map((i) => ({ servicoId: i.servicoId, descontoPercentual: Number(i.descontoPercentual) })),
+          },
         },
         tx,
       );

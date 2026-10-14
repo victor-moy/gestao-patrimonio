@@ -58,8 +58,40 @@ describe('Arquivos protegidos (/uploads)', () => {
 
   it('arquivo sem registro no banco não é servido', async () => {
     prismaMock.solicitacao.findFirst.mockResolvedValue(null);
+    prismaMock.manutencao.findFirst.mockResolvedValue(null);
     const res = await request(app).get(`/uploads/solicitacoes/${NOME}`).set(auth('OPERADOR'));
     expect(res.status).toBe(404);
+  });
+
+  describe('fotos de manutenção civil', () => {
+    const FOTO = '5fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6.jpg';
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
+    beforeAll(() => fs.writeFileSync(path.join(FOTOS_DIR, FOTO), 'foto'));
+    afterAll(() => fs.rmSync(path.join(FOTOS_DIR, FOTO), { force: true }));
+    const foto = (perfil: Parameters<typeof auth>[0], opcoes?: Parameters<typeof auth>[1]) =>
+      request(app).get(`/uploads/solicitacoes/${FOTO}`).set(auth(perfil, opcoes));
+
+    beforeEach(() => {
+      prismaMock.solicitacao.findFirst.mockResolvedValue(null);
+      prismaMock.manutencao.findFirst.mockResolvedValue({ unidadeId: 'u-a', contrato: { prestadorId: 'p-1' } } as never);
+    });
+
+    it('a unidade dona, o Administrador e a terceirizada do contrato recebem a foto', async () => {
+      expect((await foto('UNIDADE', { unidadeId: 'u-a' })).status).toBe(200);
+      expect((await foto('OPERADOR')).status).toBe(200);
+      expect((await foto('TERCEIRIZADA', { prestadorId: 'p-1' })).status).toBe(200);
+    });
+
+    it('outra unidade, outro prestador e o Galpão não recebem a foto', async () => {
+      expect((await foto('UNIDADE', { unidadeId: 'u-b' })).status).toBe(403);
+      expect((await foto('TERCEIRIZADA', { prestadorId: 'p-2' })).status).toBe(403);
+      expect((await foto('GALPAO')).status).toBe(403);
+    });
+
+    it('a terceirizada não acessa anexo de solicitação', async () => {
+      prismaMock.solicitacao.findFirst.mockResolvedValue({ unidadeOrigemId: 'u-a', unidadeDestinoId: null } as never);
+      expect((await foto('TERCEIRIZADA', { prestadorId: 'p-1' })).status).toBe(404);
+    });
   });
 });
 
@@ -129,7 +161,11 @@ describe('Perfil terceirizada: lista de permissão (negado por padrão)', () => 
     ['get', '/servicos-contrato'],
     ['get', '/escopos-servico'],
     ['get', '/uploads/laudos/11111111-1111-4111-8111-111111111111.pdf'],
-    ['get', '/uploads/solicitacoes/11111111-1111-4111-8111-111111111111.jpg'],
+    ['post', '/manutencoes/civil'],
+    ['get', '/manutencoes/11111111-1111-4111-8111-111111111111/similares'],
+    ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/aguardar-providencias'],
+    ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/contestar'],
+    ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/autorizar-medicao'],
     ['post', '/auth/impersonar/abc'],
     ['post', '/manutencoes'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/aprovar'],
@@ -151,6 +187,10 @@ describe('Perfil terceirizada: lista de permissão (negado por padrão)', () => 
       ['get', '/conversas'],
       ['get', '/conversas/nao-lidas'],
       ['get', '/contratos'],
+      ['get', '/sinapi'],
+      ['post', `/manutencoes/${ID}/relatorio`],
+      ['post', `/manutencoes/${ID}/iniciar-execucao`],
+      ['delete', `/manutencoes/${ID}/relatorio/${ID}`],
     ] as const;
     for (const [metodo, rota] of ok) {
       const res = await request(app)[metodo](rota).set(t());

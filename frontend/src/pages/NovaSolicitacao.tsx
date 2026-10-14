@@ -10,12 +10,14 @@ import { CampoAnexo } from '../components/CampoAnexo';
 import { IconeFechar } from '../components/icons';
 import { SelectEquipamento, SelectTipoEquipamento } from '../components/SelectItem';
 import { ItemAusente } from '../components/ItemAusente';
+import { CamposManutencaoCivil, civilIncompleto, type DadosCivil } from '../components/CamposManutencaoCivil';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
 
 const JUSTIFICATIVA_MAX = 500;
 
 // Manutenção é mais um tipo na tela, mas vira uma manutenção (MAN-0001), não uma solicitação (SOL-0001)
-type TipoNovo = TipoSolicitacaoValor | 'MANUTENCAO';
+type TipoNovo = TipoSolicitacaoValor | 'MANUTENCAO' | 'MANUTENCAO_CIVIL';
+
 
 // Tipos de solicitação disponíveis, com a descrição mostrada sob o seletor.
 const CATALOGO_TIPOS: Array<{
@@ -27,7 +29,7 @@ const CATALOGO_TIPOS: Array<{
   { tipo: 'CESSAO_USO', descricao: 'Ceder um item a uma entidade externa' },
   { tipo: 'EMPRESTIMO', descricao: 'Movimentar um item entre unidades da SES' },
   { tipo: 'RECOLHA', descricao: 'Processo para recolha de itens na unidade' },
-  { tipo: 'MANUTENCAO', descricao: 'Reparo de um item da unidade pela empresa contratada' },
+  { tipo: 'MANUTENCAO', descricao: 'Reparo de um item ou área da unidade pela empresa contratada' },
 ];
 
 export function NovaSolicitacao() {
@@ -38,13 +40,17 @@ export function NovaSolicitacao() {
   const [params] = useSearchParams();
   const equipamentoInicial = params.get('equipamento') ?? '';
   // Vindo do inventário ("Abrir manutenção"), o tipo já chega escolhido
-  const [tipo, setTipo] = useState<TipoNovo | null>(
+  // Manutenção é um só tipo na tela; "civil" ou "patrimonial" se escolhe logo abaixo
+  const [tipoBase, setTipo] = useState<TipoNovo | null>(
     params.get('tipo') === 'MANUTENCAO' && usuario?.perfil === 'UNIDADE' ? 'MANUTENCAO' : null,
   );
+  const [manutencaoCivil, setManutencaoCivil] = useState(false);
+  const tipo: TipoNovo | null = tipoBase === 'MANUTENCAO' && manutencaoCivil ? 'MANUTENCAO_CIVIL' : tipoBase;
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [anexo, setAnexo] = useState<File | null>(null);
+  const [fotosCivil, setFotosCivil] = useState<File[]>([]);
   const [previewAnexo, setPreviewAnexo] = useState<string | null>(null);
   const [erro, setErro] = useMensagemTemporaria();
   useAlertaNativo(erro, () => setErro(null));
@@ -91,6 +97,9 @@ export function NovaSolicitacao() {
     // Manutenção: o equipamento da própria unidade e o que está acontecendo com ele
     equipamentoManutencaoId: equipamentoInicial,
     descricaoProblema: '',
+    // Manutenção civil: local e tipo do problema (a descrição é a mesma de cima)
+    localAfetado: '',
+    categoriaCivil: '' as DadosCivil['categoriaCivil'],
   };
   const [form, setForm] = useState(inicial);
 
@@ -172,6 +181,17 @@ export function NovaSolicitacao() {
     if (!tipo) return;
     setErro(null);
     try {
+      if (tipo === 'MANUTENCAO_CIVIL') {
+        const dados = new FormData();
+        dados.append('titulo', form.titulo.trim());
+        dados.append('descricaoProblema', form.descricaoProblema);
+        dados.append('localAfetado', form.localAfetado.trim());
+        dados.append('categoriaCivil', form.categoriaCivil);
+        fotosCivil.forEach((foto) => dados.append('fotos', foto));
+        await api.post('/manutencoes/civil', dados);
+        void navigate('/solicitacoes');
+        return;
+      }
       if (tipo === 'MANUTENCAO') {
         await api.post('/manutencoes', {
           equipamentoId: form.equipamentoManutencaoId,
@@ -268,9 +288,10 @@ export function NovaSolicitacao() {
   // Itens emprestados à unidade aparecem no inventário, mas só a unidade dona abre manutenção
   const equipamentosDaUnidade = equipamentos.filter((eq) => eq.unidade.id === usuario?.unidadeId);
   const manutencaoIncompleta =
-    tipo === 'MANUTENCAO' && (!form.equipamentoManutencaoId || form.descricaoProblema.trim().length < 5);
+    (tipo === 'MANUTENCAO' && (!form.equipamentoManutencaoId || form.descricaoProblema.trim().length < 5)) ||
+    (tipo === 'MANUTENCAO_CIVIL' && civilIncompleto(form));
 
-  const infoTipo = CATALOGO_TIPOS.find((item) => item.tipo === tipo);
+  const infoTipo = CATALOGO_TIPOS.find((item) => item.tipo === tipoBase);
 
   return (
     <section className="gestao-page equipamento-pagina nova-solicitacao" aria-labelledby="nova-solicitacao-titulo">
@@ -301,19 +322,32 @@ export function NovaSolicitacao() {
             <label htmlFor="nova-solicitacao-tipo">Tipo</label>
             <select
               id="nova-solicitacao-tipo"
-              value={tipo ?? ''}
+              value={tipoBase ?? ''}
               onChange={(e) => setTipo((e.target.value || null) as TipoNovo | null)}
               required
             >
               <option value="">Selecione...</option>
               {tiposDisponiveis.map(({ tipo: valor }) => (
                 <option key={valor} value={valor}>
-                  {ROTULO_TIPO_SOLICITACAO[valor]}
+                  {ROTULO_TIPO_SOLICITACAO[valor as keyof typeof ROTULO_TIPO_SOLICITACAO]}
                 </option>
               ))}
             </select>
-            {infoTipo && <p className="nova-solicitacao-descricao">{infoTipo.descricao}</p>}
+            {infoTipo?.descricao && <p className="nova-solicitacao-descricao">{infoTipo.descricao}</p>}
           </div>
+          {tipoBase === 'MANUTENCAO' && (
+            <div className="field nova-solicitacao-campo-tipo">
+              <label htmlFor="nova-solicitacao-manutencao">Natureza</label>
+              <select
+                id="nova-solicitacao-manutencao"
+                value={manutencaoCivil ? 'CIVIL' : 'PATRIMONIAL'}
+                onChange={(e) => setManutencaoCivil(e.target.value === 'CIVIL')}
+              >
+                <option value="PATRIMONIAL">Patrimonial</option>
+                <option value="CIVIL">Civil</option>
+              </select>
+            </div>
+          )}
           <div className="field nova-solicitacao-campo-titulo">
             <label htmlFor="nova-solicitacao-titulo-campo">Título</label>
             <input
@@ -329,7 +363,7 @@ export function NovaSolicitacao() {
 
         {tipo && (
           <>
-          <div className={`form-colunas${tipo === 'SUBSTITUICAO' || tipo === 'MANUTENCAO' ? ' form-colunas-unica' : ''}`}>
+          <div className={`form-colunas${tipo === 'SUBSTITUICAO' || tipo === 'MANUTENCAO' || tipo === 'MANUTENCAO_CIVIL' ? ' form-colunas-unica' : ''}`}>
           <div className="form-coluna">
           {tipo === 'SUBSTITUICAO' && (
             <div className="form-secao">
@@ -558,6 +592,15 @@ export function NovaSolicitacao() {
             </div>
           )}
 
+          {tipo === 'MANUTENCAO_CIVIL' && (
+            <CamposManutencaoCivil
+              valor={form}
+              onChange={(v) => setForm({ ...form, ...v })}
+              fotos={fotosCivil}
+              onFotos={setFotosCivil}
+            />
+          )}
+
           {tipo === 'CESSAO_USO' && (
             <div className="form-secao">
               <div className="form-secao-titulo">Itens a Ceder</div>
@@ -606,7 +649,7 @@ export function NovaSolicitacao() {
           )}
           </div>
 
-          {tipo !== 'SUBSTITUICAO' && tipo !== 'MANUTENCAO' && (
+          {tipo !== 'SUBSTITUICAO' && tipo !== 'MANUTENCAO' && tipo !== 'MANUTENCAO_CIVIL' && (
           <div className="form-coluna">
           <div className="form-secao">
             <div className="form-secao-titulo">

@@ -15,10 +15,11 @@ import {
   ROTULO_STATUS_MANUTENCAO,
   codigoManutencao,
 } from '../utils/format';
-import { nomeEquipamento, rotuloEventoManutencao, tituloManutencao } from '../utils/manutencao';
+import { nomeEquipamento, ROTULO_CATEGORIA_CIVIL, rotuloEventoManutencao, tituloManutencao } from '../utils/manutencao';
 import './Solicitacoes.css';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
 import { EsqueletoDetalhe } from '../components/Esqueletos';
+import { AcoesCivil, FotosCivil, RelatorioCivil } from '../components/ManutencaoCivil';
 
 export function ManutencaoDetalhe() {
   const { id } = useParams();
@@ -131,7 +132,7 @@ function ConteudoManutencao({
   const ehAdministrador = usuario?.perfil === 'OPERADOR';
   const ehTerceirizada = usuario?.perfil === 'TERCEIRIZADA';
   // Itens elegíveis: contrato vigente, escopo que cobre o que o tipo de item aceita e saldo disponível
-  const tipoItem: { permitePreventiva?: boolean; permiteCorretiva?: boolean } = m.equipamento.tipoEquipamento ?? {};
+  const tipoItem: { permitePreventiva?: boolean; permiteCorretiva?: boolean } = m.equipamento?.tipoEquipamento ?? {};
   const contratosComItens = contratos
     .filter((c) => c.status !== 'EXPIRADO')
     .map((c) => ({
@@ -255,7 +256,7 @@ function ConteudoManutencao({
   );
 
   // Orçamento a partir de 50% do preço de referência do tipo de item: o reparo não é sugerido
-  const precoReferencia = Number(m.equipamento.tipoEquipamento?.preco ?? 0);
+  const precoReferencia = Number(m.equipamento?.tipoEquipamento?.preco ?? 0);
   const valorOrcamento = Number(m.orcamentoValor ?? 0);
   const orcamentoAltoDemais = precoReferencia > 0 && valorOrcamento > 0 && valorOrcamento >= precoReferencia * 0.5;
   const percentualDoPreco = precoReferencia > 0 ? Math.round((valorOrcamento / precoReferencia) * 100) : 0;
@@ -284,13 +285,26 @@ function ConteudoManutencao({
         <section className="equipamento-secao solicitacao-informacoes">
           <h3>Informações da manutenção</h3>
           <dl className="equipamento-dados">
-            <div>
-              <dt>Item</dt>
-              <dd>
-                {nomeEquipamento(m)}
-                <span className="dado-apoio">{m.equipamento.tombamento}</span>
-              </dd>
-            </div>
+            {m.equipamento ? (
+              <div>
+                <dt>Item</dt>
+                <dd>
+                  {nomeEquipamento(m)}
+                  <span className="dado-apoio">{m.equipamento.tombamento}</span>
+                </dd>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <dt>Local afetado</dt>
+                  <dd>{m.localAfetado}</dd>
+                </div>
+                <div>
+                  <dt>Tipo de problema</dt>
+                  <dd>{m.categoriaCivil ? ROTULO_CATEGORIA_CIVIL[m.categoriaCivil] : '—'}</dd>
+                </div>
+              </>
+            )}
             <div>
               <dt>Solicitado em</dt>
               <dd>{formatarDataHora(m.criadoEm)}</dd>
@@ -325,7 +339,19 @@ function ConteudoManutencao({
                 <dd>{formatarMoeda(m.custoFinal)}</dd>
               </div>
             )}
-            {m.status === 'AGUARDANDO_RETORNO' && (
+            {m.tipo === 'CIVIL' && ['AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO', 'CONCLUIDA'].includes(m.status) && (
+              <>
+                <div>
+                  <dt>Problema resolvido (unidade)</dt>
+                  <dd>{rotuloSimNao(m.confirmadoUnidade)}</dd>
+                </div>
+                <div>
+                  <dt>Medição autorizada</dt>
+                  <dd>{m.conferidoMedicaoEm ? formatarDataHora(m.conferidoMedicaoEm) : 'Pendente'}</dd>
+                </div>
+              </>
+            )}
+            {m.tipo !== 'CIVIL' && m.status === 'AGUARDANDO_RETORNO' && (
               <>
                 <div>
                   <dt>Confirmação da unidade</dt>
@@ -364,6 +390,38 @@ function ConteudoManutencao({
             <p>{m.descricaoProblema}</p>
           </section>
 
+          {m.tipo === 'CIVIL' && <FotosCivil fotos={m.fotos ?? []} />}
+
+          {m.motivoPendencia && m.status === 'AGUARDANDO_PROVIDENCIAS' && (
+            <section className="equipamento-secao solicitacao-secao-texto">
+              <h3>Aguardando providências</h3>
+              <p>{m.motivoPendencia}</p>
+            </section>
+          )}
+
+          {m.contestacaoUnidade && m.status === 'EM_EXECUCAO' && (
+            <section className="equipamento-secao solicitacao-secao-texto">
+              <h3>Contestação da unidade</h3>
+              <p>{m.contestacaoUnidade}</p>
+            </section>
+          )}
+
+          {m.motivoAjuste && m.status === 'EM_EXECUCAO' && (
+            <section className="equipamento-secao solicitacao-secao-texto">
+              <h3>Ajustes solicitados</h3>
+              <p>{m.motivoAjuste}</p>
+            </section>
+          )}
+
+          {m.tipo === 'CIVIL' && (
+            <RelatorioCivil
+              m={m}
+              executar={executar}
+              ocupado={ocupado}
+              ehTerceirizada={ehTerceirizada}
+            />
+          )}
+
           {m.justificativa && (
             <section className="equipamento-secao solicitacao-secao-texto">
               <h3>Justificativa</h3>
@@ -399,7 +457,7 @@ function ConteudoManutencao({
                 {historico.map((evento) => (
                   <li className="equipamento-evento" key={evento.id}>
                     <div>
-                      <strong>{rotuloEventoManutencao(evento)}</strong>
+                      <strong>{rotuloEventoManutencao(evento, m.tipo)}</strong>
                       <p>
                         {evento.usuario ? `${evento.usuario} · ` : ''}
                         <time dateTime={evento.criadoEm}>{formatarDataHora(evento.criadoEm)}</time>
@@ -414,6 +472,17 @@ function ConteudoManutencao({
 
         <div className="solicitacao-lateral">
           <div className="solicitacao-acoes">
+            {m.tipo === 'CIVIL' ? (
+              <AcoesCivil
+                m={m}
+                executar={executar}
+                ocupado={ocupado}
+                ehAdministrador={ehAdministrador}
+                ehTerceirizada={ehTerceirizada}
+                ehUnidadeDona={ehUnidadeDona}
+              />
+            ) : (
+              <>
             {/* Administrador: aprovar (item de contrato obrigatório) ou negar (motivo obrigatório) */}
             {ehAdministrador && m.status === 'PENDENTE_APROVACAO' && (
               <div className="actions-box actions-box--simples">
@@ -689,6 +758,8 @@ function ConteudoManutencao({
                   </button>
                 </div>
               </div>
+            )}
+              </>
             )}
           </div>
         </div>

@@ -3,7 +3,7 @@ import { TipoManutencaoSelect } from '../../components/TipoManutencaoSelect';
 import { useFormularioCadastro } from '../../hooks/useCadastro';
 import type { EscopoServico } from '../../types';
 
-const VAZIO = { nome: '', descricao: '', cobrePreventiva: true, cobreCorretiva: true };
+const VAZIO = { nome: '', descricao: '', cobrePreventiva: true, cobreCorretiva: true, cobreCivil: false };
 
 export function EscopoServicoFormulario() {
   const c = useFormularioCadastro<EscopoServico, typeof VAZIO>({
@@ -16,12 +16,14 @@ export function EscopoServicoFormulario() {
       descricao: e.descricao ?? '',
       cobrePreventiva: e.cobrePreventiva,
       cobreCorretiva: e.cobreCorretiva,
+      cobreCivil: e.cobreCivil,
     }),
     paraPayload: (f) => ({
       nome: f.nome.trim(),
       descricao: f.descricao.trim() || null,
       cobrePreventiva: f.cobrePreventiva,
       cobreCorretiva: f.cobreCorretiva,
+      cobreCivil: f.cobreCivil,
     }),
     nomeDoItem: (e) => e.nome,
   });
@@ -73,8 +75,21 @@ export function EscopoServicoFormulario() {
               onChange={({ preventiva, corretiva }) =>
                 setForm({ ...form, cobrePreventiva: preventiva, cobreCorretiva: corretiva })
               }
+              permitirNenhuma={form.cobreCivil}
               disabled={bloqueado}
             />
+          </div>
+          <div className="field">
+            <label htmlFor="escopo-cobre-civil">Manutenção civil</label>
+            <select
+              id="escopo-cobre-civil"
+              value={form.cobreCivil ? 'sim' : 'nao'}
+              onChange={(e) => setForm({ ...form, cobreCivil: e.target.value === 'sim' })}
+              disabled={bloqueado}
+            >
+              <option value="nao">Não cobre</option>
+              <option value="sim">Cobre (problemas de unidade, sala ou instalação)</option>
+            </select>
           </div>
           <div className="field novo-equipamento-largura-total">
             <label htmlFor="escopo-descricao">Descrição</label>

@@ -13,12 +13,13 @@ import { IconeFechar } from '../components/icons';
 interface ItemForm {
   servicoId: string;
   valor: string;
+  descontoPercentual: string;
   escopoId: string;
   // Só para itens já gravados: valor menos o já comprometido pelas manutenções
   saldo?: number;
 }
 
-const ITEM_VAZIO: ItemForm = { servicoId: '', valor: '', escopoId: '' };
+const ITEM_VAZIO: ItemForm = { servicoId: '', valor: '', descontoPercentual: '0', escopoId: '' };
 
 const VAZIO = {
   numero: '',
@@ -106,6 +107,7 @@ export function ContratoFormulario() {
           itens: c.itens.map((i) => ({
             servicoId: i.servicoId,
             valor: String(i.valor),
+            descontoPercentual: String(Number(i.descontoPercentual ?? 0)),
             escopoId: i.escopoId,
             saldo: i.saldo,
           })),
@@ -175,6 +177,7 @@ export function ContratoFormulario() {
       itens: form.itens.map((i) => ({
         servicoId: i.servicoId,
         valor: Number(i.valor),
+        descontoPercentual: Number(i.descontoPercentual) || 0,
         escopoId: i.escopoId,
       })),
     };
@@ -332,13 +335,14 @@ export function ContratoFormulario() {
           )}
           <div
             className="itens-lista"
-            style={{ '--colunas': `minmax(0,1fr) 220px 140px ${editando ? '140px ' : ''}34px` } as CSSProperties}
+            style={{ '--colunas': `minmax(0,1fr) 220px 140px 130px ${editando ? '140px ' : ''}34px` } as CSSProperties}
           >
             {form.itens.length > 0 && (
               <div className="itens-cabecalho" aria-hidden>
                 <span>Tipo de serviço</span>
                 <span>Escopo</span>
                 <span>Valor (R$)</span>
+                <span>Desconto SINAPI (%)</span>
                 {editando && <span>Saldo (R$)</span>}
                 <span />
               </div>
@@ -390,6 +394,19 @@ export function ContratoFormulario() {
                     onChange={(e) => editarItem(i, { valor: e.target.value })}
                     disabled={bloqueado}
                     required
+                  />
+                </div>
+                <div className="itens-celula" data-rotulo="Desconto SINAPI (%)">
+                  <input
+                    aria-label="Desconto sobre a tabela SINAPI (%)"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    inputMode="decimal"
+                    value={item.descontoPercentual}
+                    onChange={(e) => editarItem(i, { descontoPercentual: e.target.value })}
+                    disabled={bloqueado}
                   />
                 </div>
                 {editando && (

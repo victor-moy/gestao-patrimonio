@@ -560,6 +560,27 @@ describe('Contratos de terceirizadas', () => {
     expect(res.status).toBe(409);
   });
 
+  it('grava o desconto SINAPI por item e recusa percentual fora de 0 a 100', async () => {
+    referenciasValidas();
+    prismaMock.contrato.findUnique.mockResolvedValue(null as never);
+    prismaMock.contrato.create.mockResolvedValue({ id: 'c-1', numero: base.numero, itens: [] } as never);
+    const ok = await request(app)
+      .post('/contratos')
+      .set(auth('OPERADOR'))
+      .send({ ...base, itens: itens.map((i) => ({ ...i, descontoPercentual: 12.5 })) });
+    expect(ok.status).toBe(201);
+    expect(prismaMock.contrato.create.mock.calls[0][0].data.itens).toEqual({
+      create: expect.arrayContaining([expect.objectContaining({ descontoPercentual: 12.5 })]),
+    });
+    for (const descontoPercentual of [-1, 100.5]) {
+      const res = await request(app)
+        .post('/contratos')
+        .set(auth('OPERADOR'))
+        .send({ ...base, itens: itens.map((i) => ({ ...i, descontoPercentual })) });
+      expect(res.status).toBe(422);
+    }
+  });
+
   it('edita itens no lugar: atualiza o mantido, cria o novo e remove o que saiu', async () => {
     prismaMock.contrato.findUnique.mockResolvedValue({
       id: 'c-1',
@@ -579,7 +600,7 @@ describe('Contratos de terceirizadas', () => {
     expect(prismaMock.contratoItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['it-3'] } } });
     expect(prismaMock.contratoItem.update).toHaveBeenCalledWith({
       where: { id: 'it-1' },
-      data: { valor: 10000.1, escopoId: E1 },
+      data: { valor: 10000.1, escopoId: E1, descontoPercentual: 0 },
     });
     expect(prismaMock.contratoItem.create).toHaveBeenCalledTimes(1);
     // os itens mantidos são travados antes de conferir o saldo comprometido

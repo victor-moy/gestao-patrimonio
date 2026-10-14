@@ -69,6 +69,23 @@ export const uploadAnexoSolicitacao = multer({
   },
 });
 
+// Fotos do chamado de manutenção civil: até 4 imagens, guardadas junto dos anexos de solicitação
+export const MAX_FOTOS_CIVIL = 4;
+export const uploadFotosCivil = multer({
+  storage: multer.diskStorage({
+    destination: FOTOS_DIR,
+    filename: (_req, file, cb) => cb(null, `${crypto.randomUUID()}${EXTENSOES_IMAGEM[file.mimetype] ?? '.jpg'}`),
+  }),
+  limits: { fileSize: 5 * 1024 * 1024, files: MAX_FOTOS_CIVIL },
+  fileFilter: (_req, file, cb) => {
+    if (!EXTENSOES_IMAGEM[file.mimetype]) {
+      cb(new AppError('Formato de imagem não suportado. Use JPEG, PNG ou WebP.', 422));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
 export const uploadLaudoPdf = multer({
   storage: multer.diskStorage({
     destination: LAUDOS_DIR,
@@ -107,19 +124,23 @@ function detectarFormato(cabecalho: Buffer): Formato | null {
 
 function validarAssinatura(permitidos: Formato[]) {
   return async (req: Request, _res: Response, next: NextFunction) => {
-    if (!req.file) return next();
-    const caminho = req.file.path;
+    // Aceita upload único (req.file) ou vários (req.files como lista)
+    const arquivos = req.file ? [req.file] : Array.isArray(req.files) ? req.files : [];
     try {
-      // caminho gerado pelo multer (UUID em diretório fixo), nunca informado pelo cliente
-      // eslint-disable-next-line security/detect-non-literal-fs-filename
-      const arquivo = await fs.promises.open(caminho, 'r');
-      const cabecalho = Buffer.alloc(12);
-      await arquivo.read(cabecalho, 0, 12, 0);
-      await arquivo.close();
-      const formato = detectarFormato(cabecalho);
-      if (!formato || !permitidos.includes(formato)) {
-        await fs.promises.rm(caminho, { force: true });
-        throw new AppError('O conteúdo do arquivo não corresponde a um formato permitido.', 422);
+      for (const arquivo of arquivos) {
+        const caminho = arquivo.path;
+        // caminho gerado pelo multer (UUID em diretório fixo), nunca informado pelo cliente
+        // eslint-disable-next-line security/detect-non-literal-fs-filename
+        const aberto = await fs.promises.open(caminho, 'r');
+        const cabecalho = Buffer.alloc(12);
+        await aberto.read(cabecalho, 0, 12, 0);
+        await aberto.close();
+        const formato = detectarFormato(cabecalho);
+        if (!formato || !permitidos.includes(formato)) {
+          // descarta todos os arquivos do pedido: nada fica órfão no disco
+          await Promise.all(arquivos.map((a) => fs.promises.rm(a.path, { force: true })));
+          throw new AppError('O conteúdo do arquivo não corresponde a um formato permitido.', 422);
+        }
       }
       next();
     } catch (erro) {
