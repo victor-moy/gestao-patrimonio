@@ -233,6 +233,22 @@ contratosRouter.patch(
               );
             }
           }
+          // Desconto congela nas linhas SINAPI: não muda enquanto houver chamado aberto no item
+          if (
+            id &&
+            anterior &&
+            Number(item.descontoPercentual) !== Number(anterior.descontoPercentual ?? 0)
+          ) {
+            const emAndamento = await tx.manutencao.count({
+              where: { contratoItemId: id, status: { notIn: ['CONCLUIDA', 'NEGADA'] } },
+            });
+            if (emAndamento > 0) {
+              throw new AppError(
+                'Não é possível alterar o desconto SINAPI enquanto houver chamado em andamento neste item.',
+                422,
+              );
+            }
+          }
           if (id) await tx.contratoItem.update({ where: { id }, data: { valor: item.valor, escopoId: item.escopoId, descontoPercentual: item.descontoPercentual } });
           else await tx.contratoItem.create({ data: { ...item, contratoId: antes.id } });
         }

@@ -599,6 +599,8 @@
 
 .nova-solicitacao .field.nova-solicitacao-campo-tipo,
 .novo-equipamento .field.nova-solicitacao-campo-tipo { max-width: 420px; margin-bottom: 0; padding-top: 0; border-top: 0; }
+/* Natureza (manutenção) fica abaixo da descrição do tipo, com folga para não colar no texto */
+.nova-solicitacao .field.nova-solicitacao-campo-tipo + .field.nova-solicitacao-campo-tipo { margin-top: 20px; }
 .nova-solicitacao .field.nova-solicitacao-campo-titulo { max-width: 420px; margin: 24px 0 0; }
 .nova-solicitacao-descricao { margin: 6px 0 0; color: var(--text-secondary); font-size: 12px; }
 

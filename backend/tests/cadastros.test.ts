@@ -609,6 +609,25 @@ describe('Contratos de terceirizadas', () => {
     expect(prismaMock.logAuditoria.create).toHaveBeenCalled();
   });
 
+  it('não altera o desconto SINAPI enquanto houver chamado em andamento no item', async () => {
+    prismaMock.contrato.findUnique.mockResolvedValue({
+      id: 'c-1',
+      numero: 'CONT-2026-010',
+      status: 'ATIVO',
+      valorTotal: 1,
+      itens: [{ id: 'it-1', servicoId: S1, escopoId: E1, descontoPercentual: 0 }],
+    } as never);
+    referenciasValidas();
+    prismaMock.manutencao.count.mockResolvedValue(1 as never);
+    prismaMock.$queryRaw.mockResolvedValue([] as never);
+    const res = await request(app)
+      .patch('/contratos/c-1')
+      .set(auth('OPERADOR'))
+      .send({ itens: itens.map((i) => ({ ...i, descontoPercentual: 15 })) });
+    expect(res.status).toBe(422);
+    expect(prismaMock.contratoItem.update).not.toHaveBeenCalled();
+  });
+
   it('não permite baixar o valor de um item abaixo do já comprometido por manutenções', async () => {
     prismaMock.contrato.findUnique.mockResolvedValue({
       id: 'c-1',

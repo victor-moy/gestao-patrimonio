@@ -5,7 +5,14 @@ import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
-import { assinaturaImagem, assinaturaPdf, MAX_FOTOS_CIVIL, uploadFotosCivil, uploadLaudoPdf } from '../../lib/uploads';
+import {
+  assinaturaImagem,
+  assinaturaPdf,
+  MAX_FOTOS_CIVIL,
+  removerArquivosUpload,
+  uploadFotosCivil,
+  uploadLaudoPdf,
+} from '../../lib/uploads';
 import * as service from './manutencoes.service';
 
 export const manutencoesRouter = Router();
@@ -24,6 +31,7 @@ function paraPerfil<T extends { unidade: { emailBase?: string | null } }>(perfil
 }
 
 const STATUS_MANUTENCAO = new Set<string>(Object.values(StatusManutencao));
+const TIPOS_MANUTENCAO = new Set<string>(Object.values(TipoManutencao));
 
 manutencoesRouter.get('/', leitura, async (req, res) => {
   const bruto = req.query.status;
@@ -31,7 +39,7 @@ manutencoesRouter.get('/', leitura, async (req, res) => {
     throw new AppError('Status inválido.', 422);
   }
   const tipo = req.query.tipo;
-  if (tipo !== undefined && (typeof tipo !== 'string' || !(tipo in TipoManutencao))) {
+  if (tipo !== undefined && (typeof tipo !== 'string' || !TIPOS_MANUTENCAO.has(tipo))) {
     throw new AppError('Tipo de manutenção inválido.', 422);
   }
   const manutencoes = await service.listar(req.usuario!, {
@@ -78,11 +86,22 @@ manutencoesRouter.post(
   permitir(Perfil.UNIDADE, Perfil.OPERADOR),
   uploadFotosCivil.array('fotos', MAX_FOTOS_CIVIL),
   assinaturaImagem,
-  validarBody(solicitarCivilSchema),
-  async (req, res) => {
+  async (req, res, next) => {
     const arquivos = Array.isArray(req.files) ? req.files : [];
-    const fotos = arquivos.map((f) => `/uploads/solicitacoes/${f.filename}`);
-    res.status(201).json(await service.solicitarCivil(req.usuario!, { ...req.body, fotos }));
+    try {
+      req.body = solicitarCivilSchema.parse(req.body);
+      const fotos = arquivos.map((f) => `/uploads/solicitacoes/${f.filename}`);
+      res.status(201).json(await service.solicitarCivil(req.usuario!, { ...req.body, fotos }));
+    } catch (erro) {
+      // Body inválido ou falha no service: as fotos já gravadas pelo multer não podem ficar órfãs
+      await removerArquivosUpload(arquivos);
+      if (erro instanceof z.ZodError) {
+        const detalhes = erro.errors.map((e) => `${e.path.join('.') || 'corpo'}: ${e.message}`).join('; ');
+        next(new AppError(`Dados inválidos — ${detalhes}`, 422));
+        return;
+      }
+      next(erro);
+    }
   },
 );
 

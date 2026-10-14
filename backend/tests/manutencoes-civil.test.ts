@@ -216,7 +216,14 @@ describe('Manutenção civil', () => {
         .set(terc())
         .send({ itemSinapiId: SINAPI, quantidade: 2, ...corpo });
     const aguardando = (extra: Record<string, unknown> = {}) =>
-      civil({ status: 'EM_EXECUCAO', contrato, contratoItemId: ITEM, contratoItem: { id: ITEM, valor: 10000, descontoPercentual: 12 }, ...extra });
+      civil({
+        status: 'EM_EXECUCAO',
+        contrato,
+        contratoItemId: ITEM,
+        contratoItem: { id: ITEM, valor: 10000, descontoPercentual: 12 },
+        _count: { linhasRelatorio: 0 },
+        ...extra,
+      });
     const finalizar = () => request(app).post(`/manutencoes/${MAN}/registrar-retorno`).set(terc()).send({});
     const iniciar = () => request(app).post(`/manutencoes/${MAN}/iniciar-execucao`).set(terc()).send({});
 
@@ -284,8 +291,11 @@ describe('Manutenção civil', () => {
       const apagar = () => request(app).delete(`/manutencoes/${MAN}/relatorio/${LINHA}`).set(terc());
       prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ linhasRelatorio: [linha()] }) as never);
       prismaMock.manutencao.findUniqueOrThrow.mockResolvedValue(aguardando() as never);
+      prismaMock.linhaRelatorioManutencao.deleteMany.mockResolvedValue({ count: 1 } as never);
       expect((await apagar()).status).toBe(200);
-      expect(prismaMock.linhaRelatorioManutencao.delete).toHaveBeenCalled();
+      expect(prismaMock.linhaRelatorioManutencao.deleteMany).toHaveBeenCalledWith({
+        where: { id: LINHA, manutencaoId: MAN },
+      });
       prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ status: 'AGUARDANDO_RETORNO', linhasRelatorio: [linha()] }) as never);
       expect((await apagar()).status).toBe(422);
     });
@@ -312,44 +322,55 @@ describe('Manutenção civil', () => {
 
     it('confirmar a finalização exige serviços informados, usa o total como custo e confere o saldo', async () => {
       prismaMock.manutencao.findUnique.mockResolvedValue(aguardando() as never);
+      prismaMock.manutencao.findUniqueOrThrow.mockResolvedValue(aguardando({ linhasRelatorio: [] }) as never);
       expect((await finalizar()).status).toBe(422);
 
-      prismaMock.manutencao.findUnique.mockResolvedValue(
-        aguardando({ linhasRelatorio: [linha(), linha({ id: 'l2', quantidade: 1, valorUnitario: 50 })] }) as never,
-      );
+      const comLinhas = aguardando({
+        linhasRelatorio: [linha(), linha({ id: 'l2', quantidade: 1, valorUnitario: 50 })],
+      });
+      prismaMock.manutencao.findUnique.mockResolvedValue(comLinhas as never);
+      prismaMock.manutencao.findUniqueOrThrow
+        .mockResolvedValueOnce(comLinhas as never)
+        .mockResolvedValueOnce(civil({ status: 'AGUARDANDO_RETORNO', confirmadoUnidade: false }) as never);
       prismaMock.contratoItem.findUnique.mockResolvedValue(itemCivil as never);
       comprometido(null);
-      prismaMock.manutencao.update.mockResolvedValue(civil({ status: 'AGUARDANDO_RETORNO' }) as never);
+      prismaMock.manutencao.updateMany.mockResolvedValue({ count: 1 } as never);
       const ok = await finalizar();
       expect(ok.status).toBe(200);
       // 2 × 100 + 1 × 50; o custo ocupa o saldo do item e a Unidade ainda precisa confirmar
-      expect(prismaMock.manutencao.update.mock.calls[0][0].data).toMatchObject({
-        status: 'AGUARDANDO_RETORNO',
-        custoFinal: 250,
-        confirmadoUnidade: false,
-        motivoAjuste: null,
+      expect(prismaMock.manutencao.updateMany.mock.calls[0][0]).toMatchObject({
+        where: { id: MAN, status: 'EM_EXECUCAO' },
+        data: {
+          status: 'AGUARDANDO_RETORNO',
+          custoFinal: 250,
+          confirmadoUnidade: false,
+          motivoAjuste: null,
+        },
       });
 
-      prismaMock.manutencao.update.mockClear();
+      prismaMock.manutencao.updateMany.mockClear();
+      prismaMock.manutencao.findUniqueOrThrow.mockResolvedValue(comLinhas as never);
       comprometido(9900); // saldo restante 100 < 250
       expect((await finalizar()).status).toBe(422);
-      expect(prismaMock.manutencao.update).not.toHaveBeenCalled();
+      expect(prismaMock.manutencao.updateMany).not.toHaveBeenCalled();
     });
 
     it('após ajustes do Administrador, a finalização volta direto à aprovação final (sem passar pela Unidade)', async () => {
-      prismaMock.manutencao.findUnique.mockResolvedValue(
-        aguardando({
-          linhasRelatorio: [linha()],
-          motivoAjuste: 'Quantidade de mão de obra acima do esperado',
-        }) as never,
-      );
+      const comAjuste = aguardando({
+        linhasRelatorio: [linha()],
+        motivoAjuste: 'Quantidade de mão de obra acima do esperado',
+      });
+      prismaMock.manutencao.findUnique.mockResolvedValue(comAjuste as never);
+      prismaMock.manutencao.findUniqueOrThrow
+        .mockResolvedValueOnce(comAjuste as never)
+        .mockResolvedValueOnce(civil({ status: 'AGUARDANDO_MEDICAO', confirmadoUnidade: true }) as never);
       prismaMock.contratoItem.findUnique.mockResolvedValue(itemCivil as never);
       comprometido(null);
-      prismaMock.manutencao.update.mockResolvedValue(civil({ status: 'AGUARDANDO_MEDICAO' }) as never);
+      prismaMock.manutencao.updateMany.mockResolvedValue({ count: 1 } as never);
       prismaMock.usuario.findMany.mockResolvedValue([{ email: 'adm@jlle.gov' }] as never);
       const ok = await finalizar();
       expect(ok.status).toBe(200);
-      expect(prismaMock.manutencao.update.mock.calls[0][0].data).toMatchObject({
+      expect(prismaMock.manutencao.updateMany.mock.calls[0][0].data).toMatchObject({
         status: 'AGUARDANDO_MEDICAO',
         custoFinal: 200,
         confirmadoUnidade: true,
@@ -359,14 +380,16 @@ describe('Manutenção civil', () => {
     });
 
     it('não finaliza se o contrato do item já expirou', async () => {
-      prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ linhasRelatorio: [linha()] }) as never);
+      const comLinhas = aguardando({ linhasRelatorio: [linha()] });
+      prismaMock.manutencao.findUnique.mockResolvedValue(comLinhas as never);
+      prismaMock.manutencao.findUniqueOrThrow.mockResolvedValue(comLinhas as never);
       prismaMock.contratoItem.findUnique.mockResolvedValue({
         ...itemCivil,
         contrato: { status: 'EXPIRADO' },
       } as never);
       comprometido(null);
       expect((await finalizar()).status).toBe(422);
-      expect(prismaMock.manutencao.update).not.toHaveBeenCalled();
+      expect(prismaMock.manutencao.updateMany).not.toHaveBeenCalled();
     });
 
     it('não finaliza chamado que não está em execução e não há mais orçamento no chamado civil', async () => {
@@ -424,16 +447,21 @@ describe('Manutenção civil', () => {
       const autorizar = () => request(app).post(`/manutencoes/${MAN}/autorizar-medicao`).set(admin());
       prismaMock.manutencao.findUnique.mockResolvedValue(aguardando() as never);
       expect((await autorizar()).status).toBe(422);
-      expect(prismaMock.manutencao.update).not.toHaveBeenCalled();
+      expect(prismaMock.manutencao.updateMany).not.toHaveBeenCalled();
 
       prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ status: 'AGUARDANDO_MEDICAO', confirmadoUnidade: true }) as never);
-      prismaMock.manutencao.update.mockResolvedValue(aguardando({ status: 'CONCLUIDA' }) as never);
+      prismaMock.manutencao.findUniqueOrThrow
+        .mockResolvedValueOnce({ status: 'AGUARDANDO_MEDICAO', custoFinal: 500 } as never)
+        .mockResolvedValueOnce(aguardando({ status: 'CONCLUIDA', custoFinal: 500 }) as never);
+      prismaMock.manutencao.updateMany.mockResolvedValue({ count: 1 } as never);
       const res = await autorizar();
       expect(res.status).toBe(200);
-      expect(prismaMock.manutencao.update.mock.calls[0][0].data).toMatchObject({
-        status: 'CONCLUIDA',
-        custoFinal: 500,
-        conferidoMedicaoPorId: 'user-1',
+      expect(prismaMock.manutencao.updateMany.mock.calls[0][0]).toMatchObject({
+        where: { id: MAN, status: 'AGUARDANDO_MEDICAO' },
+        data: {
+          status: 'CONCLUIDA',
+          conferidoMedicaoPorId: 'user-1',
+        },
       });
       expect(prismaMock.logAuditoria.create).toHaveBeenCalled();
     });
@@ -442,25 +470,29 @@ describe('Manutenção civil', () => {
       const pedir = (corpo: Record<string, unknown> = { motivo: 'Quantidade de mão de obra acima do esperado' }) =>
         request(app).post(`/manutencoes/${MAN}/solicitar-ajustes`).set(admin()).send(corpo);
       prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ status: 'AGUARDANDO_MEDICAO', confirmadoUnidade: true }) as never);
-      prismaMock.manutencao.update.mockResolvedValue(aguardando({ status: 'EM_EXECUCAO' }) as never);
+      prismaMock.manutencao.updateMany.mockResolvedValue({ count: 1 } as never);
+      prismaMock.manutencao.findUniqueOrThrow.mockResolvedValue(aguardando({ status: 'EM_EXECUCAO' }) as never);
       prismaMock.prestadorServico.findUnique.mockResolvedValue({ email: 'predial@empresa.com' } as never);
       expect((await pedir({ motivo: 'x' })).status).toBe(422);
       const res = await pedir();
       expect(res.status).toBe(200);
-      expect(prismaMock.manutencao.update.mock.calls[0][0].data).toEqual({
-        status: 'EM_EXECUCAO',
-        custoFinal: null,
-        confirmadoUnidade: false,
-        motivoAjuste: 'Quantidade de mão de obra acima do esperado',
+      expect(prismaMock.manutencao.updateMany.mock.calls[0][0]).toEqual({
+        where: { id: MAN, status: 'AGUARDANDO_MEDICAO' },
+        data: {
+          status: 'EM_EXECUCAO',
+          custoFinal: null,
+          confirmadoUnidade: false,
+          motivoAjuste: 'Quantidade de mão de obra acima do esperado',
+        },
       });
       expect(prismaMock.notificacao.create.mock.calls[0][0].data).toEqual(expect.objectContaining({ destinatario: 'predial@empresa.com' }));
 
-      prismaMock.manutencao.update.mockClear();
+      prismaMock.manutencao.updateMany.mockClear();
       prismaMock.manutencao.findUnique.mockResolvedValue(aguardando() as never); // ainda aguarda a Unidade
       expect((await pedir()).status).toBe(422);
       prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ status: 'AGUARDANDO_MEDICAO', tipo: 'EQUIPAMENTO' }) as never);
       expect((await pedir()).status).toBe(422);
-      expect(prismaMock.manutencao.update).not.toHaveBeenCalled();
+      expect(prismaMock.manutencao.updateMany).not.toHaveBeenCalled();
       const url = `/manutencoes/${MAN}/solicitar-ajustes`;
       expect((await request(app).post(url).set(unidade()).send({ motivo: 'Quantidade acima do esperado' })).status).toBe(403);
       expect((await request(app).post(url).set(terc()).send({ motivo: 'Quantidade acima do esperado' })).status).toBe(403);

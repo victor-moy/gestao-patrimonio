@@ -108,6 +108,11 @@ export function removerImagemTipo(imagemUrl: string | null | undefined) {
   fs.rm(caminho, { force: true }, () => {});
 }
 
+/** Remove do disco arquivos que o multer já gravou (ex.: falha depois do upload). */
+export async function removerArquivosUpload(arquivos: Express.Multer.File[]) {
+  await Promise.all(arquivos.map((a) => fs.promises.rm(a.path, { force: true })));
+}
+
 // O MIME declarado pelo cliente é só uma dica: confere os primeiros bytes do
 // arquivo gravado (assinatura) e descarta o upload se não for do tipo esperado.
 type Formato = 'pdf' | 'jpg' | 'png' | 'webp';

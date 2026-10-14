@@ -312,16 +312,15 @@ model Manutencao {
   // Número sequencial legível para referenciar a manutenção (MAN-0001)
   numero                Int                     @unique @default(autoincrement())
   tipo                  TipoManutencao          @default(EQUIPAMENTO)
-  // Nulo na manutenção civil
+  // Nulo na manutenção civil; Restrict preserva o histórico se o equipamento for excluído
   equipamentoId         String?                 @map("equipamento_id")
-  equipamento           Equipamento?            @relation(fields: [equipamentoId], references: [id])
+  equipamento           Equipamento?            @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
   // Civil: local afetado, tipo de problema e fotos (caminhos em /uploads/solicitacoes, protegidos)
   localAfetado          String?                 @map("local_afetado")
   categoriaCivil        CategoriaProblemaCivil? @map("categoria_civil")
   fotos                 String[]                @default([])
-  // Civil: motivo de aguardar providências, recusa do orçamento, revisão pedida pelo prestador, contestação
-  // da Unidade e autorização da medição ("problema resolvido" é a confirmação da Unidade; a medição é
-  // autorizada pelo Administrador)
+  // Civil: motivo de aguardar providências, contestação da Unidade e autorização da medição
+  // ("problema resolvido" é a confirmação da Unidade; a medição é autorizada pelo Administrador)
   motivoPendencia       String?                 @map("motivo_pendencia")
   // Civil: o que o Administrador pediu para ajustar na finalização informada pelo prestador
   motivoAjuste          String?                 @map("motivo_ajuste")

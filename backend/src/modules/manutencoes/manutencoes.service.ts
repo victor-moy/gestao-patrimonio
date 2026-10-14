@@ -799,9 +799,6 @@ export async function adicionarLinhaRelatorio(
 ) {
   const manutencao = await buscarPorId(usuario, id);
   exigirExecucaoAberta(manutencao);
-  if (manutencao.linhasRelatorio.length >= MAX_LINHAS_RELATORIO) {
-    throw new AppError(`O registro aceita no máximo ${MAX_LINHAS_RELATORIO} lançamentos.`, 422);
-  }
   if (!manutencao.contratoItem) {
     throw new AppError('O chamado ainda não tem item de contrato; não há desconto a aplicar.', 422);
   }
@@ -812,6 +809,18 @@ export async function adicionarLinhaRelatorio(
   const precoSinapi = Number(itemSinapi.preco);
   const valorUnitario = arredondar(precoSinapi * (1 - desconto / 100));
   return prisma.$transaction(async (tx) => {
+    // Trava o chamado: finalização concorrente não pode deixar linha entrar depois do custoFinal
+    await tx.$queryRaw`SELECT id FROM manutencao WHERE id = ${id} FOR UPDATE`;
+    const atual = await tx.manutencao.findUniqueOrThrow({
+      where: { id },
+      include: { _count: { select: { linhasRelatorio: true } } },
+    });
+    if (atual.status !== 'EM_EXECUCAO') {
+      throw new AppError('Os serviços e materiais só podem ser alterados com o serviço em execução.', 422);
+    }
+    if (atual._count.linhasRelatorio >= MAX_LINHAS_RELATORIO) {
+      throw new AppError(`O registro aceita no máximo ${MAX_LINHAS_RELATORIO} lançamentos.`, 422);
+    }
     await tx.linhaRelatorioManutencao.create({
       data: {
         manutencaoId: id,
@@ -853,7 +862,13 @@ export async function removerLinhaRelatorio(usuario: AuthPayload, id: string, li
   const linha = manutencao.linhasRelatorio.find((l) => l.id === linhaId);
   if (!linha) throw new AppError('Lançamento não encontrado.', 404);
   return prisma.$transaction(async (tx) => {
-    await tx.linhaRelatorioManutencao.delete({ where: { id: linhaId } });
+    await tx.$queryRaw`SELECT id FROM manutencao WHERE id = ${id} FOR UPDATE`;
+    const atual = await tx.manutencao.findUniqueOrThrow({ where: { id }, select: { status: true } });
+    if (atual.status !== 'EM_EXECUCAO') {
+      throw new AppError('Os serviços e materiais só podem ser alterados com o serviço em execução.', 422);
+    }
+    const apagada = await tx.linhaRelatorioManutencao.deleteMany({ where: { id: linhaId, manutencaoId: id } });
+    if (apagada.count === 0) throw new AppError('Lançamento não encontrado.', 404);
     await registrarAuditoria(
       {
         usuarioId: usuario.sub,
@@ -901,25 +916,34 @@ export async function iniciarExecucao(usuario: AuthPayload, id: string) {
 // chamado e é conferido contra o saldo do item de contrato. Na primeira finalização (ou após contestação da
 // Unidade) o chamado aguarda a Unidade; se o Administrador tinha pedido ajustes, volta direto à aprovação final.
 async function finalizarCivil(usuario: AuthPayload, manutencao: ManutencaoCarregada) {
-  if (manutencao.linhasRelatorio.length === 0) {
-    throw new AppError('Informe ao menos um serviço ou material executado antes de confirmar a finalização.', 422);
-  }
-  const total = totalRelatorio(manutencao.linhasRelatorio);
   const id = manutencao.id;
-  // Pedido de ajustes do Administrador: a Unidade já tinha confirmado a resolução; não passa por ela de novo.
-  const aposAjustesAdmin = Boolean(manutencao.motivoAjuste);
-  const statusDestino = aposAjustesAdmin ? 'AGUARDANDO_MEDICAO' : 'AGUARDANDO_RETORNO';
   const atualizada = await prisma.$transaction(async (tx) => {
+    // Trava e relê: o total precisa bater com as linhas no momento da finalização
+    await tx.$queryRaw`SELECT id FROM manutencao WHERE id = ${id} FOR UPDATE`;
+    const atual = await tx.manutencao.findUniqueOrThrow({
+      where: { id },
+      include: { linhasRelatorio: true, equipamento: { include: { tipoEquipamento: true } } },
+    });
+    if (atual.status !== 'EM_EXECUCAO') {
+      throw new AppError('Somente manutenções em execução podem registrar retorno.', 422);
+    }
+    if (atual.linhasRelatorio.length === 0) {
+      throw new AppError('Informe ao menos um serviço ou material executado antes de confirmar a finalização.', 422);
+    }
+    const total = totalRelatorio(atual.linhasRelatorio);
+    // Pedido de ajustes do Administrador: a Unidade já tinha confirmado a resolução; não passa por ela de novo.
+    const aposAjustesAdmin = Boolean(atual.motivoAjuste);
+    const statusDestino = aposAjustesAdmin ? 'AGUARDANDO_MEDICAO' : 'AGUARDANDO_RETORNO';
     // Chamado antigo, sem item de contrato, não tem saldo a conferir
-    const vinculo = manutencao.contratoItemId
-      ? await vincularItem(tx, manutencao.contratoItemId, tipoParaContrato(manutencao), id, {
+    const vinculo = atual.contratoItemId
+      ? await vincularItem(tx, atual.contratoItemId, tipoParaContrato(atual as ManutencaoCarregada), id, {
           valorNovo: total,
           novaSelecao: false,
           rotulo: 'valor dos serviços executados',
         })
       : {};
-    const m = await tx.manutencao.update({
-      where: { id },
+    const mudou = await tx.manutencao.updateMany({
+      where: { id, status: 'EM_EXECUCAO' },
       data: {
         status: statusDestino,
         custoFinal: total,
@@ -928,8 +952,10 @@ async function finalizarCivil(usuario: AuthPayload, manutencao: ManutencaoCarreg
         motivoAjuste: null,
         ...vinculo,
       },
-      include: includePadrao,
     });
+    if (mudou.count === 0) {
+      throw new AppError('Somente manutenções em execução podem registrar retorno.', 422);
+    }
     await registrarAuditoria(
       {
         usuarioId: usuario.sub,
@@ -939,16 +965,17 @@ async function finalizarCivil(usuario: AuthPayload, manutencao: ManutencaoCarreg
         dadosDepois: {
           status: statusDestino,
           total,
-          linhas: manutencao.linhasRelatorio.length,
+          linhas: atual.linhasRelatorio.length,
           perfil: usuario.perfil,
           aposAjustesAdmin,
         },
       },
       tx,
     );
-    return m;
+    return tx.manutencao.findUniqueOrThrow({ where: { id }, include: includePadrao });
   });
-  if (aposAjustesAdmin) {
+  // Só avisa o Administrador quando a finalização pulou a Unidade (retorno após ajustes)
+  if (atualizada.status === 'AGUARDANDO_MEDICAO' && atualizada.confirmadoUnidade) {
     const admins = await prisma.usuario.findMany({ where: { perfil: 'OPERADOR', ativo: true }, select: { email: true } });
     for (const admin of admins) {
       await notificar(
@@ -969,11 +996,13 @@ export async function solicitarAjustes(usuario: AuthPayload, id: string, motivo:
     throw new AppError('Só é possível solicitar ajustes depois que a unidade confirmar a resolução.', 422);
   }
   const atualizada = await prisma.$transaction(async (tx) => {
-    const m = await tx.manutencao.update({
-      where: { id },
+    const mudou = await tx.manutencao.updateMany({
+      where: { id, status: 'AGUARDANDO_MEDICAO' },
       data: { status: 'EM_EXECUCAO', custoFinal: null, confirmadoUnidade: false, motivoAjuste: motivo },
-      include: includePadrao,
     });
+    if (mudou.count === 0) {
+      throw new AppError('Só é possível solicitar ajustes depois que a unidade confirmar a resolução.', 422);
+    }
     await registrarAuditoria(
       {
         usuarioId: usuario.sub,
@@ -985,7 +1014,7 @@ export async function solicitarAjustes(usuario: AuthPayload, id: string, motivo:
       },
       tx,
     );
-    return m;
+    return tx.manutencao.findUniqueOrThrow({ where: { id }, include: includePadrao });
   });
   const prestador = atualizada.contrato
     ? await prisma.prestadorServico.findUnique({ where: { id: atualizada.contrato.prestadorId }, select: { email: true } })
@@ -1074,28 +1103,34 @@ export async function contestar(usuario: AuthPayload, id: string, motivo: string
   return atualizada;
 }
 
-// O Administrador autoriza a medição depois da confirmação da Unidade: conclui o chamado e fixa o consumo
-// do saldo do item de contrato no valor do orçamento aprovado.
+// O Administrador autoriza a medição depois da confirmação da Unidade: conclui o chamado e fixa o
+// consumo do saldo do item de contrato no valor dos serviços executados (custoFinal).
 export async function autorizarMedicao(usuario: AuthPayload, id: string) {
   const manutencao = await buscarPorId(usuario, id);
   exigirCivil(manutencao, 'A autorização de medição');
   if (manutencao.status !== 'AGUARDANDO_MEDICAO') {
     throw new AppError('Só é possível autorizar a medição depois que a unidade confirmar a resolução.', 422);
   }
-  const total = manutencao.custoFinal === null ? null : Number(manutencao.custoFinal);
   return prisma.$transaction(async (tx) => {
-    const atualizada = await tx.manutencao.update({
-      where: { id },
+    await tx.$queryRaw`SELECT id FROM manutencao WHERE id = ${id} FOR UPDATE`;
+    const atual = await tx.manutencao.findUniqueOrThrow({ where: { id }, select: { status: true, custoFinal: true } });
+    if (atual.status !== 'AGUARDANDO_MEDICAO') {
+      throw new AppError('Só é possível autorizar a medição depois que a unidade confirmar a resolução.', 422);
+    }
+    const total = atual.custoFinal === null ? null : Number(atual.custoFinal);
+    const mudou = await tx.manutencao.updateMany({
+      where: { id, status: 'AGUARDANDO_MEDICAO' },
       data: {
         status: 'CONCLUIDA',
         confirmadoGestor: true,
-        ...(total !== null ? { custoFinal: total } : {}),
         dataConclusao: new Date(),
         conferidoMedicaoEm: new Date(),
         conferidoMedicaoPorId: usuario.sub,
       },
-      include: includePadrao,
     });
+    if (mudou.count === 0) {
+      throw new AppError('Só é possível autorizar a medição depois que a unidade confirmar a resolução.', 422);
+    }
     await registrarAuditoria(
       {
         usuarioId: usuario.sub,
@@ -1106,6 +1141,6 @@ export async function autorizarMedicao(usuario: AuthPayload, id: string) {
       },
       tx,
     );
-    return atualizada;
+    return tx.manutencao.findUniqueOrThrow({ where: { id }, include: includePadrao });
   });
 }
