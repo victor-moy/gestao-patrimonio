@@ -146,6 +146,7 @@ Tela de acesso com o ícone do sistema e o nome no topo (no mobile, centralizado
 - Verbos claros e curtos em botões: "Novo equipamento", "Salvar", "Tentar novamente".
 - Frases de estado completas e neutras ("Nenhuma ata encontrada").
 - Estados sempre em badge com texto (não depender só de cor).
+- **Chamados parecidos (triagem da manutenção civil)**: lista neutra, não aviso amarelo (amarelo é para risco, como "manutenção não sugerida"). Título com contador, uma frase de orientação e uma linha por chamado: número em azul, título · local · data de abertura em cinza e o `StatusPill` à direita; a linha inteira é o link.
 - Nomes: "Categorias de itens" e "Tipos de itens" (menu e telas de Configurações).
 
 ## Responsividade e validação

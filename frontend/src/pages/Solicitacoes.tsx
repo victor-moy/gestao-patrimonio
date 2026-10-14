@@ -144,7 +144,7 @@ const daManutencao = (m: Manutencao): LinhaLista => ({
   numero: codigoManutencao(m.numero),
   titulo: tituloManutencao(m),
   tipo: TIPO_MANUTENCAO,
-  tipoTexto: ROTULO_TIPO_SOLICITACAO[TIPO_MANUTENCAO],
+  tipoTexto: m.tipo === 'CIVIL' ? 'Manutenção civil' : ROTULO_TIPO_SOLICITACAO[TIPO_MANUTENCAO],
   unidade: m.unidade.nome,
   statusValor: m.status,
   statusTexto: ROTULO_STATUS_MANUTENCAO[m.status],

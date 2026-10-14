@@ -22,10 +22,13 @@ const CORES: Record<string, 'green' | 'blue' | 'yellow' | 'red' | 'gray'> = {
   BAIXADO: 'gray',
   // Manutenção e solicitação
   PENDENTE_APROVACAO: 'yellow',
+  AGUARDANDO_PROVIDENCIAS: 'yellow',
   AGUARDANDO_ORCAMENTO: 'blue',
   ORCAMENTO_REGISTRADO: 'yellow',
+  AGUARDANDO_EXECUCAO: 'blue',
   EM_EXECUCAO: 'blue',
   AGUARDANDO_RETORNO: 'yellow',
+  AGUARDANDO_MEDICAO: 'yellow',
   AGUARDANDO_SAIDA: 'yellow',
   AGUARDANDO_RECEBIMENTO: 'yellow',
   AGUARDANDO_ENTREGA: 'yellow',

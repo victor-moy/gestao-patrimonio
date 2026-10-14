@@ -97,13 +97,52 @@ export interface Equipamento {
   }>;
 }
 
+export type TipoManutencao = 'EQUIPAMENTO' | 'CIVIL';
+
+export type CategoriaProblemaCivil =
+  | 'HIDRAULICA'
+  | 'ELETRICA'
+  | 'INFILTRACAO'
+  | 'ALVENARIA_PINTURA'
+  | 'COBERTURA'
+  | 'ESQUADRIAS_VIDROS'
+  | 'CLIMATIZACAO_CIVIL'
+  | 'OUTROS';
+
+export interface LinhaRelatorio {
+  id: string;
+  tipo: 'SERVICO' | 'MATERIAL';
+  descricao: string;
+  unidadeMedida: string | null;
+  quantidade: string;
+  // Preço final: o da tabela SINAPI já com o desconto do item de contrato
+  valorUnitario: string;
+  codigoSinapi?: string | null;
+  precoSinapi?: string | null;
+  descontoPercentual?: string | null;
+  criadoEm: string;
+}
+
+export interface ItemSinapi {
+  id: string;
+  codigo: string;
+  descricao: string;
+  unidade: string;
+  tipo: 'SERVICO' | 'MATERIAL';
+  preco: string;
+  referencia: string;
+}
+
 export type StatusManutencao =
   | 'PENDENTE_APROVACAO'
+  | 'AGUARDANDO_PROVIDENCIAS'
   | 'NEGADA'
   | 'AGUARDANDO_ORCAMENTO'
   | 'ORCAMENTO_REGISTRADO'
+  | 'AGUARDANDO_EXECUCAO'
   | 'EM_EXECUCAO'
   | 'AGUARDANDO_RETORNO'
+  | 'AGUARDANDO_MEDICAO'
   | 'CONCLUIDA'
   | 'BAIXADO';
 
@@ -118,9 +157,19 @@ export interface EventoManutencao {
 export interface Manutencao {
   id: string;
   numero: number;
+  tipo: TipoManutencao;
   // Nome dado a quem abre o pedido (opcional; sem ele vale o nome do equipamento)
   titulo?: string | null;
   status: StatusManutencao;
+  // Manutenção civil: local, tipo de problema, fotos protegidas e andamento da conferência
+  localAfetado?: string | null;
+  categoriaCivil?: CategoriaProblemaCivil | null;
+  fotos?: string[];
+  motivoPendencia?: string | null;
+  motivoAjuste?: string | null;
+  contestacaoUnidade?: string | null;
+  conferidoMedicaoEm?: string | null;
+  linhasRelatorio?: LinhaRelatorio[];
   descricaoProblema: string;
   // Só os chamados antigos têm justificativa; a abertura atual não pede mais
   justificativa?: string | null;
@@ -133,16 +182,17 @@ export interface Manutencao {
   custoFinal: string | null;
   criadoEm: string;
   dataConclusao: string | null;
+  // Nulo na manutenção civil
   equipamento: {
     id: string;
     tombamento: string;
     descricao: string;
     tipoEquipamento?: { nome: string; permitePreventiva?: boolean; permiteCorretiva?: boolean; preco?: string | null };
-  };
+  } | null;
   unidade: { id: string; nome: string };
   solicitante: { nome: string };
   contrato?: { id: string; numero: string; prestador: { nome: string } } | null;
-  contratoItem?: { id: string; valor: string; servico: { nome: string }; escopo: { nome: string } } | null;
+  contratoItem?: { id: string; valor: string; descontoPercentual?: string; servico: { nome: string }; escopo: { nome: string } } | null;
 }
 
 export type TipoSolicitacao = 'SUBSTITUICAO' | 'AMPLIACAO' | 'CESSAO_USO' | 'EMPRESTIMO' | 'RECOLHA';
@@ -335,11 +385,13 @@ export interface ContratoItem {
   id: string;
   servicoId: string;
   valor: string;
+  // Desconto da proposta sobre a tabela SINAPI, em %
+  descontoPercentual: string;
   escopoId: string;
   // Valor do item menos o já comprometido pelas manutenções vinculadas
   saldo: number;
   servico: { id: string; nome: string };
-  escopo: { id: string; nome: string; cobrePreventiva: boolean; cobreCorretiva: boolean };
+  escopo: { id: string; nome: string; cobrePreventiva: boolean; cobreCorretiva: boolean; cobreCivil?: boolean };
 }
 
 export interface Contrato {
@@ -372,6 +424,7 @@ export interface EscopoServico {
   descricao: string | null;
   cobrePreventiva: boolean;
   cobreCorretiva: boolean;
+  cobreCivil: boolean;
   _count: { itens: number };
 }
 
@@ -404,6 +457,15 @@ export interface ConversaResumo {
   naoLidas: number;
 }
 
+export interface ChamadoParecido {
+  id: string;
+  numero: number;
+  titulo: string | null;
+  status: StatusManutencao;
+  localAfetado: string | null;
+  criadoEm: string;
+}
+
 export type SituacaoManutencao = 'EM_ANDAMENTO' | 'CONCLUIDA' | 'NEGADA' | 'BAIXADO';
 
 export interface ManutencaoRelatorio {
@@ -411,8 +473,9 @@ export interface ManutencaoRelatorio {
   numero: number;
   titulo: string | null;
   status: StatusManutencao;
+  tipo: TipoManutencao;
   equipamento: string;
-  tombamento: string;
+  tombamento: string | null;
   unidade: string;
   prestador: string | null;
   contrato: string | null;

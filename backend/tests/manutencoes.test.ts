@@ -664,7 +664,11 @@ describe('Leitura de manutenções: quem acessa', () => {
     expect((await request(app).get('/manutencoes?status=EM_EXECUCAO').set(auth('OPERADOR'))).status).toBe(200);
     expect((await request(app).get('/manutencoes?status=toString').set(auth('OPERADOR'))).status).toBe(422);
     expect((await request(app).get('/manutencoes?status=constructor').set(auth('OPERADOR'))).status).toBe(422);
-    expect(prismaMock.manutencao.findMany).toHaveBeenCalledTimes(1);
+    expect((await request(app).get('/manutencoes?tipo=toString').set(auth('OPERADOR'))).status).toBe(422);
+    expect((await request(app).get('/manutencoes?tipo=constructor').set(auth('OPERADOR'))).status).toBe(422);
+    expect((await request(app).get('/manutencoes?tipo=CIVIL').set(auth('OPERADOR'))).status).toBe(200);
+    // status válido + tipo válido: só esses dois chegam ao banco
+    expect(prismaMock.manutencao.findMany).toHaveBeenCalledTimes(2);
   });
 });
 

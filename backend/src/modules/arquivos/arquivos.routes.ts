@@ -25,18 +25,36 @@ function enviar(res: import('express').Response, pasta: string, nome: string) {
   });
 }
 
-// Anexos de solicitação: mesma regra de leitura da solicitação (Unidade só vê as que envolvem a própria unidade)
+// Anexos de solicitação e fotos de manutenção civil: mesma regra de leitura do registro de origem
 arquivosRouter.get('/solicitacoes/:arquivo', autenticar, async (req, res) => {
   const nome = nomeSeguro(req.params.arquivo);
+  const url = `/uploads/solicitacoes/${nome}`;
+  const { perfil, unidadeId, prestadorId } = req.usuario!;
   const solicitacao = await prisma.solicitacao.findFirst({
-    where: { anexoUrl: `/uploads/solicitacoes/${nome}` },
+    where: { anexoUrl: url },
     select: { unidadeOrigemId: true, unidadeDestinoId: true },
   });
-  if (!solicitacao) throw new AppError('Arquivo não encontrado.', 404);
-  const { perfil, unidadeId } = req.usuario!;
-  if (perfil === Perfil.UNIDADE && solicitacao.unidadeOrigemId !== unidadeId && solicitacao.unidadeDestinoId !== unidadeId) {
-    throw new AppError('Esta solicitação não envolve a sua unidade.', 403);
+  if (solicitacao) {
+    // Terceirizada não participa de solicitações (a lista de permissão já barra, mas a regra fica explícita aqui)
+    if (perfil === Perfil.TERCEIRIZADA) throw new AppError('Arquivo não encontrado.', 404);
+    // Unidade só vê as que envolvem a própria unidade
+    if (perfil === Perfil.UNIDADE && solicitacao.unidadeOrigemId !== unidadeId && solicitacao.unidadeDestinoId !== unidadeId) {
+      throw new AppError('Esta solicitação não envolve a sua unidade.', 403);
+    }
+    return enviar(res, FOTOS_DIR, nome);
   }
+  const manutencao = await prisma.manutencao.findFirst({
+    where: { fotos: { has: url } },
+    select: { unidadeId: true, contrato: { select: { prestadorId: true } } },
+  });
+  if (!manutencao) throw new AppError('Arquivo não encontrado.', 404);
+  if (perfil === Perfil.UNIDADE && manutencao.unidadeId !== unidadeId) {
+    throw new AppError('Esta manutenção não pertence à sua unidade.', 403);
+  }
+  if (perfil === Perfil.TERCEIRIZADA && (!prestadorId || manutencao.contrato?.prestadorId !== prestadorId)) {
+    throw new AppError('Esta manutenção não pertence a um contrato do seu prestador.', 403);
+  }
+  if (perfil === Perfil.GALPAO) throw new AppError('Seu perfil não possui permissão para este arquivo.', 403);
   enviar(res, FOTOS_DIR, nome);
 });
 

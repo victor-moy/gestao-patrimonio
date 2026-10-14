@@ -27,9 +27,10 @@ const escopoSchema = z.object({
   descricao: z.string().trim().max(500).nullable().optional(),
   cobrePreventiva: z.boolean().default(true),
   cobreCorretiva: z.boolean().default(true),
+  cobreCivil: z.boolean().default(false),
 });
 
-const MSG_COBERTURA = 'o escopo precisa cobrir manutenção preventiva, corretiva ou ambas';
+const MSG_COBERTURA = 'o escopo precisa cobrir manutenção preventiva, corretiva, civil ou mais de uma';
 
 async function validarNome(nome: string | undefined, atualId?: string) {
   if (!nome) return;
@@ -42,7 +43,7 @@ escoposServicoRouter.post(
   permitir(Perfil.OPERADOR),
   validarBody(escopoSchema),
   async (req, res) => {
-    if (!req.body.cobrePreventiva && !req.body.cobreCorretiva) throw new AppError(MSG_COBERTURA, 422);
+    if (!req.body.cobrePreventiva && !req.body.cobreCorretiva && !req.body.cobreCivil) throw new AppError(MSG_COBERTURA, 422);
     await validarNome(req.body.nome);
     const escopo = await prisma.escopoServico.create({ data: req.body });
     await registrarAuditoria({
@@ -59,13 +60,14 @@ escoposServicoRouter.post(
 escoposServicoRouter.patch(
   '/:id',
   permitir(Perfil.OPERADOR),
-  validarBody(escopoSchema.partial().extend({ cobrePreventiva: z.boolean().optional(), cobreCorretiva: z.boolean().optional() })),
+  validarBody(escopoSchema.partial().extend({ cobrePreventiva: z.boolean().optional(), cobreCorretiva: z.boolean().optional(), cobreCivil: z.boolean().optional() })),
   async (req, res) => {
     const antes = await prisma.escopoServico.findUnique({ where: { id: req.params.id } });
     if (!antes) throw new AppError('Escopo não encontrado.', 404);
     const preventiva = req.body.cobrePreventiva ?? antes.cobrePreventiva;
     const corretiva = req.body.cobreCorretiva ?? antes.cobreCorretiva;
-    if (!preventiva && !corretiva) throw new AppError(MSG_COBERTURA, 422);
+    const civil = req.body.cobreCivil ?? antes.cobreCivil;
+    if (!preventiva && !corretiva && !civil) throw new AppError(MSG_COBERTURA, 422);
     await validarNome(req.body.nome, antes.id);
     const escopo = await prisma.escopoServico.update({ where: { id: antes.id }, data: req.body });
     await registrarAuditoria({

@@ -46,11 +46,16 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['GET', /^\/manutencoes$/],
   ['GET', new RegExp(`^/manutencoes/${ID}$`)],
   ['GET', new RegExp(`^/manutencoes/${ID}/historico$`)],
-  ['POST', new RegExp(`^/manutencoes/${ID}/(orcamento|registrar-retorno)$`)],
+  ['POST', new RegExp(`^/manutencoes/${ID}/(orcamento|registrar-retorno|relatorio|iniciar-execucao)$`)],
+  ['DELETE', new RegExp(`^/manutencoes/${ID}/relatorio/${ID}$`)],
+  // Fotos do chamado civil (a rota confere se o chamado é de um contrato do prestador)
+  ['GET', /^\/uploads\/solicitacoes\/[0-9a-f-]{36}\.(jpg|png|webp)$/],
   ['GET', new RegExp(`^/manutencoes/${ID}/mensagens$`)],
   ['POST', new RegExp(`^/manutencoes/${ID}/mensagens(/lida)?$`)],
   ['GET', /^\/conversas(\/nao-lidas)?$/],
   ['GET', /^\/contratos$/],
+  // Tabela SINAPI: o prestador escolhe nela os serviços e materiais do orçamento
+  ['GET', /^\/sinapi$/],
 ];
 
 export function terceirizadaPodeAcessar(metodo: string, caminho: string) {

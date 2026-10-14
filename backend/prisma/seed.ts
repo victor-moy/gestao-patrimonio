@@ -203,6 +203,7 @@ async function main() {
     'Serviço de manutenção preventiva e corretiva',
     'Serviço de manutenção preventiva',
     'Serviço de calibração',
+    'Serviço de manutenção predial',
   ]) {
     servicos[nome] = (
       await prisma.servicoContrato.upsert({ where: { nome }, update: {}, create: { nome } })
@@ -213,8 +214,24 @@ async function main() {
   for (const nome of ['Manutenção preventiva', 'Manutenção corretiva', 'Manutenção preventiva e corretiva']) {
     escopos[nome] = (await prisma.escopoServico.upsert({ where: { nome }, update: {}, create: { nome } })).id;
   }
+  // Escopo que cobre apenas manutenção civil (problemas de unidade, sala ou instalação, sem equipamento)
+  escopos['Manutenção civil'] = (
+    await prisma.escopoServico.upsert({
+      where: { nome: 'Manutenção civil' },
+      update: {},
+      create: { nome: 'Manutenção civil', cobrePreventiva: false, cobreCorretiva: false, cobreCivil: true },
+    })
+  ).id;
 
   // Contratos de manutenção e serviços
+  // Dois itens de exemplo da tabela SINAPI (valores demonstrativos, não oficiais) para testar o orçamento do chamado civil
+  for (const item of [
+    { codigo: '99001', descricao: 'Troca de sifão de pia ou lavatório', unidade: 'un', tipo: 'SERVICO' as const, preco: 45, referencia: '2026-10' },
+    { codigo: '99002', descricao: 'Mão de obra de encanador', unidade: 'h', tipo: 'SERVICO' as const, preco: 28, referencia: '2026-10' },
+  ]) {
+    await prisma.itemSinapi.upsert({ where: { codigo: item.codigo }, update: {}, create: item });
+  }
+
   await prisma.contrato.upsert({
     where: { numero: 'CONT-2025-001' },
     update: {},
@@ -222,7 +239,7 @@ async function main() {
       numero: 'CONT-2025-001',
       prestadorId: tecSaude.id,
       objeto: 'Manutenção corretiva e preventiva de equipamentos médico-hospitalares',
-      valorTotal: 45000,
+      valorTotal: 65000,
       status: 'ATIVO',
       vigenciaInicio: new Date('2025-01-01'),
       vigenciaFim: new Date('2026-12-31'),
@@ -230,6 +247,7 @@ async function main() {
         create: [
           { servicoId: servicos['Serviço de manutenção preventiva e corretiva'], valor: 30000, escopoId: escopos['Manutenção preventiva e corretiva'] },
           { servicoId: servicos['Serviço de manutenção preventiva'], valor: 15000, escopoId: escopos['Manutenção preventiva'] },
+          { servicoId: servicos['Serviço de manutenção predial'], valor: 20000, descontoPercentual: 12, escopoId: escopos['Manutenção civil'] },
         ],
       },
     },

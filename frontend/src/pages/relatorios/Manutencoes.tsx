@@ -311,7 +311,7 @@ export function RelatorioManutencoes() {
                     </td>
                     <td className="rc-equip" data-label="Item">
                       {m.equipamento}
-                      <div className="rel-tabela-sub">{m.tombamento}</div>
+                      {m.tombamento && <div className="rel-tabela-sub">{m.tombamento}</div>}
                     </td>
                     <td className="rc-a" data-label="Unidade">{m.unidade}</td>
                     <td className="rc-b" data-label="Prestador">{m.prestador ?? '—'}</td>

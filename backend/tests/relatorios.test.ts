@@ -435,7 +435,7 @@ describe('Relatório de manutenções', () => {
       unidadeId: { in: ['u1', 'u2'] },
       equipamento: { tipoEquipamentoId: UUID },
       contrato: { prestadorId: 'p-9' },
-      status: { in: ['PENDENTE_APROVACAO', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'EM_EXECUCAO', 'AGUARDANDO_RETORNO'] },
+      status: { in: ['PENDENTE_APROVACAO', 'AGUARDANDO_PROVIDENCIAS', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_EXECUCAO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO'] },
     });
     expect((where.criadoEm as { gte: Date }).gte).toEqual(new Date('2026-01-01'));
     expect((where.OR as unknown[])[0]).toEqual({ numero: 7 });

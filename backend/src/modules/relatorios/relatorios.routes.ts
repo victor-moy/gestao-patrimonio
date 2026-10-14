@@ -86,6 +86,10 @@ relatoriosRouter.get('/manutencoes', async (req, res) => {
   if (situacao && !(SITUACOES as readonly string[]).includes(situacao)) {
     throw new AppError('Situação inválida.', 422);
   }
+  const tipoManutencao = req.query.tipoManutencao as string | undefined;
+  if (tipoManutencao && tipoManutencao !== 'EQUIPAMENTO' && tipoManutencao !== 'CIVIL') {
+    throw new AppError('Tipo de manutenção inválido.', 422);
+  }
   const datas = periodo(req);
   for (const d of [datas.dataInicio, datas.dataFim]) {
     if (d && Number.isNaN(d.getTime())) throw new AppError('Data inválida.', 422);
@@ -96,6 +100,7 @@ relatoriosRouter.get('/manutencoes', async (req, res) => {
       unidadeIds: unidadeIds(req),
       tipoEquipamentoId: tipoEquipamentoId(req),
       prestadorId: (req.query.prestadorId as string | undefined) || undefined,
+      tipoManutencao: tipoManutencao as 'EQUIPAMENTO' | 'CIVIL' | undefined,
       situacao: situacao as service.SituacaoManutencao | undefined,
       busca: busca(req),
     }),
