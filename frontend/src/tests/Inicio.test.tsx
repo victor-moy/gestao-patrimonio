@@ -88,6 +88,41 @@ it('permite tentar novamente quando as pendências falham', async () => {
   expect(await screen.findByText('Nada pendente com você agora')).toBeInTheDocument();
 });
 
+it('marca atualização sem link como lida pelo botão', async () => {
+  localStorage.setItem('sgp_token', 'token-teste');
+  const chamadas = mockFetch({
+    '/auth/me': { body: usuarioGestor },
+    '/conversas': { body: [] },
+    '/dashboard/alertas': { body: [] },
+    '/avisos': {
+      body: {
+        total: 1,
+        itens: [
+          {
+            id: 'av-2',
+            tipo: 'SOLICITACAO_EXPIRADA',
+            titulo: 'Pedido expirado',
+            mensagem: 'SOL-0009 expirou por falta de ação.',
+            href: null,
+            solicitacaoId: 's9',
+            manutencaoId: null,
+            lidaEm: null,
+            criadoEm: 'data-invalida',
+          },
+        ],
+      },
+    },
+    '/avisos/av-2/ler': { body: { id: 'av-2', lidaEm: '2026-10-15T12:05:00.000Z' } },
+  });
+
+  render(<App />);
+
+  const botao = await screen.findByRole('button', { name: /Pedido expirado/ });
+  await userEvent.click(botao);
+  expect(chamadas.some((c) => c.url.includes('/avisos/av-2/ler') && c.init?.method === 'POST')).toBe(true);
+  expect(await screen.findByText('Nenhuma atualização nova')).toBeInTheDocument();
+});
+
 it('lista atualizações não lidas e marca como lida ao abrir', async () => {
   localStorage.setItem('sgp_token', 'token-teste');
   const chamadas = mockFetch({
