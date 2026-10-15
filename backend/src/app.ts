@@ -18,6 +18,7 @@ import { escoposServicoRouter } from './modules/escopos-servico/escopos-servico.
 import { servicosContratoRouter } from './modules/servicos-contrato/servicos-contrato.routes';
 import { estoqueRouter } from './modules/estoque/estoque.routes';
 import { dashboardRouter } from './modules/dashboard/dashboard.routes';
+import { avisosRouter } from './modules/avisos/avisos.routes';
 import { relatoriosRouter } from './modules/relatorios/relatorios.routes';
 import { importacaoRouter } from './modules/importacao/importacao.routes';
 import { conversasRouter, criarMensagensRouter } from './modules/mensagens/mensagens.routes';
@@ -95,6 +96,7 @@ export function criarApp() {
   app.use('/escopos-servico', escoposServicoRouter);
   app.use('/estoque', estoqueRouter);
   app.use('/dashboard', dashboardRouter);
+  app.use('/avisos', avisosRouter);
   app.use('/relatorios', relatoriosRouter);
   app.use('/importacao', importacaoRouter);
 

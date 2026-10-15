@@ -4,6 +4,7 @@ import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
 import { notificar } from '../../services/notificacao.service';
+import * as avisos from '../../services/avisos.eventos';
 import { AuthPayload } from '../../middlewares/auth';
 import { includePadrao, TIPOS_COM_ATA } from './solicitacoes.comum';
 import { buscarPorId } from './solicitacoes.consulta';
@@ -62,6 +63,11 @@ export async function confirmarSaida(usuario: AuthPayload, id: string) {
     atualizada.unidadeDestino?.emailBase,
     'Empréstimo iniciado',
     `O equipamento ${atualizada.equipamento?.tombamento} chegou como empréstimo da unidade ${atualizada.unidadeOrigem.nome} e já está no inventário da sua unidade.`,
+  );
+  await avisos.avisoEmprestimoIniciado(
+    atualizada,
+    atualizada.equipamento?.tombamento,
+    atualizada.unidadeOrigem.nome,
   );
   return atualizada;
 }
@@ -151,6 +157,7 @@ export async function confirmarRecebimento(
       );
       return s;
     });
+    await avisos.avisoRecebimentoConfirmadoAdmin(atualizada, atualizada.unidadeOrigem.nome);
     return atualizada;
   }
 
@@ -342,6 +349,7 @@ export async function marcarLancadoBranet(
     'Item pronto para entrega',
     `Seu pedido foi lançado no Branet e o tombamento já foi reservado. Confirme o recebimento quando o item chegar.`,
   );
+  await avisos.avisoItemProntoEntrega(atualizada);
   return atualizada;
 }
 
@@ -378,6 +386,7 @@ export async function confirmarRecolha(usuario: AuthPayload, id: string) {
     );
     return s;
   });
+  await avisos.avisoRecolhaConfirmadaAdmin(atualizada, atualizada.unidadeOrigem.nome);
   return atualizada;
 }
 

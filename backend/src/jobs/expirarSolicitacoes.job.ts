@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { registrarAuditoria } from '../services/auditoria.service';
 import { notificar } from '../services/notificacao.service';
+import { avisoSolicitacaoExpirada } from '../services/avisos.eventos';
 
 const SLA_DIAS = 7;
 
@@ -54,6 +55,7 @@ export async function expirarSolicitacoesPendentes() {
         `A solicitação da unidade ${solicitacao.unidadeOrigem.nome} foi fechada automaticamente após ${SLA_DIAS} dias sem resposta.`,
       );
     }
+    await avisoSolicitacaoExpirada(solicitacao, solicitacao.unidadeOrigem.nome, SLA_DIAS);
   }
 
   return { expiradas: pendentes.length };

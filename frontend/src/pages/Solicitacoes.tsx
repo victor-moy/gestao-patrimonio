@@ -164,10 +164,15 @@ export function Solicitacoes() {
   const [linhas, setLinhas] = useState<LinhaLista[]>([]);
   const [busca, setBusca] = useState('');
   const tipoDaUrl = params.get('tipo') ?? '';
+  const statusDaUrl = params.get('status') ?? '';
   const [filtroTipo, setFiltroTipo] = useState(
     tipoDaUrl === TIPO_MANUTENCAO || tipoDaUrl in ROTULO_TIPO_SOLICITACAO ? tipoDaUrl : '',
   );
-  const [filtroStatus, setFiltroStatus] = useState('');
+  const statusInicialValido =
+    statusDaUrl in ROTULO_STATUS_SOLICITACAO ||
+    statusDaUrl in ROTULO_STATUS_MANUTENCAO ||
+    OPCOES_STATUS_EXTRA.some((o) => o.valor === statusDaUrl);
+  const [filtroStatus, setFiltroStatus] = useState(statusInicialValido ? statusDaUrl : '');
   const [visualizacoesAberto, setVisualizacoesAberto] = useState(false);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const controles = useRef<HTMLDivElement>(null);
@@ -231,6 +236,16 @@ export function Solicitacoes() {
       requisicao.current += 1;
     };
   }, [carregar]);
+
+  // Deep link da Home (Pendências): aplica tipo/status da URL ao abrir a lista
+  useEffect(() => {
+    setFiltroTipo(tipoDaUrl === TIPO_MANUTENCAO || tipoDaUrl in ROTULO_TIPO_SOLICITACAO ? tipoDaUrl : '');
+    const statusOk =
+      statusDaUrl in ROTULO_STATUS_SOLICITACAO ||
+      statusDaUrl in ROTULO_STATUS_MANUTENCAO ||
+      OPCOES_STATUS_EXTRA.some((o) => o.valor === statusDaUrl);
+    setFiltroStatus(statusOk ? statusDaUrl : '');
+  }, [tipoDaUrl, statusDaUrl]);
 
   // Fecha os menus da barra ao clicar fora ou apertar Escape
   useEffect(() => {

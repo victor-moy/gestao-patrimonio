@@ -11,6 +11,7 @@ import { numeroDaBusca } from '../../lib/numero';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
 import { notificar } from '../../services/notificacao.service';
+import * as avisos from '../../services/avisos.eventos';
 import { AuthPayload } from '../../middlewares/auth';
 
 const includePadrao = {
@@ -293,6 +294,7 @@ export async function aprovar(usuario: AuthPayload, id: string, contratoItemId: 
       ? `O chamado ${atualizada.titulo ?? ''} foi encaminhado ao prestador ${atualizada.contrato?.prestador.nome ?? ''} (contrato ${atualizada.contrato?.numero ?? ''}), responsável pelo atendimento.`
       : `A solicitação de manutenção do equipamento ${atualizada.equipamento?.tombamento ?? ''} foi aprovada e o equipamento será encaminhado para a terceirizada.`,
   );
+  await avisos.avisoManutencaoAprovada(atualizada, civil);
   return atualizada;
 }
 
@@ -327,6 +329,7 @@ export async function aguardarProvidencias(usuario: AuthPayload, id: string, mot
     'Chamado de manutenção civil aguardando providências',
     `O chamado ${atualizada.titulo ?? ''} está aguardando providências e ainda não foi encaminhado a um prestador. Motivo: ${motivo}`,
   );
+  await avisos.avisoManutencaoProvidencias(atualizada, motivo);
   return atualizada;
 }
 
@@ -401,6 +404,7 @@ export async function negar(usuario: AuthPayload, id: string, motivo: string) {
       ? `A solicitação de manutenção do equipamento ${atualizada.equipamento.tombamento} foi negada. Motivo: ${motivo}`
       : `O chamado de manutenção civil ${atualizada.titulo ?? ''} foi negado. Motivo: ${motivo}`,
   );
+  await avisos.avisoManutencaoNegada(atualizada, motivo);
   return atualizada;
 }
 
@@ -478,6 +482,9 @@ export async function registrarOrcamento(
       tx,
     );
     return atualizada;
+  }).then(async (atualizada) => {
+    await avisos.avisoOrcamentoRegistrado(atualizada);
+    return atualizada;
   });
 }
 
@@ -510,13 +517,16 @@ export async function validarOrcamento(
       );
       return atualizada;
     });
+    await avisos.avisoOrcamentoDecidido(m, true);
     return m;
   }
   // FA02 — orçamento rejeitado: laudo de baixa obrigatório
   if (!dados.laudoBaixa) {
     throw new AppError('Para rejeitar o orçamento é obrigatório informar o laudo de baixa.', 422);
   }
-  return emitirBaixa(usuario, manutencao.id, dados.laudoBaixa);
+  const baixada = await emitirBaixa(usuario, manutencao.id, dados.laudoBaixa);
+  await avisos.avisoOrcamentoDecidido(baixada, false);
+  return baixada;
 }
 
 // RF16/RF17/RN07/FA02 — laudo de baixa + solicitação automática de novo item
@@ -580,7 +590,7 @@ export async function emitirBaixa(usuario: AuthPayload, id: string, laudo: strin
       },
       tx,
     );
-    return m;
+    return { m, solicitacaoId: solicitacaoAutomatica.id };
   });
   // FA02 — o Administrador é notificado da solicitação automática
   const gestores = await prisma.usuario.findMany({
@@ -591,15 +601,16 @@ export async function emitirBaixa(usuario: AuthPayload, id: string, laudo: strin
     await notificar(
       gestor.email,
       'Solicitação automática de substituição',
-      `O equipamento ${equipamento.tombamento} foi baixado por impossibilidade de manutenção e uma solicitação de substituição foi aberta automaticamente para a unidade ${resultado.unidade.nome}.`,
+      `O equipamento ${equipamento.tombamento} foi baixado por impossibilidade de manutenção e uma solicitação de substituição foi aberta automaticamente para a unidade ${resultado.m.unidade.nome}.`,
     );
   }
   await notificar(
-    resultado.unidade.emailBase,
+    resultado.m.unidade.emailBase,
     'Equipamento baixado',
     `O equipamento ${equipamento.tombamento} foi baixado por impossibilidade de manutenção. Uma solicitação de substituição foi aberta automaticamente.`,
   );
-  return resultado;
+  await avisos.avisoEquipamentoBaixado(resultado.m, equipamento.tombamento, resultado.solicitacaoId);
+  return resultado.m;
 }
 
 // Terceirizada devolveu o equipamento — aguarda a confirmação dupla
@@ -617,8 +628,8 @@ export async function registrarRetorno(usuario: AuthPayload, id: string, custoFi
   if (custoFinal !== undefined && custoFinal > orcamento) {
     throw new AppError('O custo final não pode ser maior que o orçamento aprovado.', 422);
   }
-  return prisma.$transaction(async (tx) => {
-    const atualizada = await tx.manutencao.update({
+  const atualizada = await prisma.$transaction(async (tx) => {
+    const m = await tx.manutencao.update({
       where: { id },
       data: {
         status: 'AGUARDANDO_RETORNO',
@@ -636,8 +647,10 @@ export async function registrarRetorno(usuario: AuthPayload, id: string, custoFi
       },
       tx,
     );
-    return atualizada;
+    return m;
   });
+  await avisos.avisoReparoConcluido(atualizada);
+  return atualizada;
 }
 
 // UC09/RF18/RN11 — confirmação dupla: Unidade + Administrador
@@ -724,6 +737,9 @@ export async function confirmarRetorno(
     }
     return m;
   });
+  if (usuario.perfil === 'UNIDADE' && !ambosConfirmaram) {
+    await avisos.avisoRetornoConfirmadoUnidade(atualizada, atualizada.unidade.nome);
+  }
   return atualizada;
 }
 
@@ -984,6 +1000,9 @@ async function finalizarCivil(usuario: AuthPayload, manutencao: ManutencaoCarreg
         `O prestador reenviou os serviços do chamado ${atualizada.titulo ?? ''} após os ajustes. Falta autorizar a medição.`,
       );
     }
+    await avisos.avisoMedicaoAguardando(atualizada, 'o prestador reenviou os serviços após os ajustes');
+  } else {
+    await avisos.avisoReparoConcluido(atualizada);
   }
   return atualizada;
 }
@@ -1024,6 +1043,7 @@ export async function solicitarAjustes(usuario: AuthPayload, id: string, motivo:
     'Ajustes solicitados no chamado',
     `O Administrador pediu ajustes nos serviços informados do chamado ${atualizada.titulo ?? ''}. Motivo: ${motivo}`,
   );
+  await avisos.avisoAjustesSolicitados(atualizada, motivo);
   return atualizada;
 }
 
@@ -1061,6 +1081,7 @@ async function confirmarResolucaoCivil(usuario: AuthPayload, manutencao: Manuten
       `A unidade ${atualizada.unidade.nome} confirmou a resolução do chamado ${atualizada.titulo ?? ''}. Falta autorizar a medição.`,
     );
   }
+  await avisos.avisoMedicaoAguardando(atualizada, `a unidade ${atualizada.unidade.nome} confirmou a resolução`);
   return atualizada;
 }
 
@@ -1100,6 +1121,7 @@ export async function contestar(usuario: AuthPayload, id: string, motivo: string
       `A unidade ${atualizada.unidade.nome} contestou a execução do chamado ${atualizada.titulo ?? ''}; ele voltou ao prestador.`,
     );
   }
+  await avisos.avisoContestacaoUnidade(atualizada, atualizada.unidade.nome);
   return atualizada;
 }
 

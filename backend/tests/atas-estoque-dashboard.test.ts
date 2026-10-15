@@ -196,19 +196,62 @@ describe('Dashboard (UC21, RF36/RF37)', () => {
     expect(res.body.rankingSolicitacoes[0].unidade).toBe('UBS Norte');
   });
 
-  it('inclui empréstimos atrasados nos alertas (FA05)', async () => {
+  it('inclui empréstimos atrasados nas pendências do Administrador (FA05)', async () => {
+    prismaMock.manutencao.count.mockResolvedValue(0);
+    prismaMock.solicitacao.count.mockImplementation(async (args: { where?: { tipo?: string } }) =>
+      args?.where?.tipo === 'EMPRESTIMO' ? 2 : 0,
+    );
     prismaMock.ata.findMany.mockResolvedValue([] as never);
-    prismaMock.solicitacao.findMany.mockResolvedValue([
-      {
-        dataRetornoPrevista: new Date('2026-05-15'),
-        equipamento: { tombamento: '12347/2024' },
-        unidadeOrigem: { nome: 'UME Guanabara' },
-        unidadeDestino: { nome: 'UBS Norte' },
-      },
-    ] as never);
+    prismaMock.contrato.findMany.mockResolvedValue([] as never);
     const res = await request(app).get('/dashboard/alertas').set(auth('OPERADOR'));
     expect(res.status).toBe(200);
-    expect(res.body[0].tipo).toBe('EMPRESTIMO_ATRASADO');
+    expect(res.body.find((a: { tipo: string }) => a.tipo === 'EMPRESTIMO_ATRASADO')).toMatchObject({
+      contagem: 2,
+      severidade: 'CRITICO',
+      href: '/solicitacoes?tipo=EMPRESTIMO&status=AGUARDANDO_RETORNO',
+    });
+  });
+
+  it('retorno de manutenção do Administrador conta só equipamento (não civil)', async () => {
+    prismaMock.solicitacao.count.mockResolvedValue(0);
+    prismaMock.manutencao.count.mockImplementation(async (args: {
+      where?: { tipo?: string; status?: string; confirmadoGestor?: boolean };
+    }) =>
+      args?.where?.tipo === 'EQUIPAMENTO' &&
+      args?.where?.status === 'AGUARDANDO_RETORNO' &&
+      args?.where?.confirmadoGestor === false
+        ? 3
+        : 0,
+    );
+    prismaMock.ata.findMany.mockResolvedValue([] as never);
+    prismaMock.contrato.findMany.mockResolvedValue([] as never);
+    const res = await request(app).get('/dashboard/alertas').set(auth('OPERADOR'));
+    expect(res.status).toBe(200);
+    expect(res.body.find((a: { tipo: string }) => a.tipo === 'FILA_RETORNO_MANUT')).toMatchObject({
+      contagem: 3,
+    });
+    expect(prismaMock.manutencao.count).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tipo: 'EQUIPAMENTO',
+          status: 'AGUARDANDO_RETORNO',
+          confirmadoGestor: false,
+        }),
+      }),
+    );
+  });
+
+  it('Unidade vê só pendências da própria unidade', async () => {
+    prismaMock.solicitacao.count.mockResolvedValue(1);
+    prismaMock.manutencao.count.mockResolvedValue(0);
+    const res = await request(app)
+      .get('/dashboard/alertas')
+      .set(auth('UNIDADE', { unidadeId: 'uni-1' }));
+    expect(res.status).toBe(200);
+    expect(res.body.length).toBeGreaterThan(0);
+    expect(prismaMock.solicitacao.count).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ unidadeOrigemId: 'uni-1' }) }),
+    );
   });
 });
 

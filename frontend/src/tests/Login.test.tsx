@@ -43,7 +43,7 @@ describe('Login (RF01)', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /^Bem-vindo,/ })).toBeInTheDocument();
     });
-    expect(screen.getByRole('heading', { name: 'Alertas importantes' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Pendências' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Mensagens não lidas' })).toBeInTheDocument();
     expect(localStorage.getItem('sgp_token')).toBe('token-teste');
   });

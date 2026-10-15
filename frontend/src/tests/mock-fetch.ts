@@ -10,7 +10,14 @@ export function mockFetch(rotas: Record<string, Resposta | ((init?: RequestInit)
       chamadas.push({ url, init });
       const chave = Object.keys(rotas).find((r) => url.includes(r));
       const def = chave ? rotas[chave] : undefined;
-      const resposta = typeof def === 'function' ? def(init) : def;
+      // Home sempre pede pendências e atualizações; testes que não exercitam isso recebem lista vazia
+      const padraoHome: Resposta | undefined =
+        !def && url.includes('/avisos')
+          ? { body: { itens: [], total: 0 } }
+          : !def && url.includes('/dashboard/alertas')
+            ? { body: [] }
+            : undefined;
+      const resposta = typeof def === 'function' ? def(init) : (def ?? padraoHome);
       const status = resposta?.status ?? (resposta ? 200 : 404);
       const body = resposta?.body ?? { mensagem: 'Não encontrado' };
       return {

@@ -120,7 +120,7 @@ A página segue o padrão das demais: título à esquerda — o **número do ped
 
 ## Início
 
-Caixa de entrada operacional, não painel analítico: saudação, alertas importantes e mensagens não lidas, empilhados, com altura definida pelo conteúdo e sem ícones decorativos. Indicadores e gráficos pertencem às telas especializadas; integrações indisponíveis (mensagens) aparecem como estado vazio explícito.
+Caixa de entrada operacional, alinhada às listas do Inventário/Estoque (superfície branca, borda `#e3e3e3`, raio 12 px, sombra leve — mesmo vocabulário de `inventario-lista` e `civil-parecidos`). Saudação só com o nome, no `page-header` padrão. Sem cards de KPI. **Pendências** em destaque: título + badge de total; lista de linhas uniformes (ponto âmbar/vermelho, mensagem, contagem no grupo e seta; críticos no topo; hover `#f7f7f7`). Contagens usam a **soma dos itens**. Em ≥960 px, **Atualizações** e **Mensagens não lidas** lado a lado com a mesma altura; o badge de atualizações usa o **total** da API (não só os 5 itens listados). Atualizações marcam como lidas ao abrir o item. Carregamento com esqueleto; vazio e erro com nova tentativa.
 
 ## Relatórios
 

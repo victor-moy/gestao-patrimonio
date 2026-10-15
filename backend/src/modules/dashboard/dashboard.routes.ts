@@ -23,10 +23,11 @@ dashboardRouter.get(
   },
 );
 
+// Pendências e riscos da Home — todos os perfis autenticados (escopo pelo token)
 dashboardRouter.get(
   '/alertas',
-  permitir(Perfil.OPERADOR),
-  async (_req, res) => {
-    res.json(await service.alertas());
+  permitir(Perfil.OPERADOR, Perfil.UNIDADE, Perfil.GALPAO, Perfil.TERCEIRIZADA),
+  async (req, res) => {
+    res.json(await service.alertas(req.usuario!));
   },
 );
