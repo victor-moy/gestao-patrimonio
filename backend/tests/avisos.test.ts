@@ -74,4 +74,26 @@ describe('Avisos in-app (Home)', () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ marcados: 3 });
   });
+
+  it('retorna 404 ao marcar aviso inexistente do usuário', async () => {
+    prismaMock.avisoUsuario.updateMany.mockResolvedValue({ count: 0 });
+    prismaMock.avisoUsuario.findFirst.mockResolvedValue(null);
+    const res = await request(app)
+      .post(`/avisos/${AVISO_ID}/ler`)
+      .set(auth('OPERADOR', { sub: 'op-1' }));
+    expect(res.status).toBe(404);
+    expect(res.body.mensagem).toMatch(/não encontrado/i);
+  });
+
+  it('aceita limite inválido e usa o padrão', async () => {
+    prismaMock.avisoUsuario.findMany.mockResolvedValue([] as never);
+    prismaMock.avisoUsuario.count.mockResolvedValue(0);
+    const res = await request(app)
+      .get('/avisos?apenasNaoLidas=true&limite=abc')
+      .set(auth('OPERADOR', { sub: 'op-1' }));
+    expect(res.status).toBe(200);
+    expect(prismaMock.avisoUsuario.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ take: 10 }),
+    );
+  });
 });
