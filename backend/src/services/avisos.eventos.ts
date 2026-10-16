@@ -5,6 +5,7 @@ import {
   idsUsuariosDaUnidade,
   idsUsuariosDoPrestador,
   idsUsuariosPorPerfil,
+  truncarMotivo,
 } from './avisos.service';
 import { Perfil } from '@prisma/client';
 
@@ -60,7 +61,7 @@ export async function avisoSolicitacaoAprovada(s: SolRef) {
   await paraUnidade(s.unidadeOrigemId, {
     tipo: 'SOLICITACAO_APROVADA',
     titulo: 'Solicitação aprovada',
-    mensagem: `${refSol(s)} foi aprovada pelo Patrimônio.`,
+    mensagem: `${refSol(s)} foi aprovada pelo Administrador.`,
     href: hrefSol(s.id),
     solicitacaoId: s.id,
   });
@@ -80,7 +81,7 @@ export async function avisoRecolhaAprovada(s: SolRef, tombamento?: string | null
   await paraUnidade(s.unidadeOrigemId, {
     tipo: 'RECOLHA_APROVADA',
     titulo: 'Recolha aprovada',
-    mensagem: `${refSol(s)}${tombamento ? ` (${tombamento})` : ''}: aguardando a busca pelo Patrimônio.`,
+    mensagem: `${refSol(s)}${tombamento ? ` (${tombamento})` : ''}: aguardando a busca pelo Administrador.`,
     href: hrefSol(s.id),
     solicitacaoId: s.id,
   });
@@ -100,7 +101,7 @@ export async function avisoSolicitacaoNegada(s: SolRef, motivo: string) {
   await paraUnidade(s.unidadeOrigemId, {
     tipo: 'SOLICITACAO_NEGADA',
     titulo: 'Solicitação negada',
-    mensagem: `${refSol(s)} foi negada. Motivo: ${motivo}`,
+    mensagem: `${refSol(s)} foi negada. Motivo: ${truncarMotivo(motivo)}`,
     href: hrefSol(s.id),
     solicitacaoId: s.id,
   });
@@ -131,7 +132,7 @@ export async function avisoRecebimentoConfirmadoAdmin(s: SolRef, unidadeNome?: s
   await paraOperadores({
     tipo: 'RECEBIMENTO_CONFIRMADO',
     titulo: 'Recebimento confirmado',
-    mensagem: `${refSol(s)}${unidadeNome ? ` (${unidadeNome})` : ''}: aguardando validação do Patrimônio.`,
+    mensagem: `${refSol(s)}${unidadeNome ? ` (${unidadeNome})` : ''}: aguardando validação do Administrador.`,
     href: hrefSol(s.id),
     solicitacaoId: s.id,
   });
@@ -141,7 +142,7 @@ export async function avisoRecolhaConfirmadaAdmin(s: SolRef, unidadeNome?: strin
   await paraOperadores({
     tipo: 'RECOLHA_CONFIRMADA',
     titulo: 'Recolha confirmada pela unidade',
-    mensagem: `${refSol(s)}${unidadeNome ? ` (${unidadeNome})` : ''}: aguardando validação do Patrimônio.`,
+    mensagem: `${refSol(s)}${unidadeNome ? ` (${unidadeNome})` : ''}: aguardando validação do Administrador.`,
     href: hrefSol(s.id),
     solicitacaoId: s.id,
   });
@@ -189,7 +190,7 @@ export async function avisoManutencaoProvidencias(m: ManRef, motivo: string) {
   await paraUnidade(m.unidadeId, {
     tipo: 'MANUTENCAO_PROVIDENCIAS',
     titulo: 'Chamado aguardando providências',
-    mensagem: `${refMan(m)} ainda não foi encaminhado. Motivo: ${motivo}`,
+    mensagem: `${refMan(m)} ainda não foi encaminhado. Motivo: ${truncarMotivo(motivo)}`,
     href: hrefMan(m.id),
     manutencaoId: m.id,
   });
@@ -199,7 +200,7 @@ export async function avisoManutencaoNegada(m: ManRef, motivo: string) {
   await paraUnidade(m.unidadeId, {
     tipo: 'MANUTENCAO_NEGADA',
     titulo: 'Manutenção negada',
-    mensagem: `${refMan(m)} foi negada. Motivo: ${motivo}`,
+    mensagem: `${refMan(m)} foi negada. Motivo: ${truncarMotivo(motivo)}`,
     href: hrefMan(m.id),
     manutencaoId: m.id,
   });
@@ -258,7 +259,7 @@ export async function avisoRetornoConfirmadoUnidade(m: ManRef, unidadeNome?: str
   await paraOperadores({
     tipo: 'RETORNO_CONFIRMADO_UNIDADE',
     titulo: 'Unidade confirmou o retorno',
-    mensagem: `${refMan(m)}${unidadeNome ? ` (${unidadeNome})` : ''}: falta a confirmação do Patrimônio.`,
+    mensagem: `${refMan(m)}${unidadeNome ? ` (${unidadeNome})` : ''}: falta a confirmação do Administrador.`,
     href: hrefMan(m.id),
     manutencaoId: m.id,
   });
@@ -279,7 +280,7 @@ export async function avisoAjustesSolicitados(m: ManRef, motivo: string) {
   await paraPrestador(m.contrato.prestadorId, {
     tipo: 'AJUSTES_SOLICITADOS',
     titulo: 'Ajustes solicitados no chamado',
-    mensagem: `${refMan(m)}: o Administrador pediu ajustes. Motivo: ${motivo}`,
+    mensagem: `${refMan(m)}: o Administrador pediu ajustes. Motivo: ${truncarMotivo(motivo)}`,
     href: hrefMan(m.id),
     manutencaoId: m.id,
   });

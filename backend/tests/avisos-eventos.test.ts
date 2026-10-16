@@ -3,6 +3,48 @@ import * as avisos from '../src/services/avisos.service';
 import * as eventos from '../src/services/avisos.eventos';
 
 describe('Eventos de avisos in-app', () => {
+  it('truncarMotivo corta textos longos e preserva os curtos', () => {
+    expect(avisos.truncarMotivo('  ok  ')).toBe('ok');
+    expect(avisos.truncarMotivo('a'.repeat(200))).toHaveLength(200);
+    const longo = avisos.truncarMotivo('a'.repeat(250));
+    expect(longo.endsWith('…')).toBe(true);
+    expect(longo.length).toBe(200);
+  });
+
+  it('purgarAvisosLidos remove só os lidos antes do limite', async () => {
+    prismaMock.avisoUsuario.deleteMany.mockResolvedValue({ count: 12 } as never);
+    await expect(avisos.purgarAvisosLidos(90)).resolves.toEqual({ removidos: 12 });
+    expect(prismaMock.avisoUsuario.deleteMany).toHaveBeenCalledWith({
+      where: { lidaEm: { not: null, lt: expect.any(Date) } },
+    });
+  });
+
+  it('avisoSolicitacaoNegada usa Administrador e trunca o motivo no aviso', async () => {
+    prismaMock.usuario.findMany.mockResolvedValue([{ id: 'u1' }] as never);
+    prismaMock.avisoUsuario.createMany.mockResolvedValue({ count: 1 } as never);
+    const motivo = `${'x'.repeat(250)} fim`;
+    await eventos.avisoSolicitacaoNegada(
+      { id: 's1', numero: 12, unidadeOrigemId: 'uni-1' },
+      motivo,
+    );
+    const data = (prismaMock.avisoUsuario.createMany.mock.calls[0][0] as { data: Array<{ mensagem: string }> })
+      .data[0];
+    expect(data.mensagem).toContain('Motivo:');
+    expect(data.mensagem).toMatch(/…$/);
+    expect(data.mensagem).not.toContain('fim');
+    expect(data.mensagem.length).toBeLessThan(motivo.length);
+  });
+
+  it('avisos ao Administrador usam o termo Administrador, não Patrimônio', async () => {
+    prismaMock.usuario.findMany.mockResolvedValue([{ id: 'op-1' }] as never);
+    prismaMock.avisoUsuario.createMany.mockResolvedValue({ count: 1 } as never);
+    await eventos.avisoSolicitacaoAprovada({ id: 's1', numero: 1, unidadeOrigemId: 'uni-1' });
+    const mensagem = (prismaMock.avisoUsuario.createMany.mock.calls[0][0] as { data: Array<{ mensagem: string }> })
+      .data[0].mensagem;
+    expect(mensagem).toContain('Administrador');
+    expect(mensagem).not.toContain('Patrimônio');
+  });
+
   it('criarAvisos grava um aviso por destinatário único', async () => {
     prismaMock.avisoUsuario.createMany.mockResolvedValue({ count: 2 } as never);
     await avisos.criarAvisos(['u1', 'u1', '', 'u2'], {

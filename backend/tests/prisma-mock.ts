@@ -22,6 +22,7 @@ beforeEach(() => {
   (prismaMock.avisoUsuario.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
   (prismaMock.avisoUsuario.findMany as jest.Mock).mockResolvedValue([]);
   (prismaMock.avisoUsuario.count as jest.Mock).mockResolvedValue(0);
+  (prismaMock.avisoUsuario.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
   (prismaMock.avisoUsuario.findFirst as jest.Mock).mockResolvedValue(null);
   (prismaMock.contrato.findMany as jest.Mock).mockResolvedValue([]);
   (prismaMock.ata.findMany as jest.Mock).mockResolvedValue([]);

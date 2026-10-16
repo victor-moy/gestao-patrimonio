@@ -118,3 +118,19 @@ export async function marcarTodosAvisosLidos(usuarioId: string) {
   });
   return { marcados: resultado.count };
 }
+
+/** Remove avisos já lidos há mais de `dias` (padrão 90), para a tabela não crescer sem limite. */
+export async function purgarAvisosLidos(dias = 90) {
+  const limite = new Date(Date.now() - dias * 24 * 60 * 60 * 1000);
+  const resultado = await prisma.avisoUsuario.deleteMany({
+    where: { lidaEm: { not: null, lt: limite } },
+  });
+  return { removidos: resultado.count };
+}
+
+/** Motivo completo fica no chamado; no aviso da Home só um trecho curto. */
+export function truncarMotivo(motivo: string, max = 200) {
+  const texto = motivo.trim().replace(/\s+/g, ' ');
+  if (texto.length <= max) return texto;
+  return `${texto.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+}
