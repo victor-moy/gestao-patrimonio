@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
 import { notificar } from '../../services/notificacao.service';
+import * as avisos from '../../services/avisos.eventos';
 import { AuthPayload } from '../../middlewares/auth';
 import { includePadrao, TIPOS_COM_ATA, tentarReservarDoEstoque, buscarGalpaoPadraoRecolha } from './solicitacoes.comum';
 import { buscarPorId } from './solicitacoes.consulta';
@@ -60,6 +61,7 @@ export async function aprovar(
       'Solicitação aprovada',
       `Sua solicitação foi aprovada pelo Patrimônio. Você será notificado quando o item estiver pronto para entrega.`,
     );
+    await avisos.avisoSolicitacaoAprovada(atualizada);
     return atualizada;
   }
 
@@ -87,6 +89,7 @@ export async function aprovar(
       'Empréstimo aprovado',
       `O empréstimo do equipamento ${atualizada.equipamento?.tombamento} para ${atualizada.unidadeDestino?.nome} foi aprovado. Confirme a saída do equipamento.`,
     );
+    await avisos.avisoEmprestimoAprovado(atualizada, atualizada.equipamento?.tombamento);
     return atualizada;
   }
 
@@ -127,6 +130,7 @@ export async function aprovar(
       'Recolha aprovada',
       `A recolha do equipamento ${atualizada.equipamento?.tombamento} foi aprovada. Aguarde o Patrimônio providenciar a busca.`,
     );
+    await avisos.avisoRecolhaAprovada(atualizada, atualizada.equipamento?.tombamento);
     return atualizada;
   }
 
@@ -209,6 +213,7 @@ export async function vincularAta(
     'Solicitação em andamento',
     `Sua solicitação avançou — o item já está garantido e será entregue em breve.`,
   );
+  await avisos.avisoSolicitacaoEmAndamento(atualizada);
   return atualizada;
 }
 
@@ -252,6 +257,7 @@ export async function tentarReservarEstoque(usuario: AuthPayload, id: string) {
     'Solicitação em andamento',
     `Sua solicitação avançou — o item já está garantido e será entregue em breve.`,
   );
+  await avisos.avisoSolicitacaoEmAndamento(atualizada);
   return atualizada;
 }
 
@@ -335,5 +341,6 @@ export async function negar(usuario: AuthPayload, id: string, motivo: string) {
     'Solicitação negada',
     `Sua solicitação foi negada. Motivo: ${motivo}`,
   );
+  await avisos.avisoSolicitacaoNegada(atualizada, motivo);
   return atualizada;
 }

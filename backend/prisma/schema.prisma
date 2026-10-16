@@ -183,6 +183,7 @@ model Usuario {
   mensagensChat          MensagemChat[]
   leiturasConversa       LeituraConversa[]
   unidadesResponsavel    Unidade[]             @relation("UnidadeResponsavel")
+  avisos                 AvisoUsuario[]
 
   @@index([prestadorId])
   @@map("usuario")
@@ -362,6 +363,7 @@ model Manutencao {
   mensagens       MensagemChat[]
   leituras        LeituraConversa[]
   linhasRelatorio LinhaRelatorioManutencao[]
+  avisos          AvisoUsuario[]
 
   @@index([contratoItemId])
   @@map("manutencao")
@@ -472,6 +474,7 @@ model Solicitacao {
   itensGerados Equipamento[]     @relation("EquipamentoCriadoPorSolicitacao")
   mensagens    MensagemChat[]
   leituras     LeituraConversa[]
+  avisos       AvisoUsuario[]
 
   @@map("solicitacao")
 }
@@ -694,4 +697,28 @@ model Notificacao {
   criadoEm     DateTime          @default(now()) @map("criado_em")
 
   @@map("notificacao")
+}
+
+// Aviso in-app na Home (Atualizações): evento pontual por usuário, com leitura própria.
+// Criado após a transação, nos mesmos pontos em que o e-mail é disparado (e quando o
+// trabalho volta à fila do Administrador). Não espelha mensagem de chat.
+model AvisoUsuario {
+  id            String       @id @default(uuid())
+  usuarioId     String       @map("usuario_id")
+  usuario       Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  tipo          String
+  titulo        String
+  mensagem      String
+  href          String?
+  solicitacaoId String?      @map("solicitacao_id")
+  solicitacao   Solicitacao? @relation(fields: [solicitacaoId], references: [id], onDelete: Cascade)
+  manutencaoId  String?      @map("manutencao_id")
+  manutencao    Manutencao?  @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+  lidaEm        DateTime?    @map("lida_em")
+  criadoEm      DateTime     @default(now()) @map("criado_em")
+
+  @@index([usuarioId, lidaEm, criadoEm])
+  @@index([solicitacaoId])
+  @@index([manutencaoId])
+  @@map("aviso_usuario")
 }

@@ -1,8 +1,11 @@
 import { prisma } from '../lib/prisma';
 import { registrarAuditoria } from '../services/auditoria.service';
 import { notificar } from '../services/notificacao.service';
+import { avisoSolicitacaoExpirada } from '../services/avisos.eventos';
+import { purgarAvisosLidos } from '../services/avisos.service';
 
 const SLA_DIAS = 7;
+const AVISOS_LIDOS_RETENCAO_DIAS = 90;
 
 // Solicitação sem retorno do Administrador por SLA_DIAS dias é
 // fechada automaticamente pelo sistema ("chamado fechado por falta de
@@ -54,7 +57,9 @@ export async function expirarSolicitacoesPendentes() {
         `A solicitação da unidade ${solicitacao.unidadeOrigem.nome} foi fechada automaticamente após ${SLA_DIAS} dias sem resposta.`,
       );
     }
+    await avisoSolicitacaoExpirada(solicitacao, solicitacao.unidadeOrigem.nome, SLA_DIAS);
   }
 
-  return { expiradas: pendentes.length };
+  const { removidos: avisosPurgados } = await purgarAvisosLidos(AVISOS_LIDOS_RETENCAO_DIAS);
+  return { expiradas: pendentes.length, avisosPurgados };
 }

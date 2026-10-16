@@ -313,6 +313,25 @@ export interface Alerta {
   tipo: string;
   severidade: 'AVISO' | 'CRITICO';
   mensagem: string;
+  contagem: number;
+  href: string;
+}
+
+export interface AvisoUsuario {
+  id: string;
+  tipo: string;
+  titulo: string;
+  mensagem: string;
+  href: string | null;
+  solicitacaoId: string | null;
+  manutencaoId: string | null;
+  lidaEm: string | null;
+  criadoEm: string;
+}
+
+export interface ListaAvisos {
+  itens: AvisoUsuario[];
+  total: number;
 }
 
 export interface VisaoGeralTipo {

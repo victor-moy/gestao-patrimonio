@@ -56,6 +56,11 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['GET', /^\/contratos$/],
   // Tabela SINAPI: o prestador escolhe nela os serviços e materiais do orçamento
   ['GET', /^\/sinapi$/],
+  // Home: pendências/riscos e atualizações in-app
+  ['GET', /^\/dashboard\/alertas$/],
+  ['GET', /^\/avisos$/],
+  ['POST', /^\/avisos\/ler-todas$/],
+  ['POST', new RegExp(`^/avisos/${ID}/ler$`)],
 ];
 
 export function terceirizadaPodeAcessar(metodo: string, caminho: string) {

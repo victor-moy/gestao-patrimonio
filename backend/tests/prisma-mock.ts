@@ -16,6 +16,19 @@ beforeEach(() => {
   // os testes de corrida sobrescrevem com { count: 0 }.
   (prismaMock.estoqueGalpao.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
   (prismaMock.ata.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+  // Avisos in-app: fluxos de domínio não precisam listar destinatários em todo teste
+  (prismaMock.usuario.findMany as jest.Mock).mockResolvedValue([]);
+  (prismaMock.avisoUsuario.createMany as jest.Mock).mockResolvedValue({ count: 0 });
+  (prismaMock.avisoUsuario.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
+  (prismaMock.avisoUsuario.findMany as jest.Mock).mockResolvedValue([]);
+  (prismaMock.avisoUsuario.count as jest.Mock).mockResolvedValue(0);
+  (prismaMock.avisoUsuario.deleteMany as jest.Mock).mockResolvedValue({ count: 0 });
+  (prismaMock.avisoUsuario.findFirst as jest.Mock).mockResolvedValue(null);
+  (prismaMock.contrato.findMany as jest.Mock).mockResolvedValue([]);
+  (prismaMock.ata.findMany as jest.Mock).mockResolvedValue([]);
+  (prismaMock.solicitacao.count as jest.Mock).mockResolvedValue(0);
+  (prismaMock.manutencao.count as jest.Mock).mockResolvedValue(0);
+  (prismaMock.estoqueGalpao.findMany as jest.Mock).mockResolvedValue([]);
   // $transaction com callback executa sobre o próprio mock
   (prismaMock.$transaction as jest.Mock).mockImplementation(async (arg: unknown) => {
     if (typeof arg === 'function') {

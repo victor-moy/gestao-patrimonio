@@ -12,17 +12,34 @@ const usuarioGestor = {
   unidadeId: null,
 };
 
-it('exibe boas-vindas, alertas importantes e o estado futuro de mensagens', async () => {
+it('exibe boas-vindas, pendências, atualizações e mensagens', async () => {
   localStorage.setItem('sgp_token', 'token-teste');
   const chamadas = mockFetch({
     '/auth/me': { body: usuarioGestor },
     '/conversas': { body: [] },
+    '/avisos': { body: { itens: [], total: 0 } },
     '/dashboard/alertas': {
       body: [
         {
           tipo: 'ATA_VENCIDA',
           severidade: 'CRITICO',
           mensagem: 'Ata 123 está vencida',
+          contagem: 1,
+          href: '/atas',
+        },
+        {
+          tipo: 'ATA_VENCIMENTO',
+          severidade: 'AVISO',
+          mensagem: 'Ata 45 vence em 5 dias',
+          contagem: 1,
+          href: '/atas',
+        },
+        {
+          tipo: 'FILA_RETORNO_MANUT',
+          severidade: 'AVISO',
+          mensagem: '2 retornos de manutenção aguardando sua confirmação',
+          contagem: 2,
+          href: '/solicitacoes?tipo=MANUTENCAO&status=AGUARDANDO_RETORNO',
         },
       ],
     },
@@ -31,24 +48,32 @@ it('exibe boas-vindas, alertas importantes e o estado futuro de mensagens', asyn
   render(<App />);
 
   expect(await screen.findByRole('heading', { name: 'Bem-vindo, Gestor' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Alertas importantes' })).toBeInTheDocument();
-  expect(await screen.findByText('Ata 123 está vencida')).toBeInTheDocument();
-  expect(screen.getByText('Crítico')).toBeInTheDocument();
+  expect(screen.queryByLabelText('Resumo da caixa de entrada')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Pendências' })).toBeInTheDocument();
+  const pendencia = await screen.findByRole('link', { name: /Ata 123 está vencida/ });
+  expect(pendencia).toHaveAttribute('href', '/atas');
+  expect(pendencia).toHaveAccessibleName(/Crítico/);
+  expect(screen.getByRole('link', { name: /Ata 45 vence/ })).toBeInTheDocument();
+  const retorno = screen.getByRole('link', { name: /retornos de manutenção/ });
+  expect(retorno).toHaveAttribute('href', '/solicitacoes?tipo=MANUTENCAO&status=AGUARDANDO_RETORNO');
+  expect(screen.getByLabelText('2 itens')).toBeInTheDocument();
+  expect(screen.getByLabelText('4 pendências em 3 grupos')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'Atualizações' })).toBeInTheDocument();
+  expect(screen.getByText('Nenhuma atualização nova')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Mensagens não lidas' })).toBeInTheDocument();
   expect(screen.getByText('Nenhuma mensagem não lida')).toBeInTheDocument();
-  expect(screen.getByText('Novas mensagens aparecerão aqui.')).toBeInTheDocument();
   expect(screen.queryByText('Em breve')).not.toBeInTheDocument();
-  expect(screen.queryByText('Resumo da operação')).not.toBeInTheDocument();
   expect(screen.queryByText('Ações rápidas')).not.toBeInTheDocument();
   expect(chamadas.some((chamada) => chamada.url.includes('/dashboard/resumo'))).toBe(false);
 });
 
-it('permite tentar novamente quando os alertas falham', async () => {
+it('permite tentar novamente quando as pendências falham', async () => {
   localStorage.setItem('sgp_token', 'token-teste');
   let falhar = true;
   mockFetch({
     '/auth/me': { body: usuarioGestor },
     '/conversas': { body: [] },
+    '/avisos': { body: { itens: [], total: 0 } },
     '/dashboard/alertas': () =>
       falhar
         ? { status: 500, body: { mensagem: 'Falha temporária' } }
@@ -57,10 +82,81 @@ it('permite tentar novamente quando os alertas falham', async () => {
 
   render(<App />);
 
-  expect(await screen.findByText('Não foi possível carregar os alertas.')).toBeInTheDocument();
+  expect(await screen.findByText('Não foi possível carregar as pendências.')).toBeInTheDocument();
   falhar = false;
   await userEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
-  expect(await screen.findByText('Nenhum alerta importante')).toBeInTheDocument();
+  expect(await screen.findByText('Nada pendente com você agora')).toBeInTheDocument();
+});
+
+it('marca atualização sem link como lida pelo botão', async () => {
+  localStorage.setItem('sgp_token', 'token-teste');
+  const chamadas = mockFetch({
+    '/auth/me': { body: usuarioGestor },
+    '/conversas': { body: [] },
+    '/dashboard/alertas': { body: [] },
+    '/avisos': {
+      body: {
+        total: 1,
+        itens: [
+          {
+            id: 'av-2',
+            tipo: 'SOLICITACAO_EXPIRADA',
+            titulo: 'Pedido expirado',
+            mensagem: 'SOL-0009 expirou por falta de ação.',
+            href: null,
+            solicitacaoId: 's9',
+            manutencaoId: null,
+            lidaEm: null,
+            criadoEm: 'data-invalida',
+          },
+        ],
+      },
+    },
+    '/avisos/av-2/ler': { body: { id: 'av-2', lidaEm: '2026-10-15T12:05:00.000Z' } },
+  });
+
+  render(<App />);
+
+  const botao = await screen.findByRole('button', { name: /Pedido expirado/ });
+  await userEvent.click(botao);
+  expect(chamadas.some((c) => c.url.includes('/avisos/av-2/ler') && c.init?.method === 'POST')).toBe(true);
+  expect(await screen.findByText('Nenhuma atualização nova')).toBeInTheDocument();
+});
+
+it('lista atualizações não lidas e marca como lida ao abrir', async () => {
+  localStorage.setItem('sgp_token', 'token-teste');
+  const chamadas = mockFetch({
+    '/auth/me': { body: usuarioGestor },
+    '/conversas': { body: [] },
+    '/dashboard/alertas': { body: [] },
+    '/avisos': {
+      body: {
+        total: 7,
+        itens: [
+          {
+            id: 'av-1',
+            tipo: 'SOLICITACAO_APROVADA',
+            titulo: 'Solicitação aprovada',
+            mensagem: 'SOL-0012 foi aprovada pelo Patrimônio.',
+            href: '/solicitacoes/s1',
+            solicitacaoId: 's1',
+            manutencaoId: null,
+            lidaEm: null,
+            criadoEm: '2026-10-15T12:00:00.000Z',
+          },
+        ],
+      },
+    },
+    '/avisos/av-1/ler': { body: { id: 'av-1', lidaEm: '2026-10-15T12:05:00.000Z' } },
+  });
+
+  render(<App />);
+
+  expect(await screen.findByLabelText('7 atualizações não lidas')).toBeInTheDocument();
+  const link = await screen.findByRole('link', { name: /Solicitação aprovada/ });
+  expect(link).toHaveAttribute('href', '/solicitacoes/s1');
+  await userEvent.click(link);
+  expect(chamadas.some((c) => c.url.includes('/avisos/av-1/ler') && c.init?.method === 'POST')).toBe(true);
 });
 
 it('lista as conversas com mensagens não lidas, com o total e links para abrir', async () => {
@@ -74,6 +170,7 @@ it('lista as conversas com mensagens não lidas, com o total e links para abrir'
       ],
     },
     '/dashboard/alertas': { body: [] },
+    '/avisos': { body: { itens: [], total: 0 } },
   });
 
   render(<App />);
@@ -82,7 +179,6 @@ it('lista as conversas com mensagens não lidas, com o total e links para abrir'
   const link = await screen.findByRole('link', { name: /SOL-0012/ });
   expect(link).toHaveAttribute('href', '/conversas/solicitacao/s1');
   expect(link).toHaveTextContent('Ana Unidade: Podem enviar o orçamento?');
-  // só aparece quem tem mensagem não lida
   expect(screen.queryByRole('link', { name: /MAN-0003/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('link', { name: 'Ver todas as conversas' })).not.toBeInTheDocument();
 });
@@ -93,6 +189,7 @@ it('mostra erro com nova tentativa quando as conversas não carregam, sem fingir
     '/auth/me': { body: usuarioGestor },
     '/conversas': { status: 500, body: { mensagem: 'Falha' } },
     '/dashboard/alertas': { body: [] },
+    '/avisos': { body: { itens: [], total: 0 } },
   });
   render(<App />);
   expect(await screen.findByText('Não foi possível carregar as mensagens')).toBeInTheDocument();
