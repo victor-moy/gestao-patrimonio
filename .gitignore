@@ -8,3 +8,4 @@ coverage/
 .DS_Store
 backend/prisma/dev.db
 backend/uploads/
+.tidy-board/
