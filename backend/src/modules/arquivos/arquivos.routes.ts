@@ -43,18 +43,20 @@ arquivosRouter.get('/solicitacoes/:arquivo', autenticar, async (req, res) => {
     }
     return enviar(res, FOTOS_DIR, nome);
   }
-  const manutencao = await prisma.manutencao.findFirst({
+  // A mesma foto pode estar em mais de um chamado (reencaminhamento copia a referência, não o arquivo):
+  // o acesso vale se qualquer um deles puder ser lido por quem pede
+  const manutencoes = await prisma.manutencao.findMany({
     where: { fotos: { has: url } },
     select: { unidadeId: true, contrato: { select: { prestadorId: true } } },
   });
-  if (!manutencao) throw new AppError('Arquivo não encontrado.', 404);
-  if (perfil === Perfil.UNIDADE && manutencao.unidadeId !== unidadeId) {
+  if (manutencoes.length === 0) throw new AppError('Arquivo não encontrado.', 404);
+  if (perfil === Perfil.GALPAO) throw new AppError('Seu perfil não possui permissão para este arquivo.', 403);
+  if (perfil === Perfil.UNIDADE && !manutencoes.some((m) => m.unidadeId === unidadeId)) {
     throw new AppError('Esta manutenção não pertence à sua unidade.', 403);
   }
-  if (perfil === Perfil.TERCEIRIZADA && (!prestadorId || manutencao.contrato?.prestadorId !== prestadorId)) {
+  if (perfil === Perfil.TERCEIRIZADA && (!prestadorId || !manutencoes.some((m) => m.contrato?.prestadorId === prestadorId))) {
     throw new AppError('Esta manutenção não pertence a um contrato do seu prestador.', 403);
   }
-  if (perfil === Perfil.GALPAO) throw new AppError('Seu perfil não possui permissão para este arquivo.', 403);
   enviar(res, FOTOS_DIR, nome);
 });
 

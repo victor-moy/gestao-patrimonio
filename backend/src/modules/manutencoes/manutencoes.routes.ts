@@ -14,6 +14,7 @@ import {
   uploadLaudoPdf,
 } from '../../lib/uploads';
 import * as service from './manutencoes.service';
+import * as reencaminhamento from './manutencoes.reencaminhamento';
 
 export const manutencoesRouter = Router();
 
@@ -56,6 +57,11 @@ manutencoesRouter.get('/:id', leitura, async (req, res) => {
 
 manutencoesRouter.get('/:id/historico', leitura, async (req, res) => {
   res.json(await service.historico(req.usuario!, req.params.id));
+});
+
+// Linha do tempo do caso (cadeia de atendimentos ligados por reencaminhamento)
+manutencoesRouter.get('/:id/trajetoria', leitura, async (req, res) => {
+  res.json(await reencaminhamento.trajetoria(req.usuario!, req.params.id));
 });
 
 const solicitarSchema = z.object({
@@ -147,16 +153,6 @@ manutencoesRouter.post(
   validarBody(z.object({ motivo: z.string().min(3, 'informe o motivo da negação') })),
   async (req, res) => {
     res.json(await service.negar(req.usuario!, req.params.id, req.body.motivo));
-  },
-);
-
-// Enquanto aguarda orçamento: o Administrador troca o item (saldo/escopo) sem cancelar o chamado
-manutencoesRouter.post(
-  '/:id/item',
-  permitir(Perfil.OPERADOR),
-  validarBody(z.object({ contratoItemId: z.string().uuid('selecione o item de contrato que cobre a manutenção') })),
-  async (req, res) => {
-    res.json(await service.trocarItem(req.usuario!, req.params.id, req.body.contratoItemId));
   },
 );
 
@@ -269,3 +265,45 @@ manutencoesRouter.post(
 manutencoesRouter.post('/:id/autorizar-medicao', permitir(Perfil.OPERADOR), async (req, res) => {
   res.json(await service.autorizarMedicao(req.usuario!, req.params.id));
 });
+
+// Reencaminhamento — a Terceirizada do contrato pede para passar o chamado adiante, só com o motivo; o Administrador só age depois
+manutencoesRouter.post(
+  '/:id/solicitar-reencaminhamento',
+  permitir(Perfil.TERCEIRIZADA),
+  validarBody(z.object({ motivo: z.string().trim().min(10, 'explique por que o chamado precisa ser reencaminhado').max(500) })),
+  async (req, res) => {
+    const m = await reencaminhamento.solicitarReencaminhamento(req.usuario!, req.params.id, req.body.motivo);
+    res.json(paraPerfil(req.usuario!.perfil, m));
+  },
+);
+
+// Reencaminhamento — o Administrador confirma o pedido e só depois decide o destino
+manutencoesRouter.post('/:id/confirmar-reencaminhamento', permitir(Perfil.OPERADOR), async (req, res) => {
+  res.json(await reencaminhamento.confirmarReencaminhamento(req.usuario!, req.params.id));
+});
+
+const novoChamadoSchema = z.object({
+  tipo: z.nativeEnum(TipoManutencao, { errorMap: () => ({ message: 'Informe o tipo do novo chamado.' }) }),
+  equipamentoId: z.string().uuid().optional(),
+  titulo: solicitarSchema.shape.titulo.optional(),
+  descricaoProblema: solicitarSchema.shape.descricaoProblema.optional(),
+  localAfetado: z.string().trim().min(2, 'Informe o local afetado.').max(200, 'O local pode ter no máximo 200 caracteres.').optional(),
+  categoriaCivil: z.nativeEnum(CategoriaProblemaCivil).optional(),
+});
+
+// Reencaminhamento — decisão 1: abre um novo chamado de manutenção (sem prestador) na triagem
+manutencoesRouter.post('/:id/reencaminhar/manutencao', permitir(Perfil.OPERADOR), validarBody(novoChamadoSchema), async (req, res) => {
+  res.status(201).json(await reencaminhamento.reencaminharParaManutencao(req.usuario!, req.params.id, req.body));
+});
+
+// Reencaminhamento — decisão 2: baixa do equipamento, com o mesmo laudo em PDF e a substituição automática de sempre
+manutencoesRouter.post(
+  '/:id/reencaminhar/baixa',
+  permitir(Perfil.OPERADOR),
+  uploadLaudoPdf.single('laudo'),
+  assinaturaPdf,
+  async (req, res) => {
+    if (!req.file) throw new AppError('Anexe o laudo de baixa em PDF.', 422);
+    res.json(await reencaminhamento.reencaminharParaBaixa(req.usuario!, req.params.id, `/uploads/laudos/${req.file.filename}`));
+  },
+);

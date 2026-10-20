@@ -62,6 +62,7 @@ export const ROTULO_STATUS_MANUTENCAO: Record<string, string> = {
   EM_EXECUCAO: 'Em Andamento',
   AGUARDANDO_RETORNO: 'Aguardando Retorno',
   AGUARDANDO_MEDICAO: 'Aguardando Medição',
+  REENCAMINHAMENTO_SOLICITADO: 'Reencaminhamento Solicitado',
   CONCLUIDA: 'Concluída',
   BAIXADO: 'Baixado',
 };

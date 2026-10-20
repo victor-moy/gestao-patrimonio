@@ -29,6 +29,7 @@ const CORES: Record<string, 'green' | 'blue' | 'yellow' | 'red' | 'gray'> = {
   EM_EXECUCAO: 'blue',
   AGUARDANDO_RETORNO: 'yellow',
   AGUARDANDO_MEDICAO: 'yellow',
+  REENCAMINHAMENTO_SOLICITADO: 'yellow',
   AGUARDANDO_SAIDA: 'yellow',
   AGUARDANDO_RECEBIMENTO: 'yellow',
   AGUARDANDO_ENTREGA: 'yellow',

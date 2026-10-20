@@ -46,7 +46,7 @@ Uma única regra para todas as telas, definida em `frontend/src/components/Statu
 |---|---|---|
 | Verde | Terminou bem ou está disponível | Concluída, Ativo, Ata ativa, Estoque coberto, conservação Ótimo ou Bom |
 | Azul | Em andamento, sem ninguém travando | Em Andamento, Aguardando Orçamento (espera a empresa), Reservado, Emprestado |
-| Amarelo | Precisa de uma ação ou merece atenção | Pendente Aprovação, Orçamento Registrado (aguarda validação), Aguardando Saída/Recebimento/Retorno/Entrega, Em Manutenção, Regular, Vencendo, Estoque baixo |
+| Amarelo | Precisa de uma ação ou merece atenção | Pendente Aprovação, Orçamento Registrado (aguarda validação), Aguardando Saída/Recebimento/Retorno/Entrega, Reencaminhamento Solicitado, Em Manutenção, Regular, Vencendo, Estoque baixo |
 | Vermelho | Recusado ou com problema | Negada, Ata vencida, Contrato expirado, Estoque zero, Atrasado, Saldo baixo, conservação Ruim ou Péssimo |
 | Cinza | Encerrado ou inativo, sem juízo de valor | Baixado, Cedido, Expirada (SLA), Inativo |
 
@@ -105,6 +105,7 @@ Página própria com conteúdo principal e resumo lateral, em cards de altura co
 - seções com título e divisor; textos de resposta (ex.: "Motivo da negação") seguem a hierarquia normal, **não** em vermelho;
 - o botão claro **Conversar** fica no canto superior direito do cabeçalho de solicitações e manutenções (no mobile, em linha própria abaixo do título, sempre à esquerda) e leva à tela de conversa (não há chat embutido nos detalhes);
 - ações disponíveis ficam **direto na tela**, abaixo dos cards (não dentro de um bloco "Ações"), alinhadas à direita; o botão primário é o mais à direita; em solicitações, as ações ficam sob "Localização"; na manutenção o **Item do contrato** mostra só o nome do tipo de serviço;
+- **Trajetória do caso** (reencaminhamento) é um card sempre visível, em linha do tempo vertical, que só aparece quando o caso tem mais de um atendimento; a etapa aberta fica marcada e só as etapas acessíveis viram link. O botão **Reencaminhar** (só da Terceirizada, enquanto atende) fica ao lado de **Conversar** no cabeçalho e abre o campo do motivo nas ações; o pedido é texto livre (sem anexos); a decisão do Administrador (novo chamado ou baixa) acontece no bloco de ações, sem modal;
 - **Histórico** é um card recolhido por padrão, com seta para expandir/recolher (`HistoricoRecolhivel`); fica antes dos botões de ação; no Inventário fica à esquerda;
 - no detalhe do equipamento, um **ícone de QR Code** ao lado do tombamento (sob o título) imprime a etiqueta ao clicar: o QR é gerado no navegador, e a etiqueta mostra QR, tombamento, descrição e unidade, com o resto da página oculto na impressão. Não há card de QR na página;
 - no detalhe do equipamento, a **unidade dona** (item ativo) tem à direita do cabeçalho os botões claros **Abrir solicitação** e **Abrir manutenção**; eles levam ao formulário correspondente com `?equipamento=<id>`, e o item já vem escolhido (em solicitação, nos tipos Substituição, Recolha e Empréstimo);

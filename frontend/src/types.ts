@@ -143,8 +143,27 @@ export type StatusManutencao =
   | 'EM_EXECUCAO'
   | 'AGUARDANDO_RETORNO'
   | 'AGUARDANDO_MEDICAO'
+  | 'REENCAMINHAMENTO_SOLICITADO'
   | 'CONCLUIDA'
   | 'BAIXADO';
+
+// Uma etapa da trajetória do caso (cadeia de atendimentos ligados por reencaminhamento)
+export interface EtapaDoCaso {
+  id: string;
+  numero: number;
+  tipo: TipoManutencao;
+  titulo: string | null;
+  status: StatusManutencao;
+  criadoEm: string;
+  dataConclusao: string | null;
+  motivoReencaminhamento: string | null;
+  reencaminhadoDeId: string | null;
+  atual: boolean;
+  // Sem acesso (prestador de outro contrato), a etapa aparece só como informação
+  acessivel: boolean;
+  prestador: string | null;
+  baixa: { id: string; numero: number; status: string } | null;
+}
 
 export interface EventoManutencao {
   id: string;
@@ -169,6 +188,11 @@ export interface Manutencao {
   motivoAjuste?: string | null;
   contestacaoUnidade?: string | null;
   conferidoMedicaoEm?: string | null;
+  // Reencaminhamento: motivo escrito por quem atendia e a confirmação do Administrador
+  motivoReencaminhamento?: string | null;
+  reencaminhamentoConfirmadoEm?: string | null;
+  reencaminhadoDeId?: string | null;
+  casoId?: string | null;
   linhasRelatorio?: LinhaRelatorio[];
   descricaoProblema: string;
   // Só os chamados antigos têm justificativa; a abertura atual não pede mais

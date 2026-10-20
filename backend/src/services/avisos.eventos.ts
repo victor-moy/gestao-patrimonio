@@ -323,3 +323,31 @@ export async function avisoEquipamentoBaixado(m: ManRef, tombamento: string, sol
     solicitacaoId: solicitacaoSubId,
   });
 }
+
+export async function avisoReencaminhamentoSolicitado(m: ManRef, motivo: string) {
+  await paraOperadores({
+    tipo: 'REENCAMINHAMENTO_SOLICITADO',
+    titulo: 'Reencaminhamento solicitado',
+    mensagem: `${refMan(m)}: o atendimento pediu para reencaminhar o chamado. Motivo: ${truncarMotivo(motivo)}`,
+    href: hrefMan(m.id),
+    manutencaoId: m.id,
+  });
+}
+
+// O atendimento anterior encerrou e o chamado seguiu para uma nova triagem
+export async function avisoReencaminhadoParaManutencao(origem: ManRef, novo: ManRef) {
+  await paraUnidade(origem.unidadeId, {
+    tipo: 'MANUTENCAO_REENCAMINHADA',
+    titulo: 'Chamado reencaminhado',
+    mensagem: `${refMan(origem)} foi reencaminhado e segue como ${refMan(novo)}, em triagem.`,
+    href: hrefMan(novo.id),
+    manutencaoId: novo.id,
+  });
+  await paraPrestador(origem.contrato?.prestadorId, {
+    tipo: 'REENCAMINHAMENTO_DECIDIDO',
+    titulo: 'Reencaminhamento confirmado',
+    mensagem: `${refMan(origem)} foi encerrado e reencaminhado pelo Administrador.`,
+    href: hrefMan(origem.id),
+    manutencaoId: origem.id,
+  });
+}

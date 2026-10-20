@@ -20,6 +20,7 @@ import './Solicitacoes.css';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
 import { EsqueletoDetalhe } from '../components/Esqueletos';
 import { AcoesCivil, FotosCivil, RelatorioCivil } from '../components/ManutencaoCivil';
+import { AcoesReencaminhamento, MotivoReencaminhamento, TrajetoriaCaso } from '../components/Reencaminhamento';
 
 export function ManutencaoDetalhe() {
   const { id } = useParams();
@@ -89,7 +90,7 @@ export function ManutencaoDetalhe() {
   );
 }
 
-type Acao = 'aprovar' | 'negar' | 'rejeitar' | 'trocar';
+type Acao = 'aprovar' | 'negar' | 'rejeitar';
 
 // Campos que expandem/recolhem sem desmontar — evita o "pulo" ao abrir a ação.
 function Expansivel({ aberto, children }: { aberto: boolean; children: ReactNode }) {
@@ -399,6 +400,8 @@ function ConteudoManutencao({
             </section>
           )}
 
+          <MotivoReencaminhamento m={m} />
+
           {m.contestacaoUnidade && m.status === 'EM_EXECUCAO' && (
             <section className="equipamento-secao solicitacao-secao-texto">
               <h3>Contestação da unidade</h3>
@@ -442,6 +445,8 @@ function ConteudoManutencao({
               <LinkArquivoProtegido caminho={m.laudoBaixa}>Ver laudo em PDF</LinkArquivoProtegido>
             </section>
           )}
+
+          <TrajetoriaCaso manutencaoId={m.id} status={m.status} />
 
           <HistoricoRecolhivel id="historico-manutencao">
             {falhaHistorico && !historico ? (
@@ -523,69 +528,6 @@ function ConteudoManutencao({
                           onClick={aprovar}
                         >
                           Confirmar aprovação
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          disabled={ocupado || !motivo.trim()}
-                          onClick={() =>
-                            executar(() => api.post(`/manutencoes/${m.id}/negar`, { motivo }))
-                          }
-                        >
-                          Confirmar negação
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {ehAdministrador && m.status === 'AGUARDANDO_ORCAMENTO' && (
-              <div className="actions-box actions-box--simples">
-                <Expansivel aberto={acao === 'trocar' || acao === 'negar'}>
-                  {acaoExibida === 'trocar' && campoItemContrato}
-                  {acaoExibida === 'negar' && (
-                    <div className="field">
-                      <label htmlFor="man-motivo">Motivo da negação *</label>
-                      <input id="man-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} />
-                      <p className="itens-aviso itens-aviso--acao" role="status">
-                        O equipamento volta a ativo. O chamado é encerrado sem orçamento.
-                      </p>
-                    </div>
-                  )}
-                </Expansivel>
-                <div className="actions-row">
-                  {acao === null || (acao !== 'trocar' && acao !== 'negar') ? (
-                    <>
-                      <button type="button" className="btn btn-outline" onClick={() => abrir('negar')}>
-                        Negar manutenção
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={ocupado}
-                        onClick={() => abrir('trocar')}
-                      >
-                        Trocar item
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <button type="button" className="btn btn-outline" onClick={() => setAcao(null)}>
-                        Cancelar
-                      </button>
-                      {acao === 'trocar' ? (
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          disabled={ocupado || !contratoItemId}
-                          onClick={() =>
-                            executar(() => api.post(`/manutencoes/${m.id}/item`, { contratoItemId }))
-                          }
-                        >
-                          Confirmar item
                         </button>
                       ) : (
                         <button
@@ -761,6 +703,13 @@ function ConteudoManutencao({
             )}
               </>
             )}
+            <AcoesReencaminhamento
+              m={m}
+              executar={executar}
+              ocupado={ocupado}
+              ehAdministrador={ehAdministrador}
+              ehTerceirizada={ehTerceirizada}
+            />
           </div>
         </div>
       </div>

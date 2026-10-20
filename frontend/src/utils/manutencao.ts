@@ -20,6 +20,10 @@ const ROTULO_EVENTO: Record<string, string> = {
   INICIAR_EXECUCAO: 'Execução iniciada pelo prestador',
   SOLICITAR_AJUSTES: 'Ajustes solicitados pelo administrador',
   CONCLUIR_MANUTENCAO: 'Manutenção concluída',
+  SOLICITAR_REENCAMINHAMENTO: 'Reencaminhamento solicitado',
+  CONFIRMAR_REENCAMINHAMENTO: 'Reencaminhamento confirmado pelo administrador',
+  REENCAMINHAR_MANUTENCAO: 'Reencaminhado em um novo chamado',
+  ABRIR_MANUTENCAO_REENCAMINHADA: 'Chamado aberto por reencaminhamento',
 };
 
 // Texto do evento no histórico; no civil, retorno/confirmação usam rótulos do fluxo de resolução.

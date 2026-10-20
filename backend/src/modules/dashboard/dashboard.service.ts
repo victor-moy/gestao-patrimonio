@@ -153,6 +153,7 @@ async function alertasOperador(): Promise<AlertaHome[]> {
     orcamento,
     providencias,
     medicao,
+    reencaminhamento,
     branet,
     validacao,
     estoqueDemanda,
@@ -166,6 +167,7 @@ async function alertasOperador(): Promise<AlertaHome[]> {
     prisma.manutencao.count({ where: { status: 'ORCAMENTO_REGISTRADO' } }),
     prisma.manutencao.count({ where: { status: 'AGUARDANDO_PROVIDENCIAS' } }),
     prisma.manutencao.count({ where: { status: 'AGUARDANDO_MEDICAO' } }),
+    prisma.manutencao.count({ where: { status: 'REENCAMINHAMENTO_SOLICITADO' } }),
     prisma.solicitacao.count({ where: { status: 'RESERVADO' } }),
     prisma.solicitacao.count({ where: { status: 'AGUARDANDO_VALIDACAO' } }),
     prisma.solicitacao.count({ where: { status: 'AGUARDANDO_DISPONIBILIDADE' } }),
@@ -226,6 +228,15 @@ async function alertasOperador(): Promise<AlertaHome[]> {
       `${medicao} ${plural(medicao, 'chamado aguardando autorização de medição', 'chamados aguardando autorização de medição')}`,
       medicao,
       '/solicitacoes?tipo=MANUTENCAO&status=AGUARDANDO_MEDICAO',
+    ),
+  );
+  push(
+    item(
+      'FILA_REENCAMINHAMENTO',
+      'AVISO',
+      `${reencaminhamento} ${plural(reencaminhamento, 'chamado com reencaminhamento a decidir', 'chamados com reencaminhamento a decidir')}`,
+      reencaminhamento,
+      '/solicitacoes?tipo=MANUTENCAO&status=REENCAMINHAMENTO_SOLICITADO',
     ),
   );
   push(

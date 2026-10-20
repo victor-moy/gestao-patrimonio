@@ -31,8 +31,10 @@ function filtroPeriodoManutencao(filtros: FiltrosPeriodo): Prisma.ManutencaoWher
 export type TipoVisaoGeral = TipoSolicitacao | 'MANUTENCAO';
 
 // Mesmos filtros das solicitações, traduzidos para a manutenção (unidade, item do equipamento e período).
+// Conta pedidos, não atendimentos: um chamado reencaminhado entra uma vez (pelo atendimento de origem do caso)
 function filtroManutencao(filtros: FiltrosPeriodo & { unidadeIds?: string[]; tipoEquipamentoId?: string }): Prisma.ManutencaoWhereInput {
   return {
+    reencaminhadoDeId: null,
     ...(filtros.unidadeIds?.length ? { unidadeId: { in: filtros.unidadeIds } } : {}),
     ...(filtros.tipoEquipamentoId ? { equipamento: { tipoEquipamentoId: filtros.tipoEquipamentoId } } : {}),
     ...filtroPeriodoManutencao(filtros),
@@ -396,7 +398,7 @@ export async function cessoes(
 
 // Relatório 7 — Manutenções: custo, prazo, prestadores e itens que mais geram manutenção.
 // Os 4 baldes são os mesmos do funil de solicitações, mais "baixada" separada (equipamento perdido).
-const STATUS_ANDAMENTO = ['PENDENTE_APROVACAO', 'AGUARDANDO_PROVIDENCIAS', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_EXECUCAO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO'] as const;
+const STATUS_ANDAMENTO = ['PENDENTE_APROVACAO', 'AGUARDANDO_PROVIDENCIAS', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_EXECUCAO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO', 'REENCAMINHAMENTO_SOLICITADO'] as const;
 export type SituacaoManutencao = 'EM_ANDAMENTO' | 'CONCLUIDA' | 'NEGADA' | 'BAIXADO';
 
 // Os agregados somam até este limite de registros (os mais recentes); a tabela mostra só os primeiros.

@@ -58,7 +58,7 @@ describe('Arquivos protegidos (/uploads)', () => {
 
   it('arquivo sem registro no banco não é servido', async () => {
     prismaMock.solicitacao.findFirst.mockResolvedValue(null);
-    prismaMock.manutencao.findFirst.mockResolvedValue(null);
+    prismaMock.manutencao.findMany.mockResolvedValue([]);
     const res = await request(app).get(`/uploads/solicitacoes/${NOME}`).set(auth('OPERADOR'));
     expect(res.status).toBe(404);
   });
@@ -73,7 +73,7 @@ describe('Arquivos protegidos (/uploads)', () => {
 
     beforeEach(() => {
       prismaMock.solicitacao.findFirst.mockResolvedValue(null);
-      prismaMock.manutencao.findFirst.mockResolvedValue({ unidadeId: 'u-a', contrato: { prestadorId: 'p-1' } } as never);
+      prismaMock.manutencao.findMany.mockResolvedValue([{ unidadeId: 'u-a', contrato: { prestadorId: 'p-1' } }] as never);
     });
 
     it('a unidade dona, o Administrador e a terceirizada do contrato recebem a foto', async () => {
@@ -86,6 +86,15 @@ describe('Arquivos protegidos (/uploads)', () => {
       expect((await foto('UNIDADE', { unidadeId: 'u-b' })).status).toBe(403);
       expect((await foto('TERCEIRIZADA', { prestadorId: 'p-2' })).status).toBe(403);
       expect((await foto('GALPAO')).status).toBe(403);
+    });
+
+    it('foto copiada para um chamado reencaminhado: vale o acesso a qualquer chamado que a contém', async () => {
+      prismaMock.manutencao.findMany.mockResolvedValue([
+        { unidadeId: 'u-a', contrato: { prestadorId: 'p-1' } },
+        { unidadeId: 'u-a', contrato: null },
+      ] as never);
+      expect((await foto('TERCEIRIZADA', { prestadorId: 'p-1' })).status).toBe(200);
+      expect((await foto('TERCEIRIZADA', { prestadorId: 'p-2' })).status).toBe(403);
     });
 
     it('a terceirizada não acessa anexo de solicitação', async () => {

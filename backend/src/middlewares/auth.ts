@@ -45,8 +45,8 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['GET', /^\/auth\/me$/],
   ['GET', /^\/manutencoes$/],
   ['GET', new RegExp(`^/manutencoes/${ID}$`)],
-  ['GET', new RegExp(`^/manutencoes/${ID}/historico$`)],
-  ['POST', new RegExp(`^/manutencoes/${ID}/(orcamento|registrar-retorno|relatorio|iniciar-execucao)$`)],
+  ['GET', new RegExp(`^/manutencoes/${ID}/(historico|trajetoria)$`)],
+  ['POST', new RegExp(`^/manutencoes/${ID}/(orcamento|registrar-retorno|relatorio|iniciar-execucao|solicitar-reencaminhamento)$`)],
   ['DELETE', new RegExp(`^/manutencoes/${ID}/relatorio/${ID}$`)],
   // Fotos do chamado civil (a rota confere se o chamado é de um contrato do prestador)
   ['GET', /^\/uploads\/solicitacoes\/[0-9a-f-]{36}\.(jpg|png|webp)$/],
