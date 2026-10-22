@@ -1,79 +1,36 @@
-import { FormEvent, useState } from 'react';
-import { useAuth } from '../auth/AuthContext';
-import { useAlertaNativo } from '../hooks/useAlertaNativo';
-import { LogoSistema } from '../components/LogoSistema';
+import { useEffect, useState } from 'react';
+import { API_URL } from '../api/client';
+import { TelaAcesso } from '../components/TelaAcesso';
 
-export function Login() {
-  return (
-    <div className="login-page">
-      <header className="login-topbar">
-        <LogoSistema />
-        <strong>Gestão Patrimonial</strong>
-      </header>
-      <main className="login-main">
-        <section className="login-card" aria-label="Acesso ao sistema">
-          <FormLogin />
-          <footer className="login-footer">
-            Em caso de dificuldade, procure o suporte responsável pelo sistema.
-          </footer>
-        </section>
-      </main>
-    </div>
-  );
+// O backend manda o navegador para /login/retorno?erro=... quando o retorno do Keycloak falha
+// A leitura não pode ter efeito colateral: o React (modo de desenvolvimento) executa o inicializador duas vezes.
+function erroDoRetorno() {
+  if (window.location.pathname !== '/login/retorno') return null;
+  return new URLSearchParams(window.location.search).has('erro');
 }
 
-function FormLogin() {
-  const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
-  const [erro, setErro] = useState<string | null>(null);
-  useAlertaNativo(erro, () => setErro(null));
-  const [enviando, setEnviando] = useState(false);
-
-  async function aoEnviar(e: FormEvent) {
-    e.preventDefault();
-    setErro(null);
-    setEnviando(true);
-    try {
-      await login(email, senha);
-    } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Erro ao fazer login.');
-    } finally {
-      setEnviando(false);
-    }
-  }
-
+export function Login() {
+  const [erro] = useState(erroDoRetorno);
+  // Depois de guardado o erro, limpa o endereço para ele não reaparecer ao recarregar
+  useEffect(() => {
+    if (window.location.pathname === '/login/retorno') window.history.replaceState(null, '', '/');
+  }, []);
   return (
-    <form className="login-body" onSubmit={aoEnviar}>
-      <div className="login-form-header">
-        <h1 className="login-titulo">Acessar sua conta</h1>
-        <p>Use suas credenciais institucionais para continuar.</p>
-      </div>
-      <div className="field">
-        <label htmlFor="email">E-mail</label>
-        <input
-          id="email"
-          type="email"
-          placeholder="nome@joinville.sc.gov.br"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-      </div>
-      <div className="field">
-        <label htmlFor="senha">Senha</label>
-        <input
-          id="senha"
-          type="password"
-          placeholder="••••••••"
-          value={senha}
-          onChange={(e) => setSenha(e.target.value)}
-          required
-        />
-      </div>
-      <button className="btn btn-primary btn-block" type="submit" disabled={enviando}>
-        {enviando ? 'Entrando...' : 'Entrar'}
-      </button>
-    </form>
+    <TelaAcesso
+      rotulo="Acesso ao sistema"
+      titulo="Gestão Patrimonial"
+      subtitulo="Secretaria Municipal da Saúde de Joinville"
+    >
+      {erro && (
+        <p className="login-erro" role="alert">
+          Houve um erro na autenticação, tente novamente.
+        </p>
+      )}
+      {/* É um link, não um botão: leva o navegador ao Keycloak da Prefeitura */}
+      <a className="btn login-acao" href={`${API_URL}/auth/oidc/login`}>
+        Entrar
+      </a>
+      <p className="login-footer">Em caso de dificuldade, procure o suporte responsável pelo sistema.</p>
+    </TelaAcesso>
   );
 }

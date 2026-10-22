@@ -77,6 +77,7 @@ export function autenticar(req: Request, _res: Response, next: NextFunction) {
   const token = header.slice(7);
   try {
     const payload = jwt.verify(token, env.jwtSecret) as jwt.JwtPayload;
+    if (typeof payload.sub !== 'string' || !(payload.perfil in Perfil)) throw new Error('token sem identidade');
     req.usuario = {
       sub: String(payload.sub),
       nome: String(payload.nome),
@@ -90,6 +91,10 @@ export function autenticar(req: Request, _res: Response, next: NextFunction) {
   }
   if (req.usuario.perfil === 'TERCEIRIZADA' && !terceirizadaPodeAcessar(req.method, req.originalUrl)) {
     throw new AppError('Seu perfil não possui permissão para esta operação.', 403);
+  }
+  // Entrou pelo Keycloak mas ainda sem perfil: só consegue ver quem é (para a tela de "aguardando liberação")
+  if (req.usuario.perfil === 'SEM_ACESSO' && !(req.method === 'GET' && req.originalUrl.split('?')[0] === '/auth/me')) {
+    throw new AppError('Seu acesso ainda não foi liberado. Procure o administrador do sistema.', 403);
   }
   contextoPedido.run(req.usuario, () => next());
 }

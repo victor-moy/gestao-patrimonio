@@ -26,7 +26,10 @@ O frontend usa `/api` em produção. O Nginx remove esse prefixo ao encaminhar p
 - `OPERADOR` (exibido como **Administrador**; o código e o banco usam `OPERADOR`): reúne os antigos Gestor de Patrimônio e Gestor de Manutenção — visão global, decisões patrimoniais, ciclo de manutenção, contratos, configurações, estoque e relatórios. Não há separação de funções entre os dois conjuntos: a rastreabilidade vem da auditoria.
 - `UNIDADE`: dados da própria unidade e dos equipamentos temporariamente sob sua guarda.
 - `GALPAO`: operações físicas do galpão ao qual o usuário está vinculado.
+- `SEM_ACESSO`: quem entrou pelo Keycloak e ainda não recebeu perfil. Só enxerga `GET /auth/me` (a tela de "aguardando liberação"); `autenticar` nega todo o resto.
 - `TERCEIRIZADA`: usuário de uma empresa prestadora de serviço, vinculado a um prestador (`prestadorId` no token). Só enxerga manutenções e contratos do próprio prestador, lança orçamento, confirma o fim do reparo e conversa na manutenção. É um perfil externo: o acesso é por **lista de permissão** em `autenticar` (`middlewares/auth.ts`), negado por padrão; qualquer rota nova só fica disponível a ele se for incluída ali de propósito e testada.
+
+Login: o SGP autentica pelo Keycloak da Prefeitura (OIDC, Authorization Code + PKCE, feito no backend em `modules/auth/oidc.service.ts`) e emite o próprio JWT; o Keycloak não fornece papéis. O usuário é vinculado pelo `sub` (`Usuario.keycloakSub`); no primeiro login, quem já existe é encontrado pelo e-mail e quem é novo nasce `SEM_ACESSO`. Não há login por senha: o SGP não guarda senhas (`senhaHash` é legado e opcional). `OIDC_*` são obrigatórias em produção e o `OIDC_CLIENT_SECRET` nunca vai ao repositório.
 
 Nunca confie apenas na ocultação de controles no frontend. Toda leitura e mutação deve ser restringida no backend por RBAC e, quando aplicável, pelo `unidadeId` do token. Para `GALPAO`, o galpão da operação vem sempre do token (nunca do corpo ou da query); só o Administrador escolhe outro galpão.
 

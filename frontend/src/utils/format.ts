@@ -100,6 +100,7 @@ export const ROTULO_PERFIL: Record<string, string> = {
   UNIDADE: 'Unidade de Atendimento',
   GALPAO: 'Galpão',
   TERCEIRIZADA: 'Terceirizada',
+  SEM_ACESSO: 'Sem acesso',
 };
 
 export const ROTULO_MOVIMENTACAO: Record<string, string> = {

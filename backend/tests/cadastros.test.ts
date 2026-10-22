@@ -23,12 +23,27 @@ describe('Usuários (RF02)', () => {
         nome: 'Nova Servidora',
         email: 'nova@joinville.sc.gov.br',
         matricula: '20001',
-        senha: 'senha-forte',
         perfil: 'UNIDADE',
         unidadeId: UUID,
       });
     expect(res.status).toBe(201);
     expect(prismaMock.logAuditoria.create).toHaveBeenCalled();
+  });
+
+  it('cadastro prévio só com e-mail e perfil: nome e matrícula provisórios saem do e-mail', async () => {
+    prismaMock.usuario.findFirst.mockResolvedValue(null);
+    prismaMock.usuario.create.mockResolvedValue({ id: 'u-novo' } as never);
+    const res = await request(app)
+      .post('/usuarios')
+      .set(auth('OPERADOR'))
+      .send({ email: 'ana.paula@joinville.sc.gov.br', perfil: 'OPERADOR' });
+    expect(res.status).toBe(201);
+    expect(prismaMock.usuario.create.mock.calls[0][0].data).toMatchObject({
+      nome: 'ana.paula',
+      matricula: 'ana.paula@joinville.sc.gov.br',
+      perfil: 'OPERADOR',
+    });
+    expect(prismaMock.usuario.create.mock.calls[0][0].data).not.toHaveProperty('senhaHash');
   });
 
   it('exige unidade para perfis UNIDADE e GALPAO', async () => {
@@ -40,7 +55,6 @@ describe('Usuários (RF02)', () => {
         nome: 'Sem Unidade',
         email: 'sem@joinville.sc.gov.br',
         matricula: '20002',
-        senha: 'senha-forte',
         perfil: 'UNIDADE',
       });
     expect(res.status).toBe(422);
@@ -91,7 +105,6 @@ describe('Usuários (RF02)', () => {
         nome: 'Duplicada',
         email: 'nova@joinville.sc.gov.br',
         matricula: '20001',
-        senha: 'senha-forte',
         perfil: 'OPERADOR',
       });
     expect(res.status).toBe(409);

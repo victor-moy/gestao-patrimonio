@@ -144,7 +144,21 @@ describe('Segredo JWT', () => {
   it('em produção, aceita segredo com 32+ caracteres', () => {
     process.env.NODE_ENV = 'production';
     process.env.JWT_SECRET = 'x'.repeat(40);
+    Object.assign(process.env, {
+      OIDC_ISSUER: 'https://keycloak.exemplo/realms/pmj',
+      OIDC_CLIENT_ID: 'sgp',
+      OIDC_CLIENT_SECRET: 'segredo',
+      OIDC_REDIRECT_URI: 'https://sgp.exemplo/api/auth/callback',
+      OIDC_POST_LOGOUT_URI: 'https://sgp.exemplo/',
+    });
     expect(() => jest.isolateModules(() => require('../src/config/env'))).not.toThrow();
+  });
+
+  it('em produção, falha no boot sem as variáveis do Keycloak', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRET = 'x'.repeat(40);
+    delete process.env.OIDC_CLIENT_SECRET;
+    expect(() => jest.isolateModules(() => require('../src/config/env'))).toThrow('OIDC_CLIENT_SECRET');
   });
 });
 

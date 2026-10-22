@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
+  API_URL,
   api,
   getToken,
   getTokenMestre,
@@ -9,7 +10,7 @@ import {
   setTokenMestre,
 } from '../api/client';
 import type { Usuario } from '../types';
-import { recarregarNoInicio } from '../utils/navegacao';
+import { encerrarSessaoInstitucional, recarregarNoInicio } from '../utils/navegacao';
 
 interface AuthContextValue {
   usuario: Usuario | null;
@@ -17,8 +18,8 @@ interface AuthContextValue {
   impersonando: boolean;
   // O Administrador troca de usuário, também enquanto está dentro de outro usuário
   podeTrocarUsuario: boolean;
-  login: (email: string, senha: string) => Promise<void>;
-  logout: () => void;
+  // Sair por vontade do usuário: encerra também a sessão do Keycloak
+  sair: () => void;
   entrarComo: (usuarioId: string) => Promise<void>;
   // Volta à própria conta do administrador (o token dele fica guardado enquanto assume outro usuário)
   voltarAoMestre: () => Promise<void>;
@@ -38,8 +39,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUsuario(null);
   }, []);
 
+  const sair = useCallback(() => {
+    logout();
+    encerrarSessaoInstitucional(API_URL);
+  }, [logout]);
+
   useEffect(() => {
     setOnUnauthorized(logout);
+    // Volta do Keycloak: o backend entrega o token no fragmento (#token=...) de /login/retorno
+    if (window.location.pathname === '/login/retorno') {
+      const novoToken = new URLSearchParams(window.location.hash.slice(1)).get('token');
+      if (novoToken) {
+        setToken(novoToken);
+        window.history.replaceState(null, '', '/');
+      }
+    }
     if (!getToken()) {
       setCarregando(false);
       return;
@@ -50,15 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .catch(() => setToken(null))
       .finally(() => setCarregando(false));
   }, [logout]);
-
-  const login = useCallback(async (email: string, senha: string) => {
-    const resposta = await api.post<{ token: string; usuario: Usuario }>('/auth/login', {
-      email,
-      senha,
-    });
-    setToken(resposta.token);
-    setUsuario(resposta.usuario);
-  }, []);
 
   // O Administrador "entra como" outro usuário — guarda o próprio token
   // pra dar pra voltar depois, sem precisar logar de novo.
@@ -97,8 +102,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const podeTrocarUsuario =
     impersonando || usuario?.perfil === 'OPERADOR';
   const value = useMemo(
-    () => ({ usuario, carregando, impersonando, podeTrocarUsuario, login, logout, entrarComo, voltarAoMestre }),
-    [usuario, carregando, impersonando, podeTrocarUsuario, login, logout, entrarComo, voltarAoMestre],
+    () => ({ usuario, carregando, impersonando, podeTrocarUsuario, sair, entrarComo, voltarAoMestre }),
+    [usuario, carregando, impersonando, podeTrocarUsuario, sair, entrarComo, voltarAoMestre],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

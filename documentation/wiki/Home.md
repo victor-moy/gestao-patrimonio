@@ -31,6 +31,6 @@ O SGP atende cinco perfis de usuário — Administrador, Unidade de Atendimento,
 - **Estoque** — controle do que está no Galpão aguardando destinação, incluindo itens represados por falta de saldo em ata.
 - **Atas e Contratos** — saldo e vencimento de atas de registro de preços vinculadas às aprovações de novos itens; contratos das empresas terceirizadas de manutenção.
 - **Relatórios** — cinco relatórios, um por submenu (visão geral com funil de solicitações e ranking de unidades, manutenções com custo, prazo e prestadores, empréstimos, cessões de uso e ampliação — itens aguardando estoque), com filtros por período, unidade e item.
-- **Configurações** — Administrador: usuários e perfis (inclusive redefinição de senha), unidades, categorias de itens e tipos de itens; também permite entrar como outro usuário, com um clique na lista, para testes (auditado).
+- **Configurações** — Administrador: usuários e perfis (o acesso é pela conta institucional da Prefeitura), unidades, categorias de itens e tipos de itens; também permite entrar como outro usuário, com um clique na lista, para testes (auditado).
 
 Mais contexto sobre o problema, benchmark de soluções existentes e justificativa de escopo está no [RFC v1.0](https://github.com/victor-moy/gestao-patrimonio/blob/main/documentation/RFC.pdf).

@@ -19,6 +19,7 @@ Copie `.env.example` para `.env` na raiz do repositório e ajuste os valores:
 | `NODE_ENV` | Ambiente da API. Em `production` (imagem Docker) a API exige `JWT_SECRET` forte e não aceita origens CORS externas por padrão | `development` |
 | `JWT_SECRET` | Segredo de assinatura dos tokens JWT. **Obrigatório e com no mínimo 32 caracteres em produção** — a API não inicia sem isso (ex.: `openssl rand -hex 32`) | `troque-este-segredo-em-producao` |
 | `JWT_EXPIRES_IN` | Duração da sessão (RF04): o token expira após esse tempo e o usuário precisa entrar de novo | `30m` |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_POST_LOGOUT_URI` | Login pelo Keycloak da Prefeitura. **Obrigatórias em produção** (a API não inicia sem elas). `OIDC_CLIENT_SECRET` vai em Secrets; as URIs precisam ser idênticas às cadastradas no client (o callback é `<site>/api/auth/callback`) | — |
 | `CORS_ORIGINS` | Origens extras autorizadas a chamar a API pelo navegador, separadas por vírgula. Normalmente vazio: em produção o frontend usa o mesmo domínio (`/api` via Nginx) | vazio |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_SECURE` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | Configuração do SMTP institucional para notificações por e-mail | ver `.env.example` |
 | `SMTP_ENABLED` | Liga/desliga o envio real de e-mail — em dev, deixe `false` para só registrar as notificações | `false` |

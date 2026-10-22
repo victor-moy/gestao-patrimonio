@@ -465,10 +465,7 @@ describe('Prestadores de serviço e serviços de contrato', () => {
     window.history.replaceState(null, '', '/configuracoes/usuarios/novo');
     render(<App />);
 
-    await userEvent.type(await screen.findByLabelText('Nome completo'), 'Técnico TecSaúde');
-    await userEvent.type(screen.getByLabelText('E-mail'), 'tec@tecsaude.com.br');
-    await userEvent.type(screen.getByLabelText('Matrícula'), '30001');
-    await userEvent.type(screen.getByLabelText('Senha'), 'senha-forte');
+    await userEvent.type(await screen.findByLabelText('E-mail'), 'tec@tecsaude.com.br');
     expect(screen.queryByLabelText('Prestador de serviço')).not.toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText('Perfil de acesso'), 'TERCEIRIZADA');
     await screen.findByRole('option', { name: 'TecSaúde' });

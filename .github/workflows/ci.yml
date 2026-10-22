@@ -102,6 +102,7 @@ jobs:
     env:
       JWT_SECRET: ${{ secrets.JWT_SECRET }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      OIDC_CLIENT_SECRET: ${{ secrets.OIDC_CLIENT_SECRET }}
       SMTP_PASS: ${{ secrets.SMTP_PASS }}
       GRAFANA_PASSWORD: ${{ secrets.GRAFANA_PASSWORD }}
       GRAFANA_URL: ${{ vars.GRAFANA_URL }}
@@ -111,6 +112,10 @@ jobs:
       WEB_PORT: ${{ vars.WEB_PORT }}
       JWT_EXPIRES_IN: ${{ vars.JWT_EXPIRES_IN }}
       CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+      OIDC_ISSUER: ${{ vars.OIDC_ISSUER }}
+      OIDC_CLIENT_ID: ${{ vars.OIDC_CLIENT_ID }}
+      OIDC_REDIRECT_URI: ${{ vars.OIDC_REDIRECT_URI }}
+      OIDC_POST_LOGOUT_URI: ${{ vars.OIDC_POST_LOGOUT_URI }}
       SMTP_ENABLED: ${{ vars.SMTP_ENABLED }}
       SMTP_HOST: ${{ vars.SMTP_HOST }}
       SMTP_PORT: ${{ vars.SMTP_PORT }}
@@ -133,7 +138,7 @@ jobs:
           fi
           # Variável vazia (não cadastrada no GitHub) sobrescreveria o .env do servidor: remove para
           # o Compose usar o .env existente ou o valor padrão.
-          for v in JWT_SECRET POSTGRES_PASSWORD SMTP_PASS GRAFANA_PASSWORD GRAFANA_URL PROMETHEUS_RETENTION POSTGRES_USER POSTGRES_DB WEB_PORT JWT_EXPIRES_IN CORS_ORIGINS SMTP_ENABLED SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_USER SMTP_FROM; do
+          for v in JWT_SECRET POSTGRES_PASSWORD OIDC_CLIENT_SECRET OIDC_ISSUER OIDC_CLIENT_ID OIDC_REDIRECT_URI OIDC_POST_LOGOUT_URI SMTP_PASS GRAFANA_PASSWORD GRAFANA_URL PROMETHEUS_RETENTION POSTGRES_USER POSTGRES_DB WEB_PORT JWT_EXPIRES_IN CORS_ORIGINS SMTP_ENABLED SMTP_HOST SMTP_PORT SMTP_SECURE SMTP_USER SMTP_FROM; do
             [ -n "${!v}" ] || unset "$v"
           done
           docker compose build

@@ -73,39 +73,43 @@ afterEach(() => {
 });
 
 describe('Formulário de usuário', () => {
-  it('cadastra um usuário exigindo unidade para o perfil Unidade', async () => {
+  it('o cadastro novo pede só e-mail e perfil; a unidade aparece quando o perfil exige', async () => {
     const chamadas = rotas();
     abrir('/configuracoes/usuarios/novo');
 
-    await userEvent.type(await campo('Nome completo'), 'Maria Silva');
-    await userEvent.type(screen.getByLabelText('E-mail'), 'maria@joinville.sc.gov.br');
-    await userEvent.type(screen.getByLabelText('Matrícula'), '20001');
-    await userEvent.type(screen.getByLabelText('Senha'), 'segredo1');
+    await userEvent.type(await campo('E-mail'), 'maria@joinville.sc.gov.br');
+    expect(screen.queryByLabelText('Nome completo')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Matrícula')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/senha/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Unidade')).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Sem acesso' })).not.toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Perfil de acesso'), 'UNIDADE');
     expect(screen.getByLabelText('Unidade')).toBeRequired();
     await userEvent.selectOptions(screen.getByLabelText('Unidade'), 'un1');
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/usuarios'));
     const post = chamadas.find((c) => c.init?.method === 'POST' && c.url.endsWith('/usuarios'));
-    expect(JSON.parse(String(post?.init?.body))).toMatchObject({
-      nome: 'Maria Silva',
-      matricula: '20001',
+    expect(JSON.parse(String(post?.init?.body))).toEqual({
+      email: 'maria@joinville.sc.gov.br',
       perfil: 'UNIDADE',
       unidadeId: 'un1',
+      prestadorId: null,
     });
   });
 
-  it('perfil de gestor não exige unidade', async () => {
+  it('perfil de gestor não pede unidade', async () => {
     rotas();
     abrir('/configuracoes/usuarios/novo');
 
-    await campo('Nome completo');
+    await campo('E-mail');
     await userEvent.selectOptions(screen.getByLabelText('Perfil de acesso'), 'OPERADOR');
 
-    expect(screen.getByLabelText('Unidade')).not.toBeRequired();
+    expect(screen.queryByLabelText('Unidade')).not.toBeInTheDocument();
   });
 
-  it('edita o usuário sem reenviar e-mail nem matrícula e só redefine a senha se preenchida', async () => {
+  it('edita o usuário sem reenviar e-mail nem matrícula e não envia senha', async () => {
     const chamadas = rotas();
     abrir('/configuracoes/usuarios/u2');
 
@@ -125,30 +129,13 @@ describe('Formulário de usuário', () => {
     expect(corpo).not.toHaveProperty('email');
   });
 
-  it('envia a nova senha quando preenchida', async () => {
-    const chamadas = rotas();
-    abrir('/configuracoes/usuarios/u2');
-
-    const nome = await screen.findByLabelText('Nome completo');
-    await waitFor(() => expect(nome).toHaveValue('Rodrigo Unidade'));
-    await userEvent.type(screen.getByLabelText('Nova senha'), 'novasenha');
-    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
-
-    await waitFor(() => expect(chamadas.some((c) => c.init?.method === 'PATCH')).toBe(true));
-    const patch = chamadas.find((c) => c.init?.method === 'PATCH');
-    expect(JSON.parse(String(patch?.init?.body)).senha).toBe('novasenha');
-  });
-
   it('mostra o erro da API e avisa quando o usuário não existe', async () => {
     rotas({ '/usuarios': (init) => (init?.method === 'POST' ? { status: 409, body: { mensagem: 'E-mail já cadastrado.' } } : { body: [usuario] }) });
     const alerta = vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     abrir('/configuracoes/usuarios/novo');
 
-    await userEvent.type(await campo('Nome completo'), 'Maria');
-    await userEvent.type(screen.getByLabelText('E-mail'), 'maria@joinville.sc.gov.br');
-    await userEvent.type(screen.getByLabelText('Matrícula'), '1');
-    await userEvent.type(screen.getByLabelText('Senha'), 'segredo1');
-    await userEvent.selectOptions(screen.getByLabelText('Unidade'), 'un1');
+    await userEvent.type(await campo('E-mail'), 'maria@joinville.sc.gov.br');
+    await userEvent.selectOptions(screen.getByLabelText('Perfil de acesso'), 'OPERADOR');
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() => expect(alerta).toHaveBeenCalledWith('E-mail já cadastrado.'));

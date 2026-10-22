@@ -22,6 +22,8 @@ enum Perfil {
   GALPAO
   // Empresa contratada: vinculada a um prestador de serviço; só enxerga as manutenções dos contratos dele
   TERCEIRIZADA
+  // Entrou pelo Keycloak e ainda não recebeu perfil: não acessa nada até um Administrador atribuir o perfil
+  SEM_ACESSO
 }
 
 enum TipoUnidade {
@@ -165,7 +167,10 @@ model Usuario {
   nome        String
   email       String            @unique
   matricula   String            @unique
-  senhaHash   String            @map("senha_hash")
+  // Legado: ninguém entra por senha (o login é só pelo Keycloak); a coluna sai numa migração futura
+  senhaHash   String?           @map("senha_hash")
+  // Identificador fixo do usuário no Keycloak (claim `sub`), gravado no primeiro login
+  keycloakSub String?           @unique @map("keycloak_sub")
   perfil      Perfil
   ativo       Boolean           @default(true)
   unidadeId   String?           @map("unidade_id")

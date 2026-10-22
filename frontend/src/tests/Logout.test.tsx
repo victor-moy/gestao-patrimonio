@@ -1,8 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { mockFetch } from './mock-fetch';
+import { encerrarSessaoInstitucional } from '../utils/navegacao';
+
+vi.mock('../utils/navegacao', () => ({ recarregarNoInicio: vi.fn(), encerrarSessaoInstitucional: vi.fn() }));
 
 describe('Sair', () => {
   afterEach(() => localStorage.clear());
@@ -23,11 +26,13 @@ describe('Sair', () => {
 
     // ainda na tela do app, já com a classe de saída
     expect(container.querySelector('.app-shell--saindo')).not.toBeNull();
-    expect(screen.queryByRole('button', { name: 'Entrar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Entrar' })).not.toBeInTheDocument();
 
     // depois da animação, aparece o login e a sessão é encerrada
-    expect(await screen.findByRole('button', { name: 'Entrar' }, { timeout: 2000 })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Entrar' }, { timeout: 2000 })).toBeInTheDocument();
     await waitFor(() => expect(localStorage.getItem('sgp_token')).toBeNull());
+    // e a sessão do Keycloak também é encerrada
+    expect(encerrarSessaoInstitucional).toHaveBeenCalledWith('/api');
   });
 });
 

@@ -92,7 +92,7 @@ const SECOES_CONFIGURACOES: SecaoConfiguracoes[] = [
 ];
 
 export function Layout() {
-  const { usuario, logout, impersonando, podeTrocarUsuario } = useAuth();
+  const { usuario, sair: encerrarSessao, impersonando, podeTrocarUsuario } = useAuth();
   const donoMenuUsuario = useRef<HTMLDivElement>(null);
   const botaoMenuUsuario = useRef<HTMLButtonElement>(null);
   const location = useLocation();
@@ -174,7 +174,7 @@ export function Layout() {
     setMenuAberto(false);
     setSaindo(true);
     const semMovimento = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    setTimeout(logout, semMovimento ? 0 : 350);
+    setTimeout(encerrarSessao, semMovimento ? 0 : 350);
   }
 
   return (

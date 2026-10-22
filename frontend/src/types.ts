@@ -1,4 +1,4 @@
-export type Perfil = 'OPERADOR' | 'UNIDADE' | 'GALPAO' | 'TERCEIRIZADA';
+export type Perfil = 'OPERADOR' | 'UNIDADE' | 'GALPAO' | 'TERCEIRIZADA' | 'SEM_ACESSO';
 
 export type EstadoConservacao = 'OTIMO' | 'BOM' | 'REGULAR' | 'RUIM' | 'PESSIMO';
 export type StatusEquipamento = 'ATIVO' | 'EM_MANUTENCAO' | 'EMPRESTADO' | 'BAIXADO' | 'CEDIDO';

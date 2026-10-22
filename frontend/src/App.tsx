@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './auth/AuthContext';
 import { BarraCarregamento } from './components/BarraCarregamento';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
+import { AguardandoLiberacao } from './pages/AguardandoLiberacao';
 import { Inicio } from './pages/Inicio';
 import { Inventario } from './pages/Inventario';
 import { NovoEquipamento } from './pages/NovoEquipamento';
@@ -60,6 +61,9 @@ function RotasProtegidas() {
   }
   if (!usuario) {
     return <Login />;
+  }
+  if (usuario.perfil === 'SEM_ACESSO') {
+    return <AguardandoLiberacao />;
   }
 
   return (
