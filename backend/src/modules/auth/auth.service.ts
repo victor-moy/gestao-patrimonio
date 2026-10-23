@@ -35,6 +35,35 @@ function gerarSessao(usuario: UsuarioComUnidade) {
   };
 }
 
+// Acesso temporário da demonstração: cada perfil entra como o usuário de demonstração do seed. Só existe se a rota
+// /auth/demo estiver ligada (DEMO_LOGIN_CHAVE) e some junto com ela quando o Keycloak estiver funcionando.
+const USUARIOS_DEMONSTRACAO: Record<string, { email: string; perfil: Perfil }> = {
+  admin: { email: 'gestor@joinville.sc.gov.br', perfil: Perfil.OPERADOR },
+  unidade: { email: 'ubs.centro@joinville.sc.gov.br', perfil: Perfil.UNIDADE },
+  galpao: { email: 'galpao.user@joinville.sc.gov.br', perfil: Perfil.GALPAO },
+  terceirizada: { email: 'terceirizada@tecsaude.com.br', perfil: Perfil.TERCEIRIZADA },
+};
+
+export async function entrarDemonstracao(nome: string) {
+  const alvo = Object.hasOwn(USUARIOS_DEMONSTRACAO, nome) ? USUARIOS_DEMONSTRACAO[nome] : undefined;
+  if (!alvo) throw new AppError('Perfil de demonstração desconhecido.', 404);
+  const usuario = await prisma.usuario.findUnique({
+    where: { email: alvo.email },
+    include: { unidade: true, prestador: true },
+  });
+  if (!usuario || !usuario.ativo || usuario.perfil !== alvo.perfil) {
+    throw new AppError('Usuário de demonstração indisponível.', 404);
+  }
+  await registrarAuditoria({
+    usuarioId: usuario.id,
+    acao: 'LOGIN_DEMONSTRACAO',
+    entidade: 'usuario',
+    entidadeId: usuario.id,
+    dadosDepois: { perfil: usuario.perfil },
+  });
+  return gerarSessao(usuario);
+}
+
 // Primeiro login pelo Keycloak vincula a conta ao `sub` (identificador fixo). Quem já existia no SGP é encontrado pelo
 // e-mail e mantém perfil e unidade; quem é novo entra como SEM_ACESSO até um Administrador atribuir o perfil.
 export async function entrarPeloKeycloak(identidade: IdentidadeKeycloak) {

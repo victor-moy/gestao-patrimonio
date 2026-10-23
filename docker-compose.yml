@@ -35,6 +35,8 @@ services:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?defina OIDC_CLIENT_SECRET no .env}
       OIDC_REDIRECT_URI: ${OIDC_REDIRECT_URI:?defina OIDC_REDIRECT_URI no .env}
       OIDC_POST_LOGOUT_URI: ${OIDC_POST_LOGOUT_URI:?defina OIDC_POST_LOGOUT_URI no .env}
+      # Acesso temporário da demonstração (/auth/demo); vazio desliga
+      DEMO_LOGIN_CHAVE: ${DEMO_LOGIN_CHAVE:-}
       SMTP_ENABLED: ${SMTP_ENABLED:-false}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}

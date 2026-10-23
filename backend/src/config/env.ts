@@ -41,7 +41,18 @@ function configuracaoOidc() {
   return { ...oidc, ativo: faltando.length === 0 };
 }
 
+// Acesso temporário da demonstração (/auth/demo), enquanto o Keycloak não responde ao servidor. Sem a chave, a rota não
+// existe. Com ela, a chave precisa ser forte: quem a tiver entra no perfil que escolher.
+function chaveDemonstracao() {
+  const chave = process.env.DEMO_LOGIN_CHAVE ?? '';
+  if (chave && chave.length < 32) {
+    throw new Error('DEMO_LOGIN_CHAVE deve ter pelo menos 32 caracteres (ou ficar vazia para desligar o acesso).');
+  }
+  return chave;
+}
+
 export const env = {
+  demoLogin: { chave: chaveDemonstracao() },
   port: Number(process.env.API_PORT ?? 3333),
   nodeEnv,
   jwtSecret: segredoJwt(),
