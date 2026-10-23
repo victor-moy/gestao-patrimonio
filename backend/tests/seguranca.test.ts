@@ -58,7 +58,7 @@ describe('Arquivos protegidos (/uploads)', () => {
 
   it('arquivo sem registro no banco não é servido', async () => {
     prismaMock.solicitacao.findFirst.mockResolvedValue(null);
-    prismaMock.manutencao.findFirst.mockResolvedValue(null);
+    prismaMock.manutencao.findMany.mockResolvedValue([]);
     const res = await request(app).get(`/uploads/solicitacoes/${NOME}`).set(auth('OPERADOR'));
     expect(res.status).toBe(404);
   });
@@ -73,7 +73,7 @@ describe('Arquivos protegidos (/uploads)', () => {
 
     beforeEach(() => {
       prismaMock.solicitacao.findFirst.mockResolvedValue(null);
-      prismaMock.manutencao.findFirst.mockResolvedValue({ unidadeId: 'u-a', contrato: { prestadorId: 'p-1' } } as never);
+      prismaMock.manutencao.findMany.mockResolvedValue([{ unidadeId: 'u-a', contrato: { prestadorId: 'p-1' } }] as never);
     });
 
     it('a unidade dona, o Administrador e a terceirizada do contrato recebem a foto', async () => {
@@ -86,6 +86,15 @@ describe('Arquivos protegidos (/uploads)', () => {
       expect((await foto('UNIDADE', { unidadeId: 'u-b' })).status).toBe(403);
       expect((await foto('TERCEIRIZADA', { prestadorId: 'p-2' })).status).toBe(403);
       expect((await foto('GALPAO')).status).toBe(403);
+    });
+
+    it('foto copiada para um chamado reencaminhado: vale o acesso a qualquer chamado que a contém', async () => {
+      prismaMock.manutencao.findMany.mockResolvedValue([
+        { unidadeId: 'u-a', contrato: { prestadorId: 'p-1' } },
+        { unidadeId: 'u-a', contrato: null },
+      ] as never);
+      expect((await foto('TERCEIRIZADA', { prestadorId: 'p-1' })).status).toBe(200);
+      expect((await foto('TERCEIRIZADA', { prestadorId: 'p-2' })).status).toBe(403);
     });
 
     it('a terceirizada não acessa anexo de solicitação', async () => {
@@ -135,7 +144,21 @@ describe('Segredo JWT', () => {
   it('em produção, aceita segredo com 32+ caracteres', () => {
     process.env.NODE_ENV = 'production';
     process.env.JWT_SECRET = 'x'.repeat(40);
+    Object.assign(process.env, {
+      OIDC_ISSUER: 'https://keycloak.exemplo/realms/pmj',
+      OIDC_CLIENT_ID: 'sgp',
+      OIDC_CLIENT_SECRET: 'segredo',
+      OIDC_REDIRECT_URI: 'https://sgp.exemplo/api/auth/callback',
+      OIDC_POST_LOGOUT_URI: 'https://sgp.exemplo/',
+    });
     expect(() => jest.isolateModules(() => require('../src/config/env'))).not.toThrow();
+  });
+
+  it('em produção, falha no boot sem as variáveis do Keycloak', () => {
+    process.env.NODE_ENV = 'production';
+    process.env.JWT_SECRET = 'x'.repeat(40);
+    delete process.env.OIDC_CLIENT_SECRET;
+    expect(() => jest.isolateModules(() => require('../src/config/env'))).toThrow('OIDC_CLIENT_SECRET');
   });
 });
 
@@ -165,7 +188,6 @@ describe('Perfil terceirizada: lista de permissão (negado por padrão)', () => 
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/aguardar-providencias'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/contestar'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/autorizar-medicao'],
-    ['post', '/auth/impersonar/abc'],
     ['post', '/manutencoes'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/aprovar'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/confirmar-retorno'],

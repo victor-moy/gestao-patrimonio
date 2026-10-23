@@ -62,6 +62,7 @@ export const ROTULO_STATUS_MANUTENCAO: Record<string, string> = {
   EM_EXECUCAO: 'Em Andamento',
   AGUARDANDO_RETORNO: 'Aguardando Retorno',
   AGUARDANDO_MEDICAO: 'Aguardando Medição',
+  REENCAMINHAMENTO_SOLICITADO: 'Reencaminhamento Solicitado',
   CONCLUIDA: 'Concluída',
   BAIXADO: 'Baixado',
 };
@@ -99,6 +100,7 @@ export const ROTULO_PERFIL: Record<string, string> = {
   UNIDADE: 'Unidade de Atendimento',
   GALPAO: 'Galpão',
   TERCEIRIZADA: 'Terceirizada',
+  SEM_ACESSO: 'Sem acesso',
 };
 
 export const ROTULO_MOVIMENTACAO: Record<string, string> = {

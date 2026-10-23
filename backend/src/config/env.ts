@@ -22,10 +22,30 @@ const corsOrigins = (process.env.CORS_ORIGINS ?? '')
   .map((o) => o.trim())
   .filter(Boolean);
 
+// Login pelo Keycloak da Prefeitura (OpenID Connect). Em produção as cinco variáveis são obrigatórias e a API
+// não inicia sem elas; fora de produção, sem elas o login institucional fica desligado.
+function configuracaoOidc() {
+  const oidc = {
+    issuer: process.env.OIDC_ISSUER ?? '',
+    clientId: process.env.OIDC_CLIENT_ID ?? '',
+    clientSecret: process.env.OIDC_CLIENT_SECRET ?? '',
+    redirectUri: process.env.OIDC_REDIRECT_URI ?? '',
+    postLogoutUri: process.env.OIDC_POST_LOGOUT_URI ?? '',
+  };
+  const faltando = Object.entries(oidc)
+    .filter(([, valor]) => !valor)
+    .map(([chave]) => chave);
+  if (nodeEnv === 'production' && faltando.length) {
+    throw new Error(`Defina as variáveis do Keycloak em produção: ${faltando.map((c) => `OIDC_${c.replace(/[A-Z]/g, (l) => `_${l}`).toUpperCase()}`).join(', ')}.`);
+  }
+  return { ...oidc, ativo: faltando.length === 0 };
+}
+
 export const env = {
   port: Number(process.env.API_PORT ?? 3333),
   nodeEnv,
   jwtSecret: segredoJwt(),
+  oidc: configuracaoOidc(),
   corsOrigins,
   // Limites de frequência ficam desligados nos testes automatizados
   rateLimitAtivo: nodeEnv !== 'test',

@@ -22,6 +22,8 @@ enum Perfil {
   GALPAO
   // Empresa contratada: vinculada a um prestador de serviço; só enxerga as manutenções dos contratos dele
   TERCEIRIZADA
+  // Entrou pelo Keycloak e ainda não recebeu perfil: não acessa nada até um Administrador atribuir o perfil
+  SEM_ACESSO
 }
 
 enum TipoUnidade {
@@ -97,6 +99,8 @@ enum StatusManutencao {
   AGUARDANDO_RETORNO
   // Civil: a Unidade confirmou que o problema foi resolvido; falta o Administrador autorizar a medição
   AGUARDANDO_MEDICAO
+  // Quem atende pediu para passar o chamado adiante; o Administrador confirma e decide o destino
+  REENCAMINHAMENTO_SOLICITADO
   CONCLUIDA
   BAIXADO
 }
@@ -163,7 +167,10 @@ model Usuario {
   nome        String
   email       String            @unique
   matricula   String            @unique
-  senhaHash   String            @map("senha_hash")
+  // Legado: ninguém entra por senha (o login é só pelo Keycloak); a coluna sai numa migração futura
+  senhaHash   String?           @map("senha_hash")
+  // Identificador fixo do usuário no Keycloak (claim `sub`), gravado no primeiro login
+  keycloakSub String?           @unique @map("keycloak_sub")
   perfil      Perfil
   ativo       Boolean           @default(true)
   unidadeId   String?           @map("unidade_id")
@@ -309,63 +316,79 @@ model Movimentacao {
 }
 
 model Manutencao {
-  id                    String                  @id @default(uuid())
+  id                           String                  @id @default(uuid())
   // Número sequencial legível para referenciar a manutenção (MAN-0001)
-  numero                Int                     @unique @default(autoincrement())
-  tipo                  TipoManutencao          @default(EQUIPAMENTO)
+  numero                       Int                     @unique @default(autoincrement())
+  tipo                         TipoManutencao          @default(EQUIPAMENTO)
   // Nulo na manutenção civil; Restrict preserva o histórico se o equipamento for excluído
-  equipamentoId         String?                 @map("equipamento_id")
-  equipamento           Equipamento?            @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
+  equipamentoId                String?                 @map("equipamento_id")
+  equipamento                  Equipamento?            @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
   // Civil: local afetado, tipo de problema e fotos (caminhos em /uploads/solicitacoes, protegidos)
-  localAfetado          String?                 @map("local_afetado")
-  categoriaCivil        CategoriaProblemaCivil? @map("categoria_civil")
-  fotos                 String[]                @default([])
+  localAfetado                 String?                 @map("local_afetado")
+  categoriaCivil               CategoriaProblemaCivil? @map("categoria_civil")
+  fotos                        String[]                @default([])
   // Civil: motivo de aguardar providências, contestação da Unidade e autorização da medição
   // ("problema resolvido" é a confirmação da Unidade; a medição é autorizada pelo Administrador)
-  motivoPendencia       String?                 @map("motivo_pendencia")
+  motivoPendencia              String?                 @map("motivo_pendencia")
   // Civil: o que o Administrador pediu para ajustar na finalização informada pelo prestador
-  motivoAjuste          String?                 @map("motivo_ajuste")
-  contestacaoUnidade    String?                 @map("contestacao_unidade")
-  conferidoMedicaoEm    DateTime?               @map("conferido_medicao_em")
-  conferidoMedicaoPorId String?                 @map("conferido_medicao_por_id")
-  unidadeId             String                  @map("unidade_id")
-  unidade               Unidade                 @relation(fields: [unidadeId], references: [id])
-  solicitanteId         String                  @map("solicitante_id")
-  solicitante           Usuario                 @relation("ManutencaoSolicitante", fields: [solicitanteId], references: [id])
-  descricaoProblema     String                  @map("descricao_problema")
+  motivoAjuste                 String?                 @map("motivo_ajuste")
+  contestacaoUnidade           String?                 @map("contestacao_unidade")
+  conferidoMedicaoEm           DateTime?               @map("conferido_medicao_em")
+  conferidoMedicaoPorId        String?                 @map("conferido_medicao_por_id")
+  // Reencaminhamento: o atendimento pede para passar o chamado adiante (motivo em texto) e o Administrador
+  // confirma. Ao decidir, o atendimento fecha como CONCLUIDA e nasce um novo chamado (reencaminhadoDe) ou uma baixa.
+  motivoReencaminhamento       String?                 @map("motivo_reencaminhamento")
+  reencaminhamentoSolicitadoEm DateTime?               @map("reencaminhamento_solicitado_em")
+  reencaminhamentoConfirmadoEm DateTime?               @map("reencaminhamento_confirmado_em")
+  // Atendimento anterior da cadeia e raiz do caso (nulo = o próprio chamado é a raiz)
+  reencaminhadoDeId            String?                 @map("reencaminhado_de_id")
+  reencaminhadoDe              Manutencao?             @relation("Reencaminhamento", fields: [reencaminhadoDeId], references: [id], onDelete: Restrict)
+  reencaminhamentos            Manutencao[]            @relation("Reencaminhamento")
+  casoId                       String?                 @map("caso_id")
+  caso                         Manutencao?             @relation("CasoRaiz", fields: [casoId], references: [id], onDelete: Restrict)
+  atendimentosDoCaso           Manutencao[]            @relation("CasoRaiz")
+  unidadeId                    String                  @map("unidade_id")
+  unidade                      Unidade                 @relation(fields: [unidadeId], references: [id])
+  solicitanteId                String                  @map("solicitante_id")
+  solicitante                  Usuario                 @relation("ManutencaoSolicitante", fields: [solicitanteId], references: [id])
+  descricaoProblema            String                  @map("descricao_problema")
   // Nome dado por quem abre o pedido, para reconhecê-lo nas listas (opcional; sem ele vale o nome do equipamento)
-  titulo                String?                 @db.VarChar(80)
+  titulo                       String?                 @db.VarChar(80)
   // Legado: a abertura não pede mais justificativa; mantida para os chamados antigos
-  justificativa         String?
-  status                StatusManutencao        @default(PENDENTE_APROVACAO)
-  motivoNegacao         String?                 @map("motivo_negacao")
-  decididoPorId         String?                 @map("decidido_por_id")
-  decididoPor           Usuario?                @relation("ManutencaoDecididaPor", fields: [decididoPorId], references: [id])
-  contratoId            String?                 @map("contrato_id")
-  contrato              Contrato?               @relation(fields: [contratoId], references: [id])
+  justificativa                String?
+  status                       StatusManutencao        @default(PENDENTE_APROVACAO)
+  motivoNegacao                String?                 @map("motivo_negacao")
+  decididoPorId                String?                 @map("decidido_por_id")
+  decididoPor                  Usuario?                @relation("ManutencaoDecididaPor", fields: [decididoPorId], references: [id])
+  contratoId                   String?                 @map("contrato_id")
+  contrato                     Contrato?               @relation(fields: [contratoId], references: [id])
   // Item do contrato (serviço + escopo) que cobre esta manutenção; o contrato acima é o dele
-  contratoItemId        String?                 @map("contrato_item_id")
-  contratoItem          ContratoItem?           @relation(fields: [contratoItemId], references: [id])
-  orcamentoValor        Decimal?                @map("orcamento_valor") @db.Decimal(12, 2)
-  orcamentoDescricao    String?                 @map("orcamento_descricao")
+  contratoItemId               String?                 @map("contrato_item_id")
+  contratoItem                 ContratoItem?           @relation(fields: [contratoItemId], references: [id])
+  orcamentoValor               Decimal?                @map("orcamento_valor") @db.Decimal(12, 2)
+  orcamentoDescricao           String?                 @map("orcamento_descricao")
   // Laudo de baixa (RF16)
-  laudoBaixa            String?                 @map("laudo_baixa")
+  laudoBaixa                   String?                 @map("laudo_baixa")
   // RN11: confirmação dupla de retorno
-  confirmadoUnidade     Boolean                 @default(false) @map("confirmado_unidade")
-  confirmadoGestor      Boolean                 @default(false) @map("confirmado_gestor")
-  estadoPosManutencao   EstadoConservacao?      @map("estado_pos_manutencao")
-  custoFinal            Decimal?                @map("custo_final") @db.Decimal(12, 2)
-  dataEnvio             DateTime?               @map("data_envio")
-  dataConclusao         DateTime?               @map("data_conclusao")
-  criadoEm              DateTime                @default(now()) @map("criado_em")
-  atualizadoEm          DateTime                @updatedAt @map("atualizado_em")
+  confirmadoUnidade            Boolean                 @default(false) @map("confirmado_unidade")
+  confirmadoGestor             Boolean                 @default(false) @map("confirmado_gestor")
+  estadoPosManutencao          EstadoConservacao?      @map("estado_pos_manutencao")
+  custoFinal                   Decimal?                @map("custo_final") @db.Decimal(12, 2)
+  dataEnvio                    DateTime?               @map("data_envio")
+  dataConclusao                DateTime?               @map("data_conclusao")
+  criadoEm                     DateTime                @default(now()) @map("criado_em")
+  atualizadoEm                 DateTime                @updatedAt @map("atualizado_em")
 
-  mensagens       MensagemChat[]
-  leituras        LeituraConversa[]
-  linhasRelatorio LinhaRelatorioManutencao[]
-  avisos          AvisoUsuario[]
+  mensagens           MensagemChat[]
+  leituras            LeituraConversa[]
+  linhasRelatorio     LinhaRelatorioManutencao[]
+  avisos              AvisoUsuario[]
+  // Baixas geradas a partir deste atendimento (substituição automática)
+  solicitacoesGeradas Solicitacao[]              @relation("SolicitacaoDaManutencao")
 
   @@index([contratoItemId])
+  @@index([casoId])
+  @@index([reencaminhadoDeId])
   @@map("manutencao")
 }
 
@@ -464,6 +487,9 @@ model Solicitacao {
   observacaoRecebimento     String?            @map("observacao_recebimento")
   // RN07: solicitação aberta automaticamente pelo Sistema após laudo de baixa
   automatica                Boolean            @default(false)
+  // Atendimento de manutenção que originou esta solicitação (baixa); liga a substituição ao caso
+  manutencaoOrigemId        String?            @map("manutencao_origem_id")
+  manutencaoOrigem          Manutencao?        @relation("SolicitacaoDaManutencao", fields: [manutencaoOrigemId], references: [id], onDelete: Restrict)
   criadoPorId               String?            @map("criado_por_id")
   criadoPor                 Usuario?           @relation("SolicitacaoCriadaPor", fields: [criadoPorId], references: [id])
   decididoPorId             String?            @map("decidido_por_id")
@@ -476,6 +502,7 @@ model Solicitacao {
   leituras     LeituraConversa[]
   avisos       AvisoUsuario[]
 
+  @@index([manutencaoOrigemId])
   @@map("solicitacao")
 }
 

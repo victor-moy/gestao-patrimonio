@@ -14,7 +14,7 @@ import { notificar } from '../../services/notificacao.service';
 import * as avisos from '../../services/avisos.eventos';
 import { AuthPayload } from '../../middlewares/auth';
 
-const includePadrao = {
+export const includePadrao = {
   equipamento: {
     include: {
       tipoEquipamento: {
@@ -351,17 +351,26 @@ export async function similares(usuario: AuthPayload, id: string) {
   });
 }
 
-// FA01 — negação com motivo. Também vale em AGUARDANDO_ORCAMENTO: o equipamento volta a ativo.
+// Devolve o equipamento a ativo se ele ainda estiver em manutenção (condição na gravação, sem corrida) e registra o retorno
+export async function liberarEquipamento(tx: Prisma.TransactionClient, equipamentoId: string, unidadeId: string, usuarioId: string, descricao: string) {
+  const liberado = await tx.equipamento.updateMany({ where: { id: equipamentoId, status: 'EM_MANUTENCAO' }, data: { status: 'ATIVO' } });
+  if (liberado.count > 0) {
+    await tx.movimentacao.create({
+      data: { equipamentoId, tipo: 'RETORNO_MANUTENCAO', descricao, unidadeDestinoId: unidadeId, usuarioId },
+    });
+  }
+}
+
+// FA01 — negação com motivo, só na triagem (ou no civil aguardando providências)
 export async function negar(usuario: AuthPayload, id: string, motivo: string) {
   const manutencao = await buscarPorId(usuario, id);
   // Civil: com o chamado nas mãos do prestador o Administrador não o nega
   if (manutencao.tipo === 'CIVIL' && manutencao.status === 'AGUARDANDO_EXECUCAO') {
     throw new AppError('O chamado está com o prestador, aguardando execução. Só é possível negar na triagem.', 422);
   }
-  const aposAprovacao = manutencao.status === 'AGUARDANDO_ORCAMENTO';
   const aguardandoProvidencias = manutencao.tipo === 'CIVIL' && manutencao.status === 'AGUARDANDO_PROVIDENCIAS';
-  if (manutencao.status !== 'PENDENTE_APROVACAO' && !aposAprovacao && !aguardandoProvidencias) {
-    throw new AppError('Somente solicitações pendentes ou aguardando orçamento podem ser negadas.', 422);
+  if (manutencao.status !== 'PENDENTE_APROVACAO' && !aguardandoProvidencias) {
+    throw new AppError('Somente solicitações pendentes podem ser negadas.', 422);
   }
   const atualizada = await prisma.$transaction(async (tx) => {
     const m = await tx.manutencao.update({
@@ -369,20 +378,9 @@ export async function negar(usuario: AuthPayload, id: string, motivo: string) {
       data: { status: 'NEGADA', motivoNegacao: motivo, decididoPorId: usuario.sub },
       include: includePadrao,
     });
-    if (aposAprovacao && m.equipamentoId) {
-      await tx.equipamento.update({
-        where: { id: m.equipamentoId },
-        data: { status: 'ATIVO' },
-      });
-      await tx.movimentacao.create({
-        data: {
-          equipamentoId: m.equipamentoId,
-          tipo: 'RETORNO_MANUTENCAO',
-          descricao: `Manutenção negada após aprovação (aguardava orçamento). Motivo: ${motivo}`,
-          unidadeDestinoId: m.unidadeId,
-          usuarioId: usuario.sub,
-        },
-      });
+    if (manutencao.reencaminhadoDeId && m.equipamentoId) {
+      // Chamado reencaminhado para o mesmo equipamento: ele seguia bloqueado desde o atendimento anterior
+      await liberarEquipamento(tx, m.equipamentoId, m.unidadeId, usuario.sub, `Manutenção reencaminhada negada na triagem. Motivo: ${motivo}`);
     }
     await registrarAuditoria(
       {
@@ -406,36 +404,6 @@ export async function negar(usuario: AuthPayload, id: string, motivo: string) {
   );
   await avisos.avisoManutencaoNegada(atualizada, motivo);
   return atualizada;
-}
-
-export async function trocarItem(usuario: AuthPayload, id: string, contratoItemId: string) {
-  const manutencao = await buscarPorId(usuario, id);
-  if (manutencao.tipo === 'CIVIL') {
-    throw new AppError('No chamado civil o item de contrato é definido na triagem e não muda depois do encaminhamento.', 422);
-  }
-  if (manutencao.status !== 'AGUARDANDO_ORCAMENTO') {
-    throw new AppError('O item de contrato só pode ser trocado enquanto a manutenção aguarda orçamento.', 422);
-  }
-  return prisma.$transaction(async (tx) => {
-    const vinculo = await vincularItem(tx, contratoItemId, tipoParaContrato(manutencao), id);
-    const atualizada = await tx.manutencao.update({
-      where: { id },
-      data: vinculo,
-      include: includePadrao,
-    });
-    await registrarAuditoria(
-      {
-        usuarioId: usuario.sub,
-        acao: 'TROCAR_ITEM_CONTRATO',
-        entidade: 'manutencao',
-        entidadeId: id,
-        dadosAntes: { contratoItemId: manutencao.contratoItemId, contratoId: manutencao.contratoId },
-        dadosDepois: { contratoItemId: vinculo.contratoItemId, contratoId: vinculo.contratoId },
-      },
-      tx,
-    );
-    return atualizada;
-  });
 }
 
 // UC07/RF14 — registro do orçamento retornado pela terceirizada
@@ -541,8 +509,9 @@ export async function emitirBaixa(usuario: AuthPayload, id: string, laudo: strin
   }
   const { equipamento, equipamentoId } = exigirEquipamento(manutencao);
   const resultado = await prisma.$transaction(async (tx) => {
+    // O status lido precisa continuar valendo: duas baixas simultâneas não geram duas substituições
     const m = await tx.manutencao.update({
-      where: { id },
+      where: { id, status: manutencao.status },
       data: {
         status: 'BAIXADO',
         laudoBaixa: laudo,
@@ -577,6 +546,7 @@ export async function emitirBaixa(usuario: AuthPayload, id: string, laudo: strin
         justificativa: `Substituição de equipamento baixado por impossibilidade de manutenção (tombamento ${equipamento.tombamento}). Solicitação gerada automaticamente pelo sistema.`,
         origemRecurso: 'REGULAR',
         automatica: true,
+        manutencaoOrigemId: id,
       },
     });
     await registrarAuditoria(
@@ -591,6 +561,11 @@ export async function emitirBaixa(usuario: AuthPayload, id: string, laudo: strin
       tx,
     );
     return { m, solicitacaoId: solicitacaoAutomatica.id };
+  }).catch((erro: unknown) => {
+    if (erro instanceof Prisma.PrismaClientKnownRequestError && erro.code === 'P2025') {
+      throw new AppError('Esta manutenção mudou de situação enquanto a baixa era emitida. Atualize a página.', 409);
+    }
+    throw erro;
   });
   // FA02 — o Administrador é notificado da solicitação automática
   const gestores = await prisma.usuario.findMany({

@@ -300,78 +300,16 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
     expect(prismaMock.notificacao.create).toHaveBeenCalled();
   });
 
-  it('negação com orçamento pendente devolve o equipamento a ativo', async () => {
+  it('depois da aprovação o Administrador não nega: o chamado está com a terceirizada', async () => {
     prismaMock.manutencao.findUnique.mockResolvedValue({
       ...manutencaoBase,
       status: 'AGUARDANDO_ORCAMENTO',
       contratoItemId: ITEM,
     } as never);
-    prismaMock.manutencao.update.mockResolvedValue({
-      ...manutencaoBase,
-      status: 'NEGADA',
-      motivoNegacao: 'Sem saldo no item',
-    } as never);
-    const res = await request(app)
-      .post('/manutencoes/man-1/negar')
-      .set(auth('OPERADOR'))
-      .send({ motivo: 'Sem saldo no item' });
-    expect(res.status).toBe(200);
-    expect(prismaMock.equipamento.update).toHaveBeenCalledWith({
-      where: { id: 'eq-1' },
-      data: { status: 'ATIVO' },
-    });
-    expect(prismaMock.movimentacao.create).toHaveBeenCalled();
-  });
-
-  it('enquanto aguarda orçamento o Administrador troca o item de contrato', async () => {
-    const outro = '77777777-7777-4777-8777-777777777777';
-    prismaMock.manutencao.findUnique.mockResolvedValue({
-      ...manutencaoBase,
-      status: 'AGUARDANDO_ORCAMENTO',
-      contratoItemId: ITEM,
-      contratoId: 'ct-1',
-    } as never);
-    prismaMock.contratoItem.findUnique.mockResolvedValue({ ...itemDoContrato, id: outro, contratoId: 'ct-2' } as never);
-    comprometido(null);
-    prismaMock.manutencao.update.mockResolvedValue({
-      ...manutencaoBase,
-      status: 'AGUARDANDO_ORCAMENTO',
-      contratoItemId: outro,
-    } as never);
-    const res = await request(app)
-      .post('/manutencoes/man-1/item')
-      .set(auth('OPERADOR'))
-      .send({ contratoItemId: outro });
-    expect(res.status).toBe(200);
-    expect(prismaMock.manutencao.update.mock.calls[0][0].data).toMatchObject({
-      contratoItemId: outro,
-      contratoId: 'ct-2',
-    });
+    const res = await request(app).post('/manutencoes/man-1/negar').set(auth('OPERADOR')).send({ motivo: 'Sem saldo no item' });
+    expect(res.status).toBe(422);
+    expect(prismaMock.manutencao.update).not.toHaveBeenCalled();
     expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
-  });
-
-  it('ações feitas durante a impersonação gravam o administrador na auditoria', async () => {
-    prismaMock.manutencao.findUnique.mockResolvedValue(manutencaoBase as never);
-    prismaMock.manutencao.update.mockResolvedValue({ ...manutencaoBase, status: 'NEGADA' } as never);
-    const res = await request(app)
-      .post('/manutencoes/man-1/negar')
-      .set(
-        auth('OPERADOR', {
-          sub: 'unidade-imp',
-          impersonadoPor: { id: 'op-1', nome: 'Samuel', perfil: 'OPERADOR' },
-        }),
-      )
-      .send({ motivo: 'Fora de garantia' });
-    expect(res.status).toBe(200);
-    expect(prismaMock.logAuditoria.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          dadosDepois: expect.objectContaining({
-            impersonadoPor: { id: 'op-1', nome: 'Samuel', perfil: 'OPERADOR' },
-          }),
-        }),
-      }),
-    );
   });
 
   it('não permite aprovar manutenção já decidida', async () => {
@@ -770,7 +708,6 @@ describe('Terceirizada (prestador de serviço)', () => {
     const ID = 'man-1';
     const alvo = [
       ['/aprovar', { contratoItemId: ITEM }],
-      ['/item', { contratoItemId: ITEM }],
       ['/negar', { motivo: 'não' }],
       ['/validar-orcamento', { aprovado: true }],
       ['/baixa', {}],

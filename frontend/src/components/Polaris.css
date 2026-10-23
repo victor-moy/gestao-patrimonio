@@ -1177,37 +1177,6 @@ a.app-topbar-wordmark:hover strong { opacity: .85; }
   .inventario-page .gestao-lista .lista-cartoes--inventario td:nth-child(4) { display: none; }
 }
 
-/* Menu do usuário: lista "Entrar como" (Administrador) acima de Sair */
-.app-shell--gestao .topbar-user .user-menu--larga { width: 280px; }
-.user-menu-entrar { border-bottom: 1px solid var(--border); }
-.user-menu-entrar [hidden] { display: none; }
-.app-shell--gestao .topbar-user .user-menu .user-menu-alternar { justify-content: flex-start; }
-.user-menu-seta { margin-left: auto; display: inline-grid; place-items: center; transition: transform .15s ease; }
-.user-menu-seta--aberta { transform: rotate(180deg); }
-.app-shell--gestao .topbar-user .user-menu .user-menu-seta svg { width: 14px; height: 14px; }
-.user-menu-busca {
-  display: block;
-  width: calc(100% - 20px);
-  height: 30px;
-  margin: 0 10px 6px;
-  padding: 0 10px;
-  border: 1px solid #c9cccf;
-  border-radius: 8px;
-  font-size: 12px;
-}
-.user-menu-lista { display: grid; max-height: 232px; margin-bottom: 6px; overflow-y: auto; }
-.app-shell--gestao .topbar-user .user-menu .user-menu-usuario {
-  display: grid;
-  gap: 1px;
-  padding: 7px 14px;
-  font-size: 12px;
-}
-.user-menu-usuario-nome { color: var(--text); font-weight: 550; }
-.user-menu-usuario-apoio { color: var(--text-secondary); font-size: 11px; }
-.user-menu-usuario:disabled { cursor: progress; opacity: .6; }
-.user-menu-estado { padding: 6px 14px; color: var(--text-secondary); font-size: 11px; }
-.app-shell--gestao .topbar-user .user-menu .user-menu-link { display: inline; width: auto; padding: 0; color: var(--text); font-size: 11px; text-decoration: underline; }
-
 /* Laudo de baixa ao rejeitar um orçamento: cartão no padrão dos blocos de ação */
 .laudo-baixa {
   margin-bottom: 12px;
@@ -1295,6 +1264,27 @@ a.app-topbar-wordmark:hover strong { opacity: .85; }
 .civil-parecido-numero { color: #005bd3; font-size: 12px; font-weight: 650; }
 .civil-parecido:hover .civil-parecido-numero { text-decoration: underline; }
 .civil-parecido-sub { overflow: hidden; color: var(--text-secondary); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+/* Reencaminhamento: trajetória do caso (linha do tempo vertical) */
+.trajetoria-lista { margin: 0; padding: 16px 0 0 4px; list-style: none; }
+.trajetoria-etapa { position: relative; padding: 0 0 16px 24px; }
+.trajetoria-etapa:last-child { padding-bottom: 0; }
+.trajetoria-etapa::before { content: ''; position: absolute; left: 0; top: 5px; width: 10px; height: 10px; border-radius: 50%; background: #c9c9c9; }
+/* Linha que liga um ponto ao próximo */
+.trajetoria-etapa:not(:last-child)::after { content: ''; position: absolute; left: 4px; top: 19px; bottom: -3px; width: 2px; background: var(--border, #e3e3e3); }
+.trajetoria-etapa--atual::before { background: #005bd3; }
+.trajetoria-cabecalho { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.trajetoria-numero { color: var(--text); font-size: 12px; font-weight: 650; }
+a.trajetoria-numero { color: #005bd3; text-decoration: none; }
+a.trajetoria-numero:hover { text-decoration: underline; }
+a.trajetoria-numero:focus-visible { outline: 2px solid #005bd3; outline-offset: 2px; }
+.trajetoria-detalhe, .trajetoria-motivo { margin: 2px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 /* Botões de ação empilhados, todos com a mesma largura (coluna lateral estreita) */
 .solicitacao-acoes .actions-row--pilha { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
 .solicitacao-acoes .actions-row--pilha .btn { width: 100%; justify-content: center; }
+
+/* Botão que só libera quando o campo está válido: muda de aparência aos poucos, sem salto */
+.solicitacao-acoes .actions-row .btn { transition: opacity .2s ease, background-color .2s ease, border-color .2s ease; }
+.solicitacao-acoes .actions-row .btn:disabled { opacity: .45; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  .solicitacao-acoes .actions-row .btn { transition: none; }
+}

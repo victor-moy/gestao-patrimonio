@@ -61,6 +61,17 @@ function RotasProtegidas() {
   if (!usuario) {
     return <Login />;
   }
+  // Sem perfil ainda: só a tela inicial; qualquer outro endereço volta a ela
+  if (usuario.perfil === 'SEM_ACESSO') {
+    return (
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<Inicio />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    );
+  }
 
   return (
     <>

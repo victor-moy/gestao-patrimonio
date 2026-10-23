@@ -1,15 +1,8 @@
-import { AsyncLocalStorage } from 'node:async_hooks';
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { Perfil } from '@prisma/client';
 import { env } from '../config/env';
 import { AppError } from '../errors/AppError';
-
-export interface ImpersonadoPor {
-  id: string;
-  nome: string;
-  perfil: Perfil;
-}
 
 export interface AuthPayload {
   sub: string;
@@ -18,18 +11,6 @@ export interface AuthPayload {
   unidadeId: string | null;
   // Só no perfil TERCEIRIZADA: o prestador de serviço do usuário (sempre vem do token, nunca do corpo/query)
   prestadorId: string | null;
-  // Preenchido quando o Administrador está "entrando como" este usuário; a auditoria grava os dois.
-  impersonadoPor: ImpersonadoPor | null;
-}
-
-export const contextoPedido = new AsyncLocalStorage<AuthPayload>();
-
-function impersonadoPorDoToken(payload: jwt.JwtPayload): ImpersonadoPor | null {
-  const bruto = payload.impersonadoPor;
-  if (!bruto || typeof bruto !== 'object') return null;
-  const { id, nome, perfil } = bruto as Record<string, unknown>;
-  if (typeof id !== 'string' || typeof nome !== 'string' || typeof perfil !== 'string') return null;
-  return { id, nome, perfil: perfil as Perfil };
 }
 
 declare module 'express-serve-static-core' {
@@ -45,8 +26,8 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['GET', /^\/auth\/me$/],
   ['GET', /^\/manutencoes$/],
   ['GET', new RegExp(`^/manutencoes/${ID}$`)],
-  ['GET', new RegExp(`^/manutencoes/${ID}/historico$`)],
-  ['POST', new RegExp(`^/manutencoes/${ID}/(orcamento|registrar-retorno|relatorio|iniciar-execucao)$`)],
+  ['GET', new RegExp(`^/manutencoes/${ID}/(historico|trajetoria)$`)],
+  ['POST', new RegExp(`^/manutencoes/${ID}/(orcamento|registrar-retorno|relatorio|iniciar-execucao|solicitar-reencaminhamento)$`)],
   ['DELETE', new RegExp(`^/manutencoes/${ID}/relatorio/${ID}$`)],
   // Fotos do chamado civil (a rota confere se o chamado é de um contrato do prestador)
   ['GET', /^\/uploads\/solicitacoes\/[0-9a-f-]{36}\.(jpg|png|webp)$/],
@@ -63,9 +44,24 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['POST', new RegExp(`^/avisos/${ID}/ler$`)],
 ];
 
-export function terceirizadaPodeAcessar(metodo: string, caminho: string) {
+// Entrou pelo Keycloak e ainda não recebeu perfil: só a tela inicial (alertas e atualizações), que o próprio backend
+// devolve vazia para quem não tem perfil. Lista de permissão, negado por padrão.
+const ROTAS_SEM_ACESSO: Array<[string, RegExp]> = [
+  ['GET', /^\/auth\/me$/],
+  ['GET', /^\/dashboard\/alertas$/],
+  ['GET', /^\/avisos$/],
+  ['POST', /^\/avisos\/ler-todas$/],
+  ['POST', new RegExp(`^/avisos/${ID}/ler$`)],
+  ['GET', /^\/conversas(\/nao-lidas)?$/],
+];
+
+function rotaPermitida(rotas: Array<[string, RegExp]>, metodo: string, caminho: string) {
   const limpo = caminho.split('?')[0].replace(/\/+$/, '') || '/';
-  return ROTAS_TERCEIRIZADA.some(([m, re]) => m === metodo && re.test(limpo));
+  return rotas.some(([m, re]) => m === metodo && re.test(limpo));
+}
+
+export function terceirizadaPodeAcessar(metodo: string, caminho: string) {
+  return rotaPermitida(ROTAS_TERCEIRIZADA, metodo, caminho);
 }
 
 // RF01/RF04/RNF05 — valida o JWT em toda rota protegida
@@ -77,13 +73,13 @@ export function autenticar(req: Request, _res: Response, next: NextFunction) {
   const token = header.slice(7);
   try {
     const payload = jwt.verify(token, env.jwtSecret) as jwt.JwtPayload;
+    if (typeof payload.sub !== 'string' || !(payload.perfil in Perfil)) throw new Error('token sem identidade');
     req.usuario = {
       sub: String(payload.sub),
       nome: String(payload.nome),
       perfil: payload.perfil as Perfil,
       unidadeId: (payload.unidadeId as string | null) ?? null,
       prestadorId: (payload.prestadorId as string | null) ?? null,
-      impersonadoPor: impersonadoPorDoToken(payload),
     };
   } catch {
     throw new AppError('Sessão expirada ou token inválido. Faça login novamente.', 401);
@@ -91,5 +87,8 @@ export function autenticar(req: Request, _res: Response, next: NextFunction) {
   if (req.usuario.perfil === 'TERCEIRIZADA' && !terceirizadaPodeAcessar(req.method, req.originalUrl)) {
     throw new AppError('Seu perfil não possui permissão para esta operação.', 403);
   }
-  contextoPedido.run(req.usuario, () => next());
+  if (req.usuario.perfil === 'SEM_ACESSO' && !rotaPermitida(ROTAS_SEM_ACESSO, req.method, req.originalUrl)) {
+    throw new AppError('Seu acesso ainda não foi liberado. Procure o administrador do sistema.', 403);
+  }
+  next();
 }

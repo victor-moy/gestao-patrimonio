@@ -14,6 +14,7 @@ describe('Cores de status', () => {
     expect(corDoStatus('AGUARDANDO_SAIDA')).toBe('yellow');
     expect(corDoStatus('ORCAMENTO_REGISTRADO')).toBe('yellow');
     expect(corDoStatus('EM_MANUTENCAO')).toBe('yellow');
+    expect(corDoStatus('REENCAMINHAMENTO_SOLICITADO')).toBe('yellow');
     expect(corDoStatus('REGULAR')).toBe('yellow');
     expect(corDoStatus('NEGADA')).toBe('red');
     expect(corDoStatus('VENCIDA')).toBe('red');

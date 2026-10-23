@@ -16,13 +16,13 @@ Não use dados reais da Secretaria, não persista anexos obtidos durante testes 
 
 ## Escopo prioritário
 
-As áreas de maior sensibilidade são autenticação JWT, impersonação, RBAC por unidade e por galpão, uploads e downloads de anexos/laudos, importação CSV, movimentações de estoque, saldo de atas e notificações SMTP.
+As áreas de maior sensibilidade são autenticação (login pelo Keycloak e JWT), RBAC por unidade e por galpão, uploads e downloads de anexos/laudos, importação CSV, movimentações de estoque, saldo de atas e notificações SMTP.
 
 ## Controles implementados
 
 - `JWT_SECRET` obrigatório e com no mínimo 32 caracteres em produção (a API falha no boot). Em produção ele é cadastrado como *secret* do ambiente no GitHub (Settings › Environments › demonstracao › Secrets), com um valor diferente para cada ambiente de deploy; localmente fica no `.env`, que não é versionado.
 - CORS restrito a `CORS_ORIGINS`; sem configuração, nenhuma origem externa é aceita em produção.
-- Limite de frequência no login (por IP + e-mail e teto por IP), na impersonação e nas importações.
+- Limite de frequência (por IP) nas rotas de login e nas importações.
 - Anexos de solicitação e laudos exigem autenticação e respeitam a unidade do usuário; só as imagens do catálogo de tipos são públicas.
 - Uploads validam o tipo real do arquivo (assinatura/magic bytes), não só o MIME informado.
 - Estoque e saldo de ata usam débito condicional no banco (e trava de linha na ata), evitando valores negativos sob concorrência.

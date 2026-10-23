@@ -1,65 +1,78 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../App';
+import { setToken } from '../api/client';
 import { mockFetch } from './mock-fetch';
 
-describe('Login (RF01)', () => {
-  it('renderiza a tela de login institucional', () => {
+describe('Login institucional (Keycloak)', () => {
+  afterEach(() => {
+    setToken(null);
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('oferece o login institucional como caminho principal', () => {
     mockFetch({});
     render(<App />);
-    expect(screen.getByRole('heading', { name: 'Acessar sua conta' })).toBeInTheDocument();
-    expect(screen.getByText('Gestão Patrimonial')).toBeInTheDocument();
-    expect(screen.getByLabelText('E-mail')).toBeInTheDocument();
-    expect(screen.getByLabelText('Senha')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /entrar/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /esqueceu a senha/i })).not.toBeInTheDocument();
-    expect(screen.queryByText('Acesso restrito')).not.toBeInTheDocument();
-    expect(screen.getByText(/em caso de dificuldade/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Entrar' })).toHaveAttribute('href', '/api/auth/oidc/login');
   });
 
-  it('faz login e entra na tela inicial do gestor', async () => {
+  it('guarda o token do fragmento ao voltar do Keycloak e limpa o endereço', async () => {
+    window.history.replaceState(null, '', '/login/retorno#token=token-keycloak');
     mockFetch({
-      '/auth/login': {
-        body: {
-          token: 'token-teste',
-          usuario: {
-            id: '1',
-            nome: 'Samuel',
-            email: 'gestor@joinville.sc.gov.br',
-            matricula: '10001',
-            perfil: 'OPERADOR',
-            unidadeId: null,
-          },
-        },
+      '/auth/me': {
+        body: { id: '1', nome: 'Ana', email: 'ana@joinville.sc.gov.br', matricula: '1', perfil: 'UNIDADE', unidadeId: 'u1', unidadeNome: 'UBS' },
       },
       '/dashboard/alertas': { body: [] },
+      '/conversas': { body: [] },
     });
     render(<App />);
-    await userEvent.type(screen.getByLabelText('E-mail'), 'gestor@joinville.sc.gov.br');
-    await userEvent.type(screen.getByLabelText('Senha'), 'sgp12345');
-    await userEvent.click(screen.getByRole('button', { name: /entrar/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { name: /^Bem-vindo,/ })).toBeInTheDocument();
-    });
-    expect(screen.getByRole('heading', { name: 'Pendências' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Mensagens não lidas' })).toBeInTheDocument();
-    expect(localStorage.getItem('sgp_token')).toBe('token-teste');
+    expect(await screen.findByRole('heading', { name: /Bem-vindo/ })).toBeInTheDocument();
+    expect(localStorage.getItem('sgp_token')).toBe('token-keycloak');
+    expect(window.location.pathname).toBe('/');
+    expect(window.location.hash).toBe('');
   });
 
-  it('exibe mensagem clara quando as credenciais são inválidas (RNF11)', async () => {
+  it('voltar ao login sem token em /login/retorno limpa o endereço e mostra a mesma tela de sempre', async () => {
+    window.history.replaceState(null, '', '/login/retorno');
+    mockFetch({});
+    render(<App />);
+    expect(await screen.findByRole('link', { name: 'Entrar' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
+    expect(localStorage.getItem('sgp_token')).toBeNull();
+  });
+
+  it('quem ainda não tem perfil cai na tela inicial, só com o menu Início', async () => {
+    localStorage.setItem('sgp_token', 'token-teste');
+    window.history.replaceState(null, '', '/inventario');
     mockFetch({
-      '/auth/login': { status: 401, body: { mensagem: 'E-mail ou senha inválidos.' } },
+      '/auth/me': {
+        body: { id: '2', nome: 'Bia Lima', email: 'bia@joinville.sc.gov.br', matricula: 'bia', perfil: 'SEM_ACESSO', unidadeId: null },
+      },
+      '/dashboard/alertas': { body: [] },
+      '/avisos': { body: { itens: [], total: 0 } },
+      '/conversas': { body: [] },
+      '/conversas/nao-lidas': { body: { total: 0 } },
     });
     render(<App />);
-    await waitFor(() => expect(screen.getByLabelText('E-mail')).toBeInTheDocument());
-    await userEvent.type(screen.getByLabelText('E-mail'), 'x@joinville.sc.gov.br');
-    await userEvent.type(screen.getByLabelText('Senha'), 'errada');
-    await userEvent.click(screen.getByRole('button', { name: /entrar/i }));
+    expect(await screen.findByRole('heading', { name: 'Bem-vindo, Bia' })).toBeInTheDocument();
+    expect(screen.queryByText(/acesso ainda não foi liberado/)).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
+    expect(screen.getByRole('link', { name: 'Início' })).toBeInTheDocument();
+    for (const name of ['Inventário', 'Solicitações', 'Estoque', 'Atas', 'Contratos', 'Relatórios', 'Conversas', 'Configurações']) {
+      expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
+    }
+  });
+});
 
-    await waitFor(() => {
-      expect(window.alert).toHaveBeenCalledWith('E-mail ou senha inválidos.');
-    });
+describe('Tela de login (RF01)', () => {
+  it('só oferece a conta institucional: sem campos de e-mail e senha', () => {
+    mockFetch({});
+    render(<App />);
+    expect(screen.getByRole('heading', { name: 'Gestão Patrimonial' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('E-mail')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument();
+    expect(screen.queryByText(/contingência/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/em caso de dificuldade/i)).toBeInTheDocument();
   });
 });

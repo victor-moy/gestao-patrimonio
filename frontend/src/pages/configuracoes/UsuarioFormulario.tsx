@@ -9,7 +9,7 @@ import { semAlteracoes } from '../../utils/form';
 import { ROTULO_PERFIL } from '../../utils/format';
 import type { UsuarioLista } from './Usuarios';
 
-const VAZIO = { nome: '', email: '', matricula: '', senha: '', perfil: 'UNIDADE', unidadeId: '', prestadorId: '', ativo: true };
+const VAZIO = { nome: '', email: '', matricula: '', perfil: '', unidadeId: '', prestadorId: '', ativo: true };
 
 export function UsuarioFormulario() {
   const { id } = useParams();
@@ -48,7 +48,6 @@ export function UsuarioFormulario() {
       nome: encontrado.nome,
       email: encontrado.email,
       matricula: encontrado.matricula,
-      senha: '',
       perfil: encontrado.perfil,
       unidadeId: encontrado.unidadeId ?? '',
       prestadorId: encontrado.prestadorId ?? '',
@@ -77,12 +76,13 @@ export function UsuarioFormulario() {
           unidadeId: form.unidadeId || null,
           prestadorId: form.perfil === 'TERCEIRIZADA' ? form.prestadorId || null : null,
           ativo: form.ativo,
-          ...(form.senha ? { senha: form.senha } : {}),
         });
       } else {
+        // Cadastro prévio: só e-mail e perfil (mais unidade ou prestador, quando o perfil exige)
         await api.post('/usuarios', {
-          ...form,
-          unidadeId: form.unidadeId || null,
+          email: form.email,
+          perfil: form.perfil,
+          unidadeId: form.perfil === 'UNIDADE' || form.perfil === 'GALPAO' ? form.unidadeId || null : null,
           prestadorId: form.perfil === 'TERCEIRIZADA' ? form.prestadorId || null : null,
         });
       }
@@ -112,16 +112,18 @@ export function UsuarioFormulario() {
       <section className="equipamento-secao">
         <h3>Dados do usuário</h3>
         <div className="novo-equipamento-grade">
-          <div className="field">
-            <label htmlFor="usuario-nome">Nome completo</label>
-            <input
-              id="usuario-nome"
-              value={form.nome}
-              onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              disabled={bloqueado}
-              required
-            />
-          </div>
+          {editando && (
+            <div className="field">
+              <label htmlFor="usuario-nome">Nome completo</label>
+              <input
+                id="usuario-nome"
+                value={form.nome}
+                onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                disabled={bloqueado}
+                required
+              />
+            </div>
+          )}
           <div className="field">
             <label htmlFor="usuario-email">E-mail</label>
             <input
@@ -133,30 +135,12 @@ export function UsuarioFormulario() {
               required
             />
           </div>
-          <div className="field">
-            <label htmlFor="usuario-matricula">Matrícula</label>
-            <input
-              id="usuario-matricula"
-              value={form.matricula}
-              onChange={(e) => setForm({ ...form, matricula: e.target.value })}
-              disabled={editando || bloqueado}
-              required
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="usuario-senha">{editando ? 'Nova senha' : 'Senha'}</label>
-            <input
-              id="usuario-senha"
-              type="password"
-              minLength={6}
-              autoComplete="new-password"
-              placeholder={editando ? 'Preencha só para redefinir' : undefined}
-              value={form.senha}
-              onChange={(e) => setForm({ ...form, senha: e.target.value })}
-              disabled={bloqueado}
-              required={!editando}
-            />
-          </div>
+          {editando && (
+            <div className="field">
+              <label htmlFor="usuario-matricula">Matrícula</label>
+              <input id="usuario-matricula" value={form.matricula} disabled />
+            </div>
+          )}
           <div className="field">
             <label htmlFor="usuario-perfil">Perfil de acesso</label>
             <select
@@ -164,14 +148,21 @@ export function UsuarioFormulario() {
               value={form.perfil}
               onChange={(e) => setForm({ ...form, perfil: e.target.value })}
               disabled={bloqueado}
+              required
             >
-              {Object.entries(ROTULO_PERFIL).map(([valor, rotulo]) => (
-                <option key={valor} value={valor}>
-                  {rotulo}
-                </option>
-              ))}
+              {!editando && <option value="">Selecione…</option>}
+              {/* Pré-cadastrar sem acesso não faz sentido; "Sem acesso" só aparece na edição, para revogar */}
+              {Object.entries(ROTULO_PERFIL)
+                .filter(([valor]) => editando || valor !== 'SEM_ACESSO')
+                .map(([valor, rotulo]) => (
+                  <option key={valor} value={valor}>
+                    {rotulo}
+                  </option>
+                ))}
             </select>
           </div>
+          {/* No cadastro novo a unidade só aparece quando o perfil exige */}
+          {(editando || form.perfil === 'UNIDADE' || form.perfil === 'GALPAO') && (
           <div className="field">
             <label htmlFor="usuario-unidade">Unidade</label>
             <select
@@ -189,6 +180,7 @@ export function UsuarioFormulario() {
               ))}
             </select>
           </div>
+          )}
           {form.perfil === 'TERCEIRIZADA' && (
             <div className="field">
               <label htmlFor="usuario-prestador">Prestador de serviço</label>

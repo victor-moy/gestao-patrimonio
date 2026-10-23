@@ -186,12 +186,10 @@ describe('Manutenção civil', () => {
       expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
     });
 
-    it('enquanto aguarda a execução pelo prestador, o Administrador não nega nem troca o item', async () => {
+    it('enquanto aguarda a execução pelo prestador, o Administrador não nega', async () => {
       prismaMock.manutencao.findUnique.mockResolvedValue(civil({ status: 'AGUARDANDO_EXECUCAO', contrato, contratoItemId: ITEM }) as never);
       const negar = await request(app).post(`/manutencoes/${MAN}/negar`).set(admin()).send({ motivo: 'Alteração de layout' });
-      const trocar = await request(app).post(`/manutencoes/${MAN}/item`).set(admin()).send({ contratoItemId: ITEM });
       expect(negar.status).toBe(422);
-      expect(trocar.status).toBe(422);
       expect(prismaMock.manutencao.update).not.toHaveBeenCalled();
     });
 

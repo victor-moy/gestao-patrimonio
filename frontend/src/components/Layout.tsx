@@ -7,7 +7,6 @@ import { useAuth } from '../auth/AuthContext';
 import { useConversas, useNaoLidas } from '../hooks/useConversas';
 import { caminhoConversa, codigoConversa, tituloConversa } from '../utils/conversas';
 import { caminhoRelatorio, SUBMENUS_RELATORIOS } from '../utils/relatorios';
-import { EntrarComoMenu } from './EntrarComoMenu';
 import { ContagemNaoLidas } from './ContagemNaoLidas';
 import { LogoSistema } from './LogoSistema';
 import {
@@ -40,7 +39,7 @@ interface TabDef {
 // Abas conforme o header do frame "Gestor" do Figma (6 abas; Atas é
 // acessada pelo card "Controle de Atas" do painel e pelo menu do usuário)
 const TABS: TabDef[] = [
-  { para: '/', rotulo: 'Início', icone: <IconeInicio />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA'] },
+  { para: '/', rotulo: 'Início', icone: <IconeInicio />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA', 'SEM_ACESSO'] },
   { para: '/inventario', rotulo: 'Inventário', icone: <IconeInventario />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO'] },
   { para: '/solicitacoes', rotulo: 'Solicitações', icone: <IconeSolicitacoes />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA'] },
   { para: '/estoque', rotulo: 'Estoque', icone: <IconeEstoque />, perfis: ['OPERADOR', 'GALPAO'] },
@@ -92,7 +91,7 @@ const SECOES_CONFIGURACOES: SecaoConfiguracoes[] = [
 ];
 
 export function Layout() {
-  const { usuario, logout, impersonando, podeTrocarUsuario } = useAuth();
+  const { usuario, sair: encerrarSessao } = useAuth();
   const donoMenuUsuario = useRef<HTMLDivElement>(null);
   const botaoMenuUsuario = useRef<HTMLButtonElement>(null);
   const location = useLocation();
@@ -174,11 +173,11 @@ export function Layout() {
     setMenuAberto(false);
     setSaindo(true);
     const semMovimento = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    setTimeout(logout, semMovimento ? 0 : 350);
+    setTimeout(encerrarSessao, semMovimento ? 0 : 350);
   }
 
   return (
-    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${tituloGestao ? ' app-shell--gestao' : ''}${saindo ? ' app-shell--saindo' : ''}`}>
+    <div className={`app-shell${tituloGestao ? ' app-shell--gestao' : ''}${saindo ? ' app-shell--saindo' : ''}`}>
       {sidebarAberta && <button type="button" className="sidebar-backdrop" aria-label="Fechar menu" tabIndex={-1} onClick={fecharSidebar} />}
       <aside className={`sidebar${sidebarAberta ? ' aberta' : ''}`}>
         {emConversas ? (
@@ -263,7 +262,7 @@ export function Layout() {
           ))}
         </nav>
         )}
-        {!emConfiguracoes && (
+        {!emConfiguracoes && usuario.perfil !== 'SEM_ACESSO' && (
           <div className="sidebar-footer">
             <NavLink
               to="/conversas"
@@ -314,8 +313,7 @@ export function Layout() {
                 </span>
               </button>
               {menuAberto && (
-                <div className={`user-menu${podeTrocarUsuario ? ' user-menu--larga' : ''}`}>
-                  {podeTrocarUsuario && <EntrarComoMenu aoEntrar={() => setMenuAberto(false)} />}
+                <div className="user-menu">
                   <button type="button" onClick={sair}><IconeLogout /> Sair</button>
                 </div>
               )}

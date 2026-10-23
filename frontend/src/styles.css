@@ -104,6 +104,7 @@ label {
 }
 
 /* ---------- Login ---------- */
+/* Uma única ação (Entrar): tela escura, conteúdo centralizado, sem caixa */
 .login-page {
   min-height: 100vh;
   min-height: 100dvh;
@@ -116,147 +117,65 @@ label {
     linear-gradient(145deg, #15171a 0%, #1f2227 52%, #2a2f37 100%);
 }
 
-.login-topbar {
-  min-height: 56px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 28px;
-  color: #f1f1f1;
-}
-
-.login-topbar strong {
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: -.15px;
-}
-
 .login-main {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 48px 24px 28px;
+  padding: 32px 24px;
 }
 
 .login-card {
   width: 100%;
-  height: 460px;
-  max-width: 430px;
+  max-width: 360px;
   display: flex;
   flex-direction: column;
-  padding: 32px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  align-items: center;
+  text-align: center;
+  color: #f1f1f1;
 }
 
-.login-form-header {
-  margin-bottom: 28px;
-}
+.login-card .logo-sistema { width: 72px; height: 72px; margin-bottom: 24px; }
 
-.login-body { width: 100%; display: flex; flex: 1; flex-direction: column; }
-
-.login-body .login-titulo {
+.login-titulo {
   margin: 0;
-  color: var(--text);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -.4px;
+  line-height: 1.2;
+  letter-spacing: -.5px;
 }
 
-.login-form-header p {
+.login-subtitulo {
   margin: 8px 0 0;
-  color: var(--text-secondary);
-  font-size: 13px;
+  color: #a9b0bb;
+  font-size: 14px;
   line-height: 1.45;
 }
 
-.login-body .field {
-  margin-bottom: 18px;
-}
-
-.login-body label {
-  margin: 0 0 6px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-  line-height: 20px;
-}
-
-.login-body input {
-  height: 44px;
-  border-color: var(--border-strong);
-  border-radius: 8px;
-  background: var(--surface);
+.login-acao {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 32px;
+  border-radius: 10px;
+  background: #fff;
+  color: #1a1a1a;
   font-size: 14px;
-  box-shadow: inset 0 1px 0 rgba(0, 0, 0, .03);
-}
-
-.login-body input:focus {
-  border-color: #303030;
-  outline: 2px solid #303030;
-  outline-offset: 1px;
-  box-shadow: none;
-}
-
-.login-card .btn {
-  min-height: 44px;
-  border-radius: 8px;
-  font-size: 13px;
   font-weight: 650;
-  letter-spacing: 0;
-  text-transform: none;
   box-shadow: none;
 }
-
-.login-card .btn-primary {
-  border-color: #303030;
-  background: #303030;
-}
-
-.login-card .btn-primary:hover { background: #1a1a1a; }
-.login-card input::placeholder { color: var(--text-muted); opacity: 1; }
-.login-card input:autofill {
-  box-shadow: 0 0 0 1000px var(--surface) inset;
-  -webkit-text-fill-color: var(--text);
-  caret-color: var(--text);
-}
-.login-card input:-webkit-autofill {
-  -webkit-box-shadow: 0 0 0 1000px var(--surface) inset;
-  -webkit-text-fill-color: var(--text);
-  caret-color: var(--text);
-}
-.login-card button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.login-acao:hover { background: #e9ecf0; }
+.login-acao:focus-visible { outline: 2px solid #8dbcf8; outline-offset: 3px; }
 
 .login-footer {
-  margin-top: auto;
-  padding-top: 16px;
-  color: var(--text-muted);
-  font-size: 11px;
+  margin: 28px 0 0;
+  color: #7d8591;
+  font-size: 12px;
   line-height: 1.45;
-  text-align: center;
 }
 
 @media (max-width: 600px) {
-  .login-topbar {
-    flex-direction: column;
-    justify-content: center;
-    gap: 12px;
-    padding: 40px 18px 0;
-  }
-  .login-topbar .logo-sistema { width: 64px; height: 64px; }
-  .login-topbar strong { font-size: 18px; }
-  .login-main {
-    justify-content: center;
-    padding: 24px 14px 40px;
-  }
-  .login-card { height: 430px; padding: 24px 20px; border-radius: 12px; }
-  .login-body .login-titulo { font-size: 22px; }
-  .login-footer { margin-top: 18px; }
+  .login-card .logo-sistema { width: 64px; height: 64px; }
+  .login-titulo { font-size: 24px; }
 }
 
 .btn {
@@ -295,12 +214,6 @@ label {
 
 .btn-primary:hover {
   background: var(--primary-dark);
-}
-
-.btn-block {
-  width: 100%;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .btn-outline {
