@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto';
 import { Response, Router } from 'express';
 import { autenticar } from '../../middlewares/auth';
 import { prisma } from '../../lib/prisma';
@@ -16,6 +17,19 @@ const limiteLoginPorIp = limitarFrequencia({
   mensagem: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.',
 });
 const passa = (_req: unknown, _res: unknown, next: () => void) => next();
+
+// Teto bem mais baixo que o do login institucional: quem acerta a chave entra em qualquer perfil
+const limiteDemonstracao = limitarFrequencia({
+  janelaMs: 15 * 60 * 1000,
+  max: 10,
+  mensagem: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+});
+
+function chaveConfere(informada: unknown) {
+  const esperada = Buffer.from(env.demoLogin.chave);
+  const recebida = Buffer.from(typeof informada === 'string' ? informada : '');
+  return esperada.length > 0 && esperada.length === recebida.length && timingSafeEqual(esperada, recebida);
+}
 
 // Falha em qualquer etapa do login institucional: o motivo fica no log do servidor e o navegador volta à tela de
 // login, sem detalhes na tela.
@@ -57,6 +71,22 @@ authRouter.get('/callback', env.rateLimitAtivo ? limiteLoginPorIp : passa, async
     res.redirect(oidc.urlRetornoFrontend(token));
   } catch (erro) {
     voltarAoLogin(res, erro);
+  }
+});
+
+// Acesso temporário da demonstração: /auth/demo?logado=admin|unidade|galpao|terceirizada&chave=...
+// Desligado sem DEMO_LOGIN_CHAVE. Qualquer recusa responde 404, para a rota não revelar que existe.
+authRouter.get('/demo', env.rateLimitAtivo ? limiteDemonstracao : passa, async (req, res) => {
+  if (!chaveConfere(req.query.chave)) {
+    res.status(404).json({ mensagem: 'Não encontrado.' });
+    return;
+  }
+  try {
+    const { token } = await authService.entrarDemonstracao(String(req.query.logado ?? ''));
+    console.warn(`Login de demonstração: ${String(req.query.logado)}`);
+    res.redirect(oidc.urlRetornoFrontend(token));
+  } catch {
+    res.status(404).json({ mensagem: 'Não encontrado.' });
   }
 });
 

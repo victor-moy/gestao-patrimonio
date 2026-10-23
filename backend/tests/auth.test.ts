@@ -228,3 +228,68 @@ describe('Cookie do login institucional não serve de token de sessão', () => {
     }
   });
 });
+
+describe('Acesso temporário da demonstração (/auth/demo)', () => {
+  const CHAVE = 'chave-de-teste-da-demonstracao-0123456789';
+  const usuarios: Record<string, { email: string; perfil: string }> = {
+    admin: { email: 'gestor@joinville.sc.gov.br', perfil: 'OPERADOR' },
+    unidade: { email: 'ubs.centro@joinville.sc.gov.br', perfil: 'UNIDADE' },
+    galpao: { email: 'galpao.user@joinville.sc.gov.br', perfil: 'GALPAO' },
+    terceirizada: { email: 'terceirizada@tecsaude.com.br', perfil: 'TERCEIRIZADA' },
+  };
+  const alvo = (logado: string) => ({
+    id: `u-${logado}`,
+    nome: logado,
+    email: usuarios[logado].email,
+    matricula: logado,
+    perfil: usuarios[logado].perfil,
+    ativo: true,
+    unidadeId: null,
+    prestadorId: null,
+    unidade: null,
+    prestador: null,
+  });
+
+  it.each(Object.keys(usuarios))('com a chave certa, "%s" entra no perfil correspondente e é auditado', async (logado) => {
+    prismaMock.usuario.findUnique.mockResolvedValue(alvo(logado) as never);
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const res = await request(app).get(`/auth/demo?logado=${logado}&chave=${CHAVE}`);
+    expect(res.status).toBe(302);
+    const token = decodeURIComponent(res.headers.location.split('#token=')[1]);
+    expect((jwt.verify(token, 'segredo-de-teste') as jwt.JwtPayload).perfil).toBe(usuarios[logado].perfil);
+    expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { email: usuarios[logado].email } }));
+    expect(prismaMock.logAuditoria.create.mock.calls[0][0].data.acao).toBe('LOGIN_DEMONSTRACAO');
+  });
+
+  it('sem a chave, com chave errada ou de outro tamanho: 404, sem consultar o banco', async () => {
+    for (const q of ['logado=admin', `logado=admin&chave=errada`, `logado=admin&chave=${CHAVE}x`, `logado=admin&chave=${'a'.repeat(CHAVE.length)}`]) {
+      const res = await request(app).get(`/auth/demo?${q}`);
+      expect([q, res.status]).toEqual([q, 404]);
+      expect(res.headers.location).toBeUndefined();
+    }
+    expect(prismaMock.usuario.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('com a chave desligada (vazia), nem a chave "vazia" abre a rota', async () => {
+    const { env } = await import('../src/config/env');
+    const original = env.demoLogin.chave;
+    env.demoLogin.chave = '';
+    try {
+      const res = await request(app).get('/auth/demo?logado=admin&chave=');
+      expect(res.status).toBe(404);
+    } finally {
+      env.demoLogin.chave = original;
+    }
+  });
+
+  it('perfil desconhecido, usuário ausente, inativo ou com perfil trocado: 404', async () => {
+    expect((await request(app).get(`/auth/demo?logado=root&chave=${CHAVE}`)).status).toBe(404);
+    expect((await request(app).get(`/auth/demo?logado=__proto__&chave=${CHAVE}`)).status).toBe(404);
+    prismaMock.usuario.findUnique.mockResolvedValueOnce(null);
+    expect((await request(app).get(`/auth/demo?logado=admin&chave=${CHAVE}`)).status).toBe(404);
+    prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...alvo('admin'), ativo: false } as never);
+    expect((await request(app).get(`/auth/demo?logado=admin&chave=${CHAVE}`)).status).toBe(404);
+    prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...alvo('admin'), perfil: 'SEM_ACESSO' } as never);
+    expect((await request(app).get(`/auth/demo?logado=admin&chave=${CHAVE}`)).status).toBe(404);
+  });
+});

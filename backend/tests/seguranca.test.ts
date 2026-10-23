@@ -154,6 +154,14 @@ describe('Segredo JWT', () => {
     expect(() => jest.isolateModules(() => require('../src/config/env'))).not.toThrow();
   });
 
+  it('a chave do acesso de demonstração, quando definida, precisa ter 32+ caracteres', () => {
+    process.env.JWT_SECRET = 'x'.repeat(40);
+    process.env.DEMO_LOGIN_CHAVE = 'curta';
+    expect(() => jest.isolateModules(() => require('../src/config/env'))).toThrow('DEMO_LOGIN_CHAVE');
+    process.env.DEMO_LOGIN_CHAVE = '';
+    expect(() => jest.isolateModules(() => require('../src/config/env'))).not.toThrow();
+  });
+
   it('em produção, falha no boot sem as variáveis do Keycloak', () => {
     process.env.NODE_ENV = 'production';
     process.env.JWT_SECRET = 'x'.repeat(40);
