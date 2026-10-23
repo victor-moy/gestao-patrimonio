@@ -32,24 +32,36 @@ describe('Login institucional (Keycloak)', () => {
     expect(window.location.hash).toBe('');
   });
 
-  it('mostra sempre a mesma mensagem quando o retorno do Keycloak falha', async () => {
-    window.history.replaceState(null, '', '/login/retorno?erro=Usu%C3%A1rio%20desativado.');
+  it('voltar ao login sem token em /login/retorno limpa o endereço e mostra a mesma tela de sempre', async () => {
+    window.history.replaceState(null, '', '/login/retorno');
     mockFetch({});
     render(<App />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Houve um erro na autenticação, tente novamente.');
+    expect(await screen.findByRole('link', { name: 'Entrar' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
     expect(localStorage.getItem('sgp_token')).toBeNull();
   });
 
-  it('quem ainda não tem perfil vê a tela de acesso aguardando liberação', async () => {
+  it('quem ainda não tem perfil cai na tela inicial, só com o menu Início', async () => {
     localStorage.setItem('sgp_token', 'token-teste');
+    window.history.replaceState(null, '', '/inventario');
     mockFetch({
       '/auth/me': {
-        body: { id: '2', nome: 'Bia', email: 'bia@joinville.sc.gov.br', matricula: 'bia', perfil: 'SEM_ACESSO', unidadeId: null },
+        body: { id: '2', nome: 'Bia Lima', email: 'bia@joinville.sc.gov.br', matricula: 'bia', perfil: 'SEM_ACESSO', unidadeId: null },
       },
+      '/dashboard/alertas': { body: [] },
+      '/avisos': { body: { itens: [], total: 0 } },
+      '/conversas': { body: [] },
+      '/conversas/nao-lidas': { body: { total: 0 } },
     });
     render(<App />);
-    expect(await screen.findByRole('heading', { name: 'Aguardando liberação' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Início/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Bem-vindo, Bia' })).toBeInTheDocument();
+    expect(screen.queryByText(/acesso ainda não foi liberado/)).not.toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
+    expect(screen.getByRole('link', { name: 'Início' })).toBeInTheDocument();
+    for (const name of ['Inventário', 'Solicitações', 'Estoque', 'Atas', 'Contratos', 'Relatórios', 'Conversas', 'Configurações']) {
+      expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
+    }
   });
 });
 

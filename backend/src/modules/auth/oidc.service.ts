@@ -118,10 +118,12 @@ export async function urlDeLogout() {
   });
 }
 
-// Para onde o navegador volta depois do login: uma rota do frontend, na mesma origem do site.
-export function urlRetornoFrontend(fragmento: string, consulta = '') {
+// Onde o navegador cai depois do login: uma rota do frontend, na mesma origem do site.
+export function urlRetornoFrontend(token: string) {
   const url = new URL('/login/retorno', env.oidc.postLogoutUri || 'http://localhost');
-  url.search = consulta;
-  url.hash = fragmento;
+  url.hash = `token=${encodeURIComponent(token)}`;
   return url.toString();
 }
+
+// Qualquer falha volta para a tela de login, que é uma só.
+export const urlTelaDeLogin = () => env.oidc.postLogoutUri || '/';

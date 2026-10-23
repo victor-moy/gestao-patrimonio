@@ -26,7 +26,8 @@ dashboardRouter.get(
 // Pendências e riscos da Home — todos os perfis autenticados (escopo pelo token)
 dashboardRouter.get(
   '/alertas',
-  permitir(Perfil.OPERADOR, Perfil.UNIDADE, Perfil.GALPAO, Perfil.TERCEIRIZADA),
+  // SEM_ACESSO também: a Home dele existe, mas o serviço devolve a lista vazia
+  permitir(Perfil.OPERADOR, Perfil.UNIDADE, Perfil.GALPAO, Perfil.TERCEIRIZADA, Perfil.SEM_ACESSO),
   async (req, res) => {
     res.json(await service.alertas(req.usuario!));
   },

@@ -1,5 +1,4 @@
 import request from 'supertest';
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prismaMock } from './prisma-mock';
 import { criarApp } from '../src/app';
@@ -13,7 +12,6 @@ describe('Autenticação (RF01, RF03, RF04, RNF04)', () => {
     nome: 'Samuel',
     email: 'gestor@joinville.sc.gov.br',
     matricula: '10001',
-    senhaHash: bcrypt.hashSync('senha-correta', 10),
     perfil: 'OPERADOR' as const,
     ativo: true,
     unidadeId: null,
@@ -274,26 +272,35 @@ describe('Login pelo Keycloak', () => {
     await expect(entrarPeloKeycloak(identidade)).rejects.toMatchObject({ statusCode: 403 });
   });
 
-  it('SEM_ACESSO só consegue ver /auth/me; qualquer outra rota é negada', async () => {
+  it('SEM_ACESSO enxerga só a tela inicial: /auth/me, alertas e atualizações; o resto é negado', async () => {
     prismaMock.usuario.findUnique.mockResolvedValue({ ...existente, perfil: 'SEM_ACESSO' } as never);
-    const me = await request(app).get('/auth/me').set(auth('SEM_ACESSO'));
-    expect(me.status).toBe(200);
-    for (const rota of ['/equipamentos', '/solicitacoes', '/avisos', '/auth/impersonaveis']) {
+    const permitidas = ['/auth/me', '/dashboard/alertas', '/avisos', '/conversas', '/conversas/nao-lidas'];
+    for (const rota of permitidas) {
+      const res = await request(app).get(rota).set(auth('SEM_ACESSO'));
+      expect([rota, res.status === 403]).toEqual([rota, false]);
+    }
+    for (const rota of ['/equipamentos', '/solicitacoes', '/manutencoes', '/contratos', '/atas', '/estoque', '/usuarios', '/relatorios/visao-geral', '/auth/impersonaveis']) {
       const res = await request(app).get(rota).set(auth('SEM_ACESSO'));
       expect([rota, res.status]).toEqual([rota, 403]);
     }
+    const escrita = await request(app).post('/solicitacoes').set(auth('SEM_ACESSO')).send({});
+    expect(escrita.status).toBe(403);
   });
 
-  it('o login institucional responde 503 enquanto o Keycloak não está configurado', async () => {
-    const res = await request(app).get('/auth/oidc/login');
-    expect(res.status).toBe(503);
+  it('SEM_ACESSO recebe a Home vazia, sem dados de nenhuma unidade', async () => {
+    const res = await request(app).get('/dashboard/alertas').set(auth('SEM_ACESSO'));
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual([]);
   });
 
-  it('o retorno do Keycloak sem o cookie de login volta ao frontend com erro, sem criar sessão', async () => {
-    const res = await request(app).get('/auth/callback?code=abc&state=xyz');
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toContain('/login/retorno?erro=autenticacao');
-    expect(res.headers.location).not.toContain('token=');
+  it('qualquer falha do login institucional volta à tela de login, sem detalhes e sem sessão', async () => {
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    for (const rota of ['/auth/oidc/login', '/auth/callback?code=abc&state=xyz']) {
+      const res = await request(app).get(rota);
+      expect([rota, res.status]).toEqual([rota, 302]);
+      expect(res.headers.location).toBe('/');
+      expect(res.headers['set-cookie'] ?? []).not.toEqual(expect.arrayContaining([expect.stringContaining('token')]));
+    }
   });
 });
 

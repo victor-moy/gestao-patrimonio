@@ -49,10 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Volta do Keycloak: o backend entrega o token no fragmento (#token=...) de /login/retorno
     if (window.location.pathname === '/login/retorno') {
       const novoToken = new URLSearchParams(window.location.hash.slice(1)).get('token');
-      if (novoToken) {
-        setToken(novoToken);
-        window.history.replaceState(null, '', '/');
-      }
+      if (novoToken) setToken(novoToken);
+      window.history.replaceState(null, '', '/');
     }
     if (!getToken()) {
       setCarregando(false);

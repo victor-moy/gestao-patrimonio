@@ -6,7 +6,7 @@ Extraído da seção 2.3–2.5 do [RFC v1.0](https://github.com/victor-moy/gesta
 
 | ID | Requisito |
 |---|---|
-| RF01 | O sistema deve permitir que o usuário realize login com a conta institucional da Prefeitura (Keycloak, OpenID Connect). O Keycloak só autentica; perfil e unidade são do SGP. Quem já está cadastrado é vinculado pelo e-mail no primeiro login; quem é novo entra como `SEM_ACESSO` (vê só a tela de "acesso aguardando liberação") até um Administrador atribuir o perfil. |
+| RF01 | O sistema deve permitir que o usuário realize login com a conta institucional da Prefeitura (Keycloak, OpenID Connect). O Keycloak só autentica; perfil e unidade são do SGP. Quem já está cadastrado é vinculado pelo e-mail no primeiro login; quem é novo entra como `SEM_ACESSO` (vê só a tela inicial, vazia) até um Administrador atribuir o perfil. |
 | RF02 | O sistema deve permitir que o administrador (Administrador) cadastre usuários e atribua perfis, em Configurações. O SGP não guarda nem redefine senhas: a credencial é da conta institucional. |
 | RF03 | O sistema deve restringir o acesso a funcionalidades de acordo com o perfil do usuário autenticado. |
 | RF04 | O sistema deve manter sessão autenticada com expiração automática (duração configurável, 30 minutos por padrão); ao expirar, o usuário entra novamente. |

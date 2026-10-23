@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Response, Router } from 'express';
 import { Perfil } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
 import { permitir } from '../../middlewares/rbac';
@@ -25,6 +25,13 @@ const limiteImpersonacao = limitarFrequencia({
 });
 const passa = (_req: unknown, _res: unknown, next: () => void) => next();
 
+// Falha em qualquer etapa do login institucional: o motivo fica no log do servidor e o navegador volta à tela de
+// login, sem detalhes na tela.
+function voltarAoLogin(res: Response, erro: unknown) {
+  console.warn('Falha no login institucional:', erro instanceof Error ? erro.message : erro);
+  res.redirect(oidc.urlTelaDeLogin());
+}
+
 function lerCookie(cabecalho: string | undefined, nome: string) {
   const par = (cabecalho ?? '').split(';').map((c) => c.trim()).find((c) => c.startsWith(`${nome}=`));
   return par ? decodeURIComponent(par.slice(nome.length + 1)) : undefined;
@@ -32,15 +39,19 @@ function lerCookie(cabecalho: string | undefined, nome: string) {
 
 // Login institucional: leva o navegador ao Keycloak. O cookie guarda state/nonce/PKCE só até o retorno.
 authRouter.get('/oidc/login', env.rateLimitAtivo ? limiteLoginPorIp : passa, async (_req, res) => {
-  const { url, cookie, validadeS } = await oidc.iniciarLogin();
-  res.cookie(oidc.COOKIE_OIDC, cookie, {
-    httpOnly: true,
-    secure: env.nodeEnv === 'production',
-    sameSite: 'lax',
-    maxAge: validadeS * 1000,
-    path: '/',
-  });
-  res.redirect(url);
+  try {
+    const { url, cookie, validadeS } = await oidc.iniciarLogin();
+    res.cookie(oidc.COOKIE_OIDC, cookie, {
+      httpOnly: true,
+      secure: env.nodeEnv === 'production',
+      sameSite: 'lax',
+      maxAge: validadeS * 1000,
+      path: '/',
+    });
+    res.redirect(url);
+  } catch (erro) {
+    voltarAoLogin(res, erro);
+  }
 });
 
 // Retorno do Keycloak. O token do SGP vai no fragmento (#) da URL, que o navegador não envia a servidores nem
@@ -51,16 +62,18 @@ authRouter.get('/callback', env.rateLimitAtivo ? limiteLoginPorIp : passa, async
   try {
     const identidade = await oidc.concluirLogin(req.originalUrl, cookie);
     const { token } = await authService.entrarPeloKeycloak(identidade);
-    res.redirect(oidc.urlRetornoFrontend(`token=${encodeURIComponent(token)}`));
+    res.redirect(oidc.urlRetornoFrontend(token));
   } catch (erro) {
-    // O motivo fica no log do servidor; a tela mostra sempre a mesma mensagem, sem expor detalhes
-    console.warn('Falha no login institucional:', erro instanceof Error ? erro.message : erro);
-    res.redirect(oidc.urlRetornoFrontend('', 'erro=autenticacao'));
+    voltarAoLogin(res, erro);
   }
 });
 
 authRouter.get('/oidc/logout', async (_req, res) => {
-  res.redirect(await oidc.urlDeLogout());
+  try {
+    res.redirect(await oidc.urlDeLogout());
+  } catch (erro) {
+    voltarAoLogin(res, erro);
+  }
 });
 
 authRouter.get('/me', autenticar, async (req, res) => {

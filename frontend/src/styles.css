@@ -152,17 +152,6 @@ label {
   line-height: 1.45;
 }
 
-.login-erro {
-  width: 100%;
-  margin: 24px 0 0;
-  padding: 10px 14px;
-  border: 1px solid rgba(255, 138, 128, .4);
-  border-radius: 8px;
-  background: rgba(255, 138, 128, .1);
-  color: #ffb4ab;
-  font-size: 13px;
-}
-
 .login-acao {
   width: 100%;
   min-height: 46px;
@@ -225,12 +214,6 @@ label {
 
 .btn-primary:hover {
   background: var(--primary-dark);
-}
-
-.btn-block {
-  width: 100%;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 
 .btn-outline {

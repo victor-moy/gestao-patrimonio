@@ -63,9 +63,24 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['POST', new RegExp(`^/avisos/${ID}/ler$`)],
 ];
 
-export function terceirizadaPodeAcessar(metodo: string, caminho: string) {
+// Entrou pelo Keycloak e ainda não recebeu perfil: só a tela inicial (alertas e atualizações), que o próprio backend
+// devolve vazia para quem não tem perfil. Lista de permissão, negado por padrão.
+const ROTAS_SEM_ACESSO: Array<[string, RegExp]> = [
+  ['GET', /^\/auth\/me$/],
+  ['GET', /^\/dashboard\/alertas$/],
+  ['GET', /^\/avisos$/],
+  ['POST', /^\/avisos\/ler-todas$/],
+  ['POST', new RegExp(`^/avisos/${ID}/ler$`)],
+  ['GET', /^\/conversas(\/nao-lidas)?$/],
+];
+
+function rotaPermitida(rotas: Array<[string, RegExp]>, metodo: string, caminho: string) {
   const limpo = caminho.split('?')[0].replace(/\/+$/, '') || '/';
-  return ROTAS_TERCEIRIZADA.some(([m, re]) => m === metodo && re.test(limpo));
+  return rotas.some(([m, re]) => m === metodo && re.test(limpo));
+}
+
+export function terceirizadaPodeAcessar(metodo: string, caminho: string) {
+  return rotaPermitida(ROTAS_TERCEIRIZADA, metodo, caminho);
 }
 
 // RF01/RF04/RNF05 — valida o JWT em toda rota protegida
@@ -92,8 +107,7 @@ export function autenticar(req: Request, _res: Response, next: NextFunction) {
   if (req.usuario.perfil === 'TERCEIRIZADA' && !terceirizadaPodeAcessar(req.method, req.originalUrl)) {
     throw new AppError('Seu perfil não possui permissão para esta operação.', 403);
   }
-  // Entrou pelo Keycloak mas ainda sem perfil: só consegue ver quem é (para a tela de "aguardando liberação")
-  if (req.usuario.perfil === 'SEM_ACESSO' && !(req.method === 'GET' && req.originalUrl.split('?')[0] === '/auth/me')) {
+  if (req.usuario.perfil === 'SEM_ACESSO' && !rotaPermitida(ROTAS_SEM_ACESSO, req.method, req.originalUrl)) {
     throw new AppError('Seu acesso ainda não foi liberado. Procure o administrador do sistema.', 403);
   }
   contextoPedido.run(req.usuario, () => next());

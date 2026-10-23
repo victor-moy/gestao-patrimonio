@@ -1,11 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  const senhaHash = await bcrypt.hash('sgp12345', 10);
-
   // Unidades — só existem 2 galpões operacionais reais (feedback do cliente)
   const galpao = await prisma.unidade.upsert({
     where: { nome: 'Galpão CIAD/Branet' },
@@ -57,7 +54,7 @@ async function main() {
     prisma.usuario.upsert({
       where: { email },
       update: {},
-      create: { nome, email, matricula, senhaHash, perfil, unidadeId: unidadeId ?? null },
+      create: { nome, email, matricula, perfil, unidadeId: unidadeId ?? null },
     });
 
   await criarUsuario('Samuel Andrade', 'gestor@joinville.sc.gov.br', '10001', 'OPERADOR');
@@ -193,7 +190,6 @@ async function main() {
       nome: 'Técnico TecSaúde',
       email: 'terceirizada@tecsaude.com.br',
       matricula: '10090',
-      senhaHash,
       perfil: 'TERCEIRIZADA',
       prestadorId: tecSaude.id,
     },
@@ -303,7 +299,7 @@ async function main() {
   }
 
   console.log('Seed concluído.');
-  console.log('Usuários (senha: sgp12345):');
+  console.log('Usuários de demonstração (sem senha: o acesso é pelo Keycloak ou por "Entrar como" de um Administrador):');
   console.log('  gestor@joinville.sc.gov.br      — Administrador');
   console.log('  manutencao@joinville.sc.gov.br  — Administrador');
   console.log('  ubs.centro@joinville.sc.gov.br  — Unidade (UBS Centro)');

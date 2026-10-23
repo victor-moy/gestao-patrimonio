@@ -40,7 +40,7 @@ interface TabDef {
 // Abas conforme o header do frame "Gestor" do Figma (6 abas; Atas é
 // acessada pelo card "Controle de Atas" do painel e pelo menu do usuário)
 const TABS: TabDef[] = [
-  { para: '/', rotulo: 'Início', icone: <IconeInicio />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA'] },
+  { para: '/', rotulo: 'Início', icone: <IconeInicio />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA', 'SEM_ACESSO'] },
   { para: '/inventario', rotulo: 'Inventário', icone: <IconeInventario />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO'] },
   { para: '/solicitacoes', rotulo: 'Solicitações', icone: <IconeSolicitacoes />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA'] },
   { para: '/estoque', rotulo: 'Estoque', icone: <IconeEstoque />, perfis: ['OPERADOR', 'GALPAO'] },
@@ -263,7 +263,7 @@ export function Layout() {
           ))}
         </nav>
         )}
-        {!emConfiguracoes && (
+        {!emConfiguracoes && usuario.perfil !== 'SEM_ACESSO' && (
           <div className="sidebar-footer">
             <NavLink
               to="/conversas"
