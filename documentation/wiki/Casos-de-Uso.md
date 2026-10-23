@@ -73,7 +73,6 @@ Extraído da seção 2.2 do [RFC v1.0](https://github.com/victor-moy/gestao-patr
 
 - **UC23 — Gerenciar usuários e unidades**: o Administrador cadastra e edita usuários (e-mail, perfil, unidade e situação; o acesso é pela conta institucional, sem senha no SGP) e unidades (tipo, endereço, e-mail e responsável).
 - **UC24 — Gerenciar categorias e tipos de itens**: o Administrador mantém as categorias e os tipos de itens (código, nome, preço de referência e imagem) usados no inventário e nas solicitações.
-- **UC25 — Entrar como outro usuário**: o Administrador assume temporariamente a visão de outro usuário, de qualquer perfil, para validar permissões e fluxos. O item **"Entrar como"** fica no menu do usuário (o mesmo do "Sair"), recolhido; ao clicar, expande a lista de usuários ativos, com busca, e um clique entra como a pessoa. A lista traz só nome, perfil e unidade ou prestador. A troca também vale a partir de um usuário já assumido (autorizada pelo token do administrador). O token da sessão assumida traz `impersonadoPor` (quem entrou), a entrada é auditada e **cada ação seguinte** também grava o ator na auditoria — não só o evento inicial. A própria conta do administrador é a primeira da lista: de início aparece desabilitada ("Conta atual") e, depois de assumir outro usuário, vira "Voltar à sua conta", que restaura a sessão sem nova autenticação.
 
 ## Manutenção como tipo de solicitação (telas)
 

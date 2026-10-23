@@ -50,7 +50,7 @@ Preserve estas regras em qualquer alteração:
 5. Empréstimo mantém a unidade proprietária e usa `unidadeTemporariaId` para a detentora.
 6. Retorno de manutenção exige confirmação da Unidade e do Administrador.
 7. Baixa por manutenção cria automaticamente uma solicitação de substituição.
-8. Ações críticas precisam de `LogAuditoria`, idealmente na mesma transação da mutação. Se a sessão veio de impersonação, o JWT e o log trazem `impersonadoPor` (o Administrador que assumiu), além do `usuarioId` do alvo.
+8. Ações críticas precisam de `LogAuditoria`, idealmente na mesma transação da mutação.
 9. Notificações só devem ser disparadas depois de uma transação bem-sucedida.
 10. Erros de domínio devem usar `AppError`; entradas externas devem ser validadas com Zod.
 11. Solicitações e manutenções têm `numero` sequencial (SOL-0001 / MAN-0001) gerado pelo banco; ele é imutável, nunca reutilizado e é a referência humana (o `id` UUID segue como chave técnica).
@@ -120,7 +120,7 @@ O gate atual exige no mínimo 75% de linhas no backend e 25% no frontend. Não r
 
 - Não registre tokens, senhas, segredos, conteúdo integral de anexos ou dados pessoais desnecessários.
 - Qualquer integração que envie dados a terceiros (IA, e-mail, analytics) precisa de decisão explícita: minimize o conteúdo, documente a finalidade e mantenha limites de tamanho e custo. Hoje não há integração de IA no produto.
-- Tokens no navegador e a funcionalidade de impersonação são áreas sensíveis (só o Administrador assume outros usuários: a regra fica em `auth.service.ts`, nunca só na tela; o JWT e a auditoria levam `impersonadoPor`); mudanças nelas exigem testes específicos.
+- Tokens no navegador e o login pelo Keycloak (`oidc.service.ts`, `auth.service.ts`) são áreas sensíveis; mudanças nelas exigem testes específicos. Não existe impersonação nem login por senha: nenhum usuário assume outro nem entra sem passar pelo Keycloak.
 - Rode o audit de dependências e descreva vulnerabilidades novas ou remanescentes no PR.
 - Consulte `SECURITY.md` e `documentation/reviews/` antes de mudanças de segurança.
 

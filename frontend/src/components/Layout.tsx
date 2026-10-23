@@ -7,7 +7,6 @@ import { useAuth } from '../auth/AuthContext';
 import { useConversas, useNaoLidas } from '../hooks/useConversas';
 import { caminhoConversa, codigoConversa, tituloConversa } from '../utils/conversas';
 import { caminhoRelatorio, SUBMENUS_RELATORIOS } from '../utils/relatorios';
-import { EntrarComoMenu } from './EntrarComoMenu';
 import { ContagemNaoLidas } from './ContagemNaoLidas';
 import { LogoSistema } from './LogoSistema';
 import {
@@ -92,7 +91,7 @@ const SECOES_CONFIGURACOES: SecaoConfiguracoes[] = [
 ];
 
 export function Layout() {
-  const { usuario, sair: encerrarSessao, impersonando, podeTrocarUsuario } = useAuth();
+  const { usuario, sair: encerrarSessao } = useAuth();
   const donoMenuUsuario = useRef<HTMLDivElement>(null);
   const botaoMenuUsuario = useRef<HTMLButtonElement>(null);
   const location = useLocation();
@@ -178,7 +177,7 @@ export function Layout() {
   }
 
   return (
-    <div className={`app-shell${impersonando ? ' app-shell--impersonando' : ''}${tituloGestao ? ' app-shell--gestao' : ''}${saindo ? ' app-shell--saindo' : ''}`}>
+    <div className={`app-shell${tituloGestao ? ' app-shell--gestao' : ''}${saindo ? ' app-shell--saindo' : ''}`}>
       {sidebarAberta && <button type="button" className="sidebar-backdrop" aria-label="Fechar menu" tabIndex={-1} onClick={fecharSidebar} />}
       <aside className={`sidebar${sidebarAberta ? ' aberta' : ''}`}>
         {emConversas ? (
@@ -314,8 +313,7 @@ export function Layout() {
                 </span>
               </button>
               {menuAberto && (
-                <div className={`user-menu${podeTrocarUsuario ? ' user-menu--larga' : ''}`}>
-                  {podeTrocarUsuario && <EntrarComoMenu aoEntrar={() => setMenuAberto(false)} />}
+                <div className="user-menu">
                   <button type="button" onClick={sair}><IconeLogout /> Sair</button>
                 </div>
               )}

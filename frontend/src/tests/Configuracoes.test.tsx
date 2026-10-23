@@ -3,10 +3,6 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { mockFetch } from './mock-fetch';
-import { recarregarNoInicio } from '../utils/navegacao';
-
-// A troca de usuário recarrega a página; no jsdom só conferimos que o recarregamento foi pedido
-vi.mock('../utils/navegacao', () => ({ recarregarNoInicio: vi.fn() }));
 
 function usuarioLogado(perfil: string) {
   localStorage.setItem('sgp_token', 'token-teste');
@@ -36,188 +32,11 @@ const outroUsuario = {
   ativo: true,
 };
 
-describe('Configurações — entrar como outro usuário', () => {
+describe('Configurações — acesso', () => {
   afterEach(() => {
     localStorage.clear();
     window.history.replaceState(null, '', '/');
-    vi.mocked(recarregarNoInicio).mockClear();
-  });
-
-  // O "Entrar como" começa recolhido: abre o menu do usuário e depois a lista
-  async function abrirMenuDoUsuario() {
-    await userEvent.click(await screen.findByRole('button', { name: 'Menu do usuário' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Entrar como' }));
-    return screen.findByRole('group', { name: 'Entrar como' });
-  }
-
-  const pessoa = (extra: Record<string, unknown>) => ({
-    id: 'u2',
-    nome: 'Rodrigo Unidade',
-    perfil: 'UNIDADE',
-    unidadeNome: 'UBS Centro',
-    prestadorNome: null,
-    proprio: false,
-    ...extra,
-  });
-
-  it('o administrador entra como outro usuário pela lista do menu do usuário, com um clique', async () => {
-    const chamadas = mockFetch({
-      ...usuarioLogado('OPERADOR'),
-      '/auth/impersonar/u2': {
-        body: { token: 'token-u2', usuario: { ...outroUsuario } },
-      },
-      '/auth/impersonaveis': { body: [pessoa({})] },
-      '/dashboard/alertas': { body: [] },
-    });
-    window.history.replaceState(null, '', '/');
-    render(<App />);
-
-    // recolhido: nada de lista nem de chamada à API até clicar em "Entrar como"
-    await userEvent.click(await screen.findByRole('button', { name: 'Menu do usuário' }));
-    const alternar = screen.getByRole('button', { name: 'Entrar como' });
-    expect(alternar).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByRole('button', { name: 'Entrar como Rodrigo Unidade' })).not.toBeInTheDocument();
-    expect(chamadas.some((c) => c.url.includes('/auth/impersonaveis'))).toBe(false);
-    await userEvent.click(alternar);
-    expect(alternar).toHaveAttribute('aria-expanded', 'true');
-    const lista = await screen.findByRole('group', { name: 'Entrar como' });
-    expect(await within(lista).findByRole('button', { name: 'Entrar como Rodrigo Unidade' })).toBeInTheDocument();
-    // clicar de novo recolhe
-    await userEvent.click(alternar);
-    expect(screen.queryByRole('button', { name: 'Entrar como Rodrigo Unidade' })).not.toBeInTheDocument();
-    await userEvent.click(alternar);
-
-    await userEvent.click(await within(await screen.findByRole('group', { name: 'Entrar como' })).findByRole('button', { name: 'Entrar como Rodrigo Unidade' }));
-    await waitFor(() =>
-      expect(chamadas.some((c) => c.url.includes('/auth/impersonar/u2') && c.init?.method === 'POST')).toBe(true),
-    );
-    // trocar de usuário recarrega a aplicação para não sobrar estado do usuário anterior
-    await waitFor(() => expect(recarregarNoInicio).toHaveBeenCalledTimes(1));
-
-    // não existe mais "Redefinir usuário": o menu tem só "Entrar como" e "Sair"
-    await userEvent.click(await screen.findByRole('button', { name: 'Menu do usuário' }));
-    expect(screen.queryByRole('button', { name: /Redefinir usuário/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Sair/ })).toBeInTheDocument();
-  });
-
-  it('a lista do menu busca por nome e o menu fecha com Escape devolvendo o foco', async () => {
-    mockFetch({
-      ...usuarioLogado('OPERADOR'),
-      '/auth/impersonaveis': { body: [pessoa({}), pessoa({ id: 'u4', nome: 'Carla Fiscal', perfil: 'OPERADOR', unidadeNome: null })] },
-      '/dashboard/alertas': { body: [] },
-    });
-    window.history.replaceState(null, '', '/');
-    render(<App />);
-
-    const lista = await abrirMenuDoUsuario();
-    await within(lista).findByRole('button', { name: 'Entrar como Carla Fiscal' });
-    await userEvent.type(within(lista).getByRole('searchbox', { name: 'Buscar usuário' }), 'rodrigo');
-    expect(within(lista).queryByRole('button', { name: 'Entrar como Carla Fiscal' })).not.toBeInTheDocument();
-    expect(within(lista).getByRole('button', { name: 'Entrar como Rodrigo Unidade' })).toBeInTheDocument();
-
-    await userEvent.keyboard('{Escape}');
-    expect(screen.queryByRole('group', { name: 'Entrar como' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Menu do usuário' })).toHaveFocus();
-  });
-
-  it('a própria conta aparece primeiro na lista: desabilitada de início, e é o caminho de volta depois de assumir outro usuário', async () => {
-    const meu = pessoa({ id: '1', nome: 'Gestora Teste', perfil: 'OPERADOR', unidadeNome: null, proprio: true });
-    mockFetch({
-      ...usuarioLogado('OPERADOR'),
-      '/auth/impersonaveis': { body: [meu, pessoa({})] },
-      '/dashboard/alertas': { body: [] },
-    });
-    window.history.replaceState(null, '', '/');
-    render(<App />);
-
-    const lista = await abrirMenuDoUsuario();
-    const botoes = await within(lista).findAllByRole('button');
-    expect(botoes[0]).toHaveAccessibleName('Voltar para Gestora Teste');
-    expect(botoes[0]).toBeDisabled();
-    expect(within(lista).getByText('Conta atual')).toBeInTheDocument();
-    expect(recarregarNoInicio).not.toHaveBeenCalled();
-  });
-
-  it('já dentro de outro usuário, "Voltar para" restaura o token do administrador sem chamar a API de impersonação', async () => {
-    localStorage.setItem('sgp_token_mestre', 'token-do-administrador');
-    const meu = pessoa({ id: '1', nome: 'Gestora Teste', perfil: 'OPERADOR', unidadeNome: null, proprio: true });
-    const chamadas = mockFetch({
-      ...usuarioLogado('UNIDADE'),
-      '/auth/impersonaveis': { body: [meu, pessoa({})] },
-    });
-    window.history.replaceState(null, '', '/');
-    render(<App />);
-
-    const lista = await abrirMenuDoUsuario();
-    const voltar = await within(lista).findByRole('button', { name: 'Voltar para Gestora Teste' });
-    expect(voltar).toBeEnabled();
-    expect(within(lista).getByText('Voltar à sua conta')).toBeInTheDocument();
-    await userEvent.click(voltar);
-
-    await waitFor(() => expect(recarregarNoInicio).toHaveBeenCalledTimes(1));
-    expect(localStorage.getItem('sgp_token_mestre')).toBeNull();
-    expect(localStorage.getItem('sgp_token')).toBe('token-do-administrador');
-    expect(chamadas.some((c) => c.url.includes('/auth/impersonar/'))).toBe(false);
-  });
-
-  it('já dentro de um usuário, a troca usa o token do administrador e não sobrescreve o token guardado', async () => {
-    localStorage.setItem('sgp_token_mestre', 'token-do-gestor');
-    const chamadas = mockFetch({
-      ...usuarioLogado('UNIDADE'),
-      '/auth/impersonar/u9': { body: { token: 'token-u9', usuario: { ...outroUsuario, id: 'u9' } } },
-      '/auth/impersonaveis': { body: [pessoa({ id: 'u9', nome: 'Carla Fiscal', perfil: 'OPERADOR', unidadeNome: null })] },
-    });
-    window.history.replaceState(null, '', '/');
-    render(<App />);
-
-    const lista = await abrirMenuDoUsuario();
-    await userEvent.click(await within(lista).findByRole('button', { name: 'Entrar como Carla Fiscal' }));
-    await waitFor(() => expect(chamadas.some((c) => c.url.includes('/auth/impersonar/u9'))).toBe(true));
-    const cabecalhos = chamadas
-      .filter((c) => c.url.includes('/auth/impersonaveis') || c.url.includes('/auth/impersonar/u9'))
-      .map((c) => (c.init?.headers as Record<string, string>).Authorization);
-    expect(cabecalhos.every((h) => h === 'Bearer token-do-gestor')).toBe(true);
-    expect(localStorage.getItem('sgp_token_mestre')).toBe('token-do-gestor');
-  });
-
-  it('se não conseguir entrar como o usuário, avisa no alerta nativo e não recarrega a página', async () => {
-    mockFetch({
-      ...usuarioLogado('OPERADOR'),
-      '/auth/impersonar/u2': { status: 404, body: { mensagem: 'Usuário não encontrado ou inativo.' } },
-      '/auth/impersonaveis': { body: [pessoa({})] },
-      '/dashboard/alertas': { body: [] },
-    });
-    vi.spyOn(window, 'alert').mockImplementation(() => undefined);
-    window.history.replaceState(null, '', '/');
-    render(<App />);
-
-    const lista = await abrirMenuDoUsuario();
-    await userEvent.click(await within(lista).findByRole('button', { name: 'Entrar como Rodrigo Unidade' }));
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Usuário não encontrado ou inativo.'));
-    expect(recarregarNoInicio).not.toHaveBeenCalled();
-  });
-
-  it('o Administrador usa o "Entrar como"; Unidade e demais perfis não veem', async () => {
-    mockFetch({
-      ...usuarioLogado('OPERADOR'),
-      '/auth/impersonaveis': { body: [pessoa({})] },
-      '/dashboard/alertas': { body: [] },
-    });
-    window.history.replaceState(null, '', '/');
-    const gm = render(<App />);
-    const lista = await abrirMenuDoUsuario();
-    expect(await within(lista).findByRole('button', { name: 'Entrar como Rodrigo Unidade' })).toBeInTheDocument();
-    gm.unmount();
-
-    for (const perfil of ['UNIDADE', 'GALPAO', 'TERCEIRIZADA']) {
-      localStorage.clear();
-      mockFetch({ ...usuarioLogado(perfil), '/dashboard/alertas': { body: [] } });
-      const outro = render(<App />);
-      await userEvent.click(await screen.findByRole('button', { name: 'Menu do usuário' }));
-      expect(screen.getByRole('button', { name: /Sair/ })).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Entrar como' })).not.toBeInTheDocument();
-      outro.unmount();
-    }
+    vi.restoreAllMocks();
   });
 
   it('outros perfis não acessam a tela', async () => {
@@ -230,7 +49,6 @@ describe('Configurações — entrar como outro usuário', () => {
     render(<App />);
 
     await waitFor(() => expect(window.location.pathname).toBe('/'));
-    expect(screen.queryByRole('button', { name: /Entrar como/ })).not.toBeInTheDocument();
   });
 });
 

@@ -188,7 +188,6 @@ describe('Perfil terceirizada: lista de permissão (negado por padrão)', () => 
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/aguardar-providencias'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/contestar'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/autorizar-medicao'],
-    ['post', '/auth/impersonar/abc'],
     ['post', '/manutencoes'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/aprovar'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/confirmar-retorno'],

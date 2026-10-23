@@ -312,30 +312,6 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
     expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
   });
 
-  it('ações feitas durante a impersonação gravam o administrador na auditoria', async () => {
-    prismaMock.manutencao.findUnique.mockResolvedValue(manutencaoBase as never);
-    prismaMock.manutencao.update.mockResolvedValue({ ...manutencaoBase, status: 'NEGADA' } as never);
-    const res = await request(app)
-      .post('/manutencoes/man-1/negar')
-      .set(
-        auth('OPERADOR', {
-          sub: 'unidade-imp',
-          impersonadoPor: { id: 'op-1', nome: 'Samuel', perfil: 'OPERADOR' },
-        }),
-      )
-      .send({ motivo: 'Fora de garantia' });
-    expect(res.status).toBe(200);
-    expect(prismaMock.logAuditoria.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          dadosDepois: expect.objectContaining({
-            impersonadoPor: { id: 'op-1', nome: 'Samuel', perfil: 'OPERADOR' },
-          }),
-        }),
-      }),
-    );
-  });
-
   it('não permite aprovar manutenção já decidida', async () => {
     prismaMock.manutencao.findUnique.mockResolvedValue({
       ...manutencaoBase,

@@ -1177,37 +1177,6 @@ a.app-topbar-wordmark:hover strong { opacity: .85; }
   .inventario-page .gestao-lista .lista-cartoes--inventario td:nth-child(4) { display: none; }
 }
 
-/* Menu do usuário: lista "Entrar como" (Administrador) acima de Sair */
-.app-shell--gestao .topbar-user .user-menu--larga { width: 280px; }
-.user-menu-entrar { border-bottom: 1px solid var(--border); }
-.user-menu-entrar [hidden] { display: none; }
-.app-shell--gestao .topbar-user .user-menu .user-menu-alternar { justify-content: flex-start; }
-.user-menu-seta { margin-left: auto; display: inline-grid; place-items: center; transition: transform .15s ease; }
-.user-menu-seta--aberta { transform: rotate(180deg); }
-.app-shell--gestao .topbar-user .user-menu .user-menu-seta svg { width: 14px; height: 14px; }
-.user-menu-busca {
-  display: block;
-  width: calc(100% - 20px);
-  height: 30px;
-  margin: 0 10px 6px;
-  padding: 0 10px;
-  border: 1px solid #c9cccf;
-  border-radius: 8px;
-  font-size: 12px;
-}
-.user-menu-lista { display: grid; max-height: 232px; margin-bottom: 6px; overflow-y: auto; }
-.app-shell--gestao .topbar-user .user-menu .user-menu-usuario {
-  display: grid;
-  gap: 1px;
-  padding: 7px 14px;
-  font-size: 12px;
-}
-.user-menu-usuario-nome { color: var(--text); font-weight: 550; }
-.user-menu-usuario-apoio { color: var(--text-secondary); font-size: 11px; }
-.user-menu-usuario:disabled { cursor: progress; opacity: .6; }
-.user-menu-estado { padding: 6px 14px; color: var(--text-secondary); font-size: 11px; }
-.app-shell--gestao .topbar-user .user-menu .user-menu-link { display: inline; width: auto; padding: 0; color: var(--text); font-size: 11px; text-decoration: underline; }
-
 /* Laudo de baixa ao rejeitar um orçamento: cartão no padrão dos blocos de ação */
 .laudo-baixa {
   margin-bottom: 12px;

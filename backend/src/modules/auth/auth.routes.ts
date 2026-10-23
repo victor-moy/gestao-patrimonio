@@ -1,10 +1,7 @@
 import { Response, Router } from 'express';
-import { Perfil } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
-import { registrarAuditoria } from '../../services/auditoria.service';
 import { limitarFrequencia } from '../../middlewares/rateLimit';
 import { env } from '../../config/env';
 import * as authService from './auth.service';
@@ -17,11 +14,6 @@ const limiteLoginPorIp = limitarFrequencia({
   janelaMs: 15 * 60 * 1000,
   max: 300,
   mensagem: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.',
-});
-const limiteImpersonacao = limitarFrequencia({
-  janelaMs: 15 * 60 * 1000,
-  max: 30,
-  chave: (req) => req.usuario?.sub ?? req.ip ?? 'desconhecido',
 });
 const passa = (_req: unknown, _res: unknown, next: () => void) => next();
 
@@ -100,38 +92,3 @@ authRouter.get('/me', autenticar, async (req, res) => {
     prestador: undefined,
   });
 });
-
-// Impersonação — só o Administrador, pra facilitar testar outros
-// perfis sem precisar deslogar e logar de novo com outra conta.
-authRouter.get(
-  '/impersonaveis',
-  autenticar,
-  permitir(Perfil.OPERADOR),
-  async (req, res) => {
-    res.json(await authService.listarImpersonaveis(req.usuario!));
-  },
-);
-
-authRouter.post(
-  '/impersonar/:id',
-  autenticar,
-  permitir(Perfil.OPERADOR),
-  env.rateLimitAtivo ? limiteImpersonacao : passa,
-  async (req, res) => {
-    const resultado = await authService.impersonar(req.params.id, req.usuario!);
-    await registrarAuditoria({
-      usuarioId: req.usuario!.sub,
-      acao: 'IMPERSONAR_USUARIO',
-      entidade: 'usuario',
-      entidadeId: req.params.id,
-      dadosDepois: {
-        impersonadoPor: {
-          id: req.usuario!.sub,
-          nome: req.usuario!.nome,
-          perfil: req.usuario!.perfil,
-        },
-      },
-    });
-    res.json(resultado);
-  },
-);

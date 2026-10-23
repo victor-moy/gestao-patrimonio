@@ -3,26 +3,17 @@ import {
   API_URL,
   api,
   getToken,
-  getTokenMestre,
-  limparTokenMestre,
   setOnUnauthorized,
   setToken,
-  setTokenMestre,
 } from '../api/client';
 import type { Usuario } from '../types';
-import { encerrarSessaoInstitucional, recarregarNoInicio } from '../utils/navegacao';
+import { encerrarSessaoInstitucional } from '../utils/navegacao';
 
 interface AuthContextValue {
   usuario: Usuario | null;
   carregando: boolean;
-  impersonando: boolean;
-  // O Administrador troca de usuário, também enquanto está dentro de outro usuário
-  podeTrocarUsuario: boolean;
   // Sair por vontade do usuário: encerra também a sessão do Keycloak
   sair: () => void;
-  entrarComo: (usuarioId: string) => Promise<void>;
-  // Volta à própria conta do administrador (o token dele fica guardado enquanto assume outro usuário)
-  voltarAoMestre: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -30,12 +21,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [impersonando, setImpersonando] = useState(() => Boolean(getTokenMestre()));
 
   const logout = useCallback(() => {
     setToken(null);
-    limparTokenMestre();
-    setImpersonando(false);
     setUsuario(null);
   }, []);
 
@@ -63,45 +51,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setCarregando(false));
   }, [logout]);
 
-  // O Administrador "entra como" outro usuário — guarda o próprio token
-  // pra dar pra voltar depois, sem precisar logar de novo.
-  const entrarComo = useCallback(async (usuarioId: string) => {
-    const tokenAtual = getToken();
-    // Já dentro de outro usuário? A troca é autorizada pelo token do administrador, que continua guardado
-    const jaImpersonando = Boolean(getTokenMestre());
-    const resposta = await api.post<{ token: string; usuario: Usuario }>(
-      `/auth/impersonar/${usuarioId}`,
-      undefined,
-      { comoMestre: jaImpersonando },
-    );
-    if (tokenAtual && !jaImpersonando) {
-      setTokenMestre(tokenAtual);
-    }
-    setToken(resposta.token);
-    setUsuario(resposta.usuario);
-    setImpersonando(true);
-    recarregarNoInicio();
-  }, []);
-
-  const voltarAoMestre = useCallback(async () => {
-    const tokenMestre = getTokenMestre();
-    if (!tokenMestre) return;
-    limparTokenMestre();
-    setToken(tokenMestre);
-    setImpersonando(false);
-    try {
-      setUsuario(await api.get<Usuario>('/auth/me'));
-      recarregarNoInicio();
-    } catch {
-      logout();
-    }
-  }, [logout]);
-
-  const podeTrocarUsuario =
-    impersonando || usuario?.perfil === 'OPERADOR';
   const value = useMemo(
-    () => ({ usuario, carregando, impersonando, podeTrocarUsuario, sair, entrarComo, voltarAoMestre }),
-    [usuario, carregando, impersonando, podeTrocarUsuario, sair, entrarComo, voltarAoMestre],
+    () => ({ usuario, carregando, sair }),
+    [usuario, carregando, sair],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

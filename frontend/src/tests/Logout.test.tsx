@@ -5,7 +5,7 @@ import { App } from '../App';
 import { mockFetch } from './mock-fetch';
 import { encerrarSessaoInstitucional } from '../utils/navegacao';
 
-vi.mock('../utils/navegacao', () => ({ recarregarNoInicio: vi.fn(), encerrarSessaoInstitucional: vi.fn() }));
+vi.mock('../utils/navegacao', () => ({ encerrarSessaoInstitucional: vi.fn() }));
 
 describe('Sair', () => {
   afterEach(() => localStorage.clear());

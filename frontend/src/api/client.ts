@@ -37,20 +37,6 @@ export function getToken() {
   return token;
 }
 
-// Guarda o token do usuário "mestre" enquanto ele está impersonando outra
-// conta, pra dar pra voltar depois sem precisar logar de novo.
-export function setTokenMestre(tokenMestre: string) {
-  storage()?.setItem('sgp_token_mestre', tokenMestre);
-}
-
-export function getTokenMestre() {
-  return storage()?.getItem('sgp_token_mestre') ?? null;
-}
-
-export function limparTokenMestre() {
-  storage()?.removeItem('sgp_token_mestre');
-}
-
 export function setOnUnauthorized(handler: () => void) {
   onUnauthorized = handler;
 }
@@ -67,12 +53,10 @@ export class ApiError extends Error {
 // `silencioso`: requisição em segundo plano (atualizações automáticas); não acende a barra de carregamento global.
 interface OpcoesRequisicao {
   silencioso?: boolean;
-  // Usa o token do administrador que está "entrando como" outro usuário (só para trocar de usuário sem voltar antes)
-  comoMestre?: boolean;
 }
 
-async function request<T>(path: string, options: RequestInit = {}, { silencioso, comoMestre }: OpcoesRequisicao = {}): Promise<T> {
-  const tokenAtual = comoMestre ? getTokenMestre() : getToken();
+async function request<T>(path: string, options: RequestInit = {}, { silencioso }: OpcoesRequisicao = {}): Promise<T> {
+  const tokenAtual = getToken();
   const headers: Record<string, string> = {
     ...(options.body && !(options.body instanceof FormData)
       ? { 'Content-Type': 'application/json' }

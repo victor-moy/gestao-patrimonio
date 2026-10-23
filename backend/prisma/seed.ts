@@ -299,7 +299,7 @@ async function main() {
   }
 
   console.log('Seed concluído.');
-  console.log('Usuários de demonstração (sem senha: o acesso é pelo Keycloak ou por "Entrar como" de um Administrador):');
+  console.log('Usuários de demonstração (sem senha: o acesso é só pelo Keycloak, vinculado pelo e-mail):');
   console.log('  gestor@joinville.sc.gov.br      — Administrador');
   console.log('  manutencao@joinville.sc.gov.br  — Administrador');
   console.log('  ubs.centro@joinville.sc.gov.br  — Unidade (UBS Centro)');
