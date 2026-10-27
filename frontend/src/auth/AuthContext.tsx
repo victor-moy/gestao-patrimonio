@@ -27,10 +27,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUsuario(null);
   }, []);
 
+  // Descarta só o token e segue direto ao Keycloak: manter o app na tela evita o "pisque" do login antes da saída
   const sair = useCallback(() => {
-    logout();
+    setToken(null);
     encerrarSessaoInstitucional(API_URL);
-  }, [logout]);
+  }, []);
 
   useEffect(() => {
     setOnUnauthorized(logout);
