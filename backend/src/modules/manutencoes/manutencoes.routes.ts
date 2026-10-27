@@ -67,7 +67,7 @@ manutencoesRouter.get('/:id/trajetoria', leitura, async (req, res) => {
 const solicitarSchema = z.object({
   equipamentoId: z.string().uuid(),
   titulo: z
-    .string({ required_error: 'Informe o título.' })
+    .string({ error: 'Informe o título.' })
     .trim()
     .min(1, 'Informe o título.')
     .max(80, 'O título pode ter no máximo 80 caracteres.'),
@@ -78,11 +78,11 @@ const solicitarCivilSchema = z.object({
   titulo: solicitarSchema.shape.titulo,
   descricaoProblema: solicitarSchema.shape.descricaoProblema,
   localAfetado: z
-    .string({ required_error: 'Informe o local afetado.' })
+    .string({ error: 'Informe o local afetado.' })
     .trim()
     .min(2, 'Informe o local afetado.')
     .max(200, 'O local pode ter no máximo 200 caracteres.'),
-  categoriaCivil: z.nativeEnum(CategoriaProblemaCivil, { errorMap: () => ({ message: 'Selecione o tipo de problema.' }) }),
+  categoriaCivil: z.nativeEnum(CategoriaProblemaCivil, { error: 'Selecione o tipo de problema.' }),
   unidadeId: z.string().uuid().optional(),
 });
 
@@ -102,7 +102,7 @@ manutencoesRouter.post(
       // Body inválido ou falha no service: as fotos já gravadas pelo multer não podem ficar órfãs
       await removerArquivosUpload(arquivos);
       if (erro instanceof z.ZodError) {
-        const detalhes = erro.errors.map((e) => `${e.path.join('.') || 'corpo'}: ${e.message}`).join('; ');
+        const detalhes = erro.issues.map((e) => `${e.path.join('.') || 'corpo'}: ${e.message}`).join('; ');
         next(new AppError(`Dados inválidos — ${detalhes}`, 422));
         return;
       }
@@ -283,7 +283,7 @@ manutencoesRouter.post('/:id/confirmar-reencaminhamento', permitir(Perfil.OPERAD
 });
 
 const novoChamadoSchema = z.object({
-  tipo: z.nativeEnum(TipoManutencao, { errorMap: () => ({ message: 'Informe o tipo do novo chamado.' }) }),
+  tipo: z.nativeEnum(TipoManutencao, { error: 'Informe o tipo do novo chamado.' }),
   equipamentoId: z.string().uuid().optional(),
   titulo: solicitarSchema.shape.titulo.optional(),
   descricaoProblema: solicitarSchema.shape.descricaoProblema.optional(),
