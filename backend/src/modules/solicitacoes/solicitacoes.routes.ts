@@ -33,7 +33,7 @@ const criarSchema = z.object({
   tipo: z.nativeEnum(TipoSolicitacao),
   // Nome obrigatório para reconhecer o pedido nas listas; vale para todas as solicitações criadas juntas.
   titulo: z
-    .string({ required_error: 'Informe o título.' })
+    .string({ error: 'Informe o título.' })
     .trim()
     .min(1, 'Informe o título.')
     .max(80, 'O título pode ter no máximo 80 caracteres.'),
