@@ -10,7 +10,7 @@ vi.mock('../utils/navegacao', () => ({ encerrarSessaoInstitucional: vi.fn() }));
 describe('Sair', () => {
   afterEach(() => localStorage.clear());
 
-  it('faz o app esmaecer antes de voltar para o login', async () => {
+  it('esmaece o app e vai direto ao Keycloak', async () => {
     localStorage.setItem('sgp_token', 'token-teste');
     mockFetch({
       '/auth/me': {
@@ -28,11 +28,10 @@ describe('Sair', () => {
     expect(container.querySelector('.app-shell--saindo')).not.toBeNull();
     expect(screen.queryByRole('link', { name: 'Entrar' })).not.toBeInTheDocument();
 
-    // depois da animação, aparece o login e a sessão é encerrada
-    expect(await screen.findByRole('link', { name: 'Entrar' }, { timeout: 2000 })).toBeInTheDocument();
-    await waitFor(() => expect(localStorage.getItem('sgp_token')).toBeNull());
-    // e a sessão do Keycloak também é encerrada
-    expect(encerrarSessaoInstitucional).toHaveBeenCalledWith('/api');
+    // depois da animação, a sessão é descartada e o navegador segue ao Keycloak, sem mostrar o login antes
+    await waitFor(() => expect(encerrarSessaoInstitucional).toHaveBeenCalledWith('/api'), { timeout: 2000 });
+    expect(localStorage.getItem('sgp_token')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Entrar' })).not.toBeInTheDocument();
   });
 });
 
