@@ -83,7 +83,6 @@ authRouter.get('/demo', env.rateLimitAtivo ? limiteDemonstracao : passa, async (
   }
   try {
     const { token } = await authService.entrarDemonstracao(String(req.query.logado ?? ''));
-    console.warn(`Login de demonstração: ${String(req.query.logado)}`);
     res.redirect(oidc.urlRetornoFrontend(token));
   } catch {
     res.status(404).json({ mensagem: 'Não encontrado.' });
