@@ -1,6 +1,6 @@
-import { timingSafeEqual } from 'node:crypto';
 import { Response, Router } from 'express';
 import { autenticar } from '../../middlewares/auth';
+import { registrarAuditoria } from '../../services/auditoria.service';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 import { limitarFrequencia } from '../../middlewares/rateLimit';
@@ -16,20 +16,12 @@ const limiteLoginPorIp = limitarFrequencia({
   max: 300,
   mensagem: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.',
 });
-const passa = (_req: unknown, _res: unknown, next: () => void) => next();
-
-// Teto bem mais baixo que o do login institucional: quem acerta a chave entra em qualquer perfil
-const limiteDemonstracao = limitarFrequencia({
+const limiteImpersonacao = limitarFrequencia({
   janelaMs: 15 * 60 * 1000,
-  max: 10,
-  mensagem: 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+  max: 30,
+  chave: (req) => req.usuario?.sub ?? req.ip ?? 'desconhecido',
 });
-
-function chaveConfere(informada: unknown) {
-  const esperada = Buffer.from(env.demoLogin.chave);
-  const recebida = Buffer.from(typeof informada === 'string' ? informada : '');
-  return esperada.length > 0 && esperada.length === recebida.length && timingSafeEqual(esperada, recebida);
-}
+const passa = (_req: unknown, _res: unknown, next: () => void) => next();
 
 // Falha em qualquer etapa do login institucional: o motivo fica no log do servidor e o navegador volta à tela de
 // login, sem detalhes na tela.
@@ -74,21 +66,6 @@ authRouter.get('/callback', env.rateLimitAtivo ? limiteLoginPorIp : passa, async
   }
 });
 
-// Acesso temporário da demonstração: /auth/demo?logado=admin|unidade|galpao|terceirizada&chave=...
-// Desligado sem DEMO_LOGIN_CHAVE. Qualquer recusa responde 404, para a rota não revelar que existe.
-authRouter.get('/demo', env.rateLimitAtivo ? limiteDemonstracao : passa, async (req, res) => {
-  if (!chaveConfere(req.query.chave)) {
-    res.status(404).json({ mensagem: 'Não encontrado.' });
-    return;
-  }
-  try {
-    const { token } = await authService.entrarDemonstracao(String(req.query.logado ?? ''));
-    res.redirect(oidc.urlRetornoFrontend(token));
-  } catch {
-    res.status(404).json({ mensagem: 'Não encontrado.' });
-  }
-});
-
 authRouter.get('/oidc/logout', async (_req, res) => {
   try {
     res.redirect(await oidc.urlDeLogout());
@@ -121,3 +98,32 @@ authRouter.get('/me', autenticar, async (req, res) => {
     prestador: undefined,
   });
 });
+
+// "Entrar como": qualquer usuário autenticado assume outro usuário ativo (decisão temporária, enquanto o sistema
+// só tem dados de teste). A sessão gerada guarda quem é o original e a auditoria grava os dois.
+authRouter.get('/impersonaveis', autenticar, async (req, res) => {
+  res.json(await authService.listarImpersonaveis(req.usuario!));
+});
+
+authRouter.post(
+  '/impersonar/:id',
+  autenticar,
+  env.rateLimitAtivo ? limiteImpersonacao : passa,
+  async (req, res) => {
+    const resultado = await authService.impersonar(req.params.id, req.usuario!);
+    await registrarAuditoria({
+      usuarioId: req.usuario!.sub,
+      acao: 'IMPERSONAR_USUARIO',
+      entidade: 'usuario',
+      entidadeId: req.params.id,
+      dadosDepois: {
+        impersonadoPor: {
+          id: req.usuario!.sub,
+          nome: req.usuario!.nome,
+          perfil: req.usuario!.perfil,
+        },
+      },
+    });
+    res.json(resultado);
+  },
+);

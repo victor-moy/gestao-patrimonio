@@ -29,7 +29,7 @@ O frontend usa `/api` em produção. O Nginx remove esse prefixo ao encaminhar p
 - `SEM_ACESSO`: quem entrou pelo Keycloak e ainda não recebeu perfil. Cai na tela inicial (Início com alertas e atualizações, sempre vazios). A lista de permissão em `autenticar` (`ROTAS_SEM_ACESSO`) nega todo o resto; o menu mostra só Início.
 - `TERCEIRIZADA`: usuário de uma empresa prestadora de serviço, vinculado a um prestador (`prestadorId` no token). Só enxerga manutenções e contratos do próprio prestador, lança orçamento, confirma o fim do reparo e conversa na manutenção. É um perfil externo: o acesso é por **lista de permissão** em `autenticar` (`middlewares/auth.ts`), negado por padrão; qualquer rota nova só fica disponível a ele se for incluída ali de propósito e testada.
 
-Login: o SGP autentica pelo Keycloak da Prefeitura (OIDC, Authorization Code + PKCE, feito no backend em `modules/auth/oidc.service.ts`) e emite o próprio JWT; o Keycloak não fornece papéis. O usuário é vinculado pelo `sub` (`Usuario.keycloakSub`); no primeiro login, quem já existe é encontrado pelo e-mail e quem é novo nasce `SEM_ACESSO`. Não há login por senha: o SGP não guarda senhas (`senhaHash` é legado e opcional). Exceção temporária: `GET /auth/demo?logado=admin|unidade|galpao|terceirizada&chave=...` entra como o usuário de demonstração do seed; só existe com `DEMO_LOGIN_CHAVE` preenchida (Secret do GitHub; use uma chave forte, o sistema não impõe tamanho mínimo), responde 404 a qualquer recusa, tem limite de frequência e é auditado (`LOGIN_DEMONSTRACAO`). Remova a rota e a variável quando o Keycloak funcionar; nunca ligue em ambiente com dados reais. `OIDC_*` são obrigatórias em produção e o `OIDC_CLIENT_SECRET` nunca vai ao repositório.
+Login: o SGP autentica pelo Keycloak da Prefeitura (OIDC, Authorization Code + PKCE, feito no backend em `modules/auth/oidc.service.ts`) e emite o próprio JWT; o Keycloak não fornece papéis. O usuário é vinculado pelo `sub` (`Usuario.keycloakSub`); no primeiro login, quem já existe é encontrado pelo e-mail e quem é novo nasce `SEM_ACESSO`. Não há login por senha: o SGP não guarda senhas (`senhaHash` é legado e opcional). `OIDC_*` são obrigatórias em produção e o `OIDC_CLIENT_SECRET` nunca vai ao repositório.
 
 Nunca confie apenas na ocultação de controles no frontend. Toda leitura e mutação deve ser restringida no backend por RBAC e, quando aplicável, pelo `unidadeId` do token. Para `GALPAO`, o galpão da operação vem sempre do token (nunca do corpo ou da query); só o Administrador escolhe outro galpão.
 
@@ -50,7 +50,7 @@ Preserve estas regras em qualquer alteração:
 5. Empréstimo mantém a unidade proprietária e usa `unidadeTemporariaId` para a detentora.
 6. Retorno de manutenção exige confirmação da Unidade e do Administrador.
 7. Baixa por manutenção cria automaticamente uma solicitação de substituição.
-8. Ações críticas precisam de `LogAuditoria`, idealmente na mesma transação da mutação.
+8. Ações críticas precisam de `LogAuditoria`, idealmente na mesma transação da mutação. Se a sessão veio de impersonação, o JWT e o log trazem `impersonadoPor` (o Administrador que assumiu), além do `usuarioId` do alvo.
 9. Notificações só devem ser disparadas depois de uma transação bem-sucedida.
 10. Erros de domínio devem usar `AppError`; entradas externas devem ser validadas com Zod.
 11. Solicitações e manutenções têm `numero` sequencial (SOL-0001 / MAN-0001) gerado pelo banco; ele é imutável, nunca reutilizado e é a referência humana (o `id` UUID segue como chave técnica).
@@ -120,7 +120,7 @@ O gate atual exige no mínimo 75% de linhas no backend e 25% no frontend. Não r
 
 - Não registre tokens, senhas, segredos, conteúdo integral de anexos ou dados pessoais desnecessários.
 - Qualquer integração que envie dados a terceiros (IA, e-mail, analytics) precisa de decisão explícita: minimize o conteúdo, documente a finalidade e mantenha limites de tamanho e custo. Hoje não há integração de IA no produto.
-- Tokens no navegador e o login pelo Keycloak (`oidc.service.ts`, `auth.service.ts`) são áreas sensíveis; mudanças nelas exigem testes específicos. Não existe impersonação nem login por senha: nenhum usuário assume outro nem entra sem passar pelo Keycloak.
+- Tokens no navegador e a funcionalidade de impersonação são áreas sensíveis ("Entrar como": **qualquer usuário autenticado**, de qualquer perfil, assume qualquer usuário ativo. É uma decisão temporária, válida só enquanto o sistema tiver apenas dados de teste; remova ou restrinja ao Administrador (`auth.service.ts`) antes de entrar com dados reais. O JWT e a auditoria levam `impersonadoPor`); mudanças nelas exigem testes específicos.
 - Rode o audit de dependências e descreva vulnerabilidades novas ou remanescentes no PR.
 - Consulte `SECURITY.md` e `documentation/reviews/` antes de mudanças de segurança.
 
