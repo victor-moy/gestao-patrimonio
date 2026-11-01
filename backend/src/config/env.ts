@@ -42,9 +42,6 @@ function configuracaoOidc() {
 }
 
 export const env = {
-  // Acesso temporário da demonstração (/auth/demo), enquanto o Keycloak não responde ao servidor. Sem a chave (vazia), a
-  // rota não existe; com ela, quem a tiver entra no perfil que escolher.
-  demoLogin: { chave: process.env.DEMO_LOGIN_CHAVE ?? '' },
   port: Number(process.env.API_PORT ?? 3333),
   nodeEnv,
   jwtSecret: segredoJwt(),

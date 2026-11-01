@@ -1,8 +1,15 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { Perfil } from '@prisma/client';
 import { env } from '../config/env';
 import { AppError } from '../errors/AppError';
+
+export interface ImpersonadoPor {
+  id: string;
+  nome: string;
+  perfil: Perfil;
+}
 
 export interface AuthPayload {
   sub: string;
@@ -11,6 +18,18 @@ export interface AuthPayload {
   unidadeId: string | null;
   // Só no perfil TERCEIRIZADA: o prestador de serviço do usuário (sempre vem do token, nunca do corpo/query)
   prestadorId: string | null;
+  // Preenchido quando o Administrador está "entrando como" este usuário; a auditoria grava os dois.
+  impersonadoPor: ImpersonadoPor | null;
+}
+
+export const contextoPedido = new AsyncLocalStorage<AuthPayload>();
+
+function impersonadoPorDoToken(payload: jwt.JwtPayload): ImpersonadoPor | null {
+  const bruto = payload.impersonadoPor;
+  if (!bruto || typeof bruto !== 'object') return null;
+  const { id, nome, perfil } = bruto as Record<string, unknown>;
+  if (typeof id !== 'string' || typeof nome !== 'string' || typeof perfil !== 'string') return null;
+  return { id, nome, perfil: perfil as Perfil };
 }
 
 declare module 'express-serve-static-core' {
@@ -24,6 +43,9 @@ declare module 'express-serve-static-core' {
 const ID = '[0-9a-fA-F-]{36}';
 const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['GET', /^\/auth\/me$/],
+  // "Entrar como" vale para qualquer perfil, inclusive para voltar à conta original
+  ['GET', /^\/auth\/impersonaveis$/],
+  ['POST', new RegExp(`^/auth/impersonar/${ID}$`)],
   ['GET', /^\/manutencoes$/],
   ['GET', new RegExp(`^/manutencoes/${ID}$`)],
   ['GET', new RegExp(`^/manutencoes/${ID}/(historico|trajetoria)$`)],
@@ -48,6 +70,8 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
 // devolve vazia para quem não tem perfil. Lista de permissão, negado por padrão.
 const ROTAS_SEM_ACESSO: Array<[string, RegExp]> = [
   ['GET', /^\/auth\/me$/],
+  ['GET', /^\/auth\/impersonaveis$/],
+  ['POST', new RegExp(`^/auth/impersonar/${ID}$`)],
   ['GET', /^\/dashboard\/alertas$/],
   ['GET', /^\/avisos$/],
   ['POST', /^\/avisos\/ler-todas$/],
@@ -80,6 +104,7 @@ export function autenticar(req: Request, _res: Response, next: NextFunction) {
       perfil: payload.perfil as Perfil,
       unidadeId: (payload.unidadeId as string | null) ?? null,
       prestadorId: (payload.prestadorId as string | null) ?? null,
+      impersonadoPor: impersonadoPorDoToken(payload),
     };
   } catch {
     throw new AppError('Sessão expirada ou token inválido. Faça login novamente.', 401);
@@ -90,5 +115,5 @@ export function autenticar(req: Request, _res: Response, next: NextFunction) {
   if (req.usuario.perfil === 'SEM_ACESSO' && !rotaPermitida(ROTAS_SEM_ACESSO, req.method, req.originalUrl)) {
     throw new AppError('Seu acesso ainda não foi liberado. Procure o administrador do sistema.', 403);
   }
-  next();
+  contextoPedido.run(req.usuario, () => next());
 }

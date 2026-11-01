@@ -53,6 +53,112 @@ describe('Autenticação (RF01, RF03, RF04, RNF04)', () => {
   });
 });
 
+describe('Impersonação (qualquer usuário "entra como" outro)', () => {
+  const unidadeUsuario = {
+    id: 'user-2',
+    nome: 'Ana da Unidade',
+    email: 'ana@joinville.sc.gov.br',
+    matricula: '10002',
+    perfil: 'UNIDADE' as const,
+    ativo: true,
+    unidadeId: 'unidade-1',
+    criadoEm: new Date(),
+    unidade: { id: 'unidade-1', nome: 'UBSF Bucarein' },
+  };
+
+  it('permite que o Gestor de Patrimônio entre como outro usuário e retorna um novo token', async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue(unidadeUsuario as never);
+    const res = await request(app)
+      .post('/auth/impersonar/user-2')
+      .set(auth('OPERADOR'))
+      .send();
+    expect(res.status).toBe(200);
+    expect(res.body.token).toBeDefined();
+    expect(res.body.usuario.perfil).toBe('UNIDADE');
+    expect(res.body.usuario.unidadeNome).toBe('UBSF Bucarein');
+    expect(prismaMock.logAuditoria.create).toHaveBeenCalled();
+  });
+
+  it('rejeita usuário alvo inexistente ou inativo', async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue(null);
+    const res = await request(app)
+      .post('/auth/impersonar/user-999')
+      .set(auth('OPERADOR'))
+      .send();
+    expect(res.status).toBe(404);
+  });
+
+  it('o Administrador entra como qualquer perfil e a entrada é auditada com o perfil de quem entrou', async () => {
+    const op = () => auth('OPERADOR', { sub: 'op-1' });
+    for (const perfil of ['UNIDADE', 'TERCEIRIZADA', 'GALPAO', 'OPERADOR'] as const) {
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...unidadeUsuario, perfil, prestador: { nome: 'X' } } as never);
+      const res = await request(app).post('/auth/impersonar/user-2').set(op()).send();
+      expect([perfil, res.status]).toEqual([perfil, 200]);
+    }
+    expect(prismaMock.logAuditoria.create.mock.calls[0][0].data.dadosDepois).toMatchObject({
+      impersonadoPor: { perfil: 'OPERADOR' },
+    });
+  });
+
+  it('o token de impersonação traz o administrador; a sessão do alvo não se passa por login dele', async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue(unidadeUsuario as never);
+    const res = await request(app)
+      .post('/auth/impersonar/user-2')
+      .set(auth('OPERADOR', { sub: 'op-1', nome: 'Samuel' }))
+      .send();
+    expect(res.status).toBe(200);
+    const payload = jwt.verify(res.body.token, 'segredo-de-teste') as jwt.JwtPayload;
+    expect(payload.sub).toBe('user-2');
+    expect(payload.impersonadoPor).toEqual({ id: 'op-1', nome: 'Samuel', perfil: 'OPERADOR' });
+  });
+
+  it('a lista de quem pode ser assumido traz só dados básicos e inclui o próprio administrador, primeiro', async () => {
+    const base = { perfil: 'OPERADOR', unidade: null, prestador: null };
+    prismaMock.usuario.findMany.mockResolvedValue([
+      { id: 'a', nome: 'Ana', ...base },
+      { id: 'op-1', nome: 'Você', ...base },
+    ] as never);
+    const lista = await request(app).get('/auth/impersonaveis').set(auth('OPERADOR', { sub: 'op-1' }));
+    expect(lista.body.map((u: { id: string; proprio: boolean }) => [u.id, u.proprio])).toEqual([
+      ['op-1', true],
+      ['a', false],
+    ]);
+    const filtro = prismaMock.usuario.findMany.mock.calls[0][0] as { where: Record<string, unknown>; select: Record<string, unknown> };
+    expect(filtro.where).toMatchObject({ ativo: true });
+    expect(filtro.where).not.toHaveProperty('id');
+    expect(filtro.where).not.toHaveProperty('perfil');
+    expect(filtro.select).not.toHaveProperty('email');
+    expect(filtro.select).not.toHaveProperty('senhaHash');
+  });
+
+  it('qualquer perfil lista e assume outro usuário (decisão temporária, só dados de teste)', async () => {
+    const uuid = '11111111-1111-4111-8111-111111111111';
+    for (const perfil of ['UNIDADE', 'GALPAO', 'TERCEIRIZADA', 'SEM_ACESSO'] as const) {
+      const opcoes = { unidadeId: 'u-1', prestadorId: 'p-1' };
+      prismaMock.usuario.findMany.mockResolvedValueOnce([] as never);
+      const lista = await request(app).get('/auth/impersonaveis').set(auth(perfil, opcoes));
+      expect([perfil, lista.status]).toEqual([perfil, 200]);
+      prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...unidadeUsuario, id: uuid } as never);
+      const res = await request(app).post(`/auth/impersonar/${uuid}`).set(auth(perfil, opcoes)).send();
+      expect([perfil, res.status]).toEqual([perfil, 200]);
+    }
+  });
+
+  it('a troca a partir de um usuário já assumido guarda o ator original; voltar à própria conta limpa o token', async () => {
+    const dentro = auth('UNIDADE', { sub: 'user-2', impersonadoPor: { id: 'op-1', nome: 'Samuel', perfil: 'OPERADOR' } });
+    prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...unidadeUsuario, id: 'user-3' } as never);
+    const outro = await request(app).post('/auth/impersonar/user-3').set(dentro).send();
+    const p1 = jwt.verify(outro.body.token, 'segredo-de-teste') as jwt.JwtPayload;
+    expect(p1.impersonadoPor).toEqual({ id: 'op-1', nome: 'Samuel', perfil: 'OPERADOR' });
+
+    prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...unidadeUsuario, id: 'op-1', perfil: 'OPERADOR' } as never);
+    const volta = await request(app).post('/auth/impersonar/op-1').set(dentro).send();
+    const p2 = jwt.verify(volta.body.token, 'segredo-de-teste') as jwt.JwtPayload;
+    expect(p2.sub).toBe('op-1');
+    expect(p2.impersonadoPor).toBeUndefined();
+  });
+});
+
 describe('RBAC (RNF05, RN03, RN04)', () => {
   it('impede que a Unidade aprove manutenções (RN03)', async () => {
     const res = await request(app)
@@ -226,70 +332,5 @@ describe('Cookie do login institucional não serve de token de sessão', () => {
       const res = await request(app).get('/avisos').set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(401);
     }
-  });
-});
-
-describe('Acesso temporário da demonstração (/auth/demo)', () => {
-  const CHAVE = 'chave-de-teste-da-demonstracao-0123456789';
-  const usuarios: Record<string, { email: string; perfil: string }> = {
-    admin: { email: 'gestor@joinville.sc.gov.br', perfil: 'OPERADOR' },
-    unidade: { email: 'ubs.centro@joinville.sc.gov.br', perfil: 'UNIDADE' },
-    galpao: { email: 'galpao.user@joinville.sc.gov.br', perfil: 'GALPAO' },
-    terceirizada: { email: 'terceirizada@tecsaude.com.br', perfil: 'TERCEIRIZADA' },
-  };
-  const alvo = (logado: string) => ({
-    id: `u-${logado}`,
-    nome: logado,
-    email: usuarios[logado].email,
-    matricula: logado,
-    perfil: usuarios[logado].perfil,
-    ativo: true,
-    unidadeId: null,
-    prestadorId: null,
-    unidade: null,
-    prestador: null,
-  });
-
-  it.each(Object.keys(usuarios))('com a chave certa, "%s" entra no perfil correspondente e é auditado', async (logado) => {
-    prismaMock.usuario.findUnique.mockResolvedValue(alvo(logado) as never);
-    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const res = await request(app).get(`/auth/demo?logado=${logado}&chave=${CHAVE}`);
-    expect(res.status).toBe(302);
-    const token = decodeURIComponent(res.headers.location.split('#token=')[1]);
-    expect((jwt.verify(token, 'segredo-de-teste') as jwt.JwtPayload).perfil).toBe(usuarios[logado].perfil);
-    expect(prismaMock.usuario.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { email: usuarios[logado].email } }));
-    expect(prismaMock.logAuditoria.create.mock.calls[0][0].data.acao).toBe('LOGIN_DEMONSTRACAO');
-  });
-
-  it('sem a chave, com chave errada ou de outro tamanho: 404, sem consultar o banco', async () => {
-    for (const q of ['logado=admin', `logado=admin&chave=errada`, `logado=admin&chave=${CHAVE}x`, `logado=admin&chave=${'a'.repeat(CHAVE.length)}`]) {
-      const res = await request(app).get(`/auth/demo?${q}`);
-      expect([q, res.status]).toEqual([q, 404]);
-      expect(res.headers.location).toBeUndefined();
-    }
-    expect(prismaMock.usuario.findUnique).not.toHaveBeenCalled();
-  });
-
-  it('com a chave desligada (vazia), nem a chave "vazia" abre a rota', async () => {
-    const { env } = await import('../src/config/env');
-    const original = env.demoLogin.chave;
-    env.demoLogin.chave = '';
-    try {
-      const res = await request(app).get('/auth/demo?logado=admin&chave=');
-      expect(res.status).toBe(404);
-    } finally {
-      env.demoLogin.chave = original;
-    }
-  });
-
-  it('perfil desconhecido, usuário ausente, inativo ou com perfil trocado: 404', async () => {
-    expect((await request(app).get(`/auth/demo?logado=root&chave=${CHAVE}`)).status).toBe(404);
-    expect((await request(app).get(`/auth/demo?logado=__proto__&chave=${CHAVE}`)).status).toBe(404);
-    prismaMock.usuario.findUnique.mockResolvedValueOnce(null);
-    expect((await request(app).get(`/auth/demo?logado=admin&chave=${CHAVE}`)).status).toBe(404);
-    prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...alvo('admin'), ativo: false } as never);
-    expect((await request(app).get(`/auth/demo?logado=admin&chave=${CHAVE}`)).status).toBe(404);
-    prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...alvo('admin'), perfil: 'SEM_ACESSO' } as never);
-    expect((await request(app).get(`/auth/demo?logado=admin&chave=${CHAVE}`)).status).toBe(404);
   });
 });
