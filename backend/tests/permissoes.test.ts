@@ -53,6 +53,8 @@ describe('Permissões do Operador', () => {
     const passos: Array<[string, string]> = [
       ['aprovar', 'MANUTENCAO_TRIAR'],
       ['negar', 'MANUTENCAO_TRIAR'],
+      ['concluir-avaliacao', 'MANUTENCAO_AVALIAR'],
+      ['encerrar', 'MANUTENCAO_AVALIAR'],
       ['confirmar-reencaminhamento', 'MANUTENCAO_TRIAR'],
       ['validar-orcamento', 'MANUTENCAO_AVALIAR'],
       ['reencaminhar/baixa', 'MANUTENCAO_AVALIAR'],

@@ -1,0 +1,184 @@
+/*
+  Padrão único de formulário e componentes de página (SGP).
+  Carregado por último. A base usa :where(), que não conta especificidade: vale onde nenhuma
+  regra de tela define o campo (por isso nenhum campo volta ao padrão de 15px do navegador),
+  e qualquer regra mais específica de uma tela continua vencendo.
+  Escala: rótulo 11px cinza · campo e texto 12px · dado 13px · altura de campo 34px.
+*/
+
+/* Campos de texto, seletores e áreas de texto (única definição; as telas só ajustam largura e posição) */
+:where(.app-shell) input:where(:not([type='checkbox'], [type='radio'], [type='file'], [type='range'])),
+:where(.app-shell) select,
+:where(.app-shell) textarea {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 400;
+}
+:where(.app-shell) input:where(:not([type='checkbox'], [type='radio'], [type='file'], [type='range'])),
+:where(.app-shell) select {
+  height: 34px;
+  padding: 0 12px;
+}
+:where(.app-shell) select {
+  padding-right: 36px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+:where(.app-shell) textarea {
+  padding: 8px 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+/* Foco: neutro (grafite), igual em todo o sistema */
+:where(.app-shell) input:where(:not([type='checkbox'], [type='radio'], [type='file'], [type='range'])):focus,
+:where(.app-shell) select:focus,
+:where(.app-shell) textarea:focus {
+  border-color: var(--primary);
+  outline: 3px solid rgba(48, 48, 48, .12);
+  outline-offset: 0;
+}
+
+/* Botões: um só tamanho (32px, 12px) em todas as telas; o "link" de texto (.btn-link) fica de fora */
+.app-shell .btn:not(.btn-link) {
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.app-shell .btn-outline {
+  border-color: var(--border-strong);
+  background: #fff;
+  color: var(--text);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .05);
+}
+.app-shell .btn-primary,
+.app-shell .btn-primary:hover {
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .08);
+}
+
+/* Texto de apoio (complemento pequeno e cinza ao lado ou abaixo de um dado) */
+.dado-apoio { color: var(--text-secondary); font-size: 11px; font-weight: 400; }
+
+/* Rótulo: padrão solto e, dentro de um campo (.field), o rótulo pequeno cinza */
+:where(.app-shell) label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+:where(.app-shell .field, .app-shell .relatorios-filtros-gerais) label,
+:where(.app-shell .field, .app-shell .relatorios-filtros-gerais) .campo-rotulo {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+/* Caixa de seleção com o texto ao lado, no tamanho do texto */
+.checkbox-linha {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.checkbox-linha input[type='checkbox'] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border-radius: 4px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.checkbox-linha input[type='checkbox']:disabled { cursor: default; }
+.novo-equipamento-grade .campo-largo { grid-column: 1 / -1; }
+
+/* Questionário do tipo: cada pergunta abre com a mesma divisória dos campos, ocupando toda a largura */
+.pergunta-bloco { position: relative; padding: 6px 42px 0 0; border-top: 1px solid var(--border); }
+.pergunta-bloco + .pergunta-bloco { margin-top: 6px; }
+.novo-equipamento .pergunta-bloco .field { border-top: 0; padding: 6px 0; }
+.pergunta-remover { position: absolute; top: 14px; right: 0; }
+.pergunta-bloco ~ .itens-adicionar { margin-top: 12px; }
+.novo-equipamento .itens-adicionar {
+  min-height: 32px;
+  padding: 6px 12px;
+  border-color: #c9cccf;
+  border-radius: 8px;
+  background: #fff;
+  color: #303030;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .05);
+}
+
+/* Interruptor: caixa de seleção com visual de chave liga/desliga (mantém teclado e leitor de tela) */
+.interruptor-linha input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  width: 30px;
+  height: 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #c9cccf;
+  transition: background .15s;
+}
+.interruptor-linha input[type='checkbox']::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+  transition: transform .15s;
+}
+.interruptor-linha input[type='checkbox']:checked { background: #303030; }
+.interruptor-linha input[type='checkbox']:checked::after { transform: translateX(12px); }
+.interruptor-linha input[type='checkbox']:focus-visible { outline: 2px solid #303030; outline-offset: 2px; }
+.interruptor-linha input[type='checkbox']:disabled { opacity: .5; }
+
+/* Filtro em forma de interruptor: ocupa a linha inteira do painel de filtros */
+.filtro-interruptor { flex: 1 1 100%; }
+
+/* Adicionar outro problema (chamado civil): ação em texto, separada dos campos por uma divisória */
+.civil-adicionar { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
+.civil-adicionar .btn-link { min-height: 0; padding: 0; font-size: 12px; color: var(--text); }
+.civil-adicionar .btn-link,
+.civil-adicionar .btn-link:hover { text-decoration: none; opacity: 1; }
+.civil-adicionar .btn-link span { text-decoration: none; }
+.civil-adicionar .btn-link:hover span { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Outro problema do chamado civil: sem card, separado do anterior por uma divisória */
+.problema-extra { position: relative; margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--border); }
+.problema-extra-titulo { margin: 0 0 12px; color: var(--text); font-size: 13px; font-weight: 650; }
+.problema-extra-remover { position: absolute; top: 4px; right: 0; }
+
+/* Problemas adicionais no detalhe do chamado: fotos sob o texto e formulário sem card dentro do card */
+.equipamento-dados dd.problema-adicional-fotos { margin-top: 8px; }
+.problema-adicional-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.civil-adicionar + .problema-adicional-form { margin-top: 0; }
+
+/* Orçamento prévio: links dos PDFs enviados, um ao lado do outro */
+.equipamento-dados dd.orcamento-arquivos { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.orcamento-acao { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }

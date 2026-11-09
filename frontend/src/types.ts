@@ -101,15 +101,55 @@ export interface Equipamento {
 
 export type TipoManutencao = 'EQUIPAMENTO' | 'CIVIL';
 
-export type CategoriaProblemaCivil =
-  | 'HIDRAULICA'
-  | 'ELETRICA'
-  | 'INFILTRACAO'
-  | 'ALVENARIA_PINTURA'
-  | 'COBERTURA'
-  | 'ESQUADRIAS_VIDROS'
-  | 'CLIMATIZACAO_CIVIL'
-  | 'OUTROS';
+export type TipoPergunta = 'OPCOES' | 'TEXTO';
+
+export interface PerguntaCategoria {
+  id: string;
+  texto: string;
+  tipo: TipoPergunta;
+  opcoes: string[];
+  obrigatoria: boolean;
+  ordem: number;
+  ativo: boolean;
+}
+
+// Categoria do chamado civil, cadastrada em Configurações, com as perguntas feitas na abertura
+export interface CategoriaCivil {
+  id: string;
+  nome: string;
+  ativo: boolean;
+  ordem: number;
+  perguntas: PerguntaCategoria[];
+  _count?: { manutencoes: number };
+}
+
+export interface RespostaChamado {
+  id: string;
+  perguntaTexto: string;
+  resposta: string;
+  ordem: number;
+}
+
+// Outro problema da mesma categoria acrescentado ao chamado
+export interface ProblemaExtra {
+  id: string;
+  descricao: string;
+  fotos: string[];
+  criadoEm: string;
+  criadoPor: { nome: string };
+}
+
+// Chamado civil em aberto da mesma categoria, mostrado na abertura
+export interface ChamadoAberto {
+  id: string;
+  numero: number;
+  titulo: string | null;
+  status: StatusManutencao;
+  abertoPorContestacao?: boolean;
+  localAfetado: string | null;
+  criadoEm: string;
+  aceitaProblemas: boolean;
+}
 
 export interface LinhaRelatorio {
   id: string;
@@ -125,6 +165,15 @@ export interface LinhaRelatorio {
   criadoEm: string;
 }
 
+export interface Setor {
+  id: string;
+  nome: string;
+  ativo: boolean;
+  unidadeId: string;
+  unidade: { id: string; nome: string };
+  _count?: { manutencoes: number };
+}
+
 export interface ItemSinapi {
   id: string;
   codigo: string;
@@ -137,15 +186,20 @@ export interface ItemSinapi {
 
 export type StatusManutencao =
   | 'PENDENTE_APROVACAO'
-  | 'AGUARDANDO_PROVIDENCIAS'
+  | 'AGUARDANDO_AVALIACAO_TECNICA'
+  | 'AGUARDANDO_VISTORIA'
+  | 'AVALIADO'
   | 'NEGADA'
+  | 'ENCERRADA'
   | 'AGUARDANDO_ORCAMENTO'
   | 'ORCAMENTO_REGISTRADO'
   | 'AGUARDANDO_EXECUCAO'
   | 'EM_EXECUCAO'
+  | 'EXECUTADO'
   | 'AGUARDANDO_RETORNO'
   | 'AGUARDANDO_MEDICAO'
   | 'REENCAMINHAMENTO_SOLICITADO'
+  | 'BLOQUEADO'
   | 'CONCLUIDA'
   | 'BAIXADO';
 
@@ -156,6 +210,7 @@ export interface EtapaDoCaso {
   tipo: TipoManutencao;
   titulo: string | null;
   status: StatusManutencao;
+  abertoPorContestacao?: boolean;
   criadoEm: string;
   dataConclusao: string | null;
   motivoReencaminhamento: string | null;
@@ -184,9 +239,18 @@ export interface Manutencao {
   status: StatusManutencao;
   // Manutenção civil: local, tipo de problema, fotos protegidas e andamento da conferência
   localAfetado?: string | null;
-  categoriaCivil?: CategoriaProblemaCivil | null;
+  categoriaCivil?: { id: string; nome: string } | null;
+  categoriaCivilId?: string | null;
+  respostas?: RespostaChamado[];
+  problemasExtras?: ProblemaExtra[];
   fotos?: string[];
-  motivoPendencia?: string | null;
+  parecerTecnico?: string | null;
+  orientacoesTerceirizada?: string | null;
+  // Setores afetados (um ou mais)
+  setores?: Array<{ setor: { id: string; nome: string } }>;
+  tipoEncerramento?: 'ENCERRADO' | 'DUPLICADO' | 'UNIFICADO' | null;
+  motivoEncerramento?: string | null;
+  chamadoOriginal?: { id: string; numero: number; titulo: string | null } | null;
   motivoAjuste?: string | null;
   contestacaoUnidade?: string | null;
   conferidoMedicaoEm?: string | null;
@@ -194,12 +258,25 @@ export interface Manutencao {
   motivoReencaminhamento?: string | null;
   reencaminhamentoConfirmadoEm?: string | null;
   reencaminhadoDeId?: string | null;
+  abertoPorContestacao?: boolean;
   casoId?: string | null;
   linhasRelatorio?: LinhaRelatorio[];
   descricaoProblema: string;
   // Só os chamados antigos têm justificativa; a abertura atual não pede mais
   justificativa?: string | null;
   motivoNegacao: string | null;
+  motivoBloqueio?: string | null;
+  ordemServico?: OrdemServico | null;
+  instrucoesOrcamento?: string | null;
+  rodadaOrcamento?: number;
+  motivoRejeicaoOrcamento?: string | null;
+  cotacaoAprovadaId?: string | null;
+  dispensaOrcamentoMotivo?: string | null;
+  cotacoes?: CotacaoOrcamento[];
+  informacoesSolicitadas?: string | null;
+  parecerVistoria?: string | null;
+  aguardandoRetornoEm?: string | null;
+  resolvidoAutomaticamenteEm?: string | null;
   orcamentoValor: string | null;
   orcamentoDescricao: string | null;
   laudoBaixa: string | null;
@@ -218,7 +295,7 @@ export interface Manutencao {
   unidade: { id: string; nome: string };
   solicitante: { nome: string };
   contrato?: { id: string; numero: string; prestador: { nome: string } } | null;
-  contratoItem?: { id: string; valor: string; descontoPercentual?: string; servico: { nome: string }; escopo: { nome: string } } | null;
+  contratoItem?: { id: string; valor: string; descontoPercentual?: string; servico: { nome: string; exigeOrcamentoPrevio?: boolean } } | null;
 }
 
 export type TipoSolicitacao = 'SUBSTITUICAO' | 'AMPLIACAO' | 'CESSAO_USO' | 'EMPRESTIMO' | 'RECOLHA';
@@ -432,11 +509,9 @@ export interface ContratoItem {
   valor: string;
   // Desconto da proposta sobre a tabela SINAPI, em %
   descontoPercentual: string;
-  escopoId: string;
   // Valor do item menos o já comprometido pelas manutenções vinculadas
   saldo: number;
   servico: { id: string; nome: string };
-  escopo: { id: string; nome: string; cobrePreventiva: boolean; cobreCorretiva: boolean; cobreCivil?: boolean };
 }
 
 export interface Contrato {
@@ -463,20 +538,12 @@ export interface PrestadorServico {
   _count: { contratos: number };
 }
 
-export interface EscopoServico {
-  id: string;
-  nome: string;
-  descricao: string | null;
-  cobrePreventiva: boolean;
-  cobreCorretiva: boolean;
-  cobreCivil: boolean;
-  _count: { itens: number };
-}
-
 export interface ServicoContrato {
   id: string;
   nome: string;
   descricao: string | null;
+  exigeAvaliacaoTecnica: boolean;
+  exigeOrcamentoPrevio: boolean;
   _count: { itens: number };
 }
 
@@ -507,6 +574,7 @@ export interface ChamadoParecido {
   numero: number;
   titulo: string | null;
   status: StatusManutencao;
+  abertoPorContestacao?: boolean;
   localAfetado: string | null;
   criadoEm: string;
 }
@@ -518,6 +586,7 @@ export interface ManutencaoRelatorio {
   numero: number;
   titulo: string | null;
   status: StatusManutencao;
+  abertoPorContestacao?: boolean;
   tipo: TipoManutencao;
   equipamento: string;
   tombamento: string | null;
@@ -548,4 +617,37 @@ export interface RelatorioManutencoes {
   porItem: Array<{ tipoEquipamentoId: string; nome: string; quantidade: number; custo: number }>;
   itensTotal: number;
   itens: ManutencaoRelatorio[];
+}
+
+export interface DocumentoOS {
+  id: string;
+  tipo: 'OS_ASSINADA' | 'RELATORIO';
+  arquivo: string;
+  enviadoEm: string;
+  recusadoEm: string | null;
+  motivoRecusa: string | null;
+}
+
+// Ordem de serviço do chamado civil (uma por chamado), com a execução e os documentos enviados depois
+export interface OrdemServico {
+  id: string;
+  numero: number;
+  equipe: string;
+  dataPrevista: string;
+  escopo: string;
+  geradaEm: string;
+  entradaEm: string | null;
+  saidaEm: string | null;
+  resultado: 'TOTAL' | 'PARCIAL' | null;
+  observacaoExecucao: string | null;
+  executadaEm: string | null;
+  documentos: DocumentoOS[];
+}
+
+// Um dos PDFs do orçamento prévio do chamado civil (cada envio do prestador é uma rodada)
+export interface CotacaoOrcamento {
+  id: string;
+  rodada: number;
+  arquivo: string;
+  enviadoEm: string;
 }

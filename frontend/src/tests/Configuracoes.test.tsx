@@ -391,11 +391,19 @@ describe('Prestadores de serviço e serviços de contrato', () => {
     const submenu = await screen.findByRole('group', { name: 'Submenus de Serviços' });
     expect(within(submenu).getByRole('link', { name: 'Prestadores' })).toBeInTheDocument();
     expect(within(submenu).getByRole('link', { name: 'Tipos' })).toBeInTheDocument();
-    expect(within(submenu).getByRole('link', { name: 'Escopos' })).toBeInTheDocument();
+    expect(within(submenu).queryByRole('link', { name: 'Escopos' })).not.toBeInTheDocument();
     await userEvent.type(
       await screen.findByLabelText('Nome do tipo de serviço'),
       'Serviço de manutenção preventiva e corretiva',
     );
+    // Por padrão o tipo de serviço não exige avaliação técnica; aqui o operador marca que exige
+    const avaliacao = screen.getByLabelText('Necessita avaliação técnica');
+    expect(avaliacao).toHaveValue('nao');
+    await userEvent.selectOptions(avaliacao, 'sim');
+    // e que o chamado civil desse serviço só segue com orçamento prévio
+    const orcamento = screen.getByLabelText('Exige orçamento prévio');
+    expect(orcamento).toHaveValue('nao');
+    await userEvent.selectOptions(orcamento, 'sim');
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
     await waitFor(() => {
@@ -403,53 +411,11 @@ describe('Prestadores de serviço e serviços de contrato', () => {
       expect(JSON.parse(String(post!.init!.body))).toMatchObject({
         nome: 'Serviço de manutenção preventiva e corretiva',
         descricao: null,
+        exigeAvaliacaoTecnica: true,
+        exigeOrcamentoPrevio: true,
       });
     });
     expect(await screen.findByRole('heading', { name: 'Tipos de serviço' })).toBeInTheDocument();
-  });
-
-  it('cadastra um escopo', async () => {
-    const chamadas = mockFetch({
-      ...usuarioLogado('OPERADOR'),
-      '/escopos-servico': (init) => (init?.method === 'POST' ? { status: 201, body: {} } : { body: [] }),
-      '/dashboard/alertas': { body: [] },
-    });
-    window.history.replaceState(null, '', '/configuracoes/servicos/escopos/novo');
-    render(<App />);
-
-    await userEvent.type(await screen.findByLabelText('Nome do escopo'), 'Preventiva');
-    const coberta = screen.getByLabelText('Manutenção coberta');
-    expect(within(coberta).queryByRole('option', { name: 'Nenhuma' })).not.toBeInTheDocument();
-    await userEvent.selectOptions(coberta, 'Preventiva');
-    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
-
-    await waitFor(() => {
-      const post = chamadas.find((c) => c.url.endsWith('/escopos-servico') && c.init?.method === 'POST');
-      expect(JSON.parse(String(post!.init!.body))).toMatchObject({
-        nome: 'Preventiva',
-        descricao: null,
-        cobrePreventiva: true,
-        cobreCorretiva: false,
-      });
-    });
-    expect(await screen.findByRole('heading', { name: 'Escopos de serviço' })).toBeInTheDocument();
-  });
-
-  it('na lista de escopos, "Novo escopo" e o nome do escopo abrem as telas certas', async () => {
-    mockFetch({
-      ...usuarioLogado('OPERADOR'),
-      '/escopos-servico': {
-        body: [{ id: 'es1', nome: 'Preventiva', descricao: null, cobrePreventiva: true, cobreCorretiva: false, _count: { itens: 0 } }],
-      },
-      '/dashboard/alertas': { body: [] },
-    });
-    window.history.replaceState(null, '', '/configuracoes/servicos/escopos');
-    render(<App />);
-
-    expect(await screen.findByRole('link', { name: 'Novo escopo' })).toHaveAttribute('href', '/configuracoes/servicos/escopos/novo');
-    await userEvent.click(await screen.findByRole('link', { name: 'Editar escopo Preventiva' }));
-    expect(await screen.findByLabelText('Nome do escopo')).toHaveValue('Preventiva');
-    expect(window.location.pathname).toBe('/configuracoes/servicos/escopos/es1');
   });
 
   it('usuário terceirizado exige o prestador de serviço', async () => {
@@ -479,7 +445,6 @@ describe('Prestadores de serviço e serviços de contrato', () => {
   });
 
   it.each([
-    ['escopo', '/configuracoes/servicos/escopos/es1', '/escopos-servico', 'Nome do escopo', 'Escopos de serviço'],
     ['tipo de serviço', '/configuracoes/servicos/tipos/sv1', '/servicos-contrato', 'Nome do tipo de serviço', 'Tipos de serviço'],
     ['prestador', '/configuracoes/servicos/prestadores/pr1', '/prestadores', 'Nome da empresa', 'Prestadores de serviço'],
   ])('edita e exclui um %s com confirmação e volta à lista', async (_nome, caminho, rota, rotuloCampo, tituloLista) => {
@@ -514,8 +479,8 @@ describe('Prestadores de serviço e serviços de contrato', () => {
   });
 
   it('um cadastro inexistente mostra o aviso e não permite salvar', async () => {
-    mockFetch({ ...usuarioLogado('OPERADOR'), '/escopos-servico': { body: [] }, '/dashboard/alertas': { body: [] } });
-    window.history.replaceState(null, '', '/configuracoes/servicos/escopos/nao-existe');
+    mockFetch({ ...usuarioLogado('OPERADOR'), '/prestadores': { body: [] }, '/dashboard/alertas': { body: [] } });
+    window.history.replaceState(null, '', '/configuracoes/servicos/prestadores/nao-existe');
     render(<App />);
     expect(await screen.findByText('Cadastro não encontrado.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Salvar' })).toBeDisabled();

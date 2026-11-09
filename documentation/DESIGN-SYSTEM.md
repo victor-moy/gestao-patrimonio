@@ -8,7 +8,7 @@ Este documento registra a direção visual e as decisões de UX da plataforma. A
 2. **Hierarquia contida:** peso, espaçamento e contraste antes de sombras, cores ou ornamentos.
 3. **Ações previsíveis:** a ação primária é escura e **sempre fica à direita**; secundárias são claras; cores semânticas são reservadas a estados.
 4. **Menos informação por vez:** mostrar só o necessário para a decisão; o restante fica recolhido (histórico) ou em linhas compactas.
-5. **Sem símbolos decorativos:** botões e rótulos usam só texto (nada de ícones em botões, "+", "✕" ou setas em textos). Ícones ficam na navegação e em controles sem texto (ex.: fechar, expandir).
+5. **Sem símbolos decorativos:** botões e rótulos usam texto (nada de ícones em botões, setas ou "✕" em textos). Ícones ficam na navegação e em controles sem texto (ex.: fechar, expandir, **X de remover linha**). A única exceção é o "+" no início do texto das ações que **adicionam uma linha a uma lista** ("+ Adicionar item", "+ Adicionar pergunta", "+ Adicionar problema").
 6. **Acessibilidade por padrão:** foco visível, controles semânticos, nomes acessíveis e estados assíncronos anunciados (`role="alert"` / `role="status"`).
 
 ## Fundamentos
@@ -21,6 +21,29 @@ Tokens globais em `frontend/src/styles.css`; padrões das telas autenticadas em 
 - Os campos mantêm a fonte de 12–14 px; para o iOS não dar zoom na tela ao focá-los, o viewport recebe `maximum-scale=1` **só enquanto um campo está em foco** (`utils/zoomCampos.ts`). Fora disso o zoom por pinça fica liberado (acessibilidade). Se o zoom voltar em algum aparelho, a alternativa é fonte de 16 px nos campos em telas de toque.
 - Tipografia: pilha nativa do sistema, sem fonte externa. Texto de tabela e campos em 12–13 px; rótulos de campo em 12 px cinza.
 - Rótulos em *sentence case* ("Novo equipamento", "Unidade de origem"), sem dois-pontos e sem asterisco de obrigatório.
+
+## Padrão único de formulário e componentes
+
+Uma só escala vale para todas as telas autenticadas. Ela mora em `frontend/src/components/Padrao.css` (carregado por último; a base usa `:where()` e não tem especificidade, então não atrapalha regras de tela, mas garante que **nenhum campo fique no padrão de 15px do navegador**). Tela nova **não define tamanho de fonte, borda ou altura de campo**: usa as classes abaixo.
+
+| Elemento | Padrão |
+|---|---|
+| Rótulo de campo (`.field label`) | 11px, cinza, 400, 6px de espaço abaixo |
+| Campo, seletor, área de texto | 12px, borda `--border-strong`, raio 8px, altura 34px (área de texto: padding 8×12, linha 1,5) |
+| Dado em lista de informações (`.equipamento-dados`) | rótulo 11px cinza, valor 13px peso 550 |
+| Título de seção (`.equipamento-secao h3`) | 14px, peso 650, divisória fina sob o título |
+| Caixa de seleção (`.checkbox-linha`) | caixa de 16px, texto 12px ao lado, alinhado ao centro |
+| Interruptor (`.checkbox-linha.interruptor-linha`, `role="switch"`) | opção que liga ou desliga uma coisa (obrigatória, ativo, filtro). Caixa de seleção fica para marcar vários itens numa lista (permissões, multisseleção) |
+| Remover linha | ícone X (`.itens-remover`), canto superior direito da linha; nunca botão com texto |
+| Adicionar linha | botão claro compacto "+ Adicionar …" (`.itens-adicionar`) ou ação em texto (`.civil-adicionar` + `.btn-link`) quando a lista fica dentro de um card |
+| Divisória | linha contínua fina `--border`; nunca duas seguidas (a lista de dados já desenha a primeira, então não combine com `.solicitacao-secao-texto`) |
+
+Regras para não repetir erros:
+- Card dentro de card não existe: o que fica dentro de uma seção é linha, não card.
+- Formulário dentro do detalhe de um chamado fica em `.solicitacao-acoes` (campos, botões e anexos já estilizados lá).
+- Antes de entregar tela ou componente novo: conferir classes sem CSS, abrir em desktop e mobile e comparar com uma tela irmã.
+
+Onde está cada coisa: campos, rótulos, foco (grafite, em todo o sistema), botões (`.btn-outline`, `.btn-primary`: 32px, 12px) e caixa de seleção/interruptor ficam **só** em `Padrao.css`. As regras antigas por área (`.novo-equipamento`, `.nova-solicitacao`, `.solicitacao-acoes`, avaliação técnica, relatórios, estoque, início) que repetiam tamanho de fonte, altura, borda ou botão foram removidas; as áreas só mantêm layout (grade, margens, largura). Para um caso novo, **acrescente a variante em `Padrao.css`** em vez de criar tamanho local. O botão em texto (`.btn-link`) fica fora do padrão de botão de propósito. Ainda existem dois nomes para o mesmo card de seção (`.equipamento-secao` e `.form-secao` na Nova Solicitação), com aparência igual; a fusão fica para uma próxima etapa.
 
 ## Estrutura de uma página
 
@@ -104,7 +127,7 @@ Página própria com conteúdo principal e resumo lateral, em cards de altura co
 - título + *badge* de status no mesmo estilo do Inventário (compacto);
 - seções com título e divisor; textos de resposta (ex.: "Motivo da negação") seguem a hierarquia normal, **não** em vermelho;
 - o botão claro **Conversar** fica no canto superior direito do cabeçalho de solicitações e manutenções (no mobile, em linha própria abaixo do título, sempre à esquerda) e leva à tela de conversa (não há chat embutido nos detalhes);
-- ações disponíveis ficam **direto na tela**, abaixo dos cards (não dentro de um bloco "Ações"), alinhadas à direita; o botão primário é o mais à direita; em solicitações, as ações ficam sob "Localização"; na manutenção o **Item do contrato** mostra só o nome do tipo de serviço;
+- no detalhe da **manutenção** e da **solicitação**, as ações ficam num único menu **Ações** no topo, ao lado de Conversar (primário, preto). Ação direta (manutenção: Iniciar, Finalizar civil, Aprovar orçamento, Problema resolvido, Aprovar, Confirmar reencaminhamento; solicitação: Reservar do estoque, Concluir, Confirmar saída, retorno ou recolha) executa na hora; ação que pede dados (Aprovar/Negar, Reencaminhar, Contestar, Solicitar ajustes, Registrar orçamento, Lançar no Branet, Ajustar tombamento, Confirmar recebimento etc.) abre um painel logo abaixo do cabeçalho, com Cancelar e Confirmar. Ação indisponível aparece desabilitada com o motivo. Sem nenhuma ação, o menu não aparece. a unidade (e o setor) ficam dentro de "Informações" — não há bloco "Localização" no detalhe; na manutenção o **Item do contrato** mostra só o nome do tipo de serviço;
 - **Trajetória do caso** (reencaminhamento) é um card sempre visível, em linha do tempo vertical, que só aparece quando o caso tem mais de um atendimento; a etapa aberta fica marcada e só as etapas acessíveis viram link. O botão **Reencaminhar** (só da Terceirizada, enquanto atende) fica ao lado de **Conversar** no cabeçalho e abre o campo do motivo nas ações; o pedido é texto livre (sem anexos); a decisão do Administrador (novo chamado ou baixa) acontece no bloco de ações, sem modal;
 - **Histórico** é um card recolhido por padrão, com seta para expandir/recolher (`HistoricoRecolhivel`); fica antes dos botões de ação; no Inventário fica à esquerda;
 - no detalhe do equipamento, um **ícone de QR Code** ao lado do tombamento (sob o título) imprime a etiqueta ao clicar: o QR é gerado no navegador, e a etiqueta mostra QR, tombamento, descrição e unidade, com o resto da página oculto na impressão. Não há card de QR na página;
@@ -139,7 +162,7 @@ Lista por galpão com "Equipamento" (código abaixo do nome), Categoria, Dispon�
 
 ## Autenticação
 
-Tela de acesso sem caixa: fundo em gradiente discreto, ícone do sistema, nome, "Secretaria Municipal da Saúde de Joinville" e um único botão **Entrar**, centralizados na vertical e na horizontal (também no mobile), com a mensagem de suporte logo abaixo. O login é só pela conta institucional (Keycloak): não há campos de e-mail e senha nem "Esqueceu a senha?". A tela é uma só: se qualquer etapa do login falhar, o navegador volta a ela sem mensagem (o motivo fica no log do servidor). Quem entra e ainda não tem perfil (`SEM_ACESSO`) cai na tela inicial, com só o item **Início** no menu (sem Conversas nem Configurações) e sem nenhum aviso; qualquer outro endereço volta para o Início. O cadastro de usuário (Configurações › Usuários › Novo) pede só e-mail e perfil (mais unidade ou prestador, quando o perfil exige). Impersonação (temporariamente aberta a qualquer perfil, enquanto só há dados de teste): no menu do usuário (canto superior direito), o item **"Entrar como"**, acima de "Sair", começa recolhido e, ao clicar, expande a lista de usuários ativos com busca; um clique entra como a pessoa (também a partir de um usuário já assumido). A própria conta é a primeira da lista ("Conta atual", desabilitada; depois de assumir outro usuário vira "Voltar à sua conta"); não há botão de redefinir. A ação é auditada. Ao entrar como outro usuário, **a página é recarregada na tela inicial**, para nenhum estado do usuário anterior (listas, contadores, rascunhos) sobrar na tela.
+Tela de acesso sem caixa: fundo em gradiente discreto, ícone do sistema, nome, "Secretaria Municipal da Saúde de Joinville" e um único botão **Entrar**, centralizados na vertical e na horizontal (também no mobile), com a mensagem de suporte logo abaixo. O login é só pela conta institucional (Keycloak): não há campos de e-mail e senha nem "Esqueceu a senha?". A tela é uma só: se qualquer etapa do login falhar, o navegador volta a ela sem mensagem (o motivo fica no log do servidor). Quem entra e ainda não tem perfil (`SEM_ACESSO`) cai na tela inicial, com só o item **Início** no menu (sem Conversas nem Configurações) e sem nenhum aviso; qualquer outro endereço volta para o Início. O cadastro de usuário (Configurações › Usuários › Novo) pede só e-mail e perfil (mais unidade ou prestador, quando o perfil exige). Para o perfil Operador o formulário ganha a seção **Permissões do operador**: dois grupos em linhas separadas por divisor fino, com o nome do grupo à esquerda (cinza pequeno, como os rótulos dos campos) e as caixas de seleção compactas em grade ao lado — **Solicitações - Manutenções** e **Áreas do sistema** (contratos, atas, estoque, relatórios, solicitações, inventário, configurações e usuários) — e a contagem de permissões marcadas no cabeçalho do card (no mobile as caixas ficam em coluna); a seção não aparece nos outros perfis. O menu lateral e o menu de Configurações mostram só as áreas liberadas ao operador. Impersonação (temporariamente aberta a qualquer perfil, enquanto só há dados de teste): no menu do usuário (canto superior direito), o item **"Entrar como"**, acima de "Sair", começa recolhido e, ao clicar, expande a lista de usuários ativos com busca; um clique entra como a pessoa (também a partir de um usuário já assumido). A própria conta é a primeira da lista ("Conta atual", desabilitada; depois de assumir outro usuário vira "Voltar à sua conta"); não há botão de redefinir. A ação é auditada. Ao entrar como outro usuário, **a página é recarregada na tela inicial**, para nenhum estado do usuário anterior (listas, contadores, rascunhos) sobrar na tela.
 
 ## Conteúdo e linguagem
 

@@ -159,14 +159,15 @@ describe('Detalhe da manutenção conforme as permissões do operador', () => {
     mockFetch(rotas(['MANUTENCAO_CONSULTAR']));
     abrir('/manutencoes/m1');
     expect(await screen.findByText('Não atinge a temperatura adequada')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Aprovar manutenção' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Negar manutenção' })).not.toBeInTheDocument();
+    // sem nenhuma ação disponível o menu nem aparece
+    expect(screen.queryByRole('button', { name: 'Ações' })).not.toBeInTheDocument();
   });
 
   it('quem tria vê aprovar e negar', async () => {
     mockFetch(rotas(['MANUTENCAO_CONSULTAR', 'MANUTENCAO_TRIAR']));
     abrir('/manutencoes/m1');
-    expect(await screen.findByRole('button', { name: 'Aprovar manutenção' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Negar manutenção' })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: 'Ações' }));
+    expect(await screen.findByRole('menuitem', { name: 'Aprovar chamado' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Negar chamado' })).toBeInTheDocument();
   });
 });

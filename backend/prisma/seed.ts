@@ -208,19 +208,6 @@ async function main() {
     ).id;
   }
 
-  const escopos: Record<string, string> = {};
-  for (const nome of ['Manutenção preventiva', 'Manutenção corretiva', 'Manutenção preventiva e corretiva']) {
-    escopos[nome] = (await prisma.escopoServico.upsert({ where: { nome }, update: {}, create: { nome } })).id;
-  }
-  // Escopo que cobre apenas manutenção civil (problemas de unidade, sala ou instalação, sem equipamento)
-  escopos['Manutenção civil'] = (
-    await prisma.escopoServico.upsert({
-      where: { nome: 'Manutenção civil' },
-      update: {},
-      create: { nome: 'Manutenção civil', cobrePreventiva: false, cobreCorretiva: false, cobreCivil: true },
-    })
-  ).id;
-
   // Contratos de manutenção e serviços
   // Dois itens de exemplo da tabela SINAPI (valores demonstrativos, não oficiais) para testar o orçamento do chamado civil
   for (const item of [
@@ -243,9 +230,9 @@ async function main() {
       vigenciaFim: new Date('2026-12-31'),
       itens: {
         create: [
-          { servicoId: servicos['Serviço de manutenção preventiva e corretiva'], valor: 30000, escopoId: escopos['Manutenção preventiva e corretiva'] },
-          { servicoId: servicos['Serviço de manutenção preventiva'], valor: 15000, escopoId: escopos['Manutenção preventiva'] },
-          { servicoId: servicos['Serviço de manutenção predial'], valor: 20000, descontoPercentual: 12, escopoId: escopos['Manutenção civil'] },
+          { servicoId: servicos['Serviço de manutenção preventiva e corretiva'], valor: 30000 },
+          { servicoId: servicos['Serviço de manutenção preventiva'], valor: 15000 },
+          { servicoId: servicos['Serviço de manutenção predial'], valor: 20000, descontoPercentual: 12 },
         ],
       },
     },
@@ -262,7 +249,7 @@ async function main() {
       vigenciaInicio: new Date('2024-05-31'),
       vigenciaFim: new Date('2025-05-31'),
       itens: {
-        create: [{ servicoId: servicos['Serviço de calibração'], valor: 18500, escopoId: escopos['Manutenção preventiva'] }],
+        create: [{ servicoId: servicos['Serviço de calibração'], valor: 18500 }],
       },
     },
   });

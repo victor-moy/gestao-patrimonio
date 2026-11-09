@@ -5,7 +5,7 @@ import { StatusPill } from '../../components/StatusPill';
 import { IconeBusca } from '../../components/icons';
 import { FiltrosGerais, paramsFiltros, useOpcoesFiltro } from './filtros';
 import type { ManutencaoRelatorio, PrestadorServico, RelatorioManutencoes, SituacaoManutencao } from '../../types';
-import { capitalizarPalavras, codigoManutencao, formatarMoeda, ROTULO_STATUS_MANUTENCAO } from '../../utils/format';
+import { capitalizarPalavras, codigoManutencao, formatarMoeda, statusManutencaoExibido } from '../../utils/format';
 
 const SITUACOES: Array<{ valor: '' | SituacaoManutencao; rotulo: string }> = [
   { valor: '', rotulo: 'Todas' },
@@ -319,7 +319,7 @@ export function RelatorioManutencoes() {
                     <td className="rc-d rel-coluna-num" data-label="Custo final">{m.custoFinal === null ? '—' : formatarMoeda(m.custoFinal)}</td>
                     <td className="rc-status">
                       <div className="rel-tabela-status">
-                        <StatusPill valor={m.status}>{ROTULO_STATUS_MANUTENCAO[m.status]}</StatusPill>
+                        <StatusPill valor={statusManutencaoExibido(m).valor}>{statusManutencaoExibido(m).texto}</StatusPill>
                         {m.naoSugerida && <StatusPill valor="NAO_SUGERIDA">Não sugerida</StatusPill>}
                       </div>
                     </td>

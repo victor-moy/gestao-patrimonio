@@ -4,7 +4,7 @@ import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
-import type { Contrato, EscopoServico, PrestadorServico, ServicoContrato } from '../types';
+import type { Contrato, PrestadorServico, ServicoContrato } from '../types';
 import { ROTULO_STATUS_CONTRATO } from '../utils/cadastros';
 import { formatarMoeda } from '../utils/format';
 import { semAlteracoes } from '../utils/form';
@@ -15,12 +15,11 @@ interface ItemForm {
   servicoId: string;
   valor: string;
   descontoPercentual: string;
-  escopoId: string;
   // Só para itens já gravados: valor menos o já comprometido pelas manutenções
   saldo?: number;
 }
 
-const ITEM_VAZIO: ItemForm = { servicoId: '', valor: '', descontoPercentual: '0', escopoId: '' };
+const ITEM_VAZIO: ItemForm = { servicoId: '', valor: '', descontoPercentual: '0' };
 
 const VAZIO = {
   numero: '',
@@ -61,22 +60,19 @@ export function ContratoFormulario() {
   const [prestadores, setPrestadores] = useState<PrestadorServico[]>([]);
   const [servicos, setServicos] = useState<ServicoContrato[]>([]);
   const [catalogosFalha, setCatalogosFalha] = useState(false);
-  const [escopos, setEscopos] = useState<EscopoServico[]>([]);
 
   useEffect(() => {
-    // Os cadastros de prestadores, serviços e escopos são dos gestores; em leitura as opções vêm do próprio contrato
+    // Os cadastros de prestadores e serviços são dos gestores; em leitura as opções vêm do próprio contrato
     if (!permitido || somenteLeitura) return;
     let ativo = true;
     Promise.all([
       api.get<PrestadorServico[]>('/prestadores'),
       api.get<ServicoContrato[]>('/servicos-contrato'),
-      api.get<EscopoServico[]>('/escopos-servico'),
     ])
-      .then(([listaPrestadores, listaServicos, listaEscopos]) => {
+      .then(([listaPrestadores, listaServicos]) => {
         if (!ativo) return;
         setPrestadores(listaPrestadores);
         setServicos(listaServicos);
-        setEscopos(listaEscopos);
       })
       .catch(() => {
         if (ativo) setCatalogosFalha(true);
@@ -110,7 +106,6 @@ export function ContratoFormulario() {
             servicoId: i.servicoId,
             valor: String(i.valor),
             descontoPercentual: String(Number(i.descontoPercentual ?? 0)),
-            escopoId: i.escopoId,
             saldo: i.saldo,
           })),
         };
@@ -135,7 +130,6 @@ export function ContratoFormulario() {
   // Em leitura, as opções dos selects são só o que o contrato já usa
   const opcoesPrestadores = somenteLeitura && contrato ? [contrato.prestador as PrestadorServico] : prestadores;
   const opcoesServicos = somenteLeitura && contrato ? contrato.itens.map((i) => i.servico as ServicoContrato) : servicos;
-  const opcoesEscopos = somenteLeitura && contrato ? contrato.itens.map((i) => i.escopo as EscopoServico) : escopos;
 
   const total = form.itens.length > 0 ? somarValores(form.itens) : Number(contrato?.valorTotal ?? 0);
   const contratoAntigoSemItens = editando && contrato !== null && contrato.itens.length === 0;
@@ -180,7 +174,6 @@ export function ContratoFormulario() {
         servicoId: i.servicoId,
         valor: Number(i.valor),
         descontoPercentual: Number(i.descontoPercentual) || 0,
-        escopoId: i.escopoId,
       })),
     };
     try {
@@ -332,17 +325,16 @@ export function ContratoFormulario() {
           <h3 id="ct-itens-titulo">Itens do contrato</h3>
           {catalogosFalha && (
             <div className="error-banner" role="alert">
-              Não foi possível carregar prestadores, serviços e escopos. Recarregue a página para tentar novamente.
+              Não foi possível carregar prestadores e serviços. Recarregue a página para tentar novamente.
             </div>
           )}
           <div
             className="itens-lista"
-            style={{ '--colunas': `minmax(0,1fr) 220px 140px 130px ${editando ? '140px ' : ''}34px` } as CSSProperties}
+            style={{ '--colunas': `minmax(0,1fr) 140px 130px ${editando ? '140px ' : ''}34px` } as CSSProperties}
           >
             {form.itens.length > 0 && (
               <div className="itens-cabecalho" aria-hidden>
                 <span>Tipo de serviço</span>
-                <span>Escopo</span>
                 <span>Valor (R$)</span>
                 <span>Desconto SINAPI (%)</span>
                 {editando && <span>Saldo (R$)</span>}
@@ -367,22 +359,6 @@ export function ContratoFormulario() {
                           {sv.nome}
                         </option>
                       ))}
-                  </select>
-                </div>
-                <div className="itens-celula" data-rotulo="Escopo">
-                  <select
-                    aria-label="Escopo"
-                    value={item.escopoId}
-                    onChange={(e) => editarItem(i, { escopoId: e.target.value })}
-                    disabled={bloqueado}
-                    required
-                  >
-                    <option value="">Selecione...</option>
-                    {opcoesEscopos.map((e) => (
-                      <option key={e.id} value={e.id}>
-                        {e.nome}
-                      </option>
-                    ))}
                   </select>
                 </div>
                 <div className="itens-celula" data-rotulo="Valor (R$)">

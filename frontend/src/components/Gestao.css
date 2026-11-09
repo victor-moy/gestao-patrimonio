@@ -42,14 +42,6 @@
   letter-spacing: -.45px;
   line-height: 1.12;
 }
-.gestao-page .btn-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-.gestao-page .btn-primary:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
-}
 .gestao-page button:focus-visible,
 .gestao-tabela-scroll:focus-visible {
   outline: 2px solid var(--accent);
@@ -155,10 +147,6 @@
   align-items: center;
   gap: 12px;
 }
-.gestao-paginacao .btn {
-  padding: 8px 12px;
-  font-size: 12px;
-}
 .gestao-lista .empty-state {
   display: flex;
   flex-direction: column;
@@ -262,15 +250,6 @@
 
 .inventario-lista-acoes {
   gap: 9px;
-}
-
-.inventario-lista-acoes .btn {
-  min-height: 37px;
-  padding: 8px 13px;
-  border-radius: 5px;
-  box-shadow: none;
-  font-size: 12px;
-  font-weight: 600;
 }
 
 .inventario-controles {

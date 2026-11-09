@@ -32,9 +32,9 @@ import { Prestadores } from './pages/configuracoes/Prestadores';
 import { PrestadorFormulario } from './pages/configuracoes/PrestadorFormulario';
 import { ServicosContrato } from './pages/configuracoes/ServicosContrato';
 import { ServicoContratoFormulario } from './pages/configuracoes/ServicoContratoFormulario';
-import { EscoposServico } from './pages/configuracoes/EscoposServico';
-import { EscopoServicoFormulario } from './pages/configuracoes/EscopoServicoFormulario';
 import { Atendimento } from './pages/configuracoes/Atendimento';
+import { CategoriasCivis } from './pages/configuracoes/CategoriasCivis';
+import { CategoriaCivilFormulario } from './pages/configuracoes/CategoriaCivilFormulario';
 import { Tipos } from './pages/configuracoes/Tipos';
 import { TipoFormulario } from './pages/configuracoes/TipoFormulario';
 
@@ -118,6 +118,7 @@ function RotasProtegidas() {
           <Route path="/configuracoes/unidades/nova" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><UnidadeFormulario /></Restrita>} />
           <Route path="/configuracoes/unidades/:id" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><UnidadeFormulario /></Restrita>} />
           <Route path="/configuracoes/itens" element={<Navigate to="/configuracoes/itens/categorias" replace />} />
+          <Route path="/configuracoes/chamados" element={<Navigate to="/configuracoes/chamados/tipos-civis" replace />} />
           <Route path="/configuracoes/servicos" element={<Navigate to="/configuracoes/servicos/prestadores" replace />} />
           <Route path="/configuracoes/itens/categorias" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><Categorias /></Restrita>} />
           <Route path="/configuracoes/itens/categorias/nova" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><CategoriaFormulario /></Restrita>} />
@@ -128,9 +129,9 @@ function RotasProtegidas() {
           <Route path="/configuracoes/servicos/tipos" element={<Restrita permissoes={['CONTRATOS_GERENCIAR']}><ServicosContrato /></Restrita>} />
           <Route path="/configuracoes/servicos/tipos/novo" element={<Restrita permissoes={['CONTRATOS_GERENCIAR']}><ServicoContratoFormulario /></Restrita>} />
           <Route path="/configuracoes/servicos/tipos/:id" element={<Restrita permissoes={['CONTRATOS_GERENCIAR']}><ServicoContratoFormulario /></Restrita>} />
-          <Route path="/configuracoes/servicos/escopos" element={<Restrita permissoes={['CONTRATOS_GERENCIAR']}><EscoposServico /></Restrita>} />
-          <Route path="/configuracoes/servicos/escopos/novo" element={<Restrita permissoes={['CONTRATOS_GERENCIAR']}><EscopoServicoFormulario /></Restrita>} />
-          <Route path="/configuracoes/servicos/escopos/:id" element={<Restrita permissoes={['CONTRATOS_GERENCIAR']}><EscopoServicoFormulario /></Restrita>} />
+          <Route path="/configuracoes/chamados/tipos-civis" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><CategoriasCivis /></Restrita>} />
+          <Route path="/configuracoes/chamados/tipos-civis/nova" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><CategoriaCivilFormulario /></Restrita>} />
+          <Route path="/configuracoes/chamados/tipos-civis/:id" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><CategoriaCivilFormulario /></Restrita>} />
           <Route path="/configuracoes/atendimento" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><Atendimento /></Restrita>} />
           <Route path="/configuracoes/itens/tipos" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><Tipos /></Restrita>} />
           <Route path="/configuracoes/itens/tipos/novo" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><TipoFormulario /></Restrita>} />

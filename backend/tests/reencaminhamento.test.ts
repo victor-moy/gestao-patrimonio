@@ -28,9 +28,9 @@ const chamado = (extra: Record<string, unknown> = {}) => ({
   titulo: 'Ar-condicionado não liga',
   descricaoProblema: 'O ar-condicionado do consultório não liga',
   localAfetado: 'Consultório 2',
-  categoriaCivil: 'ELETRICA',
+  categoriaCivilId: '88888888-8888-4888-8888-888888888888',
   fotos: ['/uploads/solicitacoes/f.jpg'],
-  status: 'EM_EXECUCAO',
+  status: 'AGUARDANDO_EXECUCAO',
   casoId: null,
   reencaminhadoDeId: null,
   motivoReencaminhamento: null,
@@ -85,7 +85,7 @@ describe('Reencaminhamento de chamados', () => {
 
       expect(res.status).toBe(200);
       expect(prismaMock.manutencao.updateMany).toHaveBeenCalledWith({
-        where: { id: MAN, status: 'EM_EXECUCAO' },
+        where: { id: MAN, status: 'AGUARDANDO_EXECUCAO' },
         data: expect.objectContaining({
           status: 'REENCAMINHAMENTO_SOLICITADO',
           motivoReencaminhamento: MOTIVO,
@@ -119,10 +119,12 @@ describe('Reencaminhamento de chamados', () => {
       }
     });
 
-    it('só enquanto o chamado está com o atendimento', async () => {
-      prismaMock.manutencao.findUnique.mockResolvedValue(chamado({ status: 'AGUARDANDO_RETORNO' }) as never);
-      const res = await request(app).post(`/manutencoes/${MAN}/solicitar-reencaminhamento`).set(terc()).send({ motivo: MOTIVO });
-      expect(res.status).toBe(422);
+    it('só até antes de iniciar o serviço: em execução ou depois, não', async () => {
+      for (const status of ['EM_EXECUCAO', 'AGUARDANDO_RETORNO']) {
+        prismaMock.manutencao.findUnique.mockResolvedValue(chamado({ status }) as never);
+        const res = await request(app).post(`/manutencoes/${MAN}/solicitar-reencaminhamento`).set(terc()).send({ motivo: MOTIVO });
+        expect([status, res.status]).toEqual([status, 422]);
+      }
     });
 
     it('exige um motivo com conteúdo', async () => {
@@ -232,7 +234,7 @@ describe('Reencaminhamento de chamados', () => {
       const res = await request(app)
         .post(`/manutencoes/${MAN}/reencaminhar/manutencao`)
         .set(admin())
-        .send({ tipo: 'CIVIL', localAfetado: 'Sala de espera', categoriaCivil: 'ELETRICA' });
+        .send({ tipo: 'CIVIL', localAfetado: 'Sala de espera', categoriaCivilId: '88888888-8888-4888-8888-888888888888' });
       expect(res.status).toBe(201);
       expect(prismaMock.equipamento.updateMany).toHaveBeenCalledWith({
         where: { id: EQ, status: 'EM_MANUTENCAO' },

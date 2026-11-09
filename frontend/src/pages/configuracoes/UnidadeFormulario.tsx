@@ -8,6 +8,7 @@ import type { Unidade } from '../../types';
 import { semAlteracoes } from '../../utils/form';
 import { ROTULO_TIPO_UNIDADE } from '../../utils/format';
 import type { UsuarioLista } from './Usuarios';
+import { SetoresDaUnidade } from './SetoresDaUnidade';
 
 const VAZIO = { nome: '', tipo: 'UBSF', endereco: '', emailBase: '', responsavelId: '', ativo: true };
 
@@ -212,6 +213,7 @@ export function UnidadeFormulario() {
           )}
         </div>
       </section>
+      {unidade && <SetoresDaUnidade unidadeId={unidade.id} onErro={setErro} />}
     </PaginaCadastro>
   );
 }

@@ -426,6 +426,26 @@ describe('Serviços de contrato', () => {
     expect(emUso.status).toBe(422);
   });
 
+  it('guarda se o tipo de serviço exige avaliação técnica (padrão: não) e audita a mudança', async () => {
+    prismaMock.servicoContrato.findUnique.mockResolvedValueOnce(null);
+    prismaMock.servicoContrato.create.mockResolvedValue({ id: 's-2', nome: 'Elétrica', exigeAvaliacaoTecnica: true } as never);
+    const novo = await request(app).post('/servicos-contrato').set(auth('OPERADOR')).send({ nome: 'Elétrica', exigeAvaliacaoTecnica: true });
+    expect(novo.status).toBe(201);
+    expect(prismaMock.servicoContrato.create.mock.calls[0][0].data).toMatchObject({ exigeAvaliacaoTecnica: true });
+
+    prismaMock.servicoContrato.findUnique.mockResolvedValueOnce({ id: 's-2', nome: 'Elétrica', exigeAvaliacaoTecnica: true } as never);
+    prismaMock.servicoContrato.findUnique.mockResolvedValueOnce(null);
+    prismaMock.servicoContrato.update.mockResolvedValue({ id: 's-2', nome: 'Elétrica', exigeAvaliacaoTecnica: false } as never);
+    const edicao = await request(app).patch('/servicos-contrato/s-2').set(auth('OPERADOR')).send({ exigeAvaliacaoTecnica: false });
+    expect(edicao.status).toBe(200);
+    const log = prismaMock.logAuditoria.create.mock.calls.at(-1)![0].data;
+    expect(log.dadosAntes).toMatchObject({ exigeAvaliacaoTecnica: true });
+    expect(log.dadosDepois).toMatchObject({ exigeAvaliacaoTecnica: false });
+
+    const invalido = await request(app).post('/servicos-contrato').set(auth('OPERADOR')).send({ nome: 'Outro', exigeAvaliacaoTecnica: 'talvez' });
+    expect(invalido.status).toBe(422);
+  });
+
   it('só o Administrador acessa', async () => {
     prismaMock.servicoContrato.findMany.mockResolvedValue([] as never);
     expect((await request(app).get('/servicos-contrato').set(auth('OPERADOR'))).status).toBe(200);
@@ -460,44 +480,12 @@ describe('Regras de manutenção nos cadastros', () => {
     expect(prismaMock.tipoEquipamento.update.mock.calls[0][0].data).toMatchObject({ permitePreventiva: false });
   });
 
-  it('escopo precisa cobrir ao menos um tipo de manutenção', async () => {
-    const res = await request(app)
-      .post('/escopos-servico')
-      .set(auth('OPERADOR'))
-      .send({ nome: 'Nenhuma', cobrePreventiva: false, cobreCorretiva: false });
-    expect(res.status).toBe(422);
-  });
-});
-
-describe('Escopos de serviço', () => {
-  it('cadastra escopo, rejeita nome repetido e bloqueia exclusão em uso', async () => {
-    prismaMock.escopoServico.findUnique.mockResolvedValueOnce(null);
-    prismaMock.escopoServico.create.mockResolvedValue({ id: 'e-1', nome: 'Preventiva' } as never);
-    const ok = await request(app).post('/escopos-servico').set(auth('OPERADOR')).send({ nome: 'Preventiva' });
-    expect(ok.status).toBe(201);
-
-    prismaMock.escopoServico.findUnique.mockResolvedValueOnce({ id: 'e-9' } as never);
-    const dup = await request(app).post('/escopos-servico').set(auth('OPERADOR')).send({ nome: 'Preventiva' });
-    expect(dup.status).toBe(409);
-
-    prismaMock.escopoServico.findUnique.mockResolvedValueOnce({ id: 'e-1', nome: 'X', _count: { itens: 2 } } as never);
-    const emUso = await request(app).delete('/escopos-servico/e-1').set(auth('OPERADOR'));
-    expect(emUso.status).toBe(422);
-  });
-
-  it('só o Administrador acessa', async () => {
-    prismaMock.escopoServico.findMany.mockResolvedValue([] as never);
-    expect((await request(app).get('/escopos-servico').set(auth('OPERADOR'))).status).toBe(200);
-    expect((await request(app).post('/escopos-servico').set(auth('UNIDADE', { unidadeId: 'u-1' })).send({ nome: 'Novo' })).status).toBe(403);
-  });
 });
 
 describe('Contratos de terceirizadas', () => {
   const PREST = '33333333-3333-4333-8333-333333333333';
   const S1 = '11111111-1111-4111-8111-111111111111';
   const S2 = '22222222-2222-4222-8222-222222222222';
-  const E1 = '44444444-4444-4444-8444-444444444444';
-  const E2 = '55555555-5555-4555-8555-555555555555';
   const base = {
     numero: 'CONT-2026-010',
     prestadorId: PREST,
@@ -506,14 +494,13 @@ describe('Contratos de terceirizadas', () => {
     vigenciaFim: '2026-12-31',
   };
   const itens = [
-    { servicoId: S1, valor: 10000.1, escopoId: E1 },
-    { servicoId: S2, valor: 20000.2, escopoId: E2 },
+    { servicoId: S1, valor: 10000.1 },
+    { servicoId: S2, valor: 20000.2 },
   ];
 
   function referenciasValidas() {
     prismaMock.prestadorServico.findUnique.mockResolvedValue({ id: PREST } as never);
     prismaMock.servicoContrato.count.mockResolvedValue(2 as never);
-    prismaMock.escopoServico.count.mockResolvedValue(2 as never);
   }
 
   it('cadastra contrato com itens e calcula o valor total pela soma', async () => {
@@ -539,16 +526,15 @@ describe('Contratos de terceirizadas', () => {
     expect(prismaMock.contrato.create).not.toHaveBeenCalled();
   });
 
-  it('rejeita serviço repetido, valor negativo e escopo inválido', async () => {
+  it('rejeita serviço repetido e valor negativo', async () => {
     const enviar = (lista: unknown[]) =>
       request(app).post('/contratos').set(auth('OPERADOR')).send({ ...base, itens: lista });
     expect((await enviar([itens[0], itens[0]])).status).toBe(422);
     expect((await enviar([{ ...itens[0], valor: -1 }])).status).toBe(422);
-    expect((await enviar([{ ...itens[0], escopoId: 'nao-e-uuid' }])).status).toBe(422);
     expect(prismaMock.contrato.create).not.toHaveBeenCalled();
   });
 
-  it('rejeita prestador, serviço ou escopo inexistente', async () => {
+  it('rejeita prestador ou serviço inexistente', async () => {
     prismaMock.contrato.findUnique.mockResolvedValue(null);
     prismaMock.prestadorServico.findUnique.mockResolvedValue(null);
     const semPrestador = await request(app).post('/contratos').set(auth('OPERADOR')).send({ ...base, itens });
@@ -557,10 +543,6 @@ describe('Contratos de terceirizadas', () => {
     prismaMock.servicoContrato.count.mockResolvedValue(1 as never);
     const semServico = await request(app).post('/contratos').set(auth('OPERADOR')).send({ ...base, itens });
     expect(semServico.status).toBe(422);
-    prismaMock.servicoContrato.count.mockResolvedValue(2 as never);
-    prismaMock.escopoServico.count.mockResolvedValue(1 as never);
-    const semEscopo = await request(app).post('/contratos').set(auth('OPERADOR')).send({ ...base, itens });
-    expect(semEscopo.status).toBe(422);
     expect(prismaMock.contrato.create).not.toHaveBeenCalled();
   });
 
@@ -613,7 +595,7 @@ describe('Contratos de terceirizadas', () => {
     expect(prismaMock.contratoItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['it-3'] } } });
     expect(prismaMock.contratoItem.update).toHaveBeenCalledWith({
       where: { id: 'it-1' },
-      data: { valor: 10000.1, escopoId: E1, descontoPercentual: 0 },
+      data: { valor: 10000.1, descontoPercentual: 0 },
     });
     expect(prismaMock.contratoItem.create).toHaveBeenCalledTimes(1);
     // os itens mantidos são travados antes de conferir o saldo comprometido
@@ -628,7 +610,7 @@ describe('Contratos de terceirizadas', () => {
       numero: 'CONT-2026-010',
       status: 'ATIVO',
       valorTotal: 1,
-      itens: [{ id: 'it-1', servicoId: S1, escopoId: E1, descontoPercentual: 0 }],
+      itens: [{ id: 'it-1', servicoId: S1, descontoPercentual: 0 }],
     } as never);
     referenciasValidas();
     prismaMock.manutencao.count.mockResolvedValue(1 as never);
@@ -657,13 +639,13 @@ describe('Contratos de terceirizadas', () => {
     expect(prismaMock.contrato.update).not.toHaveBeenCalled();
   });
 
-  it('não troca o prestador nem o escopo quando já há manutenção vinculada', async () => {
+  it('não troca o prestador quando já há manutenção vinculada', async () => {
     prismaMock.contrato.findUnique.mockResolvedValue({
       id: 'c-1',
       numero: 'CONT-2026-010',
       prestadorId: PREST,
       status: 'ATIVO',
-      itens: [{ id: 'it-1', servicoId: S1, escopoId: E1 }],
+      itens: [{ id: 'it-1', servicoId: S1 }],
     } as never);
     prismaMock.manutencao.count.mockResolvedValue(1 as never);
     prismaMock.$queryRaw.mockResolvedValue([] as never);
@@ -673,14 +655,6 @@ describe('Contratos de terceirizadas', () => {
       .send({ prestadorId: '88888888-8888-4888-8888-888888888888' });
     expect(prestador.status).toBe(422);
     expect(prismaMock.contrato.update).not.toHaveBeenCalled();
-
-    referenciasValidas();
-    const escopo = await request(app)
-      .patch('/contratos/c-1')
-      .set(auth('OPERADOR'))
-      .send({ itens: [{ servicoId: S1, valor: 10000.1, escopoId: E2 }] });
-    expect(escopo.status).toBe(422);
-    expect(prismaMock.contratoItem.update).not.toHaveBeenCalled();
   });
 
   it('não remove item vinculado a manutenção', async () => {
