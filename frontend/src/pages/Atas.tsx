@@ -1,3 +1,4 @@
+import { pode } from '../utils/permissoes';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -22,7 +23,7 @@ const VISUALIZACOES: Array<{ valor: '' | SituacaoAta; rotulo: string }> = [
 
 export function Atas() {
   const { usuario } = useAuth();
-  const permitido = usuario?.perfil === 'OPERADOR';
+  const permitido = pode(usuario, 'ATAS_GERENCIAR');
   const [atas, setAtas] = useState<Ata[]>([]);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState<'' | SituacaoAta>('');

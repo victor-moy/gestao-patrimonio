@@ -1,3 +1,4 @@
+import { pode } from '../utils/permissoes';
 import { FormEvent, useEffect, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -282,7 +283,7 @@ export function NovaSolicitacao() {
   const tiposDisponiveis = CATALOGO_TIPOS
     // Cessão de Uso envolve entidade externa à secretaria — só o Gestor
     // de Patrimônio pode abrir.
-    .filter((item) => item.tipo !== 'CESSAO_USO' || usuario?.perfil === 'OPERADOR')
+    .filter((item) => item.tipo !== 'CESSAO_USO' || pode(usuario, 'SOLICITACOES_GERENCIAR'))
     // Manutenção é aberta pela Unidade, para um equipamento da própria unidade
     .filter((item) => item.tipo !== 'MANUTENCAO' || usuario?.perfil === 'UNIDADE');
   // Itens emprestados à unidade aparecem no inventário, mas só a unidade dona abre manutenção

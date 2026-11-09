@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { EstadoConservacao, MotivoBaixa, Perfil, StatusEquipamento } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import * as service from './equipamentos.service';
 
@@ -41,7 +41,7 @@ const cadastroSchema = z.object({
 // UC02 — cadastro manual pelo Galpão (o Administrador também pode)
 equipamentosRouter.post(
   '/',
-  permitir(Perfil.GALPAO, Perfil.OPERADOR),
+  permitirCom('INVENTARIO_GERENCIAR', Perfil.GALPAO),
   validarBody(cadastroSchema),
   async (req, res) => {
     const equipamento = await service.cadastrar(req.usuario!.sub, req.body);
@@ -58,7 +58,7 @@ const atualizacaoSchema = z.object({
 
 equipamentosRouter.patch(
   '/:id',
-  permitir(Perfil.GALPAO, Perfil.OPERADOR),
+  permitirCom('INVENTARIO_GERENCIAR', Perfil.GALPAO),
   validarBody(atualizacaoSchema),
   async (req, res) => {
     const equipamento = await service.atualizar(req.usuario!.sub, req.params.id, req.body);
@@ -69,7 +69,7 @@ equipamentosRouter.patch(
 // Baixa manual (leilão, extravio, roubo...)
 equipamentosRouter.post(
   '/:id/baixa',
-  permitir(Perfil.OPERADOR),
+  permitirCom('INVENTARIO_GERENCIAR'),
   validarBody(
     z.object({
       motivo: z.nativeEnum(MotivoBaixa),

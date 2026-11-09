@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Perfil } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -14,7 +13,7 @@ export const escoposServicoRouter = Router();
 
 escoposServicoRouter.use(autenticar);
 
-escoposServicoRouter.get('/', permitir(Perfil.OPERADOR), async (_req, res) => {
+escoposServicoRouter.get('/', permitirCom('CONTRATOS_GERENCIAR'), async (_req, res) => {
   const escopos = await prisma.escopoServico.findMany({
     orderBy: { nome: 'asc' },
     include: { _count: { select: { itens: true } } },
@@ -40,7 +39,7 @@ async function validarNome(nome: string | undefined, atualId?: string) {
 
 escoposServicoRouter.post(
   '/',
-  permitir(Perfil.OPERADOR),
+  permitirCom('CONTRATOS_GERENCIAR'),
   validarBody(escopoSchema),
   async (req, res) => {
     if (!req.body.cobrePreventiva && !req.body.cobreCorretiva && !req.body.cobreCivil) throw new AppError(MSG_COBERTURA, 422);
@@ -59,7 +58,7 @@ escoposServicoRouter.post(
 
 escoposServicoRouter.patch(
   '/:id',
-  permitir(Perfil.OPERADOR),
+  permitirCom('CONTRATOS_GERENCIAR'),
   validarBody(escopoSchema.partial().extend({ cobrePreventiva: z.boolean().optional(), cobreCorretiva: z.boolean().optional(), cobreCivil: z.boolean().optional() })),
   async (req, res) => {
     const antes = await prisma.escopoServico.findUnique({ where: { id: req.params.id } });
@@ -82,7 +81,7 @@ escoposServicoRouter.patch(
   },
 );
 
-escoposServicoRouter.delete('/:id', permitir(Perfil.OPERADOR), async (req, res) => {
+escoposServicoRouter.delete('/:id', permitirCom('CONTRATOS_GERENCIAR'), async (req, res) => {
   const escopo = await prisma.escopoServico.findUnique({
     where: { id: req.params.id },
     include: { _count: { select: { itens: true } } },

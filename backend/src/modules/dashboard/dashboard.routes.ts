@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Perfil } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitir, permitirCom } from '../../middlewares/rbac';
 import * as service from './dashboard.service';
 
 export const dashboardRouter = Router();
@@ -11,7 +11,7 @@ dashboardRouter.use(autenticar);
 // RF36 — dashboard do Administrador
 dashboardRouter.get(
   '/',
-  permitir(Perfil.OPERADOR),
+  permitirCom('RELATORIOS_VISUALIZAR'),
   async (req, res) => {
     const dados = await service.indicadores({
       dataInicio: req.query.dataInicio ? new Date(String(req.query.dataInicio)) : undefined,

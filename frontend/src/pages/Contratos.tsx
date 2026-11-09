@@ -1,3 +1,4 @@
+import { pode } from '../utils/permissoes';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -20,9 +21,9 @@ const VISUALIZACOES = [
 export function Contratos() {
   const { usuario } = useAuth();
   const permitido =
-    usuario?.perfil === 'OPERADOR' || usuario?.perfil === 'TERCEIRIZADA';
+    pode(usuario, 'CONTRATOS_GERENCIAR', 'MANUTENCAO_CONSULTAR') || usuario?.perfil === 'TERCEIRIZADA';
   // A terceirizada consulta os contratos do próprio prestador, sem cadastrar nem editar
-  const somenteLeitura = usuario?.perfil === 'TERCEIRIZADA';
+  const somenteLeitura = usuario?.perfil === 'TERCEIRIZADA' || (usuario?.perfil === 'OPERADOR' && !pode(usuario, 'CONTRATOS_GERENCIAR'));
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [busca, setBusca] = useState('');
   const [filtro, setFiltro] = useState('');

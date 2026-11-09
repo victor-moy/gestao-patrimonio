@@ -1,3 +1,4 @@
+import { pode, type Permissao } from '../utils/permissoes';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import './Gestao.css';
 import './Polaris.css';
@@ -33,6 +34,8 @@ interface TabDef {
   rotulo: string;
   icone: ReactNode;
   perfis: string[];
+  // O Operador só vê o item com pelo menos uma destas permissões
+  permissoes?: Permissao[];
   // Submenus exibidos sob o item enquanto a seção está aberta
   sub?: Array<{ para: string; rotulo: string }>;
 }
@@ -42,15 +45,16 @@ interface TabDef {
 const TABS: TabDef[] = [
   { para: '/', rotulo: 'Início', icone: <IconeInicio />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA', 'SEM_ACESSO'] },
   { para: '/inventario', rotulo: 'Inventário', icone: <IconeInventario />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO'] },
-  { para: '/solicitacoes', rotulo: 'Solicitações', icone: <IconeSolicitacoes />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA'] },
-  { para: '/estoque', rotulo: 'Estoque', icone: <IconeEstoque />, perfis: ['OPERADOR', 'GALPAO'] },
-  { para: '/atas', rotulo: 'Atas', icone: <IconeAtas />, perfis: ['OPERADOR'] },
-  { para: '/contratos', rotulo: 'Contratos', icone: <IconeContratos />, perfis: ['OPERADOR', 'TERCEIRIZADA'] },
+  { para: '/solicitacoes', rotulo: 'Solicitações', icone: <IconeSolicitacoes />, perfis: ['OPERADOR', 'UNIDADE', 'GALPAO', 'TERCEIRIZADA'], permissoes: ['SOLICITACOES_GERENCIAR', 'MANUTENCAO_CONSULTAR'] },
+  { para: '/estoque', rotulo: 'Estoque', icone: <IconeEstoque />, perfis: ['OPERADOR', 'GALPAO'], permissoes: ['ESTOQUE_GERENCIAR'] },
+  { para: '/atas', rotulo: 'Atas', icone: <IconeAtas />, perfis: ['OPERADOR'], permissoes: ['ATAS_GERENCIAR'] },
+  { para: '/contratos', rotulo: 'Contratos', icone: <IconeContratos />, perfis: ['OPERADOR', 'TERCEIRIZADA'], permissoes: ['CONTRATOS_GERENCIAR', 'MANUTENCAO_CONSULTAR'] },
   {
     para: '/relatorios',
     rotulo: 'Relatórios',
     icone: <IconeRelatorios />,
     perfis: ['OPERADOR'],
+    permissoes: ['RELATORIOS_VISUALIZAR'],
     sub: SUBMENUS_RELATORIOS.map((item) => ({ para: caminhoRelatorio(item.valor), rotulo: item.rotulo })),
   },
 ];
@@ -61,17 +65,19 @@ interface SecaoConfiguracoes {
   rotulo: string;
   icone: ReactNode;
   prefixo?: string;
+  permissoes: Permissao[];
   sub?: Array<{ para: string; rotulo: string }>;
 }
 
 const SECOES_CONFIGURACOES: SecaoConfiguracoes[] = [
-  { para: '/configuracoes/usuarios', rotulo: 'Usuários', icone: <IconeUsuarios /> },
-  { para: '/configuracoes/unidades', rotulo: 'Unidades', icone: <IconeUnidades /> },
+  { para: '/configuracoes/usuarios', rotulo: 'Usuários', icone: <IconeUsuarios />, permissoes: ['USUARIOS_ADMINISTRAR'] },
+  { para: '/configuracoes/unidades', rotulo: 'Unidades', icone: <IconeUnidades />, permissoes: ['CONFIGURACOES_GERENCIAR'] },
   {
     para: '/configuracoes/itens',
     prefixo: '/configuracoes/itens',
     rotulo: 'Itens',
     icone: <IconeInventario />,
+    permissoes: ['CONFIGURACOES_GERENCIAR'],
     sub: [
       { para: '/configuracoes/itens/categorias', rotulo: 'Categorias' },
       { para: '/configuracoes/itens/tipos', rotulo: 'Tipos' },
@@ -82,13 +88,14 @@ const SECOES_CONFIGURACOES: SecaoConfiguracoes[] = [
     prefixo: '/configuracoes/servicos',
     rotulo: 'Serviços',
     icone: <IconeContratos />,
+    permissoes: ['CONTRATOS_GERENCIAR'],
     sub: [
       { para: '/configuracoes/servicos/prestadores', rotulo: 'Prestadores' },
       { para: '/configuracoes/servicos/tipos', rotulo: 'Tipos' },
       { para: '/configuracoes/servicos/escopos', rotulo: 'Escopos' },
     ],
   },
-  { para: '/configuracoes/atendimento', rotulo: 'Atendimento', icone: <IconeConversas /> },
+  { para: '/configuracoes/atendimento', rotulo: 'Atendimento', icone: <IconeConversas />, permissoes: ['CONFIGURACOES_GERENCIAR'] },
 ];
 
 export function Layout() {
@@ -102,7 +109,8 @@ export function Layout() {
 
   if (!usuario) return null;
 
-  const tabs = TABS.filter((t) => t.perfis.includes(usuario.perfil));
+  const tabs = TABS.filter((t) => t.perfis.includes(usuario.perfil) && (!t.permissoes || usuario.perfil !== 'OPERADOR' || pode(usuario, ...t.permissoes)));
+  const secoesConfiguracoes = SECOES_CONFIGURACOES.filter((item) => pode(usuario, ...item.permissoes));
   const emConfiguracoes = location.pathname.startsWith('/configuracoes');
   const emConversas = location.pathname.startsWith('/conversas');
   const { conversas } = useConversas(emConversas);
@@ -202,7 +210,7 @@ export function Layout() {
         </nav>
         ) : emConfiguracoes ? (
         <nav className="sidebar-nav" aria-label="Navegação de configurações">
-          {SECOES_CONFIGURACOES.map((item) => (
+          {secoesConfiguracoes.map((item) => (
             <Fragment key={item.para}>
               <NavLink
                 to={item.sub ? item.sub[0].para : item.para}
@@ -273,7 +281,7 @@ export function Layout() {
               <IconeConversas /> Conversas
               {naoLidas > 0 && <ContagemNaoLidas total={naoLidas} />}
             </NavLink>
-            {usuario.perfil === 'OPERADOR' && (
+            {secoesConfiguracoes.length > 0 && (
               <NavLink to="/configuracoes" onClick={fecharSidebar} className="sidebar-link sidebar-configuracoes">
                 <IconeConfiguracoes /> Configurações
               </NavLink>

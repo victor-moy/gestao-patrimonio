@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Perfil } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -14,7 +13,7 @@ export const servicosContratoRouter = Router();
 
 servicosContratoRouter.use(autenticar);
 
-servicosContratoRouter.get('/', permitir(Perfil.OPERADOR), async (_req, res) => {
+servicosContratoRouter.get('/', permitirCom('CONTRATOS_GERENCIAR'), async (_req, res) => {
   const servicos = await prisma.servicoContrato.findMany({
     orderBy: { nome: 'asc' },
     include: { _count: { select: { itens: true } } },
@@ -35,7 +34,7 @@ async function validarNome(nome: string | undefined, atualId?: string) {
 
 servicosContratoRouter.post(
   '/',
-  permitir(Perfil.OPERADOR),
+  permitirCom('CONTRATOS_GERENCIAR'),
   validarBody(servicoSchema),
   async (req, res) => {
     await validarNome(req.body.nome);
@@ -53,7 +52,7 @@ servicosContratoRouter.post(
 
 servicosContratoRouter.patch(
   '/:id',
-  permitir(Perfil.OPERADOR),
+  permitirCom('CONTRATOS_GERENCIAR'),
   validarBody(servicoSchema.partial()),
   async (req, res) => {
     const antes = await prisma.servicoContrato.findUnique({ where: { id: req.params.id } });
@@ -72,7 +71,7 @@ servicosContratoRouter.patch(
   },
 );
 
-servicosContratoRouter.delete('/:id', permitir(Perfil.OPERADOR), async (req, res) => {
+servicosContratoRouter.delete('/:id', permitirCom('CONTRATOS_GERENCIAR'), async (req, res) => {
   const servico = await prisma.servicoContrato.findUnique({
     where: { id: req.params.id },
     include: { _count: { select: { itens: true } } },

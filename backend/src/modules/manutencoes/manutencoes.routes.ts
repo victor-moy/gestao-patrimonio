@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { CategoriaProblemaCivil, EstadoConservacao, Perfil, StatusManutencao, TipoManutencao } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitir, permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import {
@@ -21,7 +21,7 @@ export const manutencoesRouter = Router();
 manutencoesRouter.use(autenticar);
 
 // Leitura: só quem trabalha com manutenção. O Galpão não tem acesso (e a terceirizada só vê as do seu contrato)
-const leitura = permitir(Perfil.OPERADOR, Perfil.UNIDADE, Perfil.TERCEIRIZADA);
+const leitura = permitirCom('MANUTENCAO_CONSULTAR', Perfil.UNIDADE, Perfil.TERCEIRIZADA);
 
 // Minimização de dados: a terceirizada não precisa do e-mail institucional da unidade (usado só nos avisos do sistema)
 function paraPerfil<T extends { unidade: { emailBase?: string | null } }>(perfil: Perfil, manutencao: T): T {
@@ -89,7 +89,7 @@ const solicitarCivilSchema = z.object({
 // Manutenção civil: problema em unidade, sala ou instalação, sem equipamento. Fotos opcionais (multipart, campo "fotos")
 manutencoesRouter.post(
   '/civil',
-  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
+  permitirCom('MANUTENCAO_ESCREVER', Perfil.UNIDADE),
   uploadFotosCivil.array('fotos', MAX_FOTOS_CIVIL),
   assinaturaImagem,
   async (req, res, next) => {
@@ -114,7 +114,7 @@ manutencoesRouter.post(
 // UC05 — a Unidade solicita manutenção
 manutencoesRouter.post(
   '/',
-  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
+  permitirCom('MANUTENCAO_ESCREVER', Perfil.UNIDADE),
   validarBody(solicitarSchema),
   async (req, res) => {
     const manutencao = await service.solicitar(req.usuario!, req.body);
@@ -125,7 +125,7 @@ manutencoesRouter.post(
 // RN03 — somente o Administrador decide
 manutencoesRouter.post(
   '/:id/aprovar',
-  permitir(Perfil.OPERADOR),
+  permitirCom('MANUTENCAO_TRIAR'),
   validarBody(z.object({ contratoItemId: z.string().uuid('selecione o item de contrato que cobre a manutenção') })),
   async (req, res) => {
     res.json(await service.aprovar(req.usuario!, req.params.id, req.body.contratoItemId));
@@ -143,13 +143,13 @@ manutencoesRouter.post(
 );
 
 // Civil: chamados parecidos em aberto na mesma unidade (triagem)
-manutencoesRouter.get('/:id/similares', permitir(Perfil.OPERADOR), async (req, res) => {
+manutencoesRouter.get('/:id/similares', permitirCom('MANUTENCAO_TRIAR'), async (req, res) => {
   res.json(await service.similares(req.usuario!, req.params.id));
 });
 
 manutencoesRouter.post(
   '/:id/negar',
-  permitir(Perfil.OPERADOR),
+  permitirCom('MANUTENCAO_TRIAR'),
   validarBody(z.object({ motivo: z.string().min(3, 'informe o motivo da negação') })),
   async (req, res) => {
     res.json(await service.negar(req.usuario!, req.params.id, req.body.motivo));
@@ -178,7 +178,7 @@ const booleanFlexivel = z.union([z.boolean(), z.enum(['true', 'false'])]).transf
 // Laudo de baixa (RF16) é um upload de PDF — só é exigido quando aprovado=false
 manutencoesRouter.post(
   '/:id/validar-orcamento',
-  permitir(Perfil.OPERADOR),
+  permitirCom('MANUTENCAO_AVALIAR'),
   uploadLaudoPdf.single('laudo'),
   assinaturaPdf,
   validarBody(z.object({ aprovado: booleanFlexivel, motivo: z.string().trim().max(500).optional() })),
@@ -208,7 +208,7 @@ manutencoesRouter.post(
 // RN11 — confirmação dupla (Unidade + Administrador)
 manutencoesRouter.post(
   '/:id/confirmar-retorno',
-  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
+  permitirCom('MANUTENCAO_FISCALIZAR', Perfil.UNIDADE),
   validarBody(z.object({ estadoPosManutencao: z.nativeEnum(EstadoConservacao).optional() })),
   async (req, res) => {
     res.json(
@@ -254,7 +254,7 @@ manutencoesRouter.post(
 // Civil — o Administrador pede ajustes nos serviços informados: o chamado volta à execução
 manutencoesRouter.post(
   '/:id/solicitar-ajustes',
-  permitir(Perfil.OPERADOR),
+  permitirCom('MANUTENCAO_FISCALIZAR'),
   validarBody(z.object({ motivo: z.string().trim().min(5, 'explique o que precisa ser ajustado').max(500) })),
   async (req, res) => {
     res.json(await service.solicitarAjustes(req.usuario!, req.params.id, req.body.motivo));
@@ -262,7 +262,7 @@ manutencoesRouter.post(
 );
 
 // Civil — aprovação final do Administrador, depois da confirmação da Unidade (autoriza a medição)
-manutencoesRouter.post('/:id/autorizar-medicao', permitir(Perfil.OPERADOR), async (req, res) => {
+manutencoesRouter.post('/:id/autorizar-medicao', permitirCom('MANUTENCAO_FISCALIZAR'), async (req, res) => {
   res.json(await service.autorizarMedicao(req.usuario!, req.params.id));
 });
 
@@ -278,7 +278,7 @@ manutencoesRouter.post(
 );
 
 // Reencaminhamento — o Administrador confirma o pedido e só depois decide o destino
-manutencoesRouter.post('/:id/confirmar-reencaminhamento', permitir(Perfil.OPERADOR), async (req, res) => {
+manutencoesRouter.post('/:id/confirmar-reencaminhamento', permitirCom('MANUTENCAO_TRIAR'), async (req, res) => {
   res.json(await reencaminhamento.confirmarReencaminhamento(req.usuario!, req.params.id));
 });
 
@@ -292,14 +292,14 @@ const novoChamadoSchema = z.object({
 });
 
 // Reencaminhamento — decisão 1: abre um novo chamado de manutenção (sem prestador) na triagem
-manutencoesRouter.post('/:id/reencaminhar/manutencao', permitir(Perfil.OPERADOR), validarBody(novoChamadoSchema), async (req, res) => {
+manutencoesRouter.post('/:id/reencaminhar/manutencao', permitirCom('MANUTENCAO_TRIAR'), validarBody(novoChamadoSchema), async (req, res) => {
   res.status(201).json(await reencaminhamento.reencaminharParaManutencao(req.usuario!, req.params.id, req.body));
 });
 
 // Reencaminhamento — decisão 2: baixa do equipamento, com o mesmo laudo em PDF e a substituição automática de sempre
 manutencoesRouter.post(
   '/:id/reencaminhar/baixa',
-  permitir(Perfil.OPERADOR),
+  permitirCom('MANUTENCAO_AVALIAR'),
   uploadLaudoPdf.single('laudo'),
   assinaturaPdf,
   async (req, res) => {

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { Perfil } from '@prisma/client';
 import { env } from '../config/env';
 import { AppError } from '../errors/AppError';
+import { Permissao, permissoesValidas } from '../lib/permissoes';
 
 export interface ImpersonadoPor {
   id: string;
@@ -18,6 +19,8 @@ export interface AuthPayload {
   unidadeId: string | null;
   // Só no perfil TERCEIRIZADA: o prestador de serviço do usuário (sempre vem do token, nunca do corpo/query)
   prestadorId: string | null;
+  // Só no perfil OPERADOR: o que ele pode fazer. Vem do token (vale até a sessão expirar); vazio nos demais perfis.
+  permissoes: Permissao[];
   // Preenchido quando o Administrador está "entrando como" este usuário; a auditoria grava os dois.
   impersonadoPor: ImpersonadoPor | null;
 }
@@ -104,6 +107,7 @@ export function autenticar(req: Request, _res: Response, next: NextFunction) {
       perfil: payload.perfil as Perfil,
       unidadeId: (payload.unidadeId as string | null) ?? null,
       prestadorId: (payload.prestadorId as string | null) ?? null,
+      permissoes: payload.perfil === 'OPERADOR' ? permissoesValidas(payload.permissoes) : [],
       impersonadoPor: impersonadoPorDoToken(payload),
     };
   } catch {

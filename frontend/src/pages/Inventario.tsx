@@ -1,3 +1,4 @@
+import { pode } from '../utils/permissoes';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api/client';
@@ -21,7 +22,7 @@ import { StatusPill } from '../components/StatusPill';
 
 export function Inventario() {
   const { usuario } = useAuth();
-  const podeEditar = usuario?.perfil === 'GALPAO' || usuario?.perfil === 'OPERADOR';
+  const podeEditar = usuario?.perfil === 'GALPAO' || pode(usuario, 'INVENTARIO_GERENCIAR');
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [busca, setBusca] = useState('');

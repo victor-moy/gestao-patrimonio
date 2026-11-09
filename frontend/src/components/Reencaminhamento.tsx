@@ -101,13 +101,13 @@ export function AcoesReencaminhamento({
   m,
   executar,
   ocupado,
-  ehAdministrador,
+  podeTriar,
   ehTerceirizada,
 }: {
   m: Manutencao;
   executar: Executar;
   ocupado: boolean;
-  ehAdministrador: boolean;
+  podeTriar: boolean;
   ehTerceirizada: boolean;
 }) {
   const [motivo, setMotivo] = useState('');
@@ -120,8 +120,8 @@ export function AcoesReencaminhamento({
   const [categoria, setCategoria] = useState<CategoriaProblemaCivil | ''>('');
   const [laudo, setLaudo] = useState<File | null>(null);
 
-  const decidindo = ehAdministrador && m.status === 'REENCAMINHAMENTO_SOLICITADO' && !!m.reencaminhamentoConfirmadoEm;
-  const confirmando = ehAdministrador && m.status === 'REENCAMINHAMENTO_SOLICITADO' && !m.reencaminhamentoConfirmadoEm;
+  const decidindo = podeTriar && m.status === 'REENCAMINHAMENTO_SOLICITADO' && !!m.reencaminhamentoConfirmadoEm;
+  const confirmando = podeTriar && m.status === 'REENCAMINHAMENTO_SOLICITADO' && !m.reencaminhamentoConfirmadoEm;
   const podePedir = podeReencaminhar(m, ehTerceirizada);
   const precisaEscolherEquipamento = decidindo && destino === 'manutencao' && tipoNovo === 'EQUIPAMENTO' && !m.equipamento;
   const precisaDadosCivis = decidindo && destino === 'manutencao' && tipoNovo === 'CIVIL' && (!m.localAfetado || !m.categoriaCivil);

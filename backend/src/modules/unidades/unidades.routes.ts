@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Perfil, TipoUnidade } from '@prisma/client';
+import { TipoUnidade } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -50,7 +50,7 @@ async function validarResponsavel(responsavelId: string, unidadeId: string) {
 
 unidadesRouter.post(
   '/',
-  permitir(Perfil.OPERADOR),
+  permitirCom('CONFIGURACOES_GERENCIAR'),
   validarBody(unidadeSchema),
   async (req, res) => {
     const existe = await prisma.unidade.findUnique({ where: { nome: req.body.nome } });
@@ -104,7 +104,7 @@ unidadesRouter.post(
 
 unidadesRouter.patch(
   '/:id',
-  permitir(Perfil.OPERADOR),
+  permitirCom('CONFIGURACOES_GERENCIAR'),
   validarBody(
     unidadeSchema.partial().extend({
       ativo: z.boolean().optional(),
@@ -133,7 +133,7 @@ unidadesRouter.patch(
   },
 );
 
-unidadesRouter.delete('/:id', permitir(Perfil.OPERADOR), async (req, res) => {
+unidadesRouter.delete('/:id', permitirCom('CONFIGURACOES_GERENCIAR'), async (req, res) => {
   const unidade = await prisma.unidade.findUnique({
     where: { id: req.params.id },
     include: {

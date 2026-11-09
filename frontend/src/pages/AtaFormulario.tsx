@@ -1,3 +1,4 @@
+import { pode } from '../utils/permissoes';
 import { FormEvent, useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -16,7 +17,7 @@ export function AtaFormulario() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const permitido = usuario?.perfil === 'OPERADOR';
+  const permitido = pode(usuario, 'ATAS_GERENCIAR');
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [ata, setAta] = useState<Ata | null>(null);
   const [carregando, setCarregando] = useState(true);

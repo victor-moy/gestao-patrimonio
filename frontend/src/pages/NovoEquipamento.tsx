@@ -1,3 +1,4 @@
+import { pode } from '../utils/permissoes';
 import { FormEvent, useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
@@ -21,7 +22,7 @@ export function NovoEquipamento() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const podeCadastrar = usuario?.perfil === 'GALPAO' || usuario?.perfil === 'OPERADOR';
+  const podeCadastrar = usuario?.perfil === 'GALPAO' || pode(usuario, 'INVENTARIO_GERENCIAR');
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [carregandoOpcoes, setCarregandoOpcoes] = useState(true);

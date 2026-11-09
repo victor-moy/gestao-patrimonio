@@ -5,6 +5,7 @@ import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 import { limitarFrequencia } from '../../middlewares/rateLimit';
 import { env } from '../../config/env';
+import { permissoesValidas } from '../../lib/permissoes';
 import * as authService from './auth.service';
 import * as oidc from './oidc.service';
 
@@ -87,11 +88,13 @@ authRouter.get('/me', autenticar, async (req, res) => {
       unidade: { select: { nome: true } },
       prestadorId: true,
       prestador: { select: { nome: true } },
+      permissoes: true,
     },
   });
   if (!usuario) throw new AppError('Usuário não encontrado.', 404);
   res.json({
     ...usuario,
+    permissoes: usuario.perfil === 'OPERADOR' ? permissoesValidas(usuario.permissoes) : [],
     unidadeNome: usuario.unidade?.nome ?? null,
     prestadorNome: usuario.prestador?.nome ?? null,
     unidade: undefined,

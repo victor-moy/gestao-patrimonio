@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { Perfil } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -19,7 +19,7 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-estoqueRouter.use(autenticar, permitir(Perfil.GALPAO, Perfil.OPERADOR));
+estoqueRouter.use(autenticar, permitirCom('ESTOQUE_GERENCIAR', Perfil.GALPAO));
 
 // Resolve o galpão-alvo da operação. O usuário GALPAO só opera o próprio galpão
 // (qualquer unidadeId enviado no corpo é ignorado); o Administrador, que

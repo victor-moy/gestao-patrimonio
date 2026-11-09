@@ -3,16 +3,17 @@ import { z } from 'zod';
 import { Perfil } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
+import { Permissao, TODAS_PERMISSOES } from '../../lib/permissoes';
 
 // RF02 — o administrador (Administrador) cadastra usuários
 // e atribui perfis. Inclui matrícula funcional (feedback 12/05/2026).
 export const usuariosRouter = Router();
 
-usuariosRouter.use(autenticar, permitir(Perfil.OPERADOR));
+usuariosRouter.use(autenticar, permitirCom('USUARIOS_ADMINISTRAR'));
 
 const usuarioSelect = {
   id: true,
@@ -21,6 +22,7 @@ const usuarioSelect = {
   matricula: true,
   perfil: true,
   ativo: true,
+  permissoes: true,
   unidadeId: true,
   unidade: { select: { nome: true } },
   prestadorId: true,
@@ -36,12 +38,16 @@ usuariosRouter.get('/', async (_req, res) => {
   res.json(usuarios);
 });
 
+const permissoesSchema = z.array(z.enum(TODAS_PERMISSOES as [Permissao, ...Permissao[]])).transform((l) => [...new Set(l)]);
+
 const criarSchema = z.object({
   // Cadastro prévio: basta e-mail e perfil. Nome e matrícula são provisórios e o primeiro login pelo Keycloak os substitui.
   nome: z.string().min(3).optional(),
   email: z.string().email().transform((e) => e.trim().toLowerCase()),
   matricula: z.string().min(1).optional(),
   perfil: z.nativeEnum(Perfil),
+  // Só vale para o perfil OPERADOR; nos demais é descartado
+  permissoes: permissoesSchema.optional(),
   unidadeId: z.string().uuid().nullable().optional(),
   prestadorId: z.string().uuid().nullable().optional(),
 });
@@ -59,6 +65,7 @@ async function validarPrestador(perfil: Perfil, prestadorId: string | null | und
 
 usuariosRouter.post('/', validarBody(criarSchema), async (req, res) => {
   const { email, perfil, unidadeId, prestadorId } = req.body;
+  const permissoes: Permissao[] = perfil === Perfil.OPERADOR ? (req.body.permissoes ?? []) : [];
   const nome: string = req.body.nome ?? email.split('@')[0];
   const matricula: string = req.body.matricula ?? email;
   const jaExiste = await prisma.usuario.findFirst({
@@ -77,6 +84,7 @@ usuariosRouter.post('/', validarBody(criarSchema), async (req, res) => {
       email,
       matricula,
       perfil,
+      permissoes,
       unidadeId: unidadeId ?? null,
       prestadorId: prestadorId ?? null,
     },
@@ -95,6 +103,7 @@ usuariosRouter.post('/', validarBody(criarSchema), async (req, res) => {
 const atualizarSchema = z.object({
   nome: z.string().min(3).optional(),
   perfil: z.nativeEnum(Perfil).optional(),
+  permissoes: permissoesSchema.optional(),
   unidadeId: z.string().uuid().nullable().optional(),
   prestadorId: z.string().uuid().nullable().optional(),
   ativo: z.boolean().optional(),
@@ -133,6 +142,28 @@ usuariosRouter.patch('/:id', validarBody(atualizarSchema), async (req, res) => {
       );
     }
   }
+  // Permissões só existem para o Operador: ao mudar de perfil elas são zeradas
+  if (perfilFinal !== Perfil.OPERADOR) dados.permissoes = [];
+  else if (dados.permissoes === undefined && antes.perfil !== Perfil.OPERADOR) dados.permissoes = [];
+
+  // O sistema nunca fica sem um Operador ativo capaz de administrar usuários e permissões
+  const eraAdministrador = antes.ativo && antes.perfil === Perfil.OPERADOR && antes.permissoes.includes('USUARIOS_ADMINISTRAR');
+  const continuaAdministrador =
+    (dados.ativo ?? antes.ativo) &&
+    perfilFinal === Perfil.OPERADOR &&
+    (dados.permissoes ?? antes.permissoes).includes('USUARIOS_ADMINISTRAR');
+  if (eraAdministrador && !continuaAdministrador) {
+    const outros = await prisma.usuario.count({
+      where: { id: { not: req.params.id }, ativo: true, perfil: Perfil.OPERADOR, permissoes: { has: 'USUARIOS_ADMINISTRAR' } },
+    });
+    if (outros === 0) {
+      throw new AppError(
+        'Este é o último operador com a permissão de administrar usuários. Conceda a permissão a outro operador antes de retirá-la, desativá-lo ou mudar o perfil.',
+        422,
+      );
+    }
+  }
+
   const usuario = await prisma.usuario.update({
     where: { id: req.params.id },
     data: dados,
