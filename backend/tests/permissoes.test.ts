@@ -19,12 +19,9 @@ describe('Permissões do Operador', () => {
     expect(permissoesValidas(undefined)).toEqual([]);
   });
 
-  it('o catálogo do frontend é igual ao do backend (ids e rótulos)', () => {
-    const extrair = (arquivo: string) =>
-      [...fs.readFileSync(path.resolve(__dirname, arquivo), 'utf8').matchAll(/\{ id: '(\w+)', rotulo: '([^']+)' \}/g)].map((m) => `${m[1]}|${m[2]}`);
-    const backend = extrair('../src/lib/permissoes.ts');
-    expect(backend.length).toBe(TODAS_PERMISSOES.length);
-    expect(extrair('../../frontend/src/utils/permissoes.ts')).toEqual(backend);
+  it('o catálogo do frontend tem os mesmos ids do backend, na mesma ordem', () => {
+    const frontend = fs.readFileSync(path.resolve(__dirname, '../../frontend/src/utils/permissoes.ts'), 'utf8');
+    expect([...frontend.matchAll(/\{ id: '(\w+)'/g)].map((m) => m[1])).toEqual([...TODAS_PERMISSOES]);
   });
 
   it('nenhuma rota usa permitir(Perfil.OPERADOR) sozinho: o perfil não autoriza nada sem permissão', () => {

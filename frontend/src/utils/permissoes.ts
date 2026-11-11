@@ -1,6 +1,6 @@
 import type { Usuario } from '../types';
 
-// Espelho de backend/src/lib/permissoes.ts: mantenha as duas listas iguais.
+// Os ids são os de backend/src/lib/permissoes.ts (um teste do backend confere que são os mesmos); aqui ficam também grupos e rótulos.
 export const GRUPOS_PERMISSOES = [
   {
     grupo: 'Manutenções',
