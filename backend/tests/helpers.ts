@@ -31,3 +31,12 @@ export function tokenPara(
 export const auth = (perfil: Perfil, opcoes?: Parameters<typeof tokenPara>[1]) => ({
   Authorization: `Bearer ${tokenPara(perfil, opcoes)}`,
 });
+
+// Rotas de /usuarios conferem no banco se o Operador ainda administra usuários (findFirst com `permissoes`);
+// as demais consultas de findFirst (e-mail repetido, por exemplo) devolvem `outro`.
+export function mockUsuarioFindFirst(
+  mock: { mockImplementation: (fn: (args: { where?: { permissoes?: unknown } }) => Promise<unknown>) => unknown },
+  outro: unknown = null,
+) {
+  mock.mockImplementation(async (args) => (args?.where?.permissoes ? { id: 'operador' } : outro));
+}

@@ -135,7 +135,7 @@ manutencoesRouter.post(
 // Civil: sem contrato ou saldo para encaminhar, o chamado fica aguardando providências
 manutencoesRouter.post(
   '/:id/aguardar-providencias',
-  permitir(Perfil.OPERADOR),
+  permitirCom('MANUTENCAO_TRIAR'),
   validarBody(z.object({ motivo: z.string().trim().min(3, 'informe o motivo').max(500) })),
   async (req, res) => {
     res.json(await service.aguardarProvidencias(req.usuario!, req.params.id, req.body.motivo));
