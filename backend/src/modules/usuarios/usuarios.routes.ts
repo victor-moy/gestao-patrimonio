@@ -39,7 +39,7 @@ usuariosRouter.get('/', async (_req, res) => {
   res.json(usuarios);
 });
 
-const permissoesSchema = z.array(z.enum(TODAS_PERMISSOES as [Permissao, ...Permissao[]])).transform((l) => [...new Set(l)]);
+const permissoesSchema = z.array(z.enum(TODAS_PERMISSOES)).transform((l) => [...new Set(l)]);
 
 const criarSchema = z.object({
   // Cadastro prévio: basta e-mail e perfil. Nome e matrícula são provisórios e o primeiro login pelo Keycloak os substitui.
