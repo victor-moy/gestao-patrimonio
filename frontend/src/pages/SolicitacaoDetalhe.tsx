@@ -1,3 +1,4 @@
+import { pode } from '../utils/permissoes';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { caminhoConversa } from '../utils/conversas';
@@ -146,7 +147,7 @@ function ConteudoSolicitacao({
     setItensAjuste((s.itensGerados ?? []).map((eq) => ({ equipamentoId: eq.id, tombamento: eq.tombamento })));
   }, [chaveItensGerados]);
 
-  const ehAdministrador = usuario?.perfil === 'OPERADOR';
+  const ehAdministrador = pode(usuario, 'SOLICITACOES_GERENCIAR');
   // Confirmação de recebimento de Ampliação/Substituição, saída e retorno de
   // Empréstimo/Cessão são só da Unidade de origem — nem o Gestor de
   // Patrimônio pode fazer isso por ela (feedback 18/08)

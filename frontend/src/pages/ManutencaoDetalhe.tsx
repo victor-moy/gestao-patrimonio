@@ -2,6 +2,7 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { LinkArquivoProtegido } from '../components/ArquivoProtegido';
+import { pode } from '../utils/permissoes';
 import { useAuth } from '../auth/AuthContext';
 import { StatusPill } from '../components/StatusPill';
 import { CampoAnexo } from '../components/CampoAnexo';
@@ -130,7 +131,10 @@ function ConteudoManutencao({
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [contratoItemId, setContratoItemId] = useState('');
 
-  const ehAdministrador = usuario?.perfil === 'OPERADOR';
+  // Cada decisão do Operador depende da sua permissão (o backend confere de novo)
+  const podeTriar = pode(usuario, 'MANUTENCAO_TRIAR');
+  const podeAvaliar = pode(usuario, 'MANUTENCAO_AVALIAR');
+  const podeFiscalizar = pode(usuario, 'MANUTENCAO_FISCALIZAR');
   const ehTerceirizada = usuario?.perfil === 'TERCEIRIZADA';
   // Itens elegíveis: contrato vigente, escopo que cobre o que o tipo de item aceita e saldo disponível
   const tipoItem: { permitePreventiva?: boolean; permiteCorretiva?: boolean } = m.equipamento?.tipoEquipamento ?? {};
@@ -149,16 +153,16 @@ function ConteudoManutencao({
   const ehUnidadeDona = usuario?.perfil === 'UNIDADE' && usuario.unidadeId === m.unidade.id;
   const titulo = tituloManutencao(m);
   // Só mostra a confirmação enquanto o lado de quem está vendo ainda não confirmou
-  const podeConfirmarRetorno = (ehAdministrador && !m.confirmadoGestor) || (ehUnidadeDona && !m.confirmadoUnidade);
+  const podeConfirmarRetorno = (podeFiscalizar && !m.confirmadoGestor) || (ehUnidadeDona && !m.confirmadoUnidade);
 
   useEffect(() => {
-    if (ehAdministrador) {
+    if (podeTriar) {
       api
         .get<Contrato[]>('/contratos')
         .then(setContratos)
         .catch((e) => setErro(e instanceof Error ? e.message : 'Não foi possível carregar os contratos.'));
     }
-  }, [ehAdministrador, setErro]);
+  }, [podeTriar, setErro]);
 
   // A página fica aberta entre uma ação e outra: ao mudar o status, os formulários
   // de ação voltam ao estado inicial.
@@ -482,14 +486,15 @@ function ConteudoManutencao({
                 m={m}
                 executar={executar}
                 ocupado={ocupado}
-                ehAdministrador={ehAdministrador}
+                podeTriar={podeTriar}
+                podeFiscalizar={podeFiscalizar}
                 ehTerceirizada={ehTerceirizada}
                 ehUnidadeDona={ehUnidadeDona}
               />
             ) : (
               <>
             {/* Administrador: aprovar (item de contrato obrigatório) ou negar (motivo obrigatório) */}
-            {ehAdministrador && m.status === 'PENDENTE_APROVACAO' && (
+            {podeTriar && m.status === 'PENDENTE_APROVACAO' && (
               <div className="actions-box actions-box--simples">
                 <Expansivel aberto={acao === 'aprovar' || acao === 'negar'}>
                   {acaoExibida === 'aprovar' && campoItemContrato}
@@ -579,7 +584,7 @@ function ConteudoManutencao({
             )}
 
             {/* Alerta de custo: orçamento a partir de 50% do preço de referência do item — manutenção não sugerida */}
-            {ehAdministrador && m.status === 'ORCAMENTO_REGISTRADO' && orcamentoAltoDemais && (
+            {podeAvaliar && m.status === 'ORCAMENTO_REGISTRADO' && orcamentoAltoDemais && (
               <div className="aviso-manutencao" role="alert">
                 <strong>Manutenção não sugerida</strong>
                 <p>
@@ -591,7 +596,7 @@ function ConteudoManutencao({
             )}
 
             {/* Validação do orçamento: aprovar direto ou rejeitar anexando o laudo de baixa */}
-            {ehAdministrador && m.status === 'ORCAMENTO_REGISTRADO' && (
+            {podeAvaliar && m.status === 'ORCAMENTO_REGISTRADO' && (
               <div className="actions-box actions-box--simples">
                 <Expansivel aberto={acao === 'rejeitar'}>{acaoExibida === 'rejeitar' && campoLaudo}</Expansivel>
                 <div className="actions-row">
@@ -707,7 +712,7 @@ function ConteudoManutencao({
               m={m}
               executar={executar}
               ocupado={ocupado}
-              ehAdministrador={ehAdministrador}
+              podeTriar={podeTriar}
               ehTerceirizada={ehTerceirizada}
             />
           </div>

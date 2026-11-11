@@ -7,9 +7,19 @@ import { useMensagemTemporaria } from '../../hooks/useMensagemTemporaria';
 import type { PrestadorServico, Unidade } from '../../types';
 import { semAlteracoes } from '../../utils/form';
 import { ROTULO_PERFIL } from '../../utils/format';
+import { GRUPOS_PERMISSOES } from '../../utils/permissoes';
+
+const IDS_PERMISSOES: string[] = GRUPOS_PERMISSOES.flatMap((g) => g.permissoes.map((p) => p.id));
+
+// Na tela, as áreas com uma permissão só ficam juntas em um grupo, para o formulário não virar uma lista de linhas vazias
+const [GRUPO_MANUTENCOES, ...OUTROS_GRUPOS] = GRUPOS_PERMISSOES;
+const GRUPOS_NA_TELA: Array<{ grupo: string; permissoes: ReadonlyArray<{ id: string; rotulo: string }> }> = [
+  { grupo: 'Solicitações - Manutenções', permissoes: GRUPO_MANUTENCOES.permissoes },
+  { grupo: 'Áreas do sistema', permissoes: OUTROS_GRUPOS.flatMap((g) => [...g.permissoes]) },
+];
 import type { UsuarioLista } from './Usuarios';
 
-const VAZIO = { nome: '', email: '', matricula: '', perfil: '', unidadeId: '', prestadorId: '', ativo: true };
+const VAZIO = { nome: '', email: '', matricula: '', perfil: '', unidadeId: '', prestadorId: '', ativo: true, permissoes: [] as string[] };
 
 export function UsuarioFormulario() {
   const { id } = useParams();
@@ -52,6 +62,7 @@ export function UsuarioFormulario() {
       unidadeId: encontrado.unidadeId ?? '',
       prestadorId: encontrado.prestadorId ?? '',
       ativo: encontrado.ativo,
+      permissoes: IDS_PERMISSOES.filter((p) => encontrado.permissoes?.includes(p)),
     };
     setUsuario(encontrado);
     setInicial(valores);
@@ -76,6 +87,7 @@ export function UsuarioFormulario() {
           unidadeId: form.unidadeId || null,
           prestadorId: form.perfil === 'TERCEIRIZADA' ? form.prestadorId || null : null,
           ativo: form.ativo,
+          ...(form.perfil === 'OPERADOR' ? { permissoes: form.permissoes } : {}),
         });
       } else {
         // Cadastro prévio: só e-mail e perfil (mais unidade ou prestador, quando o perfil exige)
@@ -84,6 +96,7 @@ export function UsuarioFormulario() {
           perfil: form.perfil,
           unidadeId: form.perfil === 'UNIDADE' || form.perfil === 'GALPAO' ? form.unidadeId || null : null,
           prestadorId: form.perfil === 'TERCEIRIZADA' ? form.prestadorId || null : null,
+          ...(form.perfil === 'OPERADOR' ? { permissoes: form.permissoes } : {}),
         });
       }
       void navigate('/configuracoes/usuarios', { replace: true });
@@ -94,6 +107,14 @@ export function UsuarioFormulario() {
   }
 
   const bloqueado = carregando || Boolean(falha) || naoEncontrado;
+
+  function alternarPermissao(id: string, marcada: boolean) {
+    setForm((atual) => ({
+      ...atual,
+      // Sempre na ordem do catálogo, para marcar e desmarcar não contar como alteração
+      permissoes: IDS_PERMISSOES.filter((p) => (p === id ? marcada : atual.permissoes.includes(p))),
+    }));
+  }
 
   return (
     <PaginaCadastro
@@ -216,6 +237,44 @@ export function UsuarioFormulario() {
           )}
         </div>
       </section>
+      {form.perfil === 'OPERADOR' && (
+        <section className="equipamento-secao permissoes-secao" aria-labelledby="usuario-permissoes-titulo">
+          <div className="permissoes-cabecalho">
+            <h3 id="usuario-permissoes-titulo">Permissões do operador</h3>
+            <span className="permissoes-contagem" role="status">
+              {form.permissoes.length === 1 ? '1 permissão selecionada' : `${form.permissoes.length} permissões selecionadas`}
+            </span>
+          </div>
+          <p className="permissoes-apoio">
+            Defina aqui as permissões ativas para o usuário.
+          </p>
+          {GRUPOS_NA_TELA.map((grupo, indice) => (
+            <div
+              key={grupo.grupo}
+              className="permissoes-grupo"
+              role="group"
+              aria-labelledby={`permissoes-grupo-${indice}`}
+            >
+              <span className="permissoes-grupo-nome" id={`permissoes-grupo-${indice}`}>
+                {grupo.grupo}
+              </span>
+              <div className="permissoes-opcoes">
+                {grupo.permissoes.map((permissao) => (
+                  <label key={permissao.id} className="permissoes-opcao">
+                    <input
+                      type="checkbox"
+                      checked={form.permissoes.includes(permissao.id)}
+                      onChange={(e) => alternarPermissao(permissao.id, e.target.checked)}
+                      disabled={bloqueado}
+                    />
+                    {permissao.rotulo}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
     </PaginaCadastro>
   );
 }

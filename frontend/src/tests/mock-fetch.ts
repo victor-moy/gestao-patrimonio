@@ -1,4 +1,7 @@
 import { vi } from 'vitest';
+import { GRUPOS_PERMISSOES } from '../utils/permissoes';
+
+const TODAS = GRUPOS_PERMISSOES.flatMap((g) => g.permissoes.map((p) => p.id));
 
 type Resposta = { status?: number; body: unknown };
 
@@ -19,7 +22,11 @@ export function mockFetch(rotas: Record<string, Resposta | ((init?: RequestInit)
             : undefined;
       const resposta = typeof def === 'function' ? def(init) : (def ?? padraoHome);
       const status = resposta?.status ?? (resposta ? 200 : 404);
-      const body = resposta?.body ?? { mensagem: 'Não encontrado' };
+      let body = resposta?.body ?? { mensagem: 'Não encontrado' };
+      // O operador de teste tem todas as permissões, salvo quando o teste define as dele
+      if (url.includes('/auth/me') && (body as { perfil?: string }).perfil === 'OPERADOR' && !('permissoes' in (body as object))) {
+        body = { ...(body as object), permissoes: TODAS };
+      }
       return {
         ok: status >= 200 && status < 300,
         status,
@@ -29,4 +36,13 @@ export function mockFetch(rotas: Record<string, Resposta | ((init?: RequestInit)
     }),
   );
   return chamadas;
+}
+
+
+// Abre o menu "Ações" do detalhe e escolhe uma ação (as ações do chamado ficam todas nesse menu)
+export async function acao(nome: string | RegExp) {
+  const { screen } = await import('@testing-library/react');
+  const userEvent = (await import('@testing-library/user-event')).default;
+  await userEvent.click(await screen.findByRole('button', { name: 'Ações' }));
+  await userEvent.click(await screen.findByRole('menuitem', { name: nome }));
 }

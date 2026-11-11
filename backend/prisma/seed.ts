@@ -1,3 +1,4 @@
+import { TODAS_PERMISSOES } from '../src/lib/permissoes';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -54,7 +55,8 @@ async function main() {
     prisma.usuario.upsert({
       where: { email },
       update: {},
-      create: { nome, email, matricula, perfil, unidadeId: unidadeId ?? null },
+      // O seed é demonstrativo: o operador nasce com todas as permissões
+      create: { nome, email, matricula, perfil, unidadeId: unidadeId ?? null, permissoes: perfil === 'OPERADOR' ? [...TODAS_PERMISSOES] : [] },
     });
 
   await criarUsuario('Samuel Andrade', 'gestor@joinville.sc.gov.br', '10001', 'OPERADOR');

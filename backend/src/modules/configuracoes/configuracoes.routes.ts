@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Perfil } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -36,7 +35,7 @@ configuracoesRouter.get('/atendimento', async (_req, res) => {
 
 configuracoesRouter.put(
   '/atendimento',
-  permitir(Perfil.OPERADOR),
+  permitirCom('CONFIGURACOES_GERENCIAR'),
   validarBody(z.object({ whatsapp: z.string().nullable() })),
   async (req, res) => {
     const bruto = (req.body.whatsapp as string | null)?.trim() ?? '';

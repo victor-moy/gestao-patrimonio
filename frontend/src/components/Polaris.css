@@ -1319,3 +1319,45 @@ a.trajetoria-numero:focus-visible { outline: 2px solid #005bd3; outline-offset: 
 @media (prefers-reduced-motion: reduce) {
   .solicitacao-acoes .actions-row .btn { transition: none; }
 }
+
+/* Permissões do operador (cadastro de usuário): mesma escala, divisórias e rótulos dos demais formulários. */
+.novo-equipamento .equipamento-secao + .equipamento-secao { margin-top: 16px; }
+.permissoes-cabecalho { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.permissoes-cabecalho h3 { margin: 0; }
+.permissoes-contagem { color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+.permissoes-secao > .permissoes-apoio { margin: 0 0 16px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
+.permissoes-grupo {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 8px 24px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.permissoes-grupo-nome { color: var(--text-secondary); font-size: 11px; line-height: 20px; }
+.permissoes-opcoes { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 24px; }
+.novo-equipamento .permissoes-opcao {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 20px;
+  cursor: pointer;
+}
+.novo-equipamento .permissoes-opcao input[type='checkbox'] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border-radius: 4px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.novo-equipamento .permissoes-opcao input[type='checkbox']:disabled { cursor: default; }
+@media (max-width: 760px) {
+  .permissoes-grupo { grid-template-columns: 1fr; gap: 6px; }
+  .permissoes-cabecalho { flex-direction: column; align-items: flex-start; gap: 2px; }
+}

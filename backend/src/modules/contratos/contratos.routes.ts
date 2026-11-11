@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Perfil, Prisma, StatusContrato } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -16,8 +16,8 @@ contratosRouter.use(autenticar);
 // A terceirizada só consulta (GET) os contratos do próprio prestador; criar, editar e excluir é do Administrador
 contratosRouter.use((req, res, next) =>
   req.method === 'GET'
-    ? permitir(Perfil.OPERADOR, Perfil.TERCEIRIZADA)(req, res, next)
-    : permitir(Perfil.OPERADOR)(req, res, next),
+    ? permitirCom(['CONTRATOS_GERENCIAR', 'MANUTENCAO_CONSULTAR', 'MANUTENCAO_AVALIAR'], Perfil.TERCEIRIZADA)(req, res, next)
+    : permitirCom('CONTRATOS_GERENCIAR')(req, res, next),
 );
 
 const selecaoItens = {
@@ -286,7 +286,7 @@ contratosRouter.patch(
   },
 );
 
-contratosRouter.delete('/:id', permitir(Perfil.OPERADOR), async (req, res) => {
+contratosRouter.delete('/:id', permitirCom('CONTRATOS_GERENCIAR'), async (req, res) => {
   const contrato = await prisma.contrato.findUnique({
     where: { id: req.params.id },
     include: { _count: { select: { manutencoes: true } } },

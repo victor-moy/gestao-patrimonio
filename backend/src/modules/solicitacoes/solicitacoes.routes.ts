@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { OrigemRecurso, Perfil, TipoSolicitacao } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitir, permitirCom, restringirOperador } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { assinaturaAnexo, uploadAnexoSolicitacao } from '../../lib/uploads';
@@ -12,7 +12,7 @@ export const solicitacoesRouter = Router();
 
 solicitacoesRouter.use(autenticar);
 
-solicitacoesRouter.get('/', async (req, res) => {
+solicitacoesRouter.get('/', restringirOperador('SOLICITACOES_GERENCIAR'), async (req, res) => {
   const solicitacoes = await service.listar(req.usuario!, {
     tipo: req.query.tipo as string | undefined,
     status: req.query.status as string | undefined,
@@ -21,11 +21,11 @@ solicitacoesRouter.get('/', async (req, res) => {
   res.json(solicitacoes);
 });
 
-solicitacoesRouter.get('/:id', async (req, res) => {
+solicitacoesRouter.get('/:id', restringirOperador('SOLICITACOES_GERENCIAR'), async (req, res) => {
   res.json(await service.buscarPorId(req.usuario!, req.params.id));
 });
 
-solicitacoesRouter.get('/:id/historico', async (req, res) => {
+solicitacoesRouter.get('/:id/historico', restringirOperador('SOLICITACOES_GERENCIAR'), async (req, res) => {
   res.json(await service.historico(req.usuario!, req.params.id));
 });
 
@@ -71,7 +71,7 @@ const criarSchema = z.object({
 
 solicitacoesRouter.post(
   '/',
-  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
+  permitirCom('SOLICITACOES_GERENCIAR', Perfil.UNIDADE),
   validarBody(criarSchema),
   async (req, res) => {
     const ids = await service.criar(req.usuario!, req.body);
@@ -86,7 +86,7 @@ solicitacoesRouter.post(
 // já está (Patrimônio ou Branet) — não escolhe mais um galpão (feedback 27/08).
 solicitacoesRouter.post(
   '/:id/aprovar',
-  permitir(Perfil.OPERADOR),
+  permitirCom('SOLICITACOES_GERENCIAR'),
   validarBody(
     z.object({
       prioridade: z.number().int().min(1).max(3).optional(),
@@ -107,7 +107,7 @@ solicitacoesRouter.post(
 
 solicitacoesRouter.post(
   '/:id/negar',
-  permitir(Perfil.OPERADOR),
+  permitirCom('SOLICITACOES_GERENCIAR'),
   validarBody(z.object({ motivo: z.string().min(3, 'informe o motivo') })),
   async (req, res) => {
     res.json(await service.negar(req.usuario!, req.params.id, req.body.motivo));
@@ -117,7 +117,7 @@ solicitacoesRouter.post(
 // FA04 — retomada manual do vínculo quando surge ata com saldo
 solicitacoesRouter.post(
   '/:id/vincular-ata',
-  permitir(Perfil.OPERADOR),
+  permitirCom('SOLICITACOES_GERENCIAR'),
   validarBody(
     z.object({
       ataId: z.string().uuid(),
@@ -134,7 +134,7 @@ solicitacoesRouter.post(
 // Retry manual de reserva de estoque pra quem está aguardando disponibilidade
 solicitacoesRouter.post(
   '/:id/tentar-reservar-estoque',
-  permitir(Perfil.OPERADOR),
+  permitirCom('SOLICITACOES_GERENCIAR'),
   async (req, res) => {
     res.json(await service.tentarReservarEstoque(req.usuario!, req.params.id));
   },
@@ -147,7 +147,7 @@ solicitacoesRouter.post(
 // gera tombamento novo, então não envia `itens`.
 solicitacoesRouter.post(
   '/:id/lancar-branet',
-  permitir(Perfil.OPERADOR),
+  permitirCom('SOLICITACOES_GERENCIAR'),
   validarBody(
     z.object({
       numeroPedidoBranet: z.string().min(1, 'informe o número do pedido'),
@@ -200,7 +200,7 @@ const confirmarRecebimentoSchema = z.object({
 
 solicitacoesRouter.post(
   '/:id/confirmar-recebimento',
-  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
+  permitirCom('SOLICITACOES_GERENCIAR', Perfil.UNIDADE),
   validarBody(confirmarRecebimentoSchema),
   async (req, res) => {
     res.json(await service.confirmarRecebimento(req.usuario!, req.params.id, req.body));
@@ -222,7 +222,7 @@ solicitacoesRouter.post(
 // apontada na confirmação de recebimento antes de concluir (feedback 17/08)
 solicitacoesRouter.patch(
   '/:id/ajustar-tombamento',
-  permitir(Perfil.OPERADOR),
+  permitirCom('SOLICITACOES_GERENCIAR'),
   validarBody(
     z.object({
       itens: z
@@ -244,7 +244,7 @@ solicitacoesRouter.patch(
 // Validação final do Administrador, depois que a unidade já confirmou
 solicitacoesRouter.post(
   '/:id/concluir',
-  permitir(Perfil.OPERADOR),
+  permitirCom('SOLICITACOES_GERENCIAR'),
   async (req, res) => {
     res.json(await service.concluirSolicitacao(req.usuario!, req.params.id));
   },
@@ -264,7 +264,7 @@ solicitacoesRouter.post(
 // de que a ampliação foi autorizada dentro de um projeto interno
 solicitacoesRouter.post(
   '/:id/anexo',
-  permitir(Perfil.UNIDADE, Perfil.OPERADOR),
+  permitirCom('SOLICITACOES_GERENCIAR', Perfil.UNIDADE),
   uploadAnexoSolicitacao.single('anexo'),
   assinaturaAnexo,
   async (req, res) => {

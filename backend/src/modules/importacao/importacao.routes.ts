@@ -2,7 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import { Perfil } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { AppError } from '../../errors/AppError';
 import { limitarFrequencia } from '../../middlewares/rateLimit';
 import { env } from '../../config/env';
@@ -25,7 +25,7 @@ const upload = multer({
 importacaoRouter.post(
   '/csv',
   autenticar,
-  permitir(Perfil.GALPAO, Perfil.OPERADOR),
+  permitirCom('INVENTARIO_GERENCIAR', Perfil.GALPAO),
   (req, res, next) => (env.rateLimitAtivo ? limiteImportacao(req, res, next) : next()),
   upload.single('arquivo'),
   async (req, res) => {

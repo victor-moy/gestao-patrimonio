@@ -1,3 +1,4 @@
+import { pode } from '../utils/permissoes';
 import { FormEvent, useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -14,7 +15,7 @@ export function MovimentacaoEstoque() {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const podeMovimentar = usuario?.perfil === 'GALPAO' || usuario?.perfil === 'OPERADOR';
+  const podeMovimentar = usuario?.perfil === 'GALPAO' || pode(usuario, 'ESTOQUE_GERENCIAR');
   const [galpoes, setGalpoes] = useState<Unidade[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);

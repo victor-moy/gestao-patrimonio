@@ -1,3 +1,4 @@
+import { pode } from '../utils/permissoes';
 import { CSSProperties, FormEvent, useEffect, useState } from 'react';
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -44,10 +45,11 @@ export function ContratoFormulario() {
   const navigate = useNavigate();
   const location = useLocation();
   // A terceirizada vê o contrato do próprio prestador exatamente como o gestor, com tudo bloqueado
-  const somenteLeitura = usuario?.perfil === 'TERCEIRIZADA';
+  const podeGerenciar = pode(usuario, 'CONTRATOS_GERENCIAR');
+  const somenteLeitura = usuario?.perfil === 'TERCEIRIZADA' || (usuario?.perfil === 'OPERADOR' && !podeGerenciar);
   const permitido =
-    usuario?.perfil === 'OPERADOR' || somenteLeitura;
-  const podeExcluir = usuario?.perfil === 'OPERADOR';
+    pode(usuario, 'CONTRATOS_GERENCIAR', 'MANUTENCAO_CONSULTAR') || somenteLeitura;
+  const podeExcluir = podeGerenciar;
   const [contrato, setContrato] = useState<Contrato | null>(null);
   const [carregando, setCarregando] = useState(editando);
   const [falha, setFalha] = useState<string | null>(null);

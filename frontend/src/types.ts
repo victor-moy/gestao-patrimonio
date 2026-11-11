@@ -15,6 +15,8 @@ export interface Usuario {
   // Perfil Terceirizada: o prestador de serviço que o usuário representa
   prestadorId?: string | null;
   prestadorNome?: string | null;
+  // Só no perfil OPERADOR: o que ele pode fazer
+  permissoes?: string[];
   ativo?: boolean;
 }
 

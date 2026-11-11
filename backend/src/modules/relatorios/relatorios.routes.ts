@@ -1,7 +1,6 @@
 import { Router } from 'express';
-import { Perfil } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { AppError } from '../../errors/AppError';
 import * as service from './relatorios.service';
 
@@ -10,7 +9,7 @@ export const relatoriosRouter = Router();
 // Relatórios (solicitações e manutenções) — exclusivos do Administrador, que é
 // quem decide todos os 5 tipos (RN04); diferente do /dashboard (equipamento/
 // manutenção), que também é usado pelo Administrador.
-relatoriosRouter.use(autenticar, permitir(Perfil.OPERADOR));
+relatoriosRouter.use(autenticar, permitirCom('RELATORIOS_VISUALIZAR'));
 
 function periodo(req: import('express').Request) {
   return {

@@ -1,3 +1,4 @@
+import { pode } from '../utils/permissoes';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
@@ -158,7 +159,7 @@ const daManutencao = (m: Manutencao): LinhaLista => ({
 export function Solicitacoes() {
   const { usuario } = useAuth();
   // A terceirizada só tem manutenções; Galpão só solicitações; Administrador e Unidade, as duas
-  const veManutencoes = usuario?.perfil === 'OPERADOR' || usuario?.perfil === 'UNIDADE' || usuario?.perfil === 'TERCEIRIZADA';
+  const veManutencoes = pode(usuario, 'MANUTENCAO_CONSULTAR') || usuario?.perfil === 'UNIDADE' || usuario?.perfil === 'TERCEIRIZADA';
   const veSolicitacoes = usuario?.perfil !== 'TERCEIRIZADA';
   const [params] = useSearchParams();
   const [linhas, setLinhas] = useState<LinhaLista[]>([]);
@@ -305,7 +306,7 @@ export function Solicitacoes() {
         ? statusDeSolicitacao.filter(([valor]) => STATUS_POR_TIPO[filtroTipo]?.includes(valor))
         : [...(veSolicitacoes ? statusDeSolicitacao : []), ...(veManutencoes ? STATUS_SO_DE_MANUTENCAO : [])];
   const totalFiltros = Number(Boolean(filtroStatus));
-  const podeCriar = usuario?.perfil === 'UNIDADE' || usuario?.perfil === 'OPERADOR';
+  const podeCriar = usuario?.perfil === 'UNIDADE' || pode(usuario, 'SOLICITACOES_GERENCIAR', 'MANUTENCAO_ESCREVER');
 
   return (
     <section

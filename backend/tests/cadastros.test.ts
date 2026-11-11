@@ -1,12 +1,14 @@
 import request from 'supertest';
 import { prismaMock } from './prisma-mock';
 import { criarApp } from '../src/app';
-import { auth } from './helpers';
+import { auth, mockUsuarioFindFirst } from './helpers';
 
 const app = criarApp();
 const UUID = '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6';
 
 describe('Usuários (RF02)', () => {
+  beforeEach(() => mockUsuarioFindFirst(prismaMock.usuario.findFirst));
+
   it('lista usuários para o Gestor de Patrimônio', async () => {
     prismaMock.usuario.findMany.mockResolvedValue([] as never);
     const res = await request(app).get('/usuarios').set(auth('OPERADOR'));
@@ -14,7 +16,7 @@ describe('Usuários (RF02)', () => {
   });
 
   it('cadastra usuário com matrícula funcional e perfil', async () => {
-    prismaMock.usuario.findFirst.mockResolvedValue(null);
+    mockUsuarioFindFirst(prismaMock.usuario.findFirst);
     prismaMock.usuario.create.mockResolvedValue({ id: 'u-novo' } as never);
     const res = await request(app)
       .post('/usuarios')
@@ -31,7 +33,7 @@ describe('Usuários (RF02)', () => {
   });
 
   it('cadastro prévio só com e-mail e perfil: nome e matrícula provisórios saem do e-mail', async () => {
-    prismaMock.usuario.findFirst.mockResolvedValue(null);
+    mockUsuarioFindFirst(prismaMock.usuario.findFirst);
     prismaMock.usuario.create.mockResolvedValue({ id: 'u-novo' } as never);
     const res = await request(app)
       .post('/usuarios')
@@ -47,7 +49,7 @@ describe('Usuários (RF02)', () => {
   });
 
   it('exige unidade para perfis UNIDADE e GALPAO', async () => {
-    prismaMock.usuario.findFirst.mockResolvedValue(null);
+    mockUsuarioFindFirst(prismaMock.usuario.findFirst);
     const res = await request(app)
       .post('/usuarios')
       .set(auth('OPERADOR'))
@@ -61,7 +63,7 @@ describe('Usuários (RF02)', () => {
   });
 
   it('usuário terceirizado exige um prestador existente; os demais perfis não podem ter prestador', async () => {
-    prismaMock.usuario.findFirst.mockResolvedValue(null);
+    mockUsuarioFindFirst(prismaMock.usuario.findFirst);
     const base = { nome: 'Técnico Tecnomed', email: 'tec@tecnomed.com.br', matricula: '30001', senha: 'senha-forte' };
     const enviar = (corpo: Record<string, unknown>) =>
       request(app).post('/usuarios').set(auth('OPERADOR')).send({ ...base, ...corpo });
@@ -97,7 +99,7 @@ describe('Usuários (RF02)', () => {
   });
 
   it('rejeita e-mail ou matrícula duplicados', async () => {
-    prismaMock.usuario.findFirst.mockResolvedValue({ id: 'existente' } as never);
+    mockUsuarioFindFirst(prismaMock.usuario.findFirst, { id: 'existente' });
     const res = await request(app)
       .post('/usuarios')
       .set(auth('OPERADOR'))

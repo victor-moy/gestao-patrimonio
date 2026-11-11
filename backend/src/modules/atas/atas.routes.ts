@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Perfil } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -11,7 +11,7 @@ import { registrarAuditoria } from '../../services/auditoria.service';
 // UC19/UC20/RF33-35 — controle de atas de registro de preços
 export const atasRouter = Router();
 
-atasRouter.use(autenticar, permitir(Perfil.OPERADOR, Perfil.GALPAO));
+atasRouter.use(autenticar, permitirCom('ATAS_GERENCIAR', Perfil.GALPAO));
 
 atasRouter.get('/', async (_req, res) => {
   const atas = await prisma.ata.findMany({
@@ -76,7 +76,7 @@ const ataSchema = z.object({
 
 atasRouter.post(
   '/',
-  permitir(Perfil.OPERADOR),
+  permitirCom('ATAS_GERENCIAR'),
   validarBody(ataSchema),
   async (req, res) => {
     const existe = await prisma.ata.findUnique({ where: { numero: req.body.numero } });
@@ -105,7 +105,7 @@ atasRouter.post(
 
 atasRouter.patch(
   '/:id',
-  permitir(Perfil.OPERADOR),
+  permitirCom('ATAS_GERENCIAR'),
   validarBody(
     z.object({
       fornecedor: z.string().min(2).optional(),

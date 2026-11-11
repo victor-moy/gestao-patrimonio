@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { Perfil } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { autenticar } from '../../middlewares/auth';
-import { permitir } from '../../middlewares/rbac';
+import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -49,7 +49,7 @@ const categoriaSchema = z.object({
 
 categoriasRouter.post(
   '/',
-  permitir(Perfil.OPERADOR, Perfil.GALPAO),
+  permitirCom('CONFIGURACOES_GERENCIAR', Perfil.GALPAO),
   validarBody(categoriaSchema),
   async (req, res) => {
     const existe = await prisma.categoria.findUnique({ where: { nome: req.body.nome } });
@@ -61,7 +61,7 @@ categoriasRouter.post(
 
 categoriasRouter.patch(
   '/:id',
-  permitir(Perfil.OPERADOR, Perfil.GALPAO),
+  permitirCom('CONFIGURACOES_GERENCIAR', Perfil.GALPAO),
   validarBody(categoriaSchema.partial()),
   async (req, res) => {
     const antes = await prisma.categoria.findUnique({ where: { id: req.params.id } });
@@ -85,7 +85,7 @@ categoriasRouter.patch(
 
 categoriasRouter.delete(
   '/:id',
-  permitir(Perfil.OPERADOR),
+  permitirCom('CONFIGURACOES_GERENCIAR'),
   async (req, res) => {
     const categoria = await prisma.categoria.findUnique({
       where: { id: req.params.id },
@@ -123,7 +123,7 @@ const tipoSchema = z.object({
 
 categoriasRouter.post(
   '/tipos',
-  permitir(Perfil.OPERADOR, Perfil.GALPAO),
+  permitirCom('CONFIGURACOES_GERENCIAR', Perfil.GALPAO),
   validarBody(tipoSchema),
   async (req, res) => {
     const existe = await prisma.tipoEquipamento.findUnique({
@@ -137,7 +137,7 @@ categoriasRouter.post(
 
 categoriasRouter.patch(
   '/tipos/:id',
-  permitir(Perfil.OPERADOR, Perfil.GALPAO),
+  permitirCom('CONFIGURACOES_GERENCIAR', Perfil.GALPAO),
   // `default(true)` não vale na edição: campo ausente mantém o valor atual
   validarBody(tipoSchema.partial().extend({ permitePreventiva: z.boolean().optional(), permiteCorretiva: z.boolean().optional() })),
   async (req, res) => {
@@ -167,7 +167,7 @@ categoriasRouter.patch(
 
 categoriasRouter.post(
   '/tipos/:id/imagem',
-  permitir(Perfil.OPERADOR, Perfil.GALPAO),
+  permitirCom('CONFIGURACOES_GERENCIAR', Perfil.GALPAO),
   uploadImagemTipo.single('imagem'),
   assinaturaImagem,
   async (req, res) => {
@@ -197,7 +197,7 @@ categoriasRouter.post(
 
 categoriasRouter.delete(
   '/tipos/:id/imagem',
-  permitir(Perfil.OPERADOR, Perfil.GALPAO),
+  permitirCom('CONFIGURACOES_GERENCIAR', Perfil.GALPAO),
   async (req, res) => {
     const antes = await prisma.tipoEquipamento.findUnique({ where: { id: req.params.id } });
     if (!antes) throw new AppError('Tipo de equipamento não encontrado.', 404);
@@ -221,7 +221,7 @@ categoriasRouter.delete(
 
 categoriasRouter.delete(
   '/tipos/:id',
-  permitir(Perfil.OPERADOR),
+  permitirCom('CONFIGURACOES_GERENCIAR'),
   async (req, res) => {
     const tipo = await prisma.tipoEquipamento.findUnique({
       where: { id: req.params.id },

@@ -3,11 +3,17 @@ import { Perfil, Prisma } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { env } from '../../config/env';
 import { AppError } from '../../errors/AppError';
+import { permissoesValidas } from '../../lib/permissoes';
 import type { AuthPayload, ImpersonadoPor } from '../../middlewares/auth';
 import { registrarAuditoria } from '../../services/auditoria.service';
 import type { IdentidadeKeycloak } from './oidc.service';
 
 type UsuarioComUnidade = Prisma.UsuarioGetPayload<{ include: { unidade: true; prestador: true } }>;
+
+// Só o Operador tem permissões; nos demais perfis o campo é ignorado
+function permissoesDoUsuario(usuario: { perfil: Perfil; permissoes: string[] }) {
+  return usuario.perfil === Perfil.OPERADOR ? permissoesValidas(usuario.permissoes) : [];
+}
 
 function gerarSessao(usuario: UsuarioComUnidade, impersonadoPor?: ImpersonadoPor) {
   const token = jwt.sign(
@@ -16,6 +22,7 @@ function gerarSessao(usuario: UsuarioComUnidade, impersonadoPor?: ImpersonadoPor
       perfil: usuario.perfil,
       unidadeId: usuario.unidadeId,
       prestadorId: usuario.prestadorId,
+      permissoes: permissoesDoUsuario(usuario),
       ...(impersonadoPor ? { impersonadoPor } : {}),
     },
     env.jwtSecret,
@@ -33,6 +40,7 @@ function gerarSessao(usuario: UsuarioComUnidade, impersonadoPor?: ImpersonadoPor
       unidadeNome: usuario.unidade?.nome ?? null,
       prestadorId: usuario.prestadorId,
       prestadorNome: usuario.prestador?.nome ?? null,
+      permissoes: permissoesDoUsuario(usuario),
     },
   };
 }

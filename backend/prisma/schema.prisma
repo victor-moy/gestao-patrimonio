@@ -173,6 +173,8 @@ model Usuario {
   keycloakSub String?           @unique @map("keycloak_sub")
   perfil      Perfil
   ativo       Boolean           @default(true)
+  // Só para o perfil OPERADOR: o que ele pode fazer (catálogo em src/lib/permissoes.ts)
+  permissoes  String[]          @default([])
   unidadeId   String?           @map("unidade_id")
   unidade     Unidade?          @relation(fields: [unidadeId], references: [id])
   // Só para o perfil TERCEIRIZADA: o prestador de serviço que o usuário representa

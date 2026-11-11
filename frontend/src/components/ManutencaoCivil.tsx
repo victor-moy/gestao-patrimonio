@@ -120,14 +120,16 @@ export function AcoesCivil({
   m,
   executar,
   ocupado,
-  ehAdministrador,
+  podeTriar,
+  podeFiscalizar,
   ehTerceirizada,
   ehUnidadeDona,
 }: {
   m: Manutencao;
   executar: Executar;
   ocupado: boolean;
-  ehAdministrador: boolean;
+  podeTriar: boolean;
+  podeFiscalizar: boolean;
   ehTerceirizada: boolean;
   ehUnidadeDona: boolean;
 }) {
@@ -145,7 +147,7 @@ export function AcoesCivil({
   const [itensSinapi, setItensSinapi] = useState<ItemSinapi[]>([]);
   const [falhaSinapi, setFalhaSinapi] = useState(false);
 
-  const emTriagem = ehAdministrador && (m.status === 'PENDENTE_APROVACAO' || m.status === 'AGUARDANDO_PROVIDENCIAS');
+  const emTriagem = podeTriar && (m.status === 'PENDENTE_APROVACAO' || m.status === 'AGUARDANDO_PROVIDENCIAS');
 
   // Ao mudar de etapa, os formulários voltam ao início
   useEffect(() => {
@@ -450,7 +452,7 @@ export function AcoesCivil({
       )}
 
       {/* Administrador: depois da confirmação da Unidade, dá a aprovação final (autoriza a medição) ou pede ajustes */}
-      {ehAdministrador && m.status === 'AGUARDANDO_MEDICAO' && (
+      {podeFiscalizar && m.status === 'AGUARDANDO_MEDICAO' && (
         <div className="actions-box">
           <div className="actions-title">Aprovação final</div>
           <p className="itens-aviso" role="status">
