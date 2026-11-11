@@ -16,17 +16,7 @@
 .estoque-page .estoque-codigo { display: block; }
 .estoque-page .estoque-codigo { margin-top: 2px; color: var(--text-secondary); font-size: 11px; }
 .estoque-page .estoque-acoes { text-align: right; white-space: nowrap; }
-.estoque-page .estoque-acoes .btn {
-  min-height: 28px;
-  margin-left: 6px;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  border-color: #c9cccf;
-  background: #fff;
-  color: #303030;
-}
+.estoque-page .estoque-acoes .btn { margin-left: 6px; }
 .estoque-page .inventario-lista-acoes .btn[aria-disabled='true'] { pointer-events: none; opacity: .5; }
 .estoque-page .gestao-lista table { min-width: 760px; }
 

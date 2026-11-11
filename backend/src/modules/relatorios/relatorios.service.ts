@@ -96,7 +96,7 @@ export async function visaoGeral(filtros: FiltrosPeriodo & { unidadeIds?: string
   for (const g of gruposManutencao ?? []) {
     if (g.status === 'CONCLUIDA') manutencoes.concluida += g._count.id;
     // Negada e baixada não são sucesso: contam como "canceladas", como as solicitações negadas
-    else if (g.status === 'NEGADA' || g.status === 'BAIXADO') manutencoes.negadaCancelada += g._count.id;
+    else if (g.status === 'NEGADA' || g.status === 'ENCERRADA' || g.status === 'BAIXADO') manutencoes.negadaCancelada += g._count.id;
     else manutencoes.emAndamento += g._count.id;
   }
   return [
@@ -398,7 +398,7 @@ export async function cessoes(
 
 // Relatório 7 — Manutenções: custo, prazo, prestadores e itens que mais geram manutenção.
 // Os 4 baldes são os mesmos do funil de solicitações, mais "baixada" separada (equipamento perdido).
-const STATUS_ANDAMENTO = ['PENDENTE_APROVACAO', 'AGUARDANDO_PROVIDENCIAS', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_EXECUCAO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO', 'REENCAMINHAMENTO_SOLICITADO'] as const;
+const STATUS_ANDAMENTO = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_EXECUCAO', 'EXECUTADO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO', 'REENCAMINHAMENTO_SOLICITADO', 'BLOQUEADO'] as const;
 export type SituacaoManutencao = 'EM_ANDAMENTO' | 'CONCLUIDA' | 'NEGADA' | 'BAIXADO';
 
 // Os agregados somam até este limite de registros (os mais recentes); a tabela mostra só os primeiros.
@@ -409,19 +409,10 @@ const DIA_MS = 24 * 60 * 60 * 1000;
 function statusDaSituacao(situacao?: SituacaoManutencao): Prisma.ManutencaoWhereInput {
   if (!situacao) return {};
   if (situacao === 'EM_ANDAMENTO') return { status: { in: [...STATUS_ANDAMENTO] } };
+  // Encerrada na avaliação técnica conta junto com as negadas
+  if (situacao === 'NEGADA') return { status: { in: ['NEGADA', 'ENCERRADA'] } };
   return { status: situacao };
 }
-
-const ROTULO_CATEGORIA_CIVIL: Record<string, string> = {
-  HIDRAULICA: 'Hidráulica',
-  ELETRICA: 'Elétrica',
-  INFILTRACAO: 'Infiltração',
-  ALVENARIA_PINTURA: 'Alvenaria e pintura',
-  COBERTURA: 'Cobertura',
-  ESQUADRIAS_VIDROS: 'Esquadrias e vidros',
-  CLIMATIZACAO_CIVIL: 'Climatização',
-  OUTROS: 'Outros',
-};
 
 const arredondar = (n: number) => Math.round(n * 100) / 100;
 
@@ -472,9 +463,10 @@ export async function manutencoes(
       numero: true,
       titulo: true,
       status: true,
+      abertoPorContestacao: true,
       tipo: true,
       localAfetado: true,
-      categoriaCivil: true,
+      categoriaCivil: { select: { id: true, nome: true } },
       criadoEm: true,
       dataConclusao: true,
       orcamentoValor: true,
@@ -513,13 +505,13 @@ export async function manutencoes(
     // Mesma regra do alerta da tela de manutenção: orçamento a partir de 50% do preço de referência
     const naoSugerida = orcamento !== null && preco !== null && preco > 0 && orcamento >= preco * 0.5;
     // Negadas e baixadas não geram gasto; o resto vale o custo final ou, enquanto não há, o orçamento
-    const consome = m.status !== 'NEGADA' && m.status !== 'BAIXADO';
+    const consome = m.status !== 'NEGADA' && m.status !== 'ENCERRADA' && m.status !== 'BAIXADO';
     const custo = consome ? (custoFinal ?? orcamento ?? 0) : 0;
 
     if (m.status === 'CONCLUIDA') {
       concluidas += 1;
       if (m.dataConclusao) somaDias += Math.max(0, (m.dataConclusao.getTime() - m.criadoEm.getTime()) / DIA_MS);
-    } else if (m.status === 'NEGADA') negadas += 1;
+    } else if (m.status === 'NEGADA' || m.status === 'ENCERRADA') negadas += 1;
     else if (m.status === 'BAIXADO') baixadas += 1;
     else emAndamento += 1;
     custoTotal += custo;
@@ -538,10 +530,10 @@ export async function manutencoes(
     porPrestador.set(prestadorId, { ...doPrestador, quantidade: doPrestador.quantidade + 1, custo: doPrestador.custo + custo });
 
     // Chamado civil agrupa pela categoria do problema (não há tipo de equipamento)
-    const tipoId = m.equipamento ? m.equipamento.tipoEquipamentoId : `civil:${m.categoriaCivil ?? 'OUTROS'}`;
+    const tipoId = m.equipamento ? m.equipamento.tipoEquipamentoId : `civil:${m.categoriaCivil?.id ?? 'sem-categoria'}`;
     const nomeItem = m.equipamento
       ? m.equipamento.tipoEquipamento.nome
-      : `Civil · ${ROTULO_CATEGORIA_CIVIL[m.categoriaCivil ?? 'OUTROS']}`;
+      : `Civil · ${m.categoriaCivil?.nome ?? 'Sem categoria'}`;
     const doItem = porItem.get(tipoId) ?? { nome: nomeItem, quantidade: 0, custo: 0 };
     porItem.set(tipoId, { ...doItem, quantidade: doItem.quantidade + 1, custo: doItem.custo + custo });
 
@@ -550,6 +542,7 @@ export async function manutencoes(
       numero: m.numero,
       titulo: m.titulo,
       status: m.status,
+      abertoPorContestacao: m.abertoPorContestacao,
       tipo: m.tipo,
       equipamento: m.equipamento?.descricao ?? m.localAfetado ?? '',
       tombamento: m.equipamento?.tombamento ?? null,

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { corDoStatus, StatusPill } from '../components/StatusPill';
-import { ROTULO_STATUS_EQUIPAMENTO, ROTULO_STATUS_MANUTENCAO, ROTULO_STATUS_SOLICITACAO } from '../utils/format';
+import { ROTULO_STATUS_EQUIPAMENTO, ROTULO_STATUS_MANUTENCAO, ROTULO_STATUS_SOLICITACAO, statusManutencaoExibido } from '../utils/format';
 
 describe('Cores de status', () => {
   it('segue a regra: verde concluído, azul em andamento, amarelo ação pendente, vermelho problema, cinza encerrado', () => {
@@ -36,7 +36,7 @@ describe('Cores de status', () => {
   });
 
   it('todo status de equipamento, manutenção e solicitação tem cor explícita (nenhum cai no cinza por acidente)', () => {
-    const cinzasEsperados = new Set(['BAIXADO', 'CEDIDO', 'EXPIRADA']);
+    const cinzasEsperados = new Set(['BAIXADO', 'CEDIDO', 'EXPIRADA', 'ENCERRADA']);
     const todos = [
       ...Object.keys(ROTULO_STATUS_EQUIPAMENTO),
       ...Object.keys(ROTULO_STATUS_MANUTENCAO),
@@ -50,5 +50,17 @@ describe('Cores de status', () => {
   it('StatusPill mostra o texto com a classe do tom', () => {
     render(<StatusPill valor="NEGADA">Negada</StatusPill>);
     expect(screen.getByText('Negada')).toHaveClass('inventario-status--tom-red');
+  });
+});
+
+describe('Status exibido da manutenção', () => {
+  it('o chamado aberto pela contestação da Unidade aparece como Contestado na triagem, para qualquer usuário', () => {
+    expect(statusManutencaoExibido({ status: 'PENDENTE_APROVACAO', abertoPorContestacao: true })).toEqual({ valor: 'CONTESTADO', texto: 'Contestado' });
+    expect(corDoStatus('CONTESTADO')).toBe('red');
+  });
+
+  it('sem contestação, ou depois da triagem, mostra o status de sempre', () => {
+    expect(statusManutencaoExibido({ status: 'PENDENTE_APROVACAO' }).texto).toBe('Pendente Aprovação');
+    expect(statusManutencaoExibido({ status: 'AGUARDANDO_EXECUCAO', abertoPorContestacao: true }).texto).toBe('Aguardando Execução');
   });
 });

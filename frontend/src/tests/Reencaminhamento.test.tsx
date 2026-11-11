@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { App } from '../App';
-import { mockFetch } from './mock-fetch';
+import { mockFetch, acao } from './mock-fetch';
 
 function entrarComo(perfil: string, caminho: string) {
   localStorage.setItem('sgp_token', 'token-teste');
@@ -32,7 +32,7 @@ const civil = (extra: Record<string, unknown> = {}) => ({
   numero: 12,
   tipo: 'CIVIL',
   titulo: 'Ar-condicionado não liga',
-  status: 'EM_EXECUCAO',
+  status: 'AGUARDANDO_EXECUCAO',
   descricaoProblema: 'O ar-condicionado do consultório não liga',
   localAfetado: 'Consultório 2',
   categoriaCivil: 'ELETRICA',
@@ -82,7 +82,8 @@ describe('Reencaminhamento de chamados', () => {
     });
     render(<App />);
 
-    const confirmar = await screen.findByRole('button', { name: 'Reencaminhar' });
+    await acao('Reencaminhar');
+    const confirmar = screen.getByRole('button', { name: 'Confirmar' });
     expect(confirmar).toBeDisabled();
     await userEvent.type(screen.getByLabelText('Motivo do reencaminhamento *'), 'curto');
     expect(confirmar).toBeDisabled();
@@ -132,7 +133,7 @@ describe('Reencaminhamento de chamados', () => {
 
     expect(await screen.findByText(MOTIVO)).toBeInTheDocument();
     expect(screen.queryByLabelText('O que fazer *')).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Confirmar reencaminhamento' }));
+    await acao('Confirmar reencaminhamento');
     await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/confirmar-reencaminhamento'))).toBe(true));
   });
 
@@ -150,6 +151,7 @@ describe('Reencaminhamento de chamados', () => {
     });
     render(<App />);
 
+    await acao('Decidir destino do chamado');
     expect(await screen.findByRole('option', { name: 'Baixar o equipamento (Patrimônio)' })).toBeDisabled();
     await userEvent.selectOptions(screen.getByLabelText('Tipo do novo chamado'), 'EQUIPAMENTO');
     const abrir = screen.getByRole('button', { name: 'Abrir novo chamado' });
@@ -183,6 +185,7 @@ describe('Reencaminhamento de chamados', () => {
     });
     render(<App />);
 
+    await acao('Decidir destino do chamado');
     await userEvent.selectOptions(await screen.findByLabelText('O que fazer *'), 'baixa');
     expect(screen.getByRole('button', { name: 'Confirmar baixa' })).toBeDisabled();
     expect(screen.getByText('Laudo de baixa (PDF) *')).toBeInTheDocument();

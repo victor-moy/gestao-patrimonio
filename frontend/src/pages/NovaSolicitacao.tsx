@@ -5,7 +5,7 @@ import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { useMensagemTemporaria } from '../hooks/useMensagemTemporaria';
 import { semAlteracoes } from '../utils/form';
-import type { Categoria, Equipamento, TipoSolicitacao as TipoSolicitacaoValor, Unidade } from '../types';
+import type { Categoria, ChamadoAberto, Equipamento, Setor, TipoSolicitacao as TipoSolicitacaoValor, Unidade } from '../types';
 import { ROTULO_TIPO_SOLICITACAO } from '../utils/format';
 import { CampoAnexo } from '../components/CampoAnexo';
 import { IconeFechar } from '../components/icons';
@@ -13,6 +13,7 @@ import { SelectEquipamento, SelectTipoEquipamento } from '../components/SelectIt
 import { ItemAusente } from '../components/ItemAusente';
 import { CamposManutencaoCivil, civilIncompleto, type DadosCivil } from '../components/CamposManutencaoCivil';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
+import { useCategoriasCivis } from '../hooks/useCategoriasCivis';
 
 const JUSTIFICATIVA_MAX = 500;
 
@@ -52,6 +53,14 @@ export function NovaSolicitacao() {
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [anexo, setAnexo] = useState<File | null>(null);
   const [fotosCivil, setFotosCivil] = useState<File[]>([]);
+  // Setores ativos da própria unidade, para indicar o que foi afetado no chamado civil
+  const [setoresCivil, setSetoresCivil] = useState<Setor[]>([]);
+  // Tipos de problema cadastrados (com perguntas) e chamados já abertos do tipo escolhido
+  const { categorias: categoriasCivis, falha: falhaCategoriasCivis } = useCategoriasCivis(tipo === 'MANUTENCAO_CIVIL');
+  const [abertos, setAbertos] = useState<ChamadoAberto[]>([]);
+  const [acrescentarEm, setAcrescentarEm] = useState<ChamadoAberto | null>(null);
+  // Manutenção de equipamento: o solicitante confirma que o item está mesmo na unidade antes de abrir
+  const [itemNaUnidade, setItemNaUnidade] = useState(true);
   const [previewAnexo, setPreviewAnexo] = useState<string | null>(null);
   const [erro, setErro] = useMensagemTemporaria();
   useAlertaNativo(erro, () => setErro(null));
@@ -99,10 +108,38 @@ export function NovaSolicitacao() {
     equipamentoManutencaoId: equipamentoInicial,
     descricaoProblema: '',
     // Manutenção civil: local e tipo do problema (a descrição é a mesma de cima)
+    setorIds: [] as string[],
     localAfetado: '',
-    categoriaCivil: '' as DadosCivil['categoriaCivil'],
+    categoriaCivilId: '',
+    respostas: {} as DadosCivil['respostas'],
+    extras: [] as DadosCivil['extras'],
   };
   const [form, setForm] = useState(inicial);
+
+  useEffect(() => {
+    if (tipo !== 'MANUTENCAO_CIVIL') return;
+    api.get<Setor[]>('/setores').then((l) => setSetoresCivil(Array.isArray(l) ? l : [])).catch(() => setSetoresCivil([]));
+  }, [tipo]);
+
+  useEffect(() => {
+    if (falhaCategoriasCivis) setErro(falhaCategoriasCivis);
+  }, [falhaCategoriasCivis, setErro]);
+
+  useEffect(() => {
+    setAcrescentarEm(null);
+    if (tipo !== 'MANUTENCAO_CIVIL' || !form.categoriaCivilId) {
+      setAbertos([]);
+      return;
+    }
+    let atual = true;
+    api
+      .get<ChamadoAberto[]>(`/manutencoes/civil/abertos?categoriaCivilId=${form.categoriaCivilId}`)
+      .then((l) => atual && setAbertos(Array.isArray(l) ? l : []))
+      .catch(() => atual && setAbertos([])); // é só um aviso: falhar não impede a abertura
+    return () => {
+      atual = false;
+    };
+  }, [tipo, form.categoriaCivilId]);
 
   useEffect(() => {
     const falhou = (e: unknown) => setErro(e instanceof Error ? e.message : 'Não foi possível carregar os dados do formulário.');
@@ -183,13 +220,38 @@ export function NovaSolicitacao() {
     setErro(null);
     try {
       if (tipo === 'MANUTENCAO_CIVIL') {
+        // Envia um problema (descrição e fotos) a um chamado que já existe
+        const enviarProblema = (chamadoId: string, descricao: string, fotos: File[]) => {
+          const p = new FormData();
+          p.append('descricao', descricao.trim());
+          fotos.forEach((foto) => p.append('fotos', foto));
+          return api.post(`/manutencoes/${chamadoId}/problemas`, p);
+        };
+        const problemas = [{ descricao: form.descricaoProblema, fotos: fotosCivil }, ...form.extras];
+        if (acrescentarEm) {
+          for (const p of problemas) await enviarProblema(acrescentarEm.id, p.descricao, p.fotos);
+          void navigate(`/manutencoes/${acrescentarEm.id}`);
+          return;
+        }
         const dados = new FormData();
         dados.append('titulo', form.titulo.trim());
         dados.append('descricaoProblema', form.descricaoProblema);
-        dados.append('localAfetado', form.localAfetado.trim());
-        dados.append('categoriaCivil', form.categoriaCivil);
+        if (setoresCivil.length > 0) form.setorIds.forEach((setorId) => dados.append('setorIds', setorId));
+        else dados.append('localAfetado', form.localAfetado.trim());
+        dados.append('categoriaCivilId', form.categoriaCivilId);
+        dados.append('respostas', JSON.stringify(form.respostas));
         fotosCivil.forEach((foto) => dados.append('fotos', foto));
-        await api.post('/manutencoes/civil', dados);
+        const criado = await api.post<{ id: string }>('/manutencoes/civil', dados);
+        // Os outros problemas vão depois do chamado criado; se algum falhar, o chamado já existe e o usuário é avisado
+        try {
+          for (const p of form.extras) await enviarProblema(criado.id, p.descricao, p.fotos);
+        } catch (falha) {
+          window.alert(
+            `O chamado foi aberto, mas nem todos os outros problemas foram enviados: ${falha instanceof Error ? falha.message : 'erro'}. Acrescente-os no chamado.`,
+          );
+          void navigate(`/manutencoes/${criado.id}`);
+          return;
+        }
         void navigate('/solicitacoes');
         return;
       }
@@ -289,8 +351,8 @@ export function NovaSolicitacao() {
   // Itens emprestados à unidade aparecem no inventário, mas só a unidade dona abre manutenção
   const equipamentosDaUnidade = equipamentos.filter((eq) => eq.unidade.id === usuario?.unidadeId);
   const manutencaoIncompleta =
-    (tipo === 'MANUTENCAO' && (!form.equipamentoManutencaoId || form.descricaoProblema.trim().length < 5)) ||
-    (tipo === 'MANUTENCAO_CIVIL' && civilIncompleto(form));
+    (tipo === 'MANUTENCAO' && (!form.equipamentoManutencaoId || form.descricaoProblema.trim().length < 5 || !itemNaUnidade)) ||
+    (tipo === 'MANUTENCAO_CIVIL' && civilIncompleto(form, setoresCivil.length > 0, categoriasCivis, acrescentarEm !== null));
 
   const infoTipo = CATALOGO_TIPOS.find((item) => item.tipo === tipoBase);
 
@@ -308,7 +370,7 @@ export function NovaSolicitacao() {
             type="submit"
             form="form-nova-solicitacao"
             className="btn btn-primary"
-            disabled={!tipo || !form.titulo.trim() || manutencaoIncompleta || semAlteracoes(inicial, form)}
+            disabled={!tipo || (!form.titulo.trim() && !acrescentarEm) || manutencaoIncompleta || semAlteracoes(inicial, form)}
           >
             Enviar
           </button>
@@ -349,6 +411,7 @@ export function NovaSolicitacao() {
               </select>
             </div>
           )}
+          {!acrescentarEm && (
           <div className="field nova-solicitacao-campo-titulo">
             <label htmlFor="nova-solicitacao-titulo-campo">Título</label>
             <input
@@ -360,6 +423,7 @@ export function NovaSolicitacao() {
               required
             />
           </div>
+          )}
         </section>
 
         {tipo && (
@@ -581,6 +645,18 @@ export function NovaSolicitacao() {
                 </select>
               </div>
               <div className="field">
+                <label className="checkbox-linha interruptor-linha" htmlFor="manutencao-item-na-unidade">
+                  <input
+                    id="manutencao-item-na-unidade"
+                    type="checkbox"
+                    role="switch"
+                    checked={itemNaUnidade}
+                    onChange={(e) => setItemNaUnidade(e.target.checked)}
+                  />
+                  <span>O item está na minha unidade{usuario?.unidadeNome ? `: ${usuario.unidadeNome}` : ''}</span>
+                </label>
+              </div>
+              <div className="field">
                 <label htmlFor="manutencao-problema">Descrição do problema *</label>
                 <textarea
                   id="manutencao-problema"
@@ -595,6 +671,11 @@ export function NovaSolicitacao() {
 
           {tipo === 'MANUTENCAO_CIVIL' && (
             <CamposManutencaoCivil
+              setores={setoresCivil}
+              categorias={categoriasCivis}
+              abertos={abertos}
+              acrescentarEm={acrescentarEm}
+              onAcrescentar={setAcrescentarEm}
               valor={form}
               onChange={(v) => setForm({ ...form, ...v })}
               fotos={fotosCivil}

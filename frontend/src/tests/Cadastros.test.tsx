@@ -51,10 +51,8 @@ const contrato = {
       id: 'i1',
       servicoId: 'sv1',
       valor: '12000',
-      escopoId: 'es3',
       servico: { id: 'sv1', nome: 'Serviço de manutenção preventiva e corretiva' },
       saldo: 12000,
-      escopo: { id: 'es3', nome: 'Preventiva e corretiva', cobrePreventiva: true, cobreCorretiva: true },
     },
   ],
   vigenciaInicio: '2026-01-01T00:00:00.000Z',
@@ -67,14 +65,7 @@ const servicos = [
   { id: 'sv1', nome: 'Serviço de manutenção preventiva e corretiva', descricao: null, _count: { itens: 1 } },
   { id: 'sv2', nome: 'Serviço de calibração', descricao: null, _count: { itens: 0 } },
 ];
-const escopos = ['Preventiva', 'Corretiva', 'Preventiva e corretiva'].map((nome, n) => ({
-  id: `es${n + 1}`,
-  nome,
-  descricao: null,
-  _count: { itens: 0 },
-}));
 const catalogos = {
-  '/escopos-servico': { body: escopos },
   '/prestadores': { body: prestadores },
   '/servicos-contrato': { body: servicos },
 };
@@ -216,7 +207,7 @@ describe('Contratos', () => {
     expect(await screen.findByRole('heading', { name: 'Novo contrato' })).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Número do contrato'), 'CONT-2026-777');
     await screen.findByRole('option', { name: 'Tecnomed' });
-    await screen.findByRole('option', { name: 'Corretiva' });
+    await screen.findByRole('option', { name: 'Serviço de calibração' });
     await userEvent.selectOptions(screen.getByLabelText('Prestador de serviço'), 'pr1');
     expect(screen.queryByLabelText('Tipo de contrato')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Condições de pagamento')).not.toBeInTheDocument();
@@ -224,12 +215,10 @@ describe('Contratos', () => {
     expect(screen.queryByLabelText('Equipamento')).not.toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('Descrição'), 'Calibração anual');
     await userEvent.selectOptions(screen.getByLabelText('Tipo de serviço'), 'sv1');
-    await userEvent.selectOptions(screen.getByLabelText('Escopo'), 'es2');
     await userEvent.type(screen.getByLabelText('Valor do item (R$)'), '1500.50');
     await userEvent.click(screen.getByRole('button', { name: '+ Adicionar item' }));
     const linha2 = screen.getByRole('group', { name: 'Item 2' });
     await userEvent.selectOptions(within(linha2).getByLabelText('Tipo de serviço'), 'sv2');
-    await userEvent.selectOptions(within(linha2).getByLabelText('Escopo'), 'es3');
     await userEvent.type(within(linha2).getByLabelText('Valor do item (R$)'), '500');
     expect(screen.getByText(/2\.000,50/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Remover item 2' }));
@@ -244,7 +233,7 @@ describe('Contratos', () => {
       numero: 'CONT-2026-777',
       status: 'ATIVO',
       prestadorId: 'pr1',
-      itens: [{ servicoId: 'sv1', valor: 1500.5, escopoId: 'es2' }],
+      itens: [{ servicoId: 'sv1', valor: 1500.5 }],
     });
     expect(JSON.parse(String(post?.init?.body))).not.toHaveProperty('tipo');
   });

@@ -33,31 +33,15 @@
 }
 .solicitacao-acoes .actions-box .actions-title {
   margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
   color: var(--text);
   font-size: 14px;
   font-weight: 650;
 }
 .solicitacao-acoes .actions-row { gap: 8px; }
 .solicitacao-acoes .field { margin: 0 0 16px; }
-.solicitacao-acoes .field label {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 400;
-}
 .solicitacao-acoes .itens-aviso--acao { margin: 12px 0 0; color: var(--text-secondary); font-size: 11px; }
-.solicitacao-acoes input:not([type='checkbox']),
-.solicitacao-acoes select {
-  height: 34px;
-  padding: 0 12px;
-  border: 1px solid #c9cccf;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 400;
-}
-.solicitacao-acoes select { padding-right: 36px; }
 .solicitacao-acoes .info-grid { margin-bottom: 0; }
 
 
@@ -82,36 +66,17 @@
 .solicitacao-acoes .rotulo-campo { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 11px; }
 .solicitacao-acoes .campos-empilhados { display: grid; gap: 8px; }
 
-/* Layout do detalhe: informações e resumo na mesma altura; abaixo, textos à esquerda e ações sob a Localização. */
+/* Layout do detalhe: uma coluna — informações, textos e, por último, as ações. */
 .solicitacao-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
-  grid-template-areas:
-    'info resumo'
-    'textos lateral';
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
   gap: 16px;
 }
-.solicitacao-informacoes { grid-area: info; align-self: stretch; }
-.solicitacao-resumo {
-  grid-area: resumo;
-  align-self: stretch;
-  display: grid;
-  gap: 16px;
-}
-.solicitacao-textos { grid-area: textos; display: grid; gap: 16px; }
+.solicitacao-textos { display: grid; gap: 16px; }
 .solicitacao-textos:empty { display: none; }
-.solicitacao-lateral { grid-area: lateral; display: grid; gap: 16px; align-content: start; min-width: 0; }
-@media (max-width: 760px) {
-  .solicitacao-layout {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'info' 'resumo' 'textos' 'lateral';
-  }
-}
+.solicitacao-lateral { display: grid; gap: 16px; align-content: start; min-width: 0; }
 .solicitacao-lateral > .solicitacao-acoes .info-grid { grid-template-columns: minmax(0, 1fr); }
 .solicitacao-layout .equipamento-dados > div { padding: 10px 0; }
-.solicitacao-resumo .equipamento-secao { padding-bottom: 12px; }
-.solicitacao-resumo .equipamento-secao { align-self: stretch; }
 /* Folga para o anel de foco dos campos não ser cortado pelo overflow da animação. */
 .solicitacao-acoes .actions-expand > div { padding: 3px; margin: -3px; }
 /* Recolhido, nada do conteúdo (nem a folga acima) pode aparecer: some depois da animação de fechar. */

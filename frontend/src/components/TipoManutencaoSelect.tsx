@@ -1,6 +1,6 @@
 // Seletor de tipo de manutenção: Preventiva, Corretiva ou Ambas (e, quando permitido, Nenhuma). Guarda dois
 // indicadores (preventiva/corretiva) como no banco; "Ambas" é os dois ligados e "Nenhuma" os dois desligados.
-// Usado em Tipos de itens (o que aceita, com "Nenhuma") e em Escopos (o que cobre, sem "Nenhuma").
+// Usado em Tipos de itens (o que aceita, com "Nenhuma").
 interface Props {
   id: string;
   legenda: string;

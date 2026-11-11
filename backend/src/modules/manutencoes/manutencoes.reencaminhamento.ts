@@ -1,4 +1,4 @@
-import { CategoriaProblemaCivil, Prisma, StatusManutencao, TipoManutencao } from '@prisma/client';
+import { Prisma, StatusManutencao, TipoManutencao } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
@@ -11,12 +11,11 @@ import { buscarPorId, emitirBaixa, includePadrao, liberarEquipamento } from './m
 // sendo um chamado próprio (MAN-xxxx); o novo aponta para o anterior (`reencaminhadoDeId`) e para a raiz do caso
 // (`casoId`). Nada do atendimento anterior (contrato, prestador, orçamento) é copiado para o novo.
 
-// Em quais status do ciclo o atendimento pode pedir para ser reencaminhado
+// Em quais status do ciclo o atendimento pode pedir para ser reencaminhado: só até antes de iniciar o serviço
 const STATUS_QUE_PODEM_PEDIR: StatusManutencao[] = [
   'AGUARDANDO_ORCAMENTO',
   'ORCAMENTO_REGISTRADO',
   'AGUARDANDO_EXECUCAO',
-  'EM_EXECUCAO',
 ];
 
 type Carregada = Awaited<ReturnType<typeof buscarPorId>>;
@@ -102,7 +101,7 @@ export type DadosNovoChamado = {
   titulo?: string;
   descricaoProblema?: string;
   localAfetado?: string;
-  categoriaCivil?: CategoriaProblemaCivil;
+  categoriaCivilId?: string;
 };
 
 type Cliente = Prisma.TransactionClient;
@@ -145,10 +144,10 @@ async function resolverEquipamento(tx: Cliente, origem: Carregada, dados: DadosN
 
 function camposCivis(origem: Carregada, dados: DadosNovoChamado) {
   const localAfetado = (dados.localAfetado ?? origem.localAfetado)?.trim();
-  const categoriaCivil = dados.categoriaCivil ?? origem.categoriaCivil;
+  const categoriaCivilId = dados.categoriaCivilId ?? origem.categoriaCivilId;
   if (!localAfetado) throw new AppError('Informe o local afetado do novo chamado.', 422);
-  if (!categoriaCivil) throw new AppError('Informe o tipo de problema do novo chamado.', 422);
-  return { localAfetado, categoriaCivil, fotos: origem.fotos };
+  if (!categoriaCivilId) throw new AppError('Informe o tipo de problema do novo chamado.', 422);
+  return { localAfetado, categoriaCivilId, fotos: origem.fotos };
 }
 
 // O atendimento atual fecha (CONCLUIDA) e nasce um novo chamado, sem contrato, prestador nem orçamento, na fila
@@ -204,6 +203,68 @@ export async function reencaminharParaManutencao(usuario: AuthPayload, id: strin
   return resultado;
 }
 
+// A Unidade diz que o problema persiste (chamado civil). O atendimento atual fecha e nasce um subchamado na fila da
+// triagem, ligado ao anterior e ao caso, sem contrato nem prestador: o triador escolhe o item de contrato de novo.
+// O valor informado pelo prestador deixa de ocupar o saldo (a Unidade contestou o serviço).
+export async function contestarComSubchamado(usuario: AuthPayload, id: string, motivo: string) {
+  const origem = await buscarPorId(usuario, id);
+  if (origem.tipo !== 'CIVIL') throw new AppError('A contestação só vale para manutenção civil.', 422);
+  if (origem.status !== 'AGUARDANDO_RETORNO') {
+    throw new AppError('Só é possível contestar um serviço que aguarda a confirmação da unidade.', 422);
+  }
+  if (origem.unidadeId !== usuario.unidadeId) {
+    throw new AppError('Somente a unidade do chamado pode contestar.', 403);
+  }
+  const novo = await prisma.$transaction(async (tx) => {
+    const fechado = await tx.manutencao.updateMany({
+      where: { id, status: 'AGUARDANDO_RETORNO' },
+      data: { status: 'CONCLUIDA', dataConclusao: new Date(), confirmadoUnidade: false, contestacaoUnidade: motivo, custoFinal: null },
+    });
+    exigirGravado(fechado, 'O chamado mudou de situação. Atualize a página e tente de novo.');
+    const criado = await tx.manutencao.create({
+      data: {
+        tipo: 'CIVIL',
+        unidadeId: origem.unidadeId,
+        solicitanteId: origem.solicitanteId,
+        titulo: origem.titulo,
+        descricaoProblema: `${origem.descricaoProblema}\n\nA unidade contestou a execução do chamado anterior: ${motivo}`,
+        localAfetado: origem.localAfetado,
+        categoriaCivilId: origem.categoriaCivilId,
+        fotos: origem.fotos,
+        setores: { create: origem.setores.map((s) => ({ setorId: s.setor.id })) },
+        reencaminhadoDeId: id,
+        casoId: raizDoCaso(origem),
+        abertoPorContestacao: true,
+      },
+      include: includePadrao,
+    });
+    await registrarAuditoria(
+      {
+        usuarioId: usuario.sub,
+        acao: 'CONTESTAR_EXECUCAO',
+        entidade: 'manutencao',
+        entidadeId: id,
+        dadosAntes: { status: 'AGUARDANDO_RETORNO' },
+        dadosDepois: { status: 'CONCLUIDA', motivo, novaManutencaoId: criado.id, numero: criado.numero },
+      },
+      tx,
+    );
+    await registrarAuditoria(
+      {
+        usuarioId: usuario.sub,
+        acao: 'ABRIR_MANUTENCAO_REENCAMINHADA',
+        entidade: 'manutencao',
+        entidadeId: criado.id,
+        dadosDepois: { origemId: id, casoId: raizDoCaso(origem), tipo: 'CIVIL', motivoContestacao: motivo },
+      },
+      tx,
+    );
+    return criado;
+  });
+  await avisos.avisoContestacaoUnidade(origem, novo, origem.unidade.nome);
+  return novo;
+}
+
 // Baixa pelo reencaminhamento: usa o fluxo de baixa que já existe (laudo, equipamento baixado e substituição
 // automática), agora ligada ao caso pela `manutencaoOrigemId` da solicitação gerada.
 export async function reencaminharParaBaixa(usuario: AuthPayload, id: string, laudo: string) {
@@ -247,6 +308,7 @@ export async function trajetoria(usuario: AuthPayload, id: string): Promise<Etap
       tipo: true,
       titulo: true,
       status: true,
+      abertoPorContestacao: true,
       criadoEm: true,
       dataConclusao: true,
       motivoReencaminhamento: true,
@@ -264,6 +326,7 @@ export async function trajetoria(usuario: AuthPayload, id: string): Promise<Etap
       tipo: e.tipo,
       titulo: e.titulo,
       status: e.status,
+      abertoPorContestacao: e.abertoPorContestacao,
       criadoEm: e.criadoEm,
       dataConclusao: e.dataConclusao,
       motivoReencaminhamento: e.motivoReencaminhamento,

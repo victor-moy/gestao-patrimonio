@@ -56,7 +56,6 @@ const itemDoContrato = {
   contratoId: 'ct-1',
   valor: 10000,
   contrato: { status: 'ATIVO' },
-  escopo: { nome: 'Preventiva e corretiva', cobrePreventiva: true, cobreCorretiva: true },
 };
 
 function comprometido(total: number | null) {
@@ -223,7 +222,7 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
     expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
   });
 
-  it('aprovação rejeita item inexistente, de contrato expirado ou sem saldo', async () => {
+  it('aprovação rejeita item inexistente ou de contrato expirado', async () => {
     prismaMock.manutencao.findUnique.mockResolvedValue(manutencaoBase as never);
     comprometido(null);
     prismaMock.contratoItem.findUnique.mockResolvedValueOnce(null);
@@ -235,29 +234,14 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
     } as never);
     expect((await aprovarComItem()).status).toBe(422);
 
-    prismaMock.contratoItem.findUnique.mockResolvedValueOnce(itemDoContrato as never);
-    comprometido(10000);
-    const semSaldo = await aprovarComItem();
-    expect(semSaldo.status).toBe(422);
-    expect(semSaldo.body.mensagem ?? semSaldo.body.message ?? JSON.stringify(semSaldo.body)).toMatch(/saldo/i);
     expect(prismaMock.equipamento.update).not.toHaveBeenCalled();
   });
 
-  it('item que só permite corretiva não aceita escopo só preventivo', async () => {
-    prismaMock.manutencao.findUnique.mockResolvedValue(comTipo({ permitePreventiva: false }) as never);
-    comprometido(null);
-    prismaMock.contratoItem.findUnique.mockResolvedValueOnce({
-      ...itemDoContrato,
-      escopo: { nome: 'Preventiva', cobrePreventiva: true, cobreCorretiva: false },
-    } as never);
-    expect((await aprovarComItem()).status).toBe(422);
-
-    prismaMock.contratoItem.findUnique.mockResolvedValueOnce({
-      ...itemDoContrato,
-      escopo: { nome: 'Preventiva e corretiva', cobrePreventiva: true, cobreCorretiva: true },
-    } as never);
+  it('item sem saldo não impede a aprovação na triagem (o saldo é conferido no orçamento)', async () => {
+    prismaMock.manutencao.findUnique.mockResolvedValue(manutencaoBase as never);
+    prismaMock.contratoItem.findUnique.mockResolvedValue(itemDoContrato as never);
+    comprometido(10000);
     prismaMock.manutencao.update.mockResolvedValue({ ...manutencaoBase, status: 'AGUARDANDO_ORCAMENTO' } as never);
-    prismaMock.usuario.findMany.mockResolvedValue([] as never);
     expect((await aprovarComItem()).status).toBe(200);
   });
 

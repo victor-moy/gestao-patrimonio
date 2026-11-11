@@ -4,8 +4,9 @@ import { api } from '../api/client';
 import { ImagemProtegida } from './ArquivoProtegido';
 import { IconeFechar } from './icons';
 import { StatusPill } from './StatusPill';
+import { rotuloSinapi, SelecaoItem } from './SelecaoItem';
 import type { ChamadoParecido, Contrato, ItemSinapi, LinhaRelatorio, Manutencao } from '../types';
-import { codigoManutencao, formatarData, formatarMoeda, ROTULO_STATUS_MANUTENCAO } from '../utils/format';
+import { codigoManutencao, formatarData, formatarMoeda, statusManutencaoExibido } from '../utils/format';
 
 type Executar = (operacao: () => Promise<unknown>) => Promise<void>;
 
@@ -13,16 +14,24 @@ const valorLinha = (l: LinhaRelatorio) => Number(l.quantidade) * Number(l.valorU
 
 export const totalRelatorio = (linhas: LinhaRelatorio[]) => linhas.reduce((t, l) => t + valorLinha(l), 0);
 
+// Só as miniaturas, para usar dentro de outro card
+export function GradeFotosCivil({ fotos }: { fotos: string[] }) {
+  if (fotos.length === 0) return null;
+  return (
+    <div className="civil-fotos">
+      {fotos.map((caminho, i) => (
+        <ImagemProtegida key={caminho} caminho={caminho} alt={`Foto ${i + 1} do problema`} className="civil-foto" />
+      ))}
+    </div>
+  );
+}
+
 export function FotosCivil({ fotos }: { fotos: string[] }) {
   if (fotos.length === 0) return null;
   return (
     <section className="equipamento-secao solicitacao-secao-texto">
       <h3>Fotos</h3>
-      <div className="civil-fotos">
-        {fotos.map((caminho, i) => (
-          <ImagemProtegida key={caminho} caminho={caminho} alt={`Foto ${i + 1} do problema`} className="civil-foto" />
-        ))}
-      </div>
+      <GradeFotosCivil fotos={fotos} />
     </section>
   );
 }
@@ -33,8 +42,91 @@ const origemPreco = (l: LinhaRelatorio) =>
     ? `SINAPI ${l.codigoSinapi} · ${formatarMoeda(l.precoSinapi)}${Number(l.descontoPercentual) > 0 ? ` com ${Number(l.descontoPercentual)}% de desconto` : ''}`
     : null;
 
-// Serviços e materiais executados, informados pelo prestador: itens da tabela SINAPI com quantidade; o preço vem da
-// tabela com o desconto do contrato. O prestador edita durante a execução; depois da finalização, é só leitura.
+// Tabela de itens (serviços e materiais da tabela SINAPI) com quantidade, valor unitário e total. Usada nos itens
+// previstos (avaliação técnica) e nos itens executados; com `onRemover` mostra o botão de remover em cada linha.
+export function TabelaItens({
+  linhas,
+  rotulo,
+  onRemover,
+  ocupado = false,
+  encaixada = false,
+  semValores = false,
+}: {
+  linhas: LinhaRelatorio[];
+  rotulo: string;
+  onRemover?: (linha: LinhaRelatorio) => void;
+  ocupado?: boolean;
+  // Dentro de um box com outros campos: tabela com borda própria, sem sangrar até a borda do box
+  encaixada?: boolean;
+  // O prestador lança itens e quantidades, mas não vê preços nem totais
+  semValores?: boolean;
+}) {
+  const podeApagar = Boolean(onRemover);
+  return (
+    <div className={`relatorio-civil-scroll${encaixada ? ' relatorio-civil-scroll--encaixada' : ''}`} role="region" aria-label={rotulo} tabIndex={0}>
+      <table className="relatorio-civil">
+        <thead>
+          <tr>
+            <th scope="col">Descrição</th>
+            <th scope="col" className="relatorio-civil-num">Qtd.</th>
+            {!semValores && <th scope="col" className="relatorio-civil-num">Valor unit.</th>}
+            {!semValores && <th scope="col" className="relatorio-civil-num">Total</th>}
+            {podeApagar && <th scope="col"><span className="gestao-sr-only">Ações</span></th>}
+          </tr>
+        </thead>
+        <tbody>
+          {linhas.map((l) => (
+            <tr key={l.id}>
+              <td className="relatorio-civil-descricao">
+                <div className="relatorio-civil-nome">{l.descricao}</div>
+                <div className="relatorio-civil-sub">
+                  {l.tipo === 'MATERIAL' ? 'Material' : 'Serviço'}
+                  {!semValores && origemPreco(l) ? ` · ${origemPreco(l)}` : ''}
+                  {semValores && l.codigoSinapi ? ` · SINAPI ${l.codigoSinapi}` : ''}
+                </div>
+              </td>
+              <td className="relatorio-civil-num" data-label="Qtd.">
+                {Number(l.quantidade)}
+                {l.unidadeMedida ? ` ${l.unidadeMedida}` : ''}
+              </td>
+              {!semValores && <td className="relatorio-civil-num" data-label="Valor unit.">{formatarMoeda(l.valorUnitario)}</td>}
+              {!semValores && <td className="relatorio-civil-num relatorio-civil-total" data-label="Total">{formatarMoeda(valorLinha(l))}</td>}
+              {podeApagar && (
+                <td className="relatorio-civil-acoes">
+                  <button
+                    type="button"
+                    className="itens-remover"
+                    disabled={ocupado}
+                    aria-label={`Remover ${l.descricao}`}
+                    title="Remover"
+                    onClick={() => onRemover?.(l)}
+                  >
+                    <IconeFechar />
+                  </button>
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+        {!semValores && (
+          <tfoot>
+            <tr>
+              <th scope="row" colSpan={3} className="relatorio-civil-num">
+                Total
+              </th>
+              <td className="relatorio-civil-num relatorio-civil-total" data-label="Total">{formatarMoeda(totalRelatorio(linhas))}</td>
+              {podeApagar && <td />}
+            </tr>
+          </tfoot>
+        )}
+      </table>
+    </div>
+  );
+}
+
+// Itens executados, informados pelo prestador: itens da tabela SINAPI com quantidade; o preço vem da tabela com o
+// desconto do contrato. Enquanto o serviço está em execução, o prestador lança e remove itens no próprio box;
+// depois da finalização é só leitura. Finalizar fica no menu "Ações".
 export function RelatorioCivil({
   m,
   executar,
@@ -46,117 +138,148 @@ export function RelatorioCivil({
   ocupado: boolean;
   ehTerceirizada: boolean;
 }) {
+  const vazioLinha = { itemSinapiId: '', quantidade: '' };
+  const [linha, setLinha] = useState(vazioLinha);
+  const [buscaSinapi, setBuscaSinapi] = useState('');
+  const [itensSinapi, setItensSinapi] = useState<ItemSinapi[]>([]);
+  const [falhaSinapi, setFalhaSinapi] = useState(false);
+  const registrando = ehTerceirizada && m.status === 'EM_EXECUCAO';
+
+  useEffect(() => {
+    if (!registrando) return;
+    let ativo = true;
+    setFalhaSinapi(false);
+    api
+      .get<ItemSinapi[]>(`/sinapi${buscaSinapi.trim() ? `?busca=${encodeURIComponent(buscaSinapi.trim())}` : ''}`)
+      .then((itens) => {
+        if (ativo) setItensSinapi(itens);
+      })
+      .catch(() => {
+        if (ativo) setFalhaSinapi(true);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [registrando, buscaSinapi]);
+
   const linhas = m.linhasRelatorio ?? [];
-  if (linhas.length === 0) return null;
-  const podeApagar = ehTerceirizada && m.status === 'EM_EXECUCAO';
+  // Os itens previstos ficam no box da avaliação técnica (antes de iniciar a execução)
+  const aindaPrevisto = m.status === 'AGUARDANDO_AVALIACAO_TECNICA' || m.status === 'AGUARDANDO_EXECUCAO';
+  if (!registrando && (linhas.length === 0 || aindaPrevisto)) return null;
+
+  const linhaValida = linha.itemSinapiId !== '' && Number(linha.quantidade) > 0;
+  const lancar = () =>
+    executar(async () => {
+      await api.post(`/manutencoes/${m.id}/relatorio`, {
+        itemSinapiId: linha.itemSinapiId,
+        quantidade: Number(linha.quantidade),
+      });
+      setLinha(vazioLinha);
+      setBuscaSinapi('');
+    });
+
   return (
-    <section className="equipamento-secao">
-      <h3>Serviços e materiais executados</h3>
-      <div className="relatorio-civil-scroll" role="region" aria-label="Serviços e materiais executados" tabIndex={0}>
-        <table className="relatorio-civil">
-          <thead>
-            <tr>
-              <th scope="col">Descrição</th>
-              <th scope="col" className="relatorio-civil-num">Qtd.</th>
-              <th scope="col" className="relatorio-civil-num">Valor unit.</th>
-              <th scope="col" className="relatorio-civil-num">Total</th>
-              {podeApagar && <th scope="col"><span className="gestao-sr-only">Ações</span></th>}
-            </tr>
-          </thead>
-          <tbody>
-            {linhas.map((l) => (
-              <tr key={l.id}>
-                <td className="relatorio-civil-descricao">
-                  <div className="relatorio-civil-nome">{l.descricao}</div>
-                  <div className="relatorio-civil-sub">
-                    {l.tipo === 'MATERIAL' ? 'Material' : 'Serviço'}
-                    {origemPreco(l) ? ` · ${origemPreco(l)}` : ''}
-                  </div>
-                </td>
-                <td className="relatorio-civil-num" data-label="Qtd.">
-                  {Number(l.quantidade)}
-                  {l.unidadeMedida ? ` ${l.unidadeMedida}` : ''}
-                </td>
-                <td className="relatorio-civil-num" data-label="Valor unit.">{formatarMoeda(l.valorUnitario)}</td>
-                <td className="relatorio-civil-num relatorio-civil-total" data-label="Total">{formatarMoeda(valorLinha(l))}</td>
-                {podeApagar && (
-                  <td className="relatorio-civil-acoes">
-                    <button
-                      type="button"
-                      className="itens-remover"
-                      disabled={ocupado}
-                      aria-label={`Remover lançamento ${l.descricao}`}
-                      title="Remover"
-                      onClick={() => executar(() => api.delete(`/manutencoes/${m.id}/relatorio/${l.id}`))}
-                    >
-                      <IconeFechar />
-                    </button>
-                  </td>
-                )}
-              </tr>
-            ))}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row" colSpan={3} className="relatorio-civil-num">
-                Total
-              </th>
-              <td className="relatorio-civil-num relatorio-civil-total" data-label="Total">{formatarMoeda(totalRelatorio(linhas))}</td>
-              {podeApagar && <td />}
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+    <section className="equipamento-secao lancar-itens">
+      <h3>Itens executados</h3>
+      {registrando && (
+        <div className="lancar-itens-form">
+          {m.contestacaoUnidade && (
+            <div className="aviso-manutencao" role="alert">
+              <strong>A unidade contestou a execução</strong>
+              <p>{m.contestacaoUnidade}</p>
+            </div>
+          )}
+          {m.motivoAjuste && (
+            <div className="aviso-manutencao" role="alert">
+              <strong>O operador pediu ajustes</strong>
+              <p>{m.motivoAjuste}</p>
+            </div>
+          )}
+          {falhaSinapi && (
+            <div className="aviso-manutencao" role="alert">
+              Não foi possível carregar a tabela SINAPI. Altere a busca para tentar novamente.
+            </div>
+          )}
+          <div className="field">
+            <label htmlFor="civil-linha-item">Item *</label>
+            <SelecaoItem
+              id="civil-linha-item"
+              texto={buscaSinapi}
+              itens={itensSinapi}
+              onTexto={(t) => {
+                setBuscaSinapi(t);
+                setLinha((atual) => ({ ...atual, itemSinapiId: '' }));
+              }}
+              onEscolher={(i) => {
+                setBuscaSinapi(rotuloSinapi(i));
+                setLinha((atual) => ({ ...atual, itemSinapiId: i.id }));
+              }}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="civil-linha-qtd">Quantidade *</label>
+            <input id="civil-linha-qtd" type="number" step="0.001" min="0" value={linha.quantidade} onChange={(e) => setLinha({ ...linha, quantidade: e.target.value })} />
+          </div>
+          <div className="actions-row">
+            <button type="button" className="btn btn-outline" disabled={ocupado || !linhaValida} onClick={lancar}>
+              Adicionar
+            </button>
+          </div>
+        </div>
+      )}
+      {linhas.length > 0 && (
+        <TabelaItens
+          linhas={linhas}
+          rotulo="Itens executados"
+          ocupado={ocupado}
+          semValores={ehTerceirizada}
+          onRemover={registrando ? (l) => executar(() => api.delete(`/manutencoes/${m.id}/relatorio/${l.id}`)) : undefined}
+        />
+      )}
     </section>
   );
 }
 
-type ModoTriagem = 'encaminhar' | 'negar' | 'providencias' | 'ajustes' | null;
-
-// Ações do chamado civil, por perfil e etapa. O fluxo: triagem → prestador inicia a execução → prestador finaliza
-// informando os serviços executados → confirmação da Unidade → aprovação final (ou ajustes) do Administrador;
+// Painéis do chamado civil abertos pelo menu "Ações" (cada um pede os dados da ação): aprovar ou negar na triagem,
+// contestar (Unidade) e solicitar ajustes (Administrador). O fluxo: triagem → prestador inicia a execução → prestador
+// finaliza informando os itens executados → confirmação da Unidade → aprovação final (ou ajustes) do Administrador;
 // se houver ajustes, a nova finalização volta direto ao Administrador.
+// Fim do prazo de 7 dias corridos para a Unidade confirmar a resolução
+const prazoDeConfirmacao = (desde: string) => new Date(new Date(desde).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
 export function AcoesCivil({
   m,
   executar,
   ocupado,
   podeTriar,
   podeFiscalizar,
-  ehTerceirizada,
   ehUnidadeDona,
+  painel,
+  fechar,
 }: {
   m: Manutencao;
   executar: Executar;
   ocupado: boolean;
   podeTriar: boolean;
   podeFiscalizar: boolean;
-  ehTerceirizada: boolean;
   ehUnidadeDona: boolean;
+  painel: string | null;
+  fechar: () => void;
 }) {
-  const [modo, setModo] = useState<ModoTriagem>(null);
   const [motivo, setMotivo] = useState('');
   const [contratoItemId, setContratoItemId] = useState('');
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [parecidos, setParecidos] = useState<ChamadoParecido[]>([]);
   const [falhaApoio, setFalhaApoio] = useState<string | null>(null);
-  const [contestando, setContestando] = useState(false);
 
-  const vazioLinha = { itemSinapiId: '', quantidade: '' };
-  const [linha, setLinha] = useState(vazioLinha);
-  const [buscaSinapi, setBuscaSinapi] = useState('');
-  const [itensSinapi, setItensSinapi] = useState<ItemSinapi[]>([]);
-  const [falhaSinapi, setFalhaSinapi] = useState(false);
+  const emTriagem = podeTriar && m.status === 'PENDENTE_APROVACAO' && (painel === 'aprovar' || painel === 'negar');
+  const modo = painel === 'aprovar' ? 'encaminhar' : 'negar';
 
-  const emTriagem = podeTriar && (m.status === 'PENDENTE_APROVACAO' || m.status === 'AGUARDANDO_PROVIDENCIAS');
-
-  // Ao mudar de etapa, os formulários voltam ao início
+  // Ao mudar de etapa ou de painel, os formulários voltam ao início
   useEffect(() => {
-    setModo(null);
     setMotivo('');
     setContratoItemId('');
-    setLinha(vazioLinha);
-    setContestando(false);
-  }, [m.status]);
+  }, [m.status, painel]);
 
   useEffect(() => {
     if (!emTriagem) return;
@@ -175,11 +298,8 @@ export function AcoesCivil({
       .catch(() => setParecidos([]));
   }, [emTriagem, m.id]);
 
-  // Itens elegíveis: contrato vigente, escopo que cobre manutenção civil e saldo disponível
-  const contratosElegiveis = contratos
-    .filter((c) => c.status !== 'EXPIRADO')
-    .map((c) => ({ ...c, itens: c.itens.filter((i) => i.saldo > 0 && i.escopo.cobreCivil) }))
-    .filter((c) => c.itens.length > 0);
+  // Itens elegíveis: contrato vigente. O saldo aparece como informação, mas não bloqueia a escolha
+  const contratosElegiveis = contratos.filter((c) => c.status !== 'EXPIRADO' && c.itens.length > 0);
 
   const campoItem = (
     <div className="field">
@@ -198,7 +318,7 @@ export function AcoesCivil({
       </select>
       {contratosElegiveis.length === 0 && !falhaApoio && (
         <p className="itens-aviso itens-aviso--acao" role="status">
-          Nenhum item de contrato civil com saldo. Sem cobertura, o chamado pode aguardar providências em vez de ir à empresa.
+          Nenhum item de contrato vigente. Sem cobertura, o chamado não pode ser aprovado.
         </p>
       )}
       {falhaApoio && (
@@ -209,62 +329,40 @@ export function AcoesCivil({
     </div>
   );
 
-  const registrando = ehTerceirizada && m.status === 'EM_EXECUCAO';
-  useEffect(() => {
-    if (!registrando) return;
-    let ativo = true;
-    setFalhaSinapi(false);
-    api
-      .get<ItemSinapi[]>(`/sinapi${buscaSinapi.trim() ? `?busca=${encodeURIComponent(buscaSinapi.trim())}` : ''}`)
-      .then((itens) => {
-        if (ativo) setItensSinapi(itens);
-      })
-      .catch(() => {
-        if (ativo) setFalhaSinapi(true);
-      });
-    return () => {
-      ativo = false;
-    };
-  }, [registrando, buscaSinapi]);
-
   const campoMotivo = (rotulo: string) => (
     <div className="field">
       <label htmlFor="civil-motivo">{rotulo} *</label>
-      <input id="civil-motivo" value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} />
+      <input id="civil-motivo" autoFocus value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} />
     </div>
   );
 
-  const linhaValida = linha.itemSinapiId !== '' && Number(linha.quantidade) > 0;
-  const lancar = () =>
-    executar(async () => {
-      await api.post(`/manutencoes/${m.id}/relatorio`, {
-        itemSinapiId: linha.itemSinapiId,
-        quantidade: Number(linha.quantidade),
-      });
-      setLinha(vazioLinha);
-    });
-
-  const linhas = m.linhasRelatorio ?? [];
+  const painelMotivo = (titulo: string, rotuloCampo: string, confirmar: () => Promise<void>, minimo = 1, textoConfirmar = 'Confirmar') => (
+    <div className="actions-box">
+      <div className="actions-title">{titulo}</div>
+      {campoMotivo(rotuloCampo)}
+      <div className="actions-row">
+        <button type="button" className="btn btn-outline" onClick={fechar}>
+          Cancelar
+        </button>
+        <button type="button" className="btn btn-primary" disabled={ocupado || motivo.trim().length < minimo} onClick={() => void confirmar()}>
+          {textoConfirmar}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <>
-      {/* Triagem do Administrador: conferir cobertura, duplicidade e disponibilidade antes de encaminhar */}
+      {/* Triagem do Administrador: conferir cobertura, duplicidade e disponibilidade antes de aprovar */}
       {emTriagem && (
         <div className="actions-box">
-          <div className="actions-title">
-            {m.status === 'AGUARDANDO_PROVIDENCIAS' ? 'Aguardando providências' : 'Triagem do chamado'}
-          </div>
-          {m.status === 'AGUARDANDO_PROVIDENCIAS' && m.motivoPendencia && (
-            <p className="itens-aviso" role="status">
-              Motivo: {m.motivoPendencia}
-            </p>
-          )}
+          <div className="actions-title">{modo === 'encaminhar' ? 'Aprovar chamado' : 'Negar chamado'}</div>
           {parecidos.length > 0 && (
             <section className="civil-parecidos" role="status" aria-labelledby="civil-parecidos-titulo">
               <h4 id="civil-parecidos-titulo">
                 Chamados parecidos em aberto <span className="civil-parecidos-total">{parecidos.length}</span>
               </h4>
-              <p>Mesmo tipo de problema nesta unidade. Confira antes de encaminhar para não duplicar o atendimento.</p>
+              <p>Mesmo tipo de problema nesta unidade. Confira antes de aprovar para não duplicar o atendimento.</p>
               <ul>
                 {parecidos.map((p) => (
                   <li key={p.id}>
@@ -279,7 +377,7 @@ export function AcoesCivil({
                           {[p.titulo, p.localAfetado, `aberto em ${formatarData(p.criadoEm)}`].filter(Boolean).join(' · ')}
                         </span>
                       </span>
-                      <StatusPill valor={p.status}>{ROTULO_STATUS_MANUTENCAO[p.status]}</StatusPill>
+                      <StatusPill valor={statusManutencaoExibido(p).valor}>{statusManutencaoExibido(p).texto}</StatusPill>
                     </Link>
                   </li>
                 ))}
@@ -288,216 +386,59 @@ export function AcoesCivil({
           )}
           <p className="itens-aviso">
             Confira se o serviço é manutenção (e não alteração de estrutura ou layout, que pode ter outra cobertura) e se
-            está no escopo de um contrato com saldo.
+            tem contrato vigente.
           </p>
-          {modo === 'encaminhar' && campoItem}
-          {modo === 'negar' && campoMotivo('Motivo da negação')}
-          {modo === 'providencias' && campoMotivo('O que falta para encaminhar')}
-          <div className={`actions-row${modo === null ? ' actions-row--pilha' : ''}`}>
-            {modo === null ? (
-              <>
-                <button type="button" className="btn btn-outline" onClick={() => setModo('negar')}>
-                  Negar chamado
-                </button>
-                {m.status === 'PENDENTE_APROVACAO' && (
-                  <button type="button" className="btn btn-outline" onClick={() => setModo('providencias')}>
-                    Aguardar providências
-                  </button>
-                )}
-                <button type="button" className="btn btn-primary" onClick={() => setModo('encaminhar')}>
-                  Encaminhar ao prestador
-                </button>
-              </>
-            ) : (
-              <>
-                <button type="button" className="btn btn-outline" onClick={() => setModo(null)}>
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={ocupado || (modo === 'encaminhar' ? !contratoItemId : !motivo.trim())}
-                  onClick={() =>
-                    executar(() =>
-                      modo === 'encaminhar'
-                        ? api.post(`/manutencoes/${m.id}/aprovar`, { contratoItemId })
-                        : modo === 'negar'
-                          ? api.post(`/manutencoes/${m.id}/negar`, { motivo })
-                          : api.post(`/manutencoes/${m.id}/aguardar-providencias`, { motivo }),
-                    )
-                  }
-                >
-                  {modo === 'encaminhar' ? 'Confirmar encaminhamento' : modo === 'negar' ? 'Confirmar negação' : 'Confirmar'}
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Prestador: recebe o chamado encaminhado e inicia a execução */}
-      {ehTerceirizada && m.status === 'AGUARDANDO_EXECUCAO' && (
-        <div className="actions-box actions-box--simples">
+          {modo === 'encaminhar' ? campoItem : campoMotivo('Motivo da negação')}
           <div className="actions-row">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={ocupado}
-              onClick={() => executar(() => api.post(`/manutencoes/${m.id}/iniciar-execucao`, {}))}
-            >
-              Iniciar execução
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Prestador em execução: informa os serviços e materiais executados e confirma a finalização */}
-      {ehTerceirizada && m.status === 'EM_EXECUCAO' && (
-        <div className="actions-box">
-          <div className="actions-title">Serviços e materiais executados</div>
-          {m.contestacaoUnidade && (
-            <div className="aviso-manutencao" role="alert">
-              <strong>A unidade contestou a execução</strong>
-              <p>{m.contestacaoUnidade}</p>
-            </div>
-          )}
-          {m.motivoAjuste && (
-            <div className="aviso-manutencao" role="alert">
-              <strong>O Administrador pediu ajustes</strong>
-              <p>{m.motivoAjuste}</p>
-            </div>
-          )}
-          {falhaSinapi && (
-            <div className="aviso-manutencao" role="alert">
-              Não foi possível carregar a tabela SINAPI. Altere a busca para tentar novamente.
-            </div>
-          )}
-          <div className="field">
-            <label htmlFor="civil-sinapi-busca">Buscar na tabela SINAPI</label>
-            <input
-              id="civil-sinapi-busca"
-              maxLength={80}
-              placeholder="Código ou descrição"
-              value={buscaSinapi}
-              onChange={(e) => setBuscaSinapi(e.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="civil-linha-item">Serviço ou material *</label>
-            <select id="civil-linha-item" value={linha.itemSinapiId} onChange={(e) => setLinha({ ...linha, itemSinapiId: e.target.value })}>
-              <option value="">{itensSinapi.length === 0 ? 'Nenhum item encontrado' : 'Selecione...'}</option>
-              {itensSinapi.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.codigo} · {i.descricao} ({i.unidade})
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label htmlFor="civil-linha-qtd">Quantidade *</label>
-            <input id="civil-linha-qtd" type="number" step="0.001" min="0" value={linha.quantidade} onChange={(e) => setLinha({ ...linha, quantidade: e.target.value })} />
-          </div>
-          <div className="actions-row">
-            <button type="button" className="btn btn-outline" disabled={ocupado || !linhaValida} onClick={lancar}>
-              Adicionar
+            <button type="button" className="btn btn-outline" onClick={fechar}>
+              Cancelar
             </button>
             <button
               type="button"
               className="btn btn-primary"
-              disabled={ocupado || linhas.length === 0}
-              onClick={() => executar(() => api.post(`/manutencoes/${m.id}/registrar-retorno`, {}))}
+              disabled={ocupado || (modo === 'encaminhar' ? !contratoItemId : !motivo.trim())}
+              onClick={() =>
+                executar(() =>
+                  modo === 'encaminhar'
+                    ? api.post(`/manutencoes/${m.id}/aprovar`, { contratoItemId })
+                    : api.post(`/manutencoes/${m.id}/negar`, { motivo }),
+                )
+              }
             >
-              Confirmar reparo concluído
+              {modo === 'encaminhar' ? 'Confirmar aprovação' : 'Confirmar negação'}
             </button>
           </div>
         </div>
       )}
 
-      {/* Unidade: "problema resolvido" ou contestação — não aceita o serviço sozinha */}
+      {/* Unidade: contesta a execução (o problema persiste); "problema resolvido" é uma ação direta do menu */}
       {ehUnidadeDona && m.status === 'AGUARDANDO_RETORNO' && (
-        <div className="actions-box actions-box--simples">
-          {contestando && campoMotivo('Por que o problema persiste')}
-          <div className="actions-row">
-            {!contestando ? (
-              <>
-                <button type="button" className="btn btn-outline" onClick={() => setContestando(true)}>
-                  Contestar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={ocupado}
-                  onClick={() => executar(() => api.post(`/manutencoes/${m.id}/confirmar-retorno`, {}))}
-                >
-                  Confirmar
-                </button>
-              </>
-            ) : (
-              <>
-                <button type="button" className="btn btn-outline" onClick={() => setContestando(false)}>
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={ocupado || motivo.trim().length < 5}
-                  onClick={() => executar(() => api.post(`/manutencoes/${m.id}/contestar`, { motivo }))}
-                >
-                  Confirmar
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+        <p className="itens-aviso" role="status">
+          Confirme se o problema foi resolvido. Sem resposta
+          {m.aguardandoRetornoEm ? ` até ${formatarData(prazoDeConfirmacao(m.aguardandoRetornoEm))}` : ' em 7 dias'}, o chamado é dado como
+          resolvido automaticamente. Se o problema persiste, ao contestar este atendimento é encerrado e um novo chamado é aberto na
+          triagem.
+        </p>
       )}
+      {ehUnidadeDona &&
+        m.status === 'AGUARDANDO_RETORNO' &&
+        painel === 'contestar' &&
+        painelMotivo('Contestar execução', 'Por que o problema persiste', () => executar(() => api.post(`/manutencoes/${m.id}/contestar`, { motivo })), 5)}
 
-      {/* Administrador: depois da confirmação da Unidade, dá a aprovação final (autoriza a medição) ou pede ajustes */}
+      {/* Administrador: depois da confirmação da Unidade, aprova (ação direta do menu) ou pede ajustes */}
       {podeFiscalizar && m.status === 'AGUARDANDO_MEDICAO' && (
-        <div className="actions-box">
-          <div className="actions-title">Aprovação final</div>
+        <>
           <p className="itens-aviso" role="status">
-            A unidade confirmou que o problema foi resolvido. Ao aprovar, os serviços executados, no total de {formatarMoeda(m.custoFinal)}, são
+            {m.resolvidoAutomaticamenteEm
+              ? 'A unidade não respondeu em 7 dias e o chamado foi dado como resolvido automaticamente.'
+              : 'A unidade confirmou que o problema foi resolvido.'}{' '}
+            Ao aprovar, os itens executados, no total de {formatarMoeda(m.custoFinal)}, são
             liberados para a medição e o consumo do saldo do contrato é finalizado.
           </p>
-          {modo === 'ajustes' && campoMotivo('O que precisa ser ajustado')}
-          <div className="actions-row">
-            {modo !== 'ajustes' ? (
-              <>
-                <button type="button" className="btn btn-outline" onClick={() => setModo('ajustes')}>
-                  Solicitar ajustes
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={ocupado}
-                  onClick={() => executar(() => api.post(`/manutencoes/${m.id}/autorizar-medicao`, {}))}
-                >
-                  Aprovar
-                </button>
-              </>
-            ) : (
-              <>
-                <button type="button" className="btn btn-outline" onClick={() => setModo(null)}>
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary"
-                  disabled={ocupado || motivo.trim().length < 5}
-                  onClick={() => executar(() => api.post(`/manutencoes/${m.id}/solicitar-ajustes`, { motivo }))}
-                >
-                  Confirmar
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+          {painel === 'ajustes' &&
+            painelMotivo('Solicitar ajustes', 'O que precisa ser ajustado', () => executar(() => api.post(`/manutencoes/${m.id}/solicitar-ajustes`, { motivo })), 5)}
+        </>
       )}
     </>
   );
-}
-
-export function SeloMedicao({ m }: { m: Manutencao }) {
-  if (!m.conferidoMedicaoEm) return null;
-  return <StatusPill valor="CONCLUIDA">Conferido para medição</StatusPill>;
 }

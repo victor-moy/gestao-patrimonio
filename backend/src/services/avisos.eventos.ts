@@ -186,11 +186,50 @@ export async function avisoManutencaoAprovada(m: ManRef, civil: boolean) {
   }
 }
 
-export async function avisoManutencaoProvidencias(m: ManRef, motivo: string) {
+// Avaliado e devolvido à triagem: o triador precisa encaminhar ao prestador
+export async function avisoChamadoAvaliado(m: ManRef) {
+  await paraOperadores({
+    tipo: 'CHAMADO_AVALIADO',
+    titulo: 'Chamado avaliado, aguardando encaminhamento',
+    mensagem: `${refMan(m)} foi avaliado e aguarda o encaminhamento ao prestador.`,
+    href: hrefMan(m.id),
+    manutencaoId: m.id,
+  });
+}
+
+// A avaliação técnica precisa de mais informações: a triagem fala com o solicitante
+export async function avisoInformacoesSolicitadas(m: ManRef, motivo: string) {
+  await paraOperadores({
+    tipo: 'INFORMACOES_SOLICITADAS',
+    titulo: 'Avaliação técnica pediu informações',
+    mensagem: `${refMan(m)} voltou à triagem: ${motivo}`.slice(0, 300),
+    href: hrefMan(m.id),
+    manutencaoId: m.id,
+  });
+}
+
+export async function avisoAvaliacaoTecnicaPendente(m: ManRef) {
   await paraUnidade(m.unidadeId, {
-    tipo: 'MANUTENCAO_PROVIDENCIAS',
-    titulo: 'Chamado aguardando providências',
-    mensagem: `${refMan(m)} ainda não foi encaminhado. Motivo: ${truncarMotivo(motivo)}`,
+    tipo: 'MANUTENCAO_AVALIACAO_TECNICA',
+    titulo: 'Chamado em avaliação técnica',
+    mensagem: `${refMan(m)} foi aprovado e aguarda a avaliação técnica antes de ir ao prestador.`,
+    href: hrefMan(m.id),
+    manutencaoId: m.id,
+  });
+  await paraOperadores({
+    tipo: 'AVALIACAO_TECNICA_PENDENTE',
+    titulo: 'Avaliação técnica pendente',
+    mensagem: `${refMan(m)} aguarda a avaliação técnica.`,
+    href: hrefMan(m.id),
+    manutencaoId: m.id,
+  });
+}
+
+export async function avisoManutencaoEncerrada(m: ManRef, motivo: string) {
+  await paraUnidade(m.unidadeId, {
+    tipo: 'MANUTENCAO_ENCERRADA',
+    titulo: 'Chamado encerrado',
+    mensagem: `${refMan(m)} foi encerrado na avaliação técnica. Motivo: ${truncarMotivo(motivo)}`,
     href: hrefMan(m.id),
     manutencaoId: m.id,
   });
@@ -216,18 +255,34 @@ export async function avisoOrcamentoRegistrado(m: ManRef) {
   });
 }
 
-export async function avisoOrcamentoDecidido(m: ManRef, aprovado: boolean) {
+// A avaliação técnica pediu o orçamento prévio: o prestador envia o orçamento em PDF
+export async function avisoOrcamentoSolicitado(m: ManRef) {
+  await paraPrestador(m.contrato?.prestadorId, {
+    tipo: 'ORCAMENTO_SOLICITADO',
+    titulo: 'Orçamento solicitado',
+    mensagem: `${refMan(m)}: envie o orçamento em PDF.`,
+    href: hrefMan(m.id),
+    manutencaoId: m.id,
+  });
+}
+
+// `civil`: no chamado civil a rejeição pede um novo orçamento (o chamado não é baixado) e a aprovação libera gerar a OS
+export async function avisoOrcamentoDecidido(m: ManRef, aprovado: boolean, civil = false) {
   if (!m.contrato?.prestadorId) return;
   await paraPrestador(m.contrato.prestadorId, {
     tipo: aprovado ? 'ORCAMENTO_APROVADO' : 'ORCAMENTO_REJEITADO',
     titulo: aprovado ? 'Orçamento aprovado' : 'Orçamento rejeitado',
-    mensagem: aprovado
-      ? `${refMan(m)}: orçamento aprovado — inicie a execução.`
-      : `${refMan(m)}: orçamento rejeitado; o chamado foi baixado.`,
+    mensagem: civil
+      ? aprovado
+        ? `${refMan(m)}: orçamento aprovado — gere a ordem de serviço.`
+        : `${refMan(m)}: o orçamento não foi aceito — envie um novo.`
+      : aprovado
+        ? `${refMan(m)}: orçamento aprovado — inicie a execução.`
+        : `${refMan(m)}: orçamento rejeitado; o chamado foi baixado.`,
     href: hrefMan(m.id),
     manutencaoId: m.id,
   });
-  if (aprovado) {
+  if (aprovado && !civil) {
     await paraUnidade(m.unidadeId, {
       tipo: 'ORCAMENTO_APROVADO_UNIDADE',
       titulo: 'Manutenção em execução',
@@ -236,6 +291,17 @@ export async function avisoOrcamentoDecidido(m: ManRef, aprovado: boolean) {
       manutencaoId: m.id,
     });
   }
+}
+
+// O fiscal recusou a OS assinada ou o relatório: o prestador precisa enviar outro
+export async function avisoDocumentoRecusado(m: ManRef, motivo: string) {
+  await paraPrestador(m.contrato?.prestadorId, {
+    tipo: 'DOCUMENTO_OS_RECUSADO',
+    titulo: 'Documento recusado',
+    mensagem: `${refMan(m)}: um documento foi recusado (${motivo}). Envie outro.`.slice(0, 300),
+    href: hrefMan(m.id),
+    manutencaoId: m.id,
+  });
 }
 
 export async function avisoReparoConcluido(m: ManRef) {
@@ -286,21 +352,21 @@ export async function avisoAjustesSolicitados(m: ManRef, motivo: string) {
   });
 }
 
-export async function avisoContestacaoUnidade(m: ManRef, unidadeNome?: string) {
+export async function avisoContestacaoUnidade(anterior: ManRef, novo: ManRef, unidadeNome?: string) {
   await paraOperadores({
     tipo: 'EXECUCAO_CONTESTADA',
     titulo: 'Execução contestada pela unidade',
-    mensagem: `${refMan(m)}${unidadeNome ? ` (${unidadeNome})` : ''}: o chamado voltou ao prestador.`,
-    href: hrefMan(m.id),
-    manutencaoId: m.id,
+    mensagem: `${refMan(anterior)}${unidadeNome ? ` (${unidadeNome})` : ''}: a unidade contestou. Novo chamado ${refMan(novo)} aguarda a triagem.`,
+    href: hrefMan(novo.id),
+    manutencaoId: novo.id,
   });
-  if (m.contrato?.prestadorId) {
-    await paraPrestador(m.contrato.prestadorId, {
+  if (anterior.contrato?.prestadorId) {
+    await paraPrestador(anterior.contrato.prestadorId, {
       tipo: 'EXECUCAO_CONTESTADA_PRESTADOR',
       titulo: 'Execução contestada',
-      mensagem: `${refMan(m)}: a unidade contestou a execução. O chamado voltou para você.`,
-      href: hrefMan(m.id),
-      manutencaoId: m.id,
+      mensagem: `${refMan(anterior)}: a unidade contestou a execução. O caso voltou para a triagem.`,
+      href: hrefMan(anterior.id),
+      manutencaoId: anterior.id,
     });
   }
 }

@@ -151,8 +151,6 @@ export interface FiltrosBase {
   tipoEquipamentoId: string;
 }
 
-export const FILTROS_INICIAIS: FiltrosBase = { dataInicio: '', dataFim: '', unidadeIds: [], tipoEquipamentoId: '' };
-
 export function paramsFiltros(filtros: FiltrosBase & { busca?: string }) {
   const params = new URLSearchParams();
   if (filtros.dataInicio) params.set('dataInicio', filtros.dataInicio);

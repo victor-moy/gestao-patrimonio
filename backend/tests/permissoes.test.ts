@@ -75,6 +75,8 @@ describe('Permissões do Operador', () => {
     const passos: Array<[string, string]> = [
       ['aprovar', 'MANUTENCAO_TRIAR'],
       ['negar', 'MANUTENCAO_TRIAR'],
+      ['concluir-avaliacao', 'MANUTENCAO_AVALIAR'],
+      ['encerrar', 'MANUTENCAO_AVALIAR'],
       ['confirmar-reencaminhamento', 'MANUTENCAO_TRIAR'],
       ['validar-orcamento', 'MANUTENCAO_AVALIAR'],
       ['reencaminhar/baixa', 'MANUTENCAO_AVALIAR'],
@@ -222,10 +224,5 @@ describe('Cadastro de usuário com permissões', () => {
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
     expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
     expect((prismaMock.$queryRaw.mock.calls[0][0] as unknown as string[]).join(' ')).toContain('FOR UPDATE');
-  });
-
-  it('aguardar providências exige a permissão de triar', async () => {
-    const semTriar = await request(app).post('/manutencoes/m-1/aguardar-providencias').set(operador(['MANUTENCAO_CONSULTAR'])).send({ motivo: 'sem contrato' });
-    expect(semTriar.status).toBe(403);
   });
 });

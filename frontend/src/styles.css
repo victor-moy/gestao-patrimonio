@@ -55,50 +55,6 @@ a:focus-visible {
   outline-offset: 3px;
 }
 
-input,
-textarea {
-  font-family: inherit;
-  font-size: 15px;
-  padding: 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--text);
-  width: 100%;
-}
-
-select {
-  font-family: inherit;
-  font-size: 15px;
-  padding: 10px 40px 10px 14px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background-color: var(--surface);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  appearance: none;
-  -webkit-appearance: none;
-  color: var(--text);
-  width: 100%;
-  cursor: pointer;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: var(--accent);
-  outline: 3px solid color-mix(in srgb, var(--accent) 16%, transparent);
-  outline-offset: 0;
-}
-
-label {
-  display: block;
-  font-weight: 600;
-  font-size: 14px;
-  margin-bottom: 6px;
-}
-
 .field {
   margin-bottom: 16px;
 }

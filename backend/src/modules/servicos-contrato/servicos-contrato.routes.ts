@@ -24,6 +24,8 @@ servicosContratoRouter.get('/', permitirCom('CONTRATOS_GERENCIAR'), async (_req,
 const servicoSchema = z.object({
   nome: z.string().trim().min(2).max(160),
   descricao: z.string().trim().max(500).nullable().optional(),
+  exigeAvaliacaoTecnica: z.boolean().optional(),
+  exigeOrcamentoPrevio: z.boolean().optional(),
 });
 
 async function validarNome(nome: string | undefined, atualId?: string) {
@@ -44,7 +46,7 @@ servicosContratoRouter.post(
       acao: 'CADASTRAR_SERVICO_CONTRATO',
       entidade: 'servico_contrato',
       entidadeId: servico.id,
-      dadosDepois: { nome: servico.nome },
+      dadosDepois: { nome: servico.nome, exigeAvaliacaoTecnica: servico.exigeAvaliacaoTecnica, exigeOrcamentoPrevio: servico.exigeOrcamentoPrevio },
     });
     res.status(201).json(servico);
   },
@@ -64,7 +66,7 @@ servicosContratoRouter.patch(
       acao: 'ATUALIZAR_SERVICO_CONTRATO',
       entidade: 'servico_contrato',
       entidadeId: servico.id,
-      dadosAntes: { nome: antes.nome },
+      dadosAntes: { nome: antes.nome, exigeAvaliacaoTecnica: antes.exigeAvaliacaoTecnica, exigeOrcamentoPrevio: antes.exigeOrcamentoPrevio },
       dadosDepois: req.body,
     });
     res.json(servico);

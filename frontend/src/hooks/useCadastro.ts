@@ -31,7 +31,7 @@ interface OpcoesFormulario<T extends { id: string }, F> {
   rotaApi: string;
   // Rota da lista no app, para onde Cancelar/Salvar/Excluir voltam
   rotaLista: string;
-  // Como o cadastro é chamado nas mensagens, no masculino ("o prestador", "o escopo")
+  // Como o cadastro é chamado nas mensagens, no masculino ("o prestador", "o tipo de serviço")
   rotulo: string;
   vazio: F;
   doItem: (item: T) => F;
