@@ -57,7 +57,7 @@ export async function gerarOS(usuario: AuthPayload, id: string, dados: { equipe:
 export async function enviarDocumento(usuario: AuthPayload, id: string, dados: { tipo: TipoDocumentoOS; arquivo: string }) {
   const manutencao = await buscarPorId(usuario, id);
   exigirCivil(manutencao.tipo);
-  const { atualizada, completo } = await prisma.$transaction(async (tx) => {
+  const atualizada = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM manutencao WHERE id = ${id} FOR UPDATE`;
     const atual = await tx.manutencao.findUniqueOrThrow({ where: { id }, select: { status: true, ordemServico: { include: { documentos: true } } } });
     if (atual.status !== 'EXECUTADO' || !atual.ordemServico) {
@@ -69,25 +69,22 @@ export async function enviarDocumento(usuario: AuthPayload, id: string, dados: {
       throw new AppError('Este documento já foi enviado e não pode ser alterado. Só é possível enviar outro se o fiscal o recusar.', 422);
     }
     await tx.documentoOS.create({ data: { ordemServicoId: atual.ordemServico.id, tipo: dados.tipo, arquivo: dados.arquivo, enviadoPorId: usuario.sub } });
-    const todos = [...documentos, { tipo: dados.tipo, recusadoEm: null }];
-    const completo = vigente(todos, 'OS_ASSINADA');
-    if (completo) {
-      const mudou = await tx.manutencao.updateMany({ where: { id, status: 'EXECUTADO' }, data: { status: 'AGUARDANDO_RETORNO', aguardandoRetornoEm: new Date() } });
-      if (mudou.count === 0) throw new AppError('O chamado mudou de situação. Atualize a página.', 409);
-    }
+    // A OS assinada é o único documento: com ela válida o chamado segue para a Unidade
+    const mudou = await tx.manutencao.updateMany({ where: { id, status: 'EXECUTADO' }, data: { status: 'AGUARDANDO_RETORNO', aguardandoRetornoEm: new Date() } });
+    if (mudou.count === 0) throw new AppError('O chamado mudou de situação. Atualize a página.', 409);
     await registrarAuditoria(
       {
         usuarioId: usuario.sub,
         acao: 'ENVIAR_DOCUMENTO_OS',
         entidade: 'manutencao',
         entidadeId: id,
-        dadosDepois: { tipo: dados.tipo, completo },
+        dadosDepois: { tipo: dados.tipo },
       },
       tx,
     );
-    return { atualizada: await tx.manutencao.findUniqueOrThrow({ where: { id }, include: includePadrao }), completo };
+    return tx.manutencao.findUniqueOrThrow({ where: { id }, include: includePadrao });
   });
-  if (completo) await avisos.avisoReparoConcluido(atualizada);
+  await avisos.avisoReparoConcluido(atualizada);
   return atualizada;
 }
 

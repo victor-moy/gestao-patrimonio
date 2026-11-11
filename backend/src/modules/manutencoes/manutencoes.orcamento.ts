@@ -86,8 +86,11 @@ export async function aprovarOrcamento(usuario: AuthPayload, id: string, valor: 
   const manutencao = await buscarPorId(usuario, id);
   exigirCivil(manutencao.tipo);
   const atualizada = await prisma.$transaction(async (tx) => {
+    // A rodada é lida já com a linha travada: se o orçamento foi rejeitado e reenviado desde a leitura de cima, vale a rodada nova
+    await tx.$queryRaw`SELECT id FROM manutencao WHERE id = ${id} FOR UPDATE`;
+    const { rodadaOrcamento } = await tx.manutencao.findUniqueOrThrow({ where: { id }, select: { rodadaOrcamento: true } });
     // O primeiro arquivo da rodada marca qual entrega foi aprovada (cotacaoAprovadaId)
-    const entrega = await tx.cotacaoOrcamento.findFirst({ where: { manutencaoId: id, rodada: manutencao.rodadaOrcamento }, orderBy: { enviadoEm: 'asc' } });
+    const entrega = await tx.cotacaoOrcamento.findFirst({ where: { manutencaoId: id, rodada: rodadaOrcamento }, orderBy: { enviadoEm: 'asc' } });
     if (!entrega) throw new AppError('Não há arquivos de orçamento na rodada atual.', 404);
     const vinculo = manutencao.contratoItemId
       ? await vincularItem(tx, manutencao.contratoItemId, id, { valorNovo: valor, novaSelecao: false, rotulo: 'orçamento aprovado' })

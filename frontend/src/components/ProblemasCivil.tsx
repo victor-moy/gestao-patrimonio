@@ -6,7 +6,7 @@ import { CampoFotos, DESCRICAO_CIVIL_MIN } from './CamposManutencaoCivil';
 import { FotosCivil, GradeFotosCivil } from './ManutencaoCivil';
 
 // Status em que ainda dá para acrescentar outro problema (antes de o chamado ir ao prestador; igual ao backend)
-const STATUS_QUE_ACEITAM = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA'];
+const STATUS_QUE_ACEITAM = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO'];
 
 // Respostas às perguntas da categoria e os outros problemas acrescentados ao chamado civil
 export function ProblemasCivil({

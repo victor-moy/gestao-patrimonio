@@ -32,13 +32,16 @@ const leitura = permitirCom('MANUTENCAO_CONSULTAR', Perfil.UNIDADE, Perfil.TERCE
 type ComValores = {
   unidade: { emailBase?: string | null };
   custoFinal?: unknown;
+  orcamentoValor?: unknown;
   linhasRelatorio?: Array<Record<string, unknown>>;
   contratoItem?: Record<string, unknown> | null;
   tipo?: string;
 };
 function paraPerfil<T extends ComValores>(perfil: Perfil, manutencao: T): T {
-  // As cotações do orçamento são do prestador, do fiscal e da avaliação; a Unidade não as vê
-  if (perfil === Perfil.UNIDADE) return { ...manutencao, cotacoes: [] } as T;
+  // As cotações do orçamento são do prestador, do fiscal e da avaliação; a Unidade não as vê, nem o valor aprovado no civil
+  if (perfil === Perfil.UNIDADE) {
+    return { ...manutencao, cotacoes: [], ...(manutencao.tipo === 'CIVIL' && { orcamentoValor: null }) } as T;
+  }
   if (perfil !== Perfil.TERCEIRIZADA) return manutencao;
   const unidade = { ...manutencao.unidade };
   delete unidade.emailBase;
@@ -53,7 +56,7 @@ function paraPerfil<T extends ComValores>(perfil: Perfil, manutencao: T): T {
     for (const campo of ['valorUnitario', 'precoSinapi', 'descontoPercentual']) delete sem[campo];
     return sem;
   });
-  return { ...manutencao, unidade, custoFinal: null, contratoItem, linhasRelatorio } as T;
+  return { ...manutencao, unidade, custoFinal: null, orcamentoValor: null, contratoItem, linhasRelatorio } as T;
 }
 
 const STATUS_MANUTENCAO = new Set<string>(Object.values(StatusManutencao));
@@ -100,6 +103,17 @@ const solicitarSchema = z.object({
   descricaoProblema: z.string().min(5, 'descreva o problema'),
 });
 
+// As respostas chegam como texto JSON no multipart; JSON malformado vira erro de validação (422), não erro interno
+function respostasDoMultipart(valor: unknown, ctx: z.RefinementCtx) {
+  if (typeof valor !== 'string' || !valor) return valor ?? {};
+  try {
+    return JSON.parse(valor);
+  } catch {
+    ctx.addIssue({ code: 'custom', message: 'respostas em formato inválido' });
+    return z.NEVER;
+  }
+}
+
 const solicitarCivilSchema = z.object({
   titulo: solicitarSchema.shape.titulo,
   descricaoProblema: solicitarSchema.shape.descricaoProblema,
@@ -111,7 +125,7 @@ const solicitarCivilSchema = z.object({
   localAfetado: z.string().trim().max(200, 'O local pode ter no máximo 200 caracteres.').optional(),
   categoriaCivilId: z.string().uuid('Selecione o tipo de problema.'),
   // Respostas às perguntas da categoria (JSON no multipart): { perguntaId: resposta }
-  respostas: z.preprocess((v) => (typeof v === 'string' && v ? JSON.parse(v) : (v ?? {})), z.record(z.string().uuid(), z.string().trim().max(500))),
+  respostas: z.preprocess(respostasDoMultipart, z.record(z.string().uuid(), z.string().trim().max(500))),
   unidadeId: z.string().uuid().optional(),
 });
 
@@ -126,7 +140,7 @@ manutencoesRouter.post(
     try {
       req.body = solicitarCivilSchema.parse(req.body);
       const fotos = arquivos.map((f) => `/uploads/solicitacoes/${f.filename}`);
-      res.status(201).json(await service.solicitarCivil(req.usuario!, { ...req.body, fotos }));
+      res.status(201).json(paraPerfil(req.usuario!.perfil, await service.solicitarCivil(req.usuario!, { ...req.body, fotos })));
     } catch (erro) {
       // Body inválido ou falha no service: as fotos já gravadas pelo multer não podem ficar órfãs
       await removerArquivosUpload(arquivos);
@@ -163,7 +177,7 @@ manutencoesRouter.post(
     try {
       const dados = novoProblemaSchema.parse(req.body);
       const fotos = arquivos.map((f) => `/uploads/solicitacoes/${f.filename}`);
-      res.status(201).json(await service.adicionarProblema(req.usuario!, req.params.id, { descricao: dados.descricao, fotos }));
+      res.status(201).json(paraPerfil(req.usuario!.perfil, await service.adicionarProblema(req.usuario!, req.params.id, { descricao: dados.descricao, fotos })));
     } catch (erro) {
       await removerArquivosUpload(arquivos);
       if (erro instanceof z.ZodError) {
@@ -182,7 +196,7 @@ manutencoesRouter.post(
   validarBody(solicitarSchema),
   async (req, res) => {
     const manutencao = await service.solicitar(req.usuario!, req.body);
-    res.status(201).json(manutencao);
+    res.status(201).json(paraPerfil(req.usuario!.perfil, manutencao));
   },
 );
 
@@ -401,9 +415,7 @@ manutencoesRouter.post(
   permitirCom('MANUTENCAO_FISCALIZAR', Perfil.UNIDADE),
   validarBody(z.object({ estadoPosManutencao: z.nativeEnum(EstadoConservacao).optional() })),
   async (req, res) => {
-    res.json(
-      await service.confirmarRetorno(req.usuario!, req.params.id, req.body.estadoPosManutencao),
-    );
+    res.json(paraPerfil(req.usuario!.perfil, await service.confirmarRetorno(req.usuario!, req.params.id, req.body.estadoPosManutencao)));
   },
 );
 
@@ -530,7 +542,9 @@ manutencoesRouter.post(
   permitirCom('MANUTENCAO_FISCALIZAR'),
   validarBody(z.object({ motivo: z.string().trim().min(3, 'informe o motivo da recusa').max(500) })),
   async (req, res) => {
-    res.json(await os.recusarDocumento(req.usuario!, req.params.id, req.params.documentoId, req.body.motivo));
+    const documentoId = z.string().uuid().safeParse(req.params.documentoId);
+    if (!documentoId.success) throw new AppError('Documento inválido.', 422);
+    res.json(await os.recusarDocumento(req.usuario!, req.params.id, documentoId.data, req.body.motivo));
   },
 );
 
@@ -540,7 +554,7 @@ manutencoesRouter.post(
   permitir(Perfil.UNIDADE),
   validarBody(z.object({ motivo: z.string().trim().min(5, 'explique por que o problema persiste').max(500) })),
   async (req, res) => {
-    res.json(await reencaminhamento.contestarComSubchamado(req.usuario!, req.params.id, req.body.motivo));
+    res.json(paraPerfil(req.usuario!.perfil, await reencaminhamento.contestarComSubchamado(req.usuario!, req.params.id, req.body.motivo)));
   },
 );
 

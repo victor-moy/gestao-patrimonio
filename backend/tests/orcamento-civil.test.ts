@@ -220,10 +220,22 @@ describe('Decisão do fiscal sobre o orçamento', () => {
     expect(prismaMock.logAuditoria.create.mock.calls[0][0].data).toMatchObject({ acao: 'APROVAR_ORCAMENTO', dadosDepois: { valor: 12500.5 } });
   });
 
+  it('a rodada aprovada é a lida com a linha travada, não a lida antes (rejeitado e reenviado no intervalo)', async () => {
+    prismaMock.manutencao.findUnique.mockResolvedValue(decidindo({ rodadaOrcamento: 1 }));
+    prismaMock.cotacaoOrcamento.findFirst.mockResolvedValue({ id: COT, rodada: 3 } as never);
+    prismaMock.contratoItem.findUnique.mockResolvedValue(item(true));
+    prismaMock.manutencao.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.manutencao.findUniqueOrThrow.mockResolvedValue(decidindo({ rodadaOrcamento: 3 }));
+    expect((await aprovar()).status).toBe(200);
+    expect(prismaMock.$queryRaw).toHaveBeenCalled();
+    expect(prismaMock.cotacaoOrcamento.findFirst.mock.calls[0][0]).toMatchObject({ where: { manutencaoId: MAN, rodada: 3 } });
+  });
+
   it('valor acima do saldo do item é recusado; valor inválido e rodada sem arquivos também', async () => {
     prismaMock.manutencao.findUnique.mockResolvedValue(decidindo());
     prismaMock.contratoItem.findUnique.mockResolvedValue({ ...(item() as object), valor: 100 } as never);
     prismaMock.cotacaoOrcamento.findFirst.mockResolvedValue({ id: COT, rodada: 2 } as never);
+    prismaMock.manutencao.findUniqueOrThrow.mockResolvedValue(decidindo());
     expect((await aprovar()).status).toBe(422);
     expect((await aprovar(fiscal(), { valor: 0 })).status).toBe(422);
     expect((await aprovar(fiscal(), {})).status).toBe(422);
@@ -261,6 +273,14 @@ describe('Quem vê os arquivos do orçamento', () => {
     const res = await request(app).get(`/manutencoes/${MAN}`).set(unidade());
     expect(res.status).toBe(200);
     expect(res.body.cotacoes).toEqual([]);
+  });
+
+  it('o valor aprovado do orçamento não aparece para a Unidade nem para o prestador no chamado civil', async () => {
+    prismaMock.manutencao.findUnique.mockResolvedValue(chamado({ status: 'AGUARDANDO_EXECUCAO', orcamentoValor: '12500.50' }));
+    expect((await request(app).get(`/manutencoes/${MAN}`).set(unidade())).body.orcamentoValor).toBeNull();
+    expect((await request(app).get(`/manutencoes/${MAN}`).set(terc())).body.orcamentoValor).toBeNull();
+    // quem consulta os chamados continua vendo
+    expect((await request(app).get(`/manutencoes/${MAN}`).set(auth('OPERADOR', { permissoes: ['MANUTENCAO_CONSULTAR'] }))).body.orcamentoValor).toBe('12500.50');
   });
 
   it('o fiscal e o prestador do contrato recebem', async () => {

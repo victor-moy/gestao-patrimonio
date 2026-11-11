@@ -231,7 +231,7 @@ Problema na unidade, sala ou instalação, **sem equipamento**. O caminho depend
 | **6B.1.b Acrescentar a um existente** | Clique **Acrescentar a este** e envie | O problema vira "problema adicional" do chamado existente; **não** cria chamado novo. O botão só aparece se ele ainda está na triagem ou na avaliação |
 | **6B.1.c Chamado já com o prestador** | Chamado parecido já em execução | Aparece "Já está com o prestador" no lugar do botão |
 | **6B.1.d Outros problemas** | **+ Adicionar problema** no formulário (até 20) | Cada um vira "Problema adicional N" com descrição e fotos |
-| **6B.1.e Acrescentar depois** | No detalhe, **+ Acrescentar problema** | Só enquanto `Pendente Aprovação` ou `Aguardando Avaliação Técnica` |
+| **6B.1.e Acrescentar depois** | No detalhe, **+ Acrescentar problema** | Só antes de ir ao prestador: `Pendente Aprovação`, `Aguardando Avaliação Técnica`, `Aguardando Vistoria` ou `Avaliado` |
 | **6B.1.f Validações** | Sem setor (quando a unidade tem setores), sem tipo, pergunta obrigatória em branco, descrição curta | Erro e o envio fica bloqueado |
 | **6B.1.g Tipo sem perguntas** | Escolha um tipo sem perguntas | O chamado só pede a descrição |
 | **6B.1.h Outra unidade** | Rodrigo Silva abre o detalhe do chamado da UBS Norte | Não vê |

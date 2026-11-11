@@ -70,6 +70,20 @@ describe('Abertura de chamado civil: perguntas da categoria', () => {
     expect(respostas.create).toHaveLength(1);
   });
 
+  it('respostas em JSON malformado dão 422 (e não erro interno)', async () => {
+    preparar();
+    const res = await request(app)
+      .post('/manutencoes/civil')
+      .set(unidade())
+      .field('titulo', 'Vazamento na pia')
+      .field('descricaoProblema', 'Pia da copa vazando')
+      .field('localAfetado', 'Copa')
+      .field('categoriaCivilId', CAT)
+      .field('respostas', '{nao-e-json');
+    expect(res.status).toBe(422);
+    expect(prismaMock.manutencao.create).not.toHaveBeenCalled();
+  });
+
   it.each([
     ['pergunta obrigatória sem resposta', { [P2]: 'x' }],
     ['opção que não existe no cadastro', { [P1]: 'Talvez' }],

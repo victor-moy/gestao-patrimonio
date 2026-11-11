@@ -69,7 +69,7 @@ describe('Documento da OS (OS assinada)', () => {
       where: { id: MAN, status: 'EXECUTADO' },
       data: { status: 'AGUARDANDO_RETORNO', aguardandoRetornoEm: expect.any(Date) },
     });
-    expect(prismaMock.logAuditoria.create.mock.calls[0][0].data).toMatchObject({ acao: 'ENVIAR_DOCUMENTO_OS', dadosDepois: { tipo: 'OS_ASSINADA', completo: true } });
+    expect(prismaMock.logAuditoria.create.mock.calls[0][0].data).toMatchObject({ acao: 'ENVIAR_DOCUMENTO_OS', dadosDepois: { tipo: 'OS_ASSINADA' } });
   });
 
   it('documento recusado não conta: o novo envio no lugar dele conclui a documentação', async () => {
@@ -134,6 +134,13 @@ describe('Recusa de documento pelo fiscal', () => {
     // a Unidade confirmou com base em documentos que mudaram: confirma de novo depois
     expect(prismaMock.manutencao.update.mock.calls[0][0].data).toMatchObject({ status: 'EXECUTADO', aguardandoRetornoEm: null, confirmadoUnidade: false });
     expect(prismaMock.logAuditoria.create.mock.calls[0][0].data).toMatchObject({ acao: 'RECUSAR_DOCUMENTO_OS' });
+  });
+
+  it('documento com identificador que não é UUID dá 422 (e não erro interno)', async () => {
+    prismaMock.manutencao.findUnique.mockResolvedValue(chamado({ status: 'AGUARDANDO_RETORNO' }));
+    const res = await request(app).post(`/manutencoes/${MAN}/documentos/nao-e-uuid/recusar`).set(fiscal()).send({ motivo: 'Sem assinatura' });
+    expect(res.status).toBe(422);
+    expect(prismaMock.documentoOS.updateMany).not.toHaveBeenCalled();
   });
 
   it('já em "executado", só marca o documento (o status não muda)', async () => {

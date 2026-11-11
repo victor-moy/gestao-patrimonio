@@ -929,6 +929,7 @@ model DocumentoOS {
   motivoRecusa   String?         @map("motivo_recusa")
 
   @@index([ordemServicoId])
+  @@index([arquivo])
   @@map("documento_os")
 }
 
@@ -948,5 +949,6 @@ model CotacaoOrcamento {
   enviadoEm    DateTime   @default(now()) @map("enviado_em")
 
   @@index([manutencaoId, rodada])
+  @@index([arquivo])
   @@map("cotacao_orcamento")
 }
