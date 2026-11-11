@@ -8,12 +8,13 @@ import { validarBody } from '../../middlewares/validate';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
 import { Permissao, TODAS_PERMISSOES } from '../../lib/permissoes';
+import { confirmarAdministradorNoBanco } from './administrador';
 
 // RF02 — o administrador (Administrador) cadastra usuários
 // e atribui perfis. Inclui matrícula funcional (feedback 12/05/2026).
 export const usuariosRouter = Router();
 
-usuariosRouter.use(autenticar, permitirCom('USUARIOS_ADMINISTRAR'));
+usuariosRouter.use(autenticar, permitirCom('USUARIOS_ADMINISTRAR'), confirmarAdministradorNoBanco);
 
 const usuarioSelect = {
   id: true,
@@ -152,30 +153,39 @@ usuariosRouter.patch('/:id', validarBody(atualizarSchema), async (req, res) => {
     (dados.ativo ?? antes.ativo) &&
     perfilFinal === Perfil.OPERADOR &&
     (dados.permissoes ?? antes.permissoes).includes('USUARIOS_ADMINISTRAR');
-  if (eraAdministrador && !continuaAdministrador) {
-    const outros = await prisma.usuario.count({
-      where: { id: { not: req.params.id }, ativo: true, perfil: Perfil.OPERADOR, permissoes: { has: 'USUARIOS_ADMINISTRAR' } },
-    });
-    if (outros === 0) {
-      throw new AppError(
-        'Este é o último operador com a permissão de administrar usuários. Conceda a permissão a outro operador antes de retirá-la, desativá-lo ou mudar o perfil.',
-        422,
-      );
-    }
-  }
 
-  const usuario = await prisma.usuario.update({
-    where: { id: req.params.id },
-    data: dados,
-    select: usuarioSelect,
-  });
-  await registrarAuditoria({
-    usuarioId: req.usuario!.sub,
-    acao: 'ATUALIZAR_USUARIO',
-    entidade: 'usuario',
-    entidadeId: usuario.id,
-    dadosAntes: antes,
-    dadosDepois: usuario,
+  // Conferência e gravação na mesma transação, com os administradores travados: dois pedidos simultâneos
+  // (um tirando a permissão de cada um dos dois últimos) esperam um ao outro e o segundo enxerga o resultado do primeiro.
+  const usuario = await prisma.$transaction(async (tx) => {
+    if (eraAdministrador && !continuaAdministrador) {
+      await tx.$queryRaw`SELECT id FROM usuario WHERE ativo = true AND perfil = 'OPERADOR' AND 'USUARIOS_ADMINISTRAR' = ANY(permissoes) FOR UPDATE`;
+      const outros = await tx.usuario.count({
+        where: { id: { not: req.params.id }, ativo: true, perfil: Perfil.OPERADOR, permissoes: { has: 'USUARIOS_ADMINISTRAR' } },
+      });
+      if (outros === 0) {
+        throw new AppError(
+          'Este é o último operador com a permissão de administrar usuários. Conceda a permissão a outro operador antes de retirá-la, desativá-lo ou mudar o perfil.',
+          422,
+        );
+      }
+    }
+    const atualizado = await tx.usuario.update({
+      where: { id: req.params.id },
+      data: dados,
+      select: usuarioSelect,
+    });
+    await registrarAuditoria(
+      {
+        usuarioId: req.usuario!.sub,
+        acao: 'ATUALIZAR_USUARIO',
+        entidade: 'usuario',
+        entidadeId: atualizado.id,
+        dadosAntes: antes,
+        dadosDepois: atualizado,
+      },
+      tx,
+    );
+    return atualizado;
   });
   res.json(usuario);
 });

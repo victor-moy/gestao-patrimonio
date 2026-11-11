@@ -1,8 +1,11 @@
+/* eslint-disable security/detect-non-literal-fs-filename -- varredura de arquivos do próprio repositório */
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import { prismaMock } from './prisma-mock';
 import { criarApp } from '../src/app';
-import { auth } from './helpers';
+import { auth, mockUsuarioFindFirst } from './helpers';
+import fs from 'fs';
+import path from 'path';
 import { TODAS_PERMISSOES, permissoesValidas } from '../src/lib/permissoes';
 
 const app = criarApp();
@@ -16,10 +19,32 @@ describe('Permissões do Operador', () => {
     expect(permissoesValidas(undefined)).toEqual([]);
   });
 
+  it('o catálogo do frontend é igual ao do backend (ids e rótulos)', () => {
+    const extrair = (arquivo: string) =>
+      [...fs.readFileSync(path.resolve(__dirname, arquivo), 'utf8').matchAll(/\{ id: '(\w+)', rotulo: '([^']+)' \}/g)].map((m) => `${m[1]}|${m[2]}`);
+    const backend = extrair('../src/lib/permissoes.ts');
+    expect(backend.length).toBe(TODAS_PERMISSOES.length);
+    expect(extrair('../../frontend/src/utils/permissoes.ts')).toEqual(backend);
+  });
+
+  it('nenhuma rota usa permitir(Perfil.OPERADOR) sozinho: o perfil não autoriza nada sem permissão', () => {
+    const achadas: string[] = [];
+    const varrer = (dir: string) => {
+      for (const nome of fs.readdirSync(dir)) {
+        const caminho = path.join(dir, nome);
+        if (fs.statSync(caminho).isDirectory()) varrer(caminho);
+        else if (nome.endsWith('.ts') && /permitir\(\s*Perfil\.OPERADOR\s*\)/.test(fs.readFileSync(caminho, 'utf8'))) achadas.push(caminho);
+      }
+    };
+    varrer(path.resolve(__dirname, '../src'));
+    expect(achadas).toEqual([]);
+  });
+
   it('sem a permissão o Operador é barrado; com ela, passa (uma rota por área)', async () => {
     prismaMock.ata.findMany.mockResolvedValue([] as never);
     prismaMock.contrato.findMany.mockResolvedValue([] as never);
     prismaMock.manutencao.findMany.mockResolvedValue([] as never);
+    mockUsuarioFindFirst(prismaMock.usuario.findFirst);
     // Leitura de contratos também vale para quem consulta chamados (para triar, avaliar e escolher o item do contrato)
     const tambem: Record<string, string[]> = { '/contratos': ['MANUTENCAO_CONSULTAR', 'MANUTENCAO_AVALIAR'] };
     const casos: Array<[string, string]> = [
@@ -95,6 +120,9 @@ describe('Permissões do Operador', () => {
 });
 
 describe('Cadastro de usuário com permissões', () => {
+  // O Operador que administra usuários é conferido no banco a cada pedido (o token vale 30 min)
+  beforeEach(() => mockUsuarioFindFirst(prismaMock.usuario.findFirst));
+
   const existente = (sobre: Record<string, unknown> = {}) => ({
     id: 'u-1',
     nome: 'Operador Um',
@@ -109,7 +137,7 @@ describe('Cadastro de usuário com permissões', () => {
   });
 
   it('grava as permissões do Operador e descarta as de outros perfis', async () => {
-    prismaMock.usuario.findFirst.mockResolvedValue(null);
+    mockUsuarioFindFirst(prismaMock.usuario.findFirst);
     prismaMock.usuario.create.mockResolvedValue({ id: 'novo' } as never);
     const op = await request(app)
       .post('/usuarios')
@@ -180,5 +208,24 @@ describe('Cadastro de usuário com permissões', () => {
     const res = await request(app).patch('/usuarios/u-1').set(operador(['USUARIOS_ADMINISTRAR'])).send({ perfil: 'GALPAO', unidadeId: UUID });
     expect(res.status).toBe(200);
     expect(prismaMock.usuario.update.mock.calls[0][0].data).toMatchObject({ permissoes: [] });
+  });
+
+  it('quem perdeu a permissão ou foi desativado depois de logar não administra usuários, mesmo com o token antigo', async () => {
+    prismaMock.usuario.findFirst.mockResolvedValue(null);
+    const res = await request(app).patch('/usuarios/u-1').set(operador(['USUARIOS_ADMINISTRAR'])).send({ permissoes: ['USUARIOS_ADMINISTRAR'] });
+    expect(res.status).toBe(403);
+    expect(prismaMock.usuario.update).not.toHaveBeenCalled();
+    expect((await request(app).get('/usuarios').set(operador(['USUARIOS_ADMINISTRAR']))).status).toBe(403);
+    expect(prismaMock.usuario.findFirst.mock.calls[0][0]?.where).toMatchObject({ ativo: true, permissoes: { has: 'USUARIOS_ADMINISTRAR' } });
+  });
+
+  it('a conferência do último administrador trava os administradores e grava na mesma transação', async () => {
+    prismaMock.usuario.findUnique.mockResolvedValue(existente() as never);
+    prismaMock.usuario.count.mockResolvedValue(1);
+    prismaMock.usuario.update.mockResolvedValue(existente({ permissoes: ['ATAS_GERENCIAR'] }) as never);
+    await request(app).patch('/usuarios/u-1').set(operador(['USUARIOS_ADMINISTRAR'])).send({ permissoes: ['ATAS_GERENCIAR'] });
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(prismaMock.$queryRaw).toHaveBeenCalledTimes(1);
+    expect((prismaMock.$queryRaw.mock.calls[0][0] as unknown as string[]).join(' ')).toContain('FOR UPDATE');
   });
 });
