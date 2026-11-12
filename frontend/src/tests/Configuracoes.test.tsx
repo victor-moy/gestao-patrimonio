@@ -60,6 +60,15 @@ describe('Configurações — entrar como outro usuário', () => {
     ...extra,
   });
 
+  it('quem está sem acesso não vê o "Entrar como" no menu do usuário', async () => {
+    mockFetch({ ...usuarioLogado('SEM_ACESSO') });
+    window.history.replaceState(null, '', '/');
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Menu do usuário' }));
+    expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Entrar como' })).not.toBeInTheDocument();
+  });
+
   it('o administrador entra como outro usuário pela lista do menu do usuário, com um clique', async () => {
     const chamadas = mockFetch({
       ...usuarioLogado('OPERADOR'),

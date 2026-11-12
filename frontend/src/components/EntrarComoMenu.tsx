@@ -104,7 +104,7 @@ export function EntrarComoMenu({ aoEntrar }: { aoEntrar: () => void }) {
               )}
               {usuarios !== null && visiveis.length === 0 && (
                 <span className="user-menu-estado" role="status">
-                  Nenhum usuário encontrado
+                  {usuarios.length === 0 ? 'Nenhum usuário de teste cadastrado' : 'Nenhum usuário encontrado'}
                 </span>
               )}
               {visiveis.map((u) => (

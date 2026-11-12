@@ -96,7 +96,22 @@ describe('Formulário de usuário', () => {
       perfil: 'UNIDADE',
       unidadeId: 'un1',
       prestadorId: null,
+      usuarioTeste: false,
     });
+  });
+
+  it('a caixa "Usuário de teste" vai no cadastro e na edição', async () => {
+    const chamadas = rotas();
+    abrir('/configuracoes/usuarios/novo');
+    await userEvent.type(await campo('E-mail'), 'teste@joinville.sc.gov.br');
+    await userEvent.selectOptions(screen.getByLabelText('Perfil de acesso'), 'OPERADOR');
+    const caixa = screen.getByRole('checkbox', { name: 'Usuário de teste' });
+    expect(caixa).not.toBeChecked();
+    await userEvent.click(caixa);
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(window.location.pathname).toBe('/configuracoes/usuarios'));
+    const post = chamadas.find((c) => c.init?.method === 'POST' && c.url.endsWith('/usuarios'));
+    expect(JSON.parse(String(post?.init?.body))).toMatchObject({ usuarioTeste: true });
   });
 
   it('perfil de gestor não pede unidade', async () => {

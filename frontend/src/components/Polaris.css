@@ -1454,3 +1454,7 @@ div.multi-selecao label.multi-selecao-opcao input:focus-visible { outline: 2px s
 .anexos-bug .btn.anexos-bug-botao { min-height: 32px; padding: 6px 12px; font-size: 12px; font-weight: 600; }
 .relato-anexo-pdf { display: inline-flex; align-items: center; gap: 10px; height: 34px; padding: 0 14px 0 6px; border: 1px solid var(--border); border-radius: 8px; }
 .relato-anexo-pdf .btn-link { font-size: 12px; font-weight: 600; }
+
+/* Selo "Teste" da lista de usuários: versão reduzida do selo de status */
+.usuario-selo-teste .inventario-status { gap: 5px; padding: 2px 7px; font-size: 10px; }
+.usuario-selo-teste .inventario-status > span { width: 5px; height: 5px; }

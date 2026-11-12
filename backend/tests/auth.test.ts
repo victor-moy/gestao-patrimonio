@@ -53,7 +53,7 @@ describe('Autenticação (RF01, RF03, RF04, RNF04)', () => {
   });
 });
 
-describe('Impersonação (qualquer usuário "entra como" outro)', () => {
+describe('Impersonação (qualquer usuário "entra como" um usuário de teste)', () => {
   const unidadeUsuario = {
     id: 'user-2',
     nome: 'Ana da Unidade',
@@ -61,6 +61,7 @@ describe('Impersonação (qualquer usuário "entra como" outro)', () => {
     matricula: '10002',
     perfil: 'UNIDADE' as const,
     ativo: true,
+    usuarioTeste: true,
     unidadeId: 'unidade-1',
     criadoEm: new Date(),
     unidade: { id: 'unidade-1', nome: 'UBSF Bucarein' },
@@ -125,15 +126,49 @@ describe('Impersonação (qualquer usuário "entra como" outro)', () => {
     ]);
     const filtro = prismaMock.usuario.findMany.mock.calls[0][0] as { where: Record<string, unknown>; select: Record<string, unknown> };
     expect(filtro.where).toMatchObject({ ativo: true });
+    // só contas de teste, mais a do próprio ator para ele poder voltar
+    expect(filtro.where).toMatchObject({ OR: [{ usuarioTeste: true }, { id: 'op-1' }] });
     expect(filtro.where).not.toHaveProperty('id');
     expect(filtro.where).not.toHaveProperty('perfil');
     expect(filtro.select).not.toHaveProperty('email');
     expect(filtro.select).not.toHaveProperty('senhaHash');
   });
 
-  it('qualquer perfil lista e assume outro usuário (decisão temporária, só dados de teste)', async () => {
+  it('não entra em quem não é usuário de teste, mas volta à própria conta mesmo que ela não seja de teste', async () => {
+    prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...unidadeUsuario, usuarioTeste: false } as never);
+    const recusado = await request(app).post('/auth/impersonar/user-2').set(auth('OPERADOR', { sub: 'op-1' })).send();
+    expect(recusado.status).toBe(403);
+    expect(recusado.body.mensagem).toMatch(/não é de teste/);
+    expect(prismaMock.logAuditoria.create).not.toHaveBeenCalled();
+
+    const dentro = auth('UNIDADE', { sub: 'user-2', impersonadoPor: { id: 'op-1', nome: 'Samuel', perfil: 'OPERADOR' } });
+    prismaMock.usuario.findUnique.mockResolvedValueOnce({ ...unidadeUsuario, id: 'op-1', perfil: 'OPERADOR', usuarioTeste: false } as never);
+    const volta = await request(app).post('/auth/impersonar/op-1').set(dentro).send();
+    expect(volta.status).toBe(200);
+  });
+
+  it('a lista de quem pode ser assumido, a partir de uma sessão assumida, mantém o ator original para voltar', async () => {
+    prismaMock.usuario.findMany.mockResolvedValue([] as never);
+    await request(app)
+      .get('/auth/impersonaveis')
+      .set(auth('UNIDADE', { sub: 'user-2', impersonadoPor: { id: 'op-1', nome: 'Samuel', perfil: 'OPERADOR' } }));
+    const filtro = prismaMock.usuario.findMany.mock.calls[0][0] as { where: unknown };
+    expect(filtro.where).toMatchObject({ OR: [{ usuarioTeste: true }, { id: 'op-1' }] });
+  });
+
+  it('quem está sem acesso não lista nem assume ninguém: o "Entrar como" não existe para esse perfil', async () => {
     const uuid = '11111111-1111-4111-8111-111111111111';
-    for (const perfil of ['UNIDADE', 'GALPAO', 'TERCEIRIZADA', 'SEM_ACESSO'] as const) {
+    const lista = await request(app).get('/auth/impersonaveis').set(auth('SEM_ACESSO'));
+    expect(lista.status).toBe(403);
+    const res = await request(app).post(`/auth/impersonar/${uuid}`).set(auth('SEM_ACESSO')).send();
+    expect(res.status).toBe(403);
+    expect(prismaMock.usuario.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.usuario.findMany).not.toHaveBeenCalled();
+  });
+
+  it('os demais perfis listam e assumem um usuário de teste (decisão temporária, só dados de teste)', async () => {
+    const uuid = '11111111-1111-4111-8111-111111111111';
+    for (const perfil of ['UNIDADE', 'GALPAO', 'TERCEIRIZADA'] as const) {
       const opcoes = { unidadeId: 'u-1', prestadorId: 'p-1' };
       prismaMock.usuario.findMany.mockResolvedValueOnce([] as never);
       const lista = await request(app).get('/auth/impersonaveis').set(auth(perfil, opcoes));
@@ -290,7 +325,7 @@ describe('Login pelo Keycloak', () => {
       const res = await request(app).get(rota).set(auth('SEM_ACESSO'));
       expect([rota, res.status === 403]).toEqual([rota, false]);
     }
-    for (const rota of ['/equipamentos', '/solicitacoes', '/manutencoes', '/contratos', '/atas', '/estoque', '/usuarios', '/relatorios/visao-geral']) {
+    for (const rota of ['/equipamentos', '/solicitacoes', '/manutencoes', '/contratos', '/atas', '/estoque', '/usuarios', '/relatorios/visao-geral', '/auth/impersonaveis']) {
       const res = await request(app).get(rota).set(auth('SEM_ACESSO'));
       expect([rota, res.status]).toEqual([rota, 403]);
     }

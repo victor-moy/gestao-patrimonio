@@ -50,13 +50,13 @@ async function main() {
     unidades[nome] = u.id;
   }
 
-  // Usuários (um por perfil)
+  // Usuários (um por perfil). O seed é demonstrativo: todos são "usuário de teste" e aparecem no "Entrar como"
   const criarUsuario = (nome: string, email: string, matricula: string, perfil: 'OPERADOR' | 'UNIDADE' | 'GALPAO', unidadeId?: string) =>
     prisma.usuario.upsert({
       where: { email },
       update: {},
       // O seed é demonstrativo: o operador nasce com todas as permissões
-      create: { nome, email, matricula, perfil, unidadeId: unidadeId ?? null, permissoes: perfil === 'OPERADOR' ? [...TODAS_PERMISSOES] : [] },
+      create: { nome, email, matricula, perfil, usuarioTeste: true, unidadeId: unidadeId ?? null, permissoes: perfil === 'OPERADOR' ? [...TODAS_PERMISSOES] : [] },
     });
 
   await criarUsuario('Samuel Andrade', 'gestor@joinville.sc.gov.br', '10001', 'OPERADOR');
@@ -193,6 +193,7 @@ async function main() {
       email: 'terceirizada@tecsaude.com.br',
       matricula: '10090',
       perfil: 'TERCEIRIZADA',
+      usuarioTeste: true,
       prestadorId: tecSaude.id,
     },
   });

@@ -23,6 +23,7 @@ const usuarioSelect = {
   matricula: true,
   perfil: true,
   ativo: true,
+  usuarioTeste: true,
   permissoes: true,
   unidadeId: true,
   unidade: { select: { nome: true } },
@@ -51,6 +52,7 @@ const criarSchema = z.object({
   permissoes: permissoesSchema.optional(),
   unidadeId: z.string().uuid().nullable().optional(),
   prestadorId: z.string().uuid().nullable().optional(),
+  usuarioTeste: z.boolean().optional(),
 });
 
 // Terceirizada representa um prestador de serviço; os demais perfis não têm prestador
@@ -88,6 +90,7 @@ usuariosRouter.post('/', validarBody(criarSchema), async (req, res) => {
       permissoes,
       unidadeId: unidadeId ?? null,
       prestadorId: prestadorId ?? null,
+      usuarioTeste: req.body.usuarioTeste ?? false,
     },
     select: usuarioSelect,
   });
@@ -108,6 +111,7 @@ const atualizarSchema = z.object({
   unidadeId: z.string().uuid().nullable().optional(),
   prestadorId: z.string().uuid().nullable().optional(),
   ativo: z.boolean().optional(),
+  usuarioTeste: z.boolean().optional(),
 });
 
 usuariosRouter.patch('/:id', validarBody(atualizarSchema), async (req, res) => {
