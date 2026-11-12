@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { App } from '../App';
-import { mockFetch } from './mock-fetch';
+import { acao, mockFetch } from './mock-fetch';
 
 const me = {
   '/auth/me': {
@@ -249,7 +249,7 @@ it('gestor aprova a solicitação pela página de detalhe e permanece nela', asy
   expect(await screen.findByText('SOL-0012')).toBeInTheDocument();
   await userEvent.click(await screen.findByRole('link', { name: 'Ver solicitação de Autoclave de teste' }));
   expect(await screen.findByLabelText('Número SOL-0012')).toBeInTheDocument();
-  await userEvent.click(await screen.findByRole('button', { name: /aprovar solicitação/i }));
+  await acao('Aprovar solicitação');
   await userEvent.selectOptions(screen.getByLabelText(/prioridade/i), '1');
   await userEvent.click(screen.getByRole('button', { name: /confirmar aprovação/i }));
 
@@ -326,7 +326,7 @@ it('gestor ajusta o tombamento, o formulário fecha e a confirmação aparece', 
     '/solicitacoes': { body: [validacao()] },
   }, 'OPERADOR');
   await userEvent.click(await screen.findByRole('link', { name: 'Ver solicitação de Autoclave de teste' }));
-  await userEvent.click(await screen.findByRole('button', { name: 'Ajustar tombamento' }));
+  await acao('Ajustar tombamento');
   const campo = screen.getByRole('textbox', { name: 'Tombamento do item 1' });
   await userEvent.clear(campo);
   await userEvent.type(campo, '11');
@@ -335,9 +335,10 @@ it('gestor ajusta o tombamento, o formulário fecha e a confirmação aparece', 
   await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/ajustar-tombamento'))).toBe(true));
   const patch = chamadas.find((c) => c.url.endsWith('/ajustar-tombamento'));
   expect(JSON.parse(String(patch?.init?.body)).itens[0]).toMatchObject({ tombamento: '11' });
-  // Formulário volta ao estado inicial, com os dados recarregados
-  expect(await screen.findByRole('button', { name: 'Ajustar tombamento' })).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'Salvar ajuste' })).not.toBeInTheDocument();
+  // O painel fecha e a ação segue disponível no menu, com os dados recarregados
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Salvar ajuste' })).not.toBeInTheDocument());
+  await userEvent.click(await screen.findByRole('button', { name: 'Ações' }));
+  expect(await screen.findByRole('menuitem', { name: 'Ajustar tombamento' })).toBeInTheDocument();
 });
 
 it('empréstimo é aprovado com um clique, sem segunda confirmação', async () => {
@@ -357,7 +358,7 @@ it('empréstimo é aprovado com um clique, sem segunda confirmação', async () 
   const informacoes = (await screen.findByRole('heading', { name: 'Informações da solicitação' })).closest('section') as HTMLElement;
   const item = within(informacoes).getByText('Item').nextElementSibling as HTMLElement;
   expect(item).toHaveTextContent('Monitor555');
-  await userEvent.click(await screen.findByRole('button', { name: 'Aprovar solicitação' }));
+  await acao('Aprovar solicitação');
 
   await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/solicitacoes/s1/aprovar') && c.init?.method === 'POST')).toBe(true));
   expect(chamadas.some((c) => c.url.endsWith('/solicitacoes/s1/aprovar') && c.init?.method === 'POST')).toBe(true);
@@ -404,4 +405,49 @@ it('mantém a página funcionando quando o histórico falha', async () => {
   await userEvent.click(await screen.findByRole('link', { name: 'Ver solicitação de Autoclave de teste' }));
   expect(await screen.findByText('Não foi possível carregar o histórico.')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Autoclave de teste' })).toBeInTheDocument();
+});
+
+it('reservado: o gestor lança no Branet por um painel aberto pelo menu Ações', async () => {
+  const reservado = { ...pedido, status: 'RESERVADO', quantidade: 1 };
+  const chamadas = abrirLista({
+    '/solicitacoes/s1/lancar-branet': { body: {} },
+    '/solicitacoes/s1': { body: reservado },
+    '/solicitacoes': { body: [reservado] },
+  }, 'OPERADOR');
+  await userEvent.click(await screen.findByRole('link', { name: 'Ver solicitação de Autoclave de teste' }));
+  await acao('Lançar no Branet');
+  const lancar = screen.getByRole('button', { name: 'Lançar no Branet' });
+  expect(lancar).toBeDisabled();
+  await userEvent.type(screen.getByLabelText('Número do pedido *'), 'PED-9');
+  await userEvent.type(screen.getByLabelText('Tombamento do item 1'), '777');
+  await userEvent.type(screen.getByLabelText('Descrição do item 1'), 'Autoclave');
+  await userEvent.click(lancar);
+  await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/solicitacoes/s1/lancar-branet'))).toBe(true));
+  expect(JSON.parse(String(chamadas.find((c) => c.url.endsWith('/lancar-branet'))!.init!.body))).toEqual({
+    numeroPedidoBranet: 'PED-9',
+    itens: [{ tombamento: '777', descricao: 'Autoclave' }],
+  });
+});
+
+it('empréstimo: a unidade de origem confirma a saída direto pelo menu, sem painel', async () => {
+  const aguardandoSaida = { ...pedido, tipo: 'EMPRESTIMO', status: 'AGUARDANDO_SAIDA', tipoEquipamento: null,
+    equipamento: { id: 'e1', tombamento: '555', descricao: 'Monitor', tipoEquipamento: { nome: 'Monitor' } } };
+  const chamadas = abrirLista({
+    '/solicitacoes/s1/confirmar-saida': { body: {} },
+    '/solicitacoes/s1': { body: aguardandoSaida },
+    '/solicitacoes': { body: [aguardandoSaida] },
+  });
+  await userEvent.click(await screen.findByRole('link', { name: 'Ver solicitação de Monitor' }));
+  await acao('Confirmar saída');
+  await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/solicitacoes/s1/confirmar-saida') && c.init?.method === 'POST')).toBe(true));
+});
+
+it('sem nenhuma ação disponível para o perfil, o menu Ações nem aparece', async () => {
+  abrirLista({
+    '/solicitacoes/s1': { body: pedido },
+    '/solicitacoes': { body: [pedido] },
+  });
+  await userEvent.click(await screen.findByRole('link', { name: 'Ver solicitação de Autoclave de teste' }));
+  expect(await screen.findByLabelText('Número SOL-0012')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Ações' })).not.toBeInTheDocument();
 });

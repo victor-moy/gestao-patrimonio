@@ -181,11 +181,9 @@ describe('Perfil terceirizada: lista de permissão (negado por padrão)', () => 
     ['get', '/usuarios'],
     ['get', '/prestadores'],
     ['get', '/servicos-contrato'],
-    ['get', '/escopos-servico'],
-    ['get', '/uploads/laudos/11111111-1111-4111-8111-111111111111.pdf'],
     ['post', '/manutencoes/civil'],
     ['get', '/manutencoes/11111111-1111-4111-8111-111111111111/similares'],
-    ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/aguardar-providencias'],
+    ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/concluir-avaliacao'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/contestar'],
     ['post', '/manutencoes/11111111-1111-4111-8111-111111111111/autorizar-medicao'],
     ['post', '/auth/impersonar/abc'],
@@ -215,7 +213,11 @@ describe('Perfil terceirizada: lista de permissão (negado por padrão)', () => 
       ['post', '/avisos/ler-todas'],
       ['post', `/avisos/${ID}/ler`],
       ['post', `/manutencoes/${ID}/relatorio`],
-      ['post', `/manutencoes/${ID}/iniciar-execucao`],
+      ['post', `/manutencoes/${ID}/gerar-os`],
+      ['post', `/manutencoes/${ID}/documentos`],
+      ['post', `/manutencoes/${ID}/cotacoes`],
+      // a rota confere se o documento é de um chamado do prestador
+      ['get', '/uploads/laudos/11111111-1111-4111-8111-111111111111.pdf'],
       ['delete', `/manutencoes/${ID}/relatorio/${ID}`],
     ] as const;
     for (const [metodo, rota] of ok) {

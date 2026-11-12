@@ -202,6 +202,33 @@ describe('Formulário de unidade', () => {
     expect(JSON.parse(String(patch?.init?.body))).toMatchObject({ nome: 'UBS Centro II', ativo: true });
   });
 
+  it('cadastra e exclui setores dentro da unidade, sem enviar o formulário da unidade', async () => {
+    const setor = { id: 'st1', nome: 'Recepção', ativo: true, unidadeId: 'un1', unidade: { id: 'un1', nome: 'UBS Centro' }, _count: { manutencoes: 0 } };
+    const chamadas = rotas({ '/setores': { body: [setor] } });
+    abrir('/configuracoes/unidades/un1');
+
+    expect(await screen.findByText('Recepção')).toBeInTheDocument();
+    const novo = screen.getByLabelText('Novo setor');
+    await userEvent.type(novo, 'Farmácia{Enter}');
+    await waitFor(() => expect(chamadas.some((c) => c.init?.method === 'POST' && c.url.endsWith('/setores'))).toBe(true));
+    expect(JSON.parse(String(chamadas.find((c) => c.init?.method === 'POST' && c.url.endsWith('/setores'))!.init!.body))).toEqual({ nome: 'Farmácia', unidadeId: 'un1' });
+
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir o setor Recepção' }));
+    await waitFor(() => expect(chamadas.some((c) => c.init?.method === 'DELETE' && c.url.endsWith('/setores/st1'))).toBe(true));
+    // nada disso salva ou fecha a tela da unidade
+    expect(chamadas.some((c) => c.init?.method === 'PATCH' && c.url.endsWith('/unidades/un1'))).toBe(false);
+    expect(window.location.pathname).toBe('/configuracoes/unidades/un1');
+  });
+
+  it('unidade nova ainda não mostra setores', async () => {
+    rotas();
+    abrir('/configuracoes/unidades/nova');
+    await campo('Nome da unidade');
+    expect(screen.queryByRole('heading', { name: 'Setores' })).not.toBeInTheDocument();
+  });
+
   it('unidade inexistente', async () => {
     rotas();
     abrir('/configuracoes/unidades/zzz');

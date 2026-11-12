@@ -106,33 +106,6 @@
 .relatorios-page--cessoes,
 .relatorios-page--ampliacao,
 .relatorios-page--manutencoes) .relatorios-filtros-gerais { gap: 16px; }
-:is(.relatorios-page--visao-geral,
-.relatorios-page--emprestimos,
-.relatorios-page--cessoes,
-.relatorios-page--ampliacao,
-.relatorios-page--manutencoes) .relatorios-filtros-gerais label,
-:is(.relatorios-page--visao-geral,
-.relatorios-page--emprestimos,
-.relatorios-page--cessoes,
-.relatorios-page--ampliacao,
-.relatorios-page--manutencoes) .relatorios-filtros-gerais .campo-rotulo {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 400;
-}
-/* Controles nativos dos filtros (todos os relatórios) */
-.relatorios-page .relatorios-filtros-gerais select,
-.relatorios-page .relatorios-filtros-gerais input[type='date'] {
-  height: 34px;
-  padding: 0 12px;
-  border: 1px solid #c9cccf;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 400;
-}
 .relatorios-page .relatorios-filtros-gerais select { padding-right: 36px; }
 .relatorios-page .relatorios-filtros-gerais select:has(option[value='']:checked) { color: var(--text-muted); }
 .filtro-periodo { display: grid; gap: 8px; }
@@ -445,15 +418,9 @@
 :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .relatorios-page--emprestimos .stat-value small { color: var(--text-muted); font-size: 11px; font-weight: 500; }
 .rel-busca { position: relative; display: block; margin: 16px 0 0; }
+.relatorios-filtros-gerais .rel-busca { margin-bottom: 6px; }
 .rel-busca svg { position: absolute; top: 50%; left: 11px; width: 15px; height: 15px; color: var(--text-muted); transform: translateY(-50%); pointer-events: none; }
-.rel-busca input {
-  width: 100%;
-  height: 34px;
-  padding: 0 12px 0 34px;
-  border: 1px solid #c9cccf;
-  border-radius: 8px;
-  font-size: 12px;
-}
+.rel-busca input { padding-left: 34px; }
 .relatorios-page .rel-tabela { margin-top: 16px; padding: 0; overflow: hidden; }
 .relatorios-page .rel-cabecalho--tabela { margin: 0; padding: 14px 20px; }
 .rel-tabela-scroll { overflow-x: auto; }

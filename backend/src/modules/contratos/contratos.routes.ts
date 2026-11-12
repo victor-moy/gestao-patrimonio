@@ -27,9 +27,7 @@ const selecaoItens = {
     servicoId: true,
     valor: true,
     descontoPercentual: true,
-    escopoId: true,
     servico: { select: { id: true, nome: true } },
-    escopo: { select: { id: true, nome: true, cobrePreventiva: true, cobreCorretiva: true, cobreCivil: true } },
   },
 } satisfies Prisma.Contrato$itensArgs;
 
@@ -77,7 +75,6 @@ const itemSchema = z.object({
   servicoId: z.string().uuid(),
   valor: z.number().nonnegative().max(999_999_999_999.99),
   descontoPercentual: z.number().min(0).max(100).default(0),
-  escopoId: z.string().uuid(),
 });
 
 const listaItens = z.array(itemSchema).max(200);
@@ -108,11 +105,10 @@ function dadosItens(itens: ItemEntrada[]) {
     servicoId: i.servicoId,
     valor: Math.round(i.valor * 100) / 100,
     descontoPercentual: Math.round(i.descontoPercentual * 100) / 100,
-    escopoId: i.escopoId,
   }));
 }
 
-// Prestador, serviços e escopos precisam existir.
+// Prestador e serviços precisam existir.
 async function validarReferencias(tx: Prisma.TransactionClient, prestadorId: string | undefined, itens: ItemEntrada[]) {
   if (prestadorId && !(await tx.prestadorServico.findUnique({ where: { id: prestadorId }, select: { id: true } }))) {
     throw new AppError('Prestador de serviço não encontrado.', 422);
@@ -121,10 +117,6 @@ async function validarReferencias(tx: Prisma.TransactionClient, prestadorId: str
   const ids = itens.map((i) => i.servicoId);
   const encontrados = await tx.servicoContrato.count({ where: { id: { in: ids } } });
   if (encontrados !== ids.length) throw new AppError('Um ou mais serviços informados não existem.', 422);
-  const escopos = [...new Set(itens.map((i) => i.escopoId))];
-  if ((await tx.escopoServico.count({ where: { id: { in: escopos } } })) !== escopos.length) {
-    throw new AppError('Um ou mais escopos informados não existem.', 422);
-  }
 }
 
 contratosRouter.post('/', validarBody(contratoSchema), async (req, res) => {
@@ -168,7 +160,7 @@ contratosRouter.patch(
     };
     const antes = await prisma.contrato.findUnique({
       where: { id: req.params.id },
-      include: { itens: { select: { id: true, servicoId: true, escopoId: true, descontoPercentual: true } } },
+      include: { itens: { select: { id: true, servicoId: true, descontoPercentual: true } } },
     });
     if (!antes) throw new AppError('Contrato não encontrado.', 404);
     if (dados.numero && dados.numero !== antes.numero) {
@@ -224,15 +216,6 @@ contratosRouter.patch(
         for (const item of novos.values()) {
           const id = existentes.get(item.servicoId);
           const anterior = antes.itens.find((i) => i.servicoId === item.servicoId);
-          if (id && anterior && item.escopoId !== anterior.escopoId) {
-            const ligadas = await tx.manutencao.count({ where: { contratoItemId: id } });
-            if (ligadas > 0) {
-              throw new AppError(
-                'Não é possível alterar o escopo de um item vinculado a manutenções.',
-                422,
-              );
-            }
-          }
           // Desconto congela nas linhas SINAPI: não muda enquanto houver chamado aberto no item
           if (
             id &&
@@ -240,7 +223,7 @@ contratosRouter.patch(
             Number(item.descontoPercentual) !== Number(anterior.descontoPercentual ?? 0)
           ) {
             const emAndamento = await tx.manutencao.count({
-              where: { contratoItemId: id, status: { notIn: ['CONCLUIDA', 'NEGADA'] } },
+              where: { contratoItemId: id, status: { notIn: ['CONCLUIDA', 'NEGADA', 'ENCERRADA'] } },
             });
             if (emAndamento > 0) {
               throw new AppError(
@@ -249,7 +232,7 @@ contratosRouter.patch(
               );
             }
           }
-          if (id) await tx.contratoItem.update({ where: { id }, data: { valor: item.valor, escopoId: item.escopoId, descontoPercentual: item.descontoPercentual } });
+          if (id) await tx.contratoItem.update({ where: { id }, data: { valor: item.valor, descontoPercentual: item.descontoPercentual } });
           else await tx.contratoItem.create({ data: { ...item, contratoId: antes.id } });
         }
       }

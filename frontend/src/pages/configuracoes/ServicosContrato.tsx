@@ -44,6 +44,8 @@ export function ServicosContrato() {
           ),
         },
         { titulo: 'Descrição', celula: (s) => s.descricao ?? '—', larga: true },
+        { titulo: 'Avaliação técnica', celula: (s) => (s.exigeAvaliacaoTecnica ? 'Necessária' : 'Não necessária') },
+        { titulo: 'Orçamento prévio', celula: (s) => (s.exigeOrcamentoPrevio ? 'Exigido' : 'Não exigido') },
         { titulo: 'Em contratos', celula: (s) => s._count.itens },
       ]}
     />

@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { App } from '../App';
-import { mockFetch } from './mock-fetch';
+import { mockFetch, acao } from './mock-fetch';
 
 function entrarComo(perfil: string, caminho = '/manutencoes') {
   localStorage.setItem('sgp_token', 'token-teste');
@@ -43,12 +43,12 @@ const manutencao = {
   contrato: null,
 };
 
-const contratoComItem = (extra: Record<string, unknown> = {}, escopo = { id: 'e1', nome: 'Preventiva e corretiva', cobrePreventiva: true, cobreCorretiva: true }) => ({
+const contratoComItem = (extra: Record<string, unknown> = {}) => ({
   id: 'c1',
   numero: 'CONT-2026-001',
   prestador: { id: 'p1', nome: 'Tecnomed' },
   status: 'ATIVO',
-  itens: [{ id: 'i1', saldo: 4500, servico: { id: 's1', nome: 'Serviço de manutenção' }, escopo }],
+  itens: [{ id: 'i1', saldo: 4500, servico: { id: 's1', nome: 'Serviço de manutenção' } }],
   ...extra,
 });
 
@@ -125,7 +125,6 @@ describe('Manutenções', () => {
             id: 'i1',
             valor: '9000',
             servico: { nome: 'Serviço de manutenção' },
-            escopo: { nome: 'Manutenção preventiva' },
           },
         },
       },
@@ -136,7 +135,8 @@ describe('Manutenções', () => {
     const informacoes = (await screen.findByRole('heading', { name: 'Informações da manutenção' })).closest('section')!;
     expect(within(informacoes).getByText('Serviço de manutenção')).toBeInTheDocument();
     expect(within(informacoes).queryByText(/Manutenção preventiva/)).not.toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Localização' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Localização' })).not.toBeInTheDocument();
+    expect(within(informacoes).getByText('Unidade')).toBeInTheDocument();
   });
 
   it('sem título, a lista e o detalhe seguem usando o nome do equipamento', async () => {
@@ -159,7 +159,7 @@ describe('Manutenções', () => {
     });
     render(<App />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Aprovar manutenção' }));
+    await acao('Aprovar chamado');
     await userEvent.selectOptions(await screen.findByLabelText('Item do contrato'), 'i1');
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar aprovação' }));
     await waitFor(() => expect(window.alert).toHaveBeenCalledWith('O item de contrato não tem saldo disponível.'));
@@ -174,18 +174,19 @@ describe('Manutenções', () => {
       '/contratos': {
         body: [
           contratoComItem(),
-          // sem saldo e expirado: não aparecem
-          contratoComItem({ id: 'c2', numero: 'CONT-X', itens: [{ id: 'i2', saldo: 0, servico: { id: 's2', nome: 'Sem saldo' }, escopo: { id: 'e1', nome: 'Preventiva e corretiva', cobrePreventiva: true, cobreCorretiva: true } }] }),
+          // sem saldo aparece (o saldo não bloqueia a triagem); contrato expirado não
+          contratoComItem({ id: 'c2', numero: 'CONT-X', itens: [{ id: 'i2', saldo: 0, servico: { id: 's2', nome: 'Sem saldo' } }] }),
           contratoComItem({ id: 'c3', numero: 'CONT-Y', status: 'EXPIRADO' }),
         ],
       },
     });
     render(<App />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Aprovar manutenção' }));
+    await acao('Aprovar chamado');
     const seletor = await screen.findByLabelText('Item do contrato');
     expect(screen.queryByRole('option', { name: /Selecionar depois/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /Sem saldo/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /Sem saldo/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /CONT-Y/ })).not.toBeInTheDocument();
     expect(screen.getAllByRole('option', { name: /Serviço de manutenção/ })).toHaveLength(1);
     expect(screen.getByRole('button', { name: 'Confirmar aprovação' })).toBeDisabled();
     await userEvent.selectOptions(seletor, 'i1');
@@ -202,40 +203,12 @@ describe('Manutenções', () => {
     });
     render(<App />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Aprovar manutenção' }));
+    await acao('Aprovar chamado');
     expect(await screen.findByText(/Nenhum item de contrato disponível/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirmar aprovação' })).toBeDisabled();
   });
 
-  it('item que só permite corretiva não lista escopo só preventivo', async () => {
-    mockFetch({
-      ...entrarComo('OPERADOR', '/manutencoes/m1'),
-      '/manutencoes/m1/historico': { body: [] },
-      '/manutencoes/m1': {
-        body: {
-          ...manutencao,
-          equipamento: {
-            ...manutencao.equipamento,
-            tipoEquipamento: { nome: 'Autoclave', permitePreventiva: false, permiteCorretiva: true },
-          },
-        },
-      },
-      '/contratos': {
-        body: [
-          contratoComItem({}, { id: 'e2', nome: 'Preventiva', cobrePreventiva: true, cobreCorretiva: false }),
-          contratoComItem({ id: 'c2', numero: 'CONT-C', itens: [{ id: 'i9', saldo: 100, servico: { id: 's9', nome: 'Reparos' }, escopo: { id: 'e3', nome: 'Corretiva', cobrePreventiva: false, cobreCorretiva: true } }] }),
-        ],
-      },
-    });
-    render(<App />);
-
-    await userEvent.click(await screen.findByRole('button', { name: 'Aprovar manutenção' }));
-    await screen.findByLabelText('Item do contrato');
-    expect(screen.getAllByRole('option', { name: /Reparos|Serviço de manutenção/ })).toHaveLength(1);
-    expect(screen.getByRole('option', { name: 'Reparos' })).toBeInTheDocument();
-  });
-
-  it('gestor aprova escolhendo um item de contrato (serviço e escopo), não o contrato', async () => {
+  it('gestor aprova escolhendo um item de contrato (serviço), não o contrato', async () => {
     const chamadas = mockFetch({
       ...entrarComo('OPERADOR', '/manutencoes/m1'),
       '/manutencoes/m1/aprovar': { body: {} },
@@ -245,7 +218,7 @@ describe('Manutenções', () => {
     });
     render(<App />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Aprovar manutenção' }));
+    await acao('Aprovar chamado');
     expect(screen.queryByLabelText('Contrato da terceirizada')).not.toBeInTheDocument();
     await userEvent.selectOptions(await screen.findByLabelText('Item do contrato'), 'i1');
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar aprovação' }));
@@ -265,7 +238,7 @@ describe('Manutenções', () => {
     });
     render(<App />);
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Negar manutenção' }));
+    await acao('Negar chamado');
     const confirmar = await screen.findByRole('button', { name: 'Confirmar negação' });
     expect(confirmar).toBeDisabled();
     await userEvent.type(screen.getByLabelText('Motivo da negação *'), 'Fora de garantia');
@@ -308,6 +281,12 @@ describe('Manutenções', () => {
     // sem título o envio fica bloqueado: ele é obrigatório
     expect(enviar).toBeDisabled();
     await userEvent.type(screen.getByLabelText('Título'), '  Autoclave da sala 2  ');
+    // vem marcado que o item está na unidade; desmarcar bloqueia o envio
+    const naUnidade = screen.getByRole('switch', { name: /O item está na minha unidade/ });
+    expect(naUnidade).toBeChecked();
+    await userEvent.click(naUnidade);
+    expect(enviar).toBeDisabled();
+    await userEvent.click(naUnidade);
     expect(enviar).toBeEnabled();
     await userEvent.click(enviar);
 
@@ -337,6 +316,7 @@ describe('Manutenções', () => {
     });
     render(<App />);
 
+    await acao('Confirmar retorno');
     await userEvent.selectOptions(await screen.findByLabelText('Estado do equipamento pós-manutenção'), 'OTIMO');
     await userEvent.click(screen.getByRole('button', { name: 'Confirmar retorno' }));
 
@@ -483,19 +463,20 @@ describe('Manutenções', () => {
       expect(alerta).toHaveTextContent('Manutenção não sugerida');
       expect(alerta).toHaveTextContent(/50%/);
       expect(alerta).toHaveTextContent(/10\.000,00/);
-      expect(screen.getByRole('button', { name: 'Aprovar orçamento' })).toBeEnabled();
-      expect(screen.getByRole('button', { name: 'Rejeitar orçamento' })).toBeEnabled();
+      await userEvent.click(screen.getByRole('button', { name: 'Ações' }));
+      expect(screen.getByRole('menuitem', { name: 'Aprovar orçamento' })).toBeEnabled();
+      expect(screen.getByRole('menuitem', { name: 'Rejeitar orçamento' })).toBeEnabled();
     });
 
     it('abaixo de 50%, sem preço de referência ou fora da etapa de decisão não há alerta', async () => {
       abrir(comOrcamento('4999', '10000'));
-      await screen.findByRole('button', { name: 'Aprovar orçamento' });
+      await screen.findByRole('button', { name: 'Ações' });
       expect(screen.queryByText('Manutenção não sugerida')).not.toBeInTheDocument();
     });
 
     it('sem preço de referência cadastrado não há alerta', async () => {
       abrir(comOrcamento('9000', null));
-      await screen.findByRole('button', { name: 'Aprovar orçamento' });
+      await screen.findByRole('button', { name: 'Ações' });
       expect(screen.queryByText('Manutenção não sugerida')).not.toBeInTheDocument();
     });
   });
@@ -517,7 +498,7 @@ describe('Manutenções', () => {
       render(<App />);
 
       await screen.findByRole('heading', { name: /Autoclave|Não atinge|MAN/ });
-      for (const nome of ['Emitir laudo de baixa', 'Equipamento retornou', 'Confirmar reparo concluído']) {
+      for (const nome of ['Emitir laudo de baixa', 'Equipamento retornou', 'Finalizar']) {
         expect(screen.queryByRole('button', { name: nome })).not.toBeInTheDocument();
       }
     });
@@ -536,7 +517,7 @@ describe('Manutenções', () => {
       expect(screen.queryByRole('button', { name: 'Registrar orçamento' })).not.toBeInTheDocument();
       // com o chamado na terceirizada, o Administrador não troca o item nem nega
       expect(screen.queryByRole('button', { name: 'Trocar item' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: 'Negar manutenção' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Negar chamado' })).not.toBeInTheDocument();
     });
 
     it('lança o orçamento e não vê as ações de decisão do gestor', async () => {
@@ -548,6 +529,7 @@ describe('Manutenções', () => {
       });
       render(<App />);
 
+      await acao('Registrar orçamento');
       await userEvent.type(await screen.findByLabelText('Valor do orçamento (R$) *'), '850');
       await userEvent.click(screen.getByRole('button', { name: 'Registrar orçamento' }));
       await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/orcamento'))).toBe(true));
@@ -567,9 +549,10 @@ describe('Manutenções', () => {
       });
       render(<App />);
 
+      await acao('Finalizar');
       await userEvent.type(await screen.findByLabelText('Custo final (R$)'), '900');
       expect(screen.queryByRole('button', { name: 'Emitir laudo de baixa' })).not.toBeInTheDocument();
-      await userEvent.click(screen.getByRole('button', { name: 'Confirmar reparo concluído' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Finalizar' }));
       await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/registrar-retorno'))).toBe(true));
       const post = chamadas.find((c) => c.url.endsWith('/registrar-retorno'));
       expect(JSON.parse(String(post?.init?.body))).toEqual({ custoFinal: 900 });
@@ -597,9 +580,7 @@ describe('Manutenções', () => {
                   servicoId: 's1',
                   valor: '9000',
                   saldo: 6500,
-                  escopoId: 'e1',
                   servico: { id: 's1', nome: 'Serviço de manutenção' },
-                  escopo: { id: 'e1', nome: 'Manutenção preventiva', cobrePreventiva: true, cobreCorretiva: false },
                 },
               ],
             },
@@ -615,7 +596,7 @@ describe('Manutenções', () => {
       expect(screen.getByLabelText('Prestador de serviço')).toHaveDisplayValue('Tecnomed');
       expect(screen.getByLabelText('Tipo de serviço')).toBeDisabled();
       expect(screen.getByLabelText('Tipo de serviço')).toHaveDisplayValue('Serviço de manutenção');
-      expect(screen.getByLabelText('Escopo')).toHaveDisplayValue('Manutenção preventiva');
+      expect(screen.queryByLabelText('Escopo')).not.toBeInTheDocument();
       expect(screen.getByLabelText('Valor do item (R$)')).toBeDisabled();
       expect(screen.getByLabelText('Saldo do item (R$)').getAttribute('value')).toMatch(/6\.500,00/);
       for (const nome of ['Salvar', 'Excluir', '+ Adicionar item']) {
@@ -623,7 +604,78 @@ describe('Manutenções', () => {
       }
       expect(screen.getByRole('button', { name: 'Voltar' })).toBeInTheDocument();
       // não busca os cadastros dos gestores
-      expect(chamadas.some((c) => /prestadores|servicos-contrato|escopos-servico/.test(c.url))).toBe(false);
+      expect(chamadas.some((c) => /prestadores|servicos-contrato/.test(c.url))).toBe(false);
     });
+  });
+  describe('bloqueio na triagem', () => {
+    it('bloquear pede o motivo e envia ao backend', async () => {
+      const chamadas = mockFetch({
+        ...entrarComo('OPERADOR', '/manutencoes/m1'),
+        '/manutencoes/m1/bloquear': { body: { ...manutencao, status: 'BLOQUEADO' } },
+        '/manutencoes/m1/historico': { body: [] },
+        '/manutencoes/m1': { body: manutencao },
+        '/contratos': { body: [] },
+      });
+      render(<App />);
+
+      await acao('Bloquear chamado');
+      const confirmar = await screen.findByRole('button', { name: 'Confirmar bloqueio' });
+      expect(confirmar).toBeDisabled();
+      await userEvent.type(screen.getByLabelText('Motivo do bloqueio *'), 'Aguardando a diretoria');
+      await userEvent.click(confirmar);
+
+      await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/bloquear'))).toBe(true));
+      const envio = chamadas.find((c) => c.url.endsWith('/bloquear'));
+      expect(JSON.parse(String(envio?.init?.body))).toEqual({ motivo: 'Aguardando a diretoria' });
+    });
+
+    it('chamado bloqueado mostra o motivo e oferece desbloquear', async () => {
+      const chamadas = mockFetch({
+        ...entrarComo('OPERADOR', '/manutencoes/m1'),
+        '/manutencoes/m1/desbloquear': { body: manutencao },
+        '/manutencoes/m1/historico': { body: [] },
+        '/manutencoes/m1': { body: { ...manutencao, status: 'BLOQUEADO', motivoBloqueio: 'Aguardando a diretoria' } },
+        '/contratos': { body: [] },
+      });
+      render(<App />);
+
+      expect(await screen.findByText('Aguardando a diretoria')).toBeInTheDocument();
+      await acao('Desbloquear chamado');
+      await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/desbloquear'))).toBe(true));
+    });
+
+    it('quem não tem MANUTENCAO_TRIAR não vê Bloquear', async () => {
+      mockFetch({
+        '/auth/me': {
+          body: { id: '1', nome: 'Op', email: 'o@j.gov', matricula: '1', perfil: 'OPERADOR', permissoes: ['MANUTENCAO_CONSULTAR'] },
+        },
+        '/manutencoes/m1/historico': { body: [] },
+        '/manutencoes/m1': { body: manutencao },
+        '/contratos': { body: [] },
+      });
+      localStorage.setItem('sgp_token', 'token-teste');
+      window.history.replaceState(null, '', '/manutencoes/m1');
+      render(<App />);
+
+      await screen.findByRole('heading', { name: /MAN-0007|Autoclave/ }).catch(() => screen.findAllByText('Autoclave Vertical', { exact: false }));
+      expect(screen.queryByRole('button', { name: 'Ações' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('filtro "sem interação" pede só os chamados sem mensagem nem mudança de status', async () => {
+    const chamadas = mockFetch({
+      ...entrarComo('OPERADOR', '/solicitacoes'),
+      '/solicitacoes': { body: [] },
+      '/manutencoes': { body: [manutencao] },
+    });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Filtrar' }));
+    await userEvent.click(await screen.findByLabelText(/Chamados sem interação/));
+
+    await waitFor(() => expect(chamadas.some((c) => c.url.includes('/manutencoes?') && c.url.includes('semInteracao=true'))).toBe(true));
+    // solicitações não têm esse conceito: a última consulta delas veio antes do filtro
+    const depois = chamadas.slice(chamadas.findIndex((c) => c.url.includes('semInteracao=true')));
+    expect(depois.some((c) => c.url.includes('/solicitacoes?'))).toBe(false);
   });
 });

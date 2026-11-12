@@ -134,37 +134,6 @@
 }
 .inventario-page .page-header h2 { font-size: 24px; font-weight: 700; letter-spacing: -.45px; }
 
-.inventario-lista-acoes .btn,
-.novo-equipamento-acoes .btn,
-.solicitacao-acoes .btn,
-.nova-solicitacao .btn {
-  min-height: 32px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.inventario-lista-acoes .btn-outline,
-.novo-equipamento-acoes .btn-outline,
-.solicitacao-acoes .btn-outline,
-.nova-solicitacao .btn-outline {
-  border-color: #c9cccf;
-  background: #fff;
-  color: #303030;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, .05);
-}
-.inventario-lista-acoes .btn-primary,
-.inventario-lista-acoes .btn-primary:hover,
-.novo-equipamento-acoes .btn-primary,
-.novo-equipamento-acoes .btn-primary:hover,
-.solicitacao-acoes .btn-primary,
-.solicitacao-acoes .btn-primary:hover,
-.nova-solicitacao .btn-primary,
-.nova-solicitacao .btn-primary:hover {
-  border-color: #303030;
-  background: #303030;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, .08);
-}
 
 .inventario-lista {
   /* Sem corte: os menus da barra (visualização e filtros) podem passar da altura da lista */
@@ -384,19 +353,6 @@
   font-weight: 550;
 }
 
-.inventario-filtros-popover .btn {
-  min-height: 34px;
-  padding: 7px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-}
-
-.inventario-filtros-popover .btn-primary,
-.inventario-filtros-popover .btn-primary:hover {
-  border-color: #303030;
-  background: #303030;
-  color: #fff;
-}
 .inventario-page .gestao-filtro-select select {
   height: 34px;
   border: 1px solid #c9cccf;
@@ -502,7 +458,6 @@
 .inventario-status--tom-red > span { background: #c0392b; }
 
 .inventario-page .gestao-rodape { padding: 12px 16px; border-top: 0; border-radius: 0 0 11px 11px; background: #fafafa; }
-.inventario-page .gestao-paginacao .btn { border-radius: 8px; }
 
 @media (max-width: 900px) {
   /* Ancorado por top + bottom, não por 100vh: no celular o 100vh inclui a área sob a barra do navegador
@@ -565,29 +520,6 @@
   padding: 12px 0;
   border-top: 1px solid var(--border);
 }
-.novo-equipamento .field label {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 400;
-}
-.novo-equipamento input,
-.novo-equipamento select,
-.novo-equipamento textarea {
-  border: 1px solid #c9cccf;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 400;
-}
-.novo-equipamento input,
-.novo-equipamento select {
-  height: 34px;
-  padding: 0 12px;
-}
-.novo-equipamento select { padding-right: 36px; }
-.novo-equipamento textarea { padding: 8px 12px; resize: vertical; line-height: 1.5; }
 .novo-equipamento-estado { margin: 0 0 12px; color: var(--text-secondary); font-size: 12px; }
 .novo-equipamento-acoes { display: flex; gap: 8px; }
 @media (max-width: 760px) {
@@ -630,27 +562,6 @@
   font-weight: 650;
 }
 .nova-solicitacao .field { margin: 0 0 16px; }
-.nova-solicitacao .field label,
-.nova-solicitacao .field .campo-rotulo {
-  display: block;
-  margin-bottom: 6px;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 400;
-}
-.nova-solicitacao input:not([type='checkbox']):not([type='file']),
-.nova-solicitacao select,
-.nova-solicitacao textarea {
-  border: 1px solid #c9cccf;
-  border-radius: 8px;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 400;
-}
-.nova-solicitacao input:not([type='checkbox']):not([type='file']),
-.nova-solicitacao select { height: 34px; padding: 0 12px; }
-.nova-solicitacao select { padding-right: 36px; }
-.nova-solicitacao textarea { padding: 8px 12px; line-height: 1.5; resize: vertical; }
 
 /* Anexo */
 .campo-anexo-vazio { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -687,10 +598,8 @@
 /* Placeholder em cinza também no select nativo sem valor. */
 .nova-solicitacao select:has(option[value='']:checked) { color: var(--text-muted); }
 .nova-solicitacao .campo-contador { font-size: 11px; }
-.nova-solicitacao form .btn { min-height: 32px; padding: 6px 12px; font-size: 12px; border-radius: 8px; }
 
 /* Contrato: dados compactos em três colunas, seções separadas e botões de item iguais aos da nova solicitação. */
-.contrato-pagina form .btn { min-height: 32px; padding: 6px 12px; font-size: 12px; border-radius: 8px; }
 .contrato-pagina .equipamento-secao { padding: 16px 20px; }
 .contrato-pagina .equipamento-secao + .equipamento-secao { margin-top: 16px; }
 .contrato-pagina .equipamento-secao h3 { margin-bottom: 8px; }
@@ -876,7 +785,8 @@
 /* Campos acima da lista terminam na mesma borda das linhas (que reservam a coluna de remover). */
 .itens-alinhado { padding-right: 42px; }
 .itens-adicionar { margin-top: 0; }
-.nova-solicitacao .campo-anexo-chip {
+.nova-solicitacao .campo-anexo-chip,
+.solicitacao-acoes .campo-anexo-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -886,7 +796,8 @@
   border: 1px solid var(--border);
   border-radius: 8px;
 }
-.nova-solicitacao .campo-anexo-chip button {
+.nova-solicitacao .campo-anexo-chip button,
+.solicitacao-acoes .campo-anexo-chip button {
   padding: 0 2px;
   border: 0;
   background: none;
@@ -912,7 +823,8 @@
   .itens-alinhado { padding-right: 0; }
 }
 .itens-celula > .campo-anexo > .btn { width: 100%; }
-.nova-solicitacao .campo-anexo-chip .campo-anexo-nome { flex: 1; }
+.nova-solicitacao .campo-anexo-chip .campo-anexo-nome,
+.solicitacao-acoes .campo-anexo-chip .campo-anexo-nome { flex: 1; }
 
 /* Opções de escolha única (bolinha) com o conteúdo da opção logo abaixo dela. */
 .opcoes-radio {
@@ -1241,6 +1153,12 @@ a.app-topbar-wordmark:hover strong { opacity: .85; }
 .civil-foto { max-width: 160px; max-height: 160px; border-radius: 6px; object-fit: cover; }
 .solicitacao-textos { min-width: 0; }
 .relatorio-civil-scroll { overflow-x: auto; margin: 0 -20px -20px; padding: 0; }
+.relatorio-civil-scroll--encaixada { margin: 10px 0 4px; border: 1px solid var(--border); border-radius: 8px; }
+.relatorio-civil-scroll--encaixada .relatorio-civil tbody tr:first-child { border-top: 0; }
+.relatorio-civil-scroll--encaixada .relatorio-civil thead th { border-top: 0; }
+.relatorio-civil-scroll--encaixada .relatorio-civil thead th:first-child { border-top-left-radius: 7px; }
+.relatorio-civil-scroll--encaixada .relatorio-civil thead th:last-child { border-top-right-radius: 7px; }
+.relatorio-civil-scroll--encaixada .relatorio-civil tfoot th, .relatorio-civil-scroll--encaixada .relatorio-civil tfoot td { border-bottom: 0; }
 .relatorio-civil { width: 100%; min-width: 520px; border-collapse: collapse; color: #303030; font-size: 12px; }
 .relatorio-civil th {
   padding: 12px 16px;
@@ -1267,8 +1185,6 @@ a.app-topbar-wordmark:hover strong { opacity: .85; }
 .relatorio-civil-rejeitada td.relatorio-civil-num { color: var(--text-secondary); text-decoration: line-through; }
 .relatorio-civil-acoes { text-align: right; white-space: nowrap; }
 .relatorio-civil-acoes > * + * { margin-left: 6px; }
-.relatorio-civil .btn { min-height: 28px; padding: 4px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; }
-.relatorio-civil .btn-outline { border-color: #c9cccf; background: #fff; color: #303030; box-shadow: 0 1px 0 rgba(0, 0, 0, .05); }
 .relatorio-civil .btn-primary, .relatorio-civil .btn-primary:hover { border-color: #303030; background: #303030; box-shadow: 0 1px 0 rgba(0, 0, 0, .08); }
 @media (max-width: 600px) {
   .relatorio-civil { min-width: 0; }
@@ -1281,7 +1197,10 @@ a.app-topbar-wordmark:hover strong { opacity: .85; }
   .relatorio-civil .relatorio-civil-num { text-align: right; }
   .relatorio-civil tfoot th { display: none; }
   .relatorio-civil .relatorio-civil-descricao { min-width: 0; padding-bottom: 6px; }
-  .relatorio-civil-acoes { padding-top: 8px; }
+  /* X de remover no canto superior direito do cartão da linha */
+  .relatorio-civil tr { position: relative; }
+  .relatorio-civil td.relatorio-civil-acoes { position: absolute; top: 6px; right: 8px; padding: 0; }
+  .relatorio-civil tbody tr:has(.relatorio-civil-acoes) .relatorio-civil-descricao { padding-right: 36px; }
 }
 /* Triagem civil: chamados parecidos em aberto (lista neutra; cada linha inteira é o link) */
 .civil-parecidos { margin: 0 0 12px; }
@@ -1293,10 +1212,15 @@ a.app-topbar-wordmark:hover strong { opacity: .85; }
 .civil-parecido { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; color: inherit; text-decoration: none; }
 .civil-parecido:hover { background: #f7f7f7; }
 .civil-parecido:focus-visible { outline: 2px solid #005bd3; outline-offset: -2px; }
-.civil-parecido-texto { display: grid; min-width: 0; gap: 2px; }
+.civil-parecido-texto { display: grid; min-width: 0; gap: 2px; text-decoration: none; }
 .civil-parecido-numero { color: #005bd3; font-size: 12px; font-weight: 650; }
 .civil-parecido:hover .civil-parecido-numero { text-decoration: underline; }
 .civil-parecido-sub { overflow: hidden; color: var(--text-secondary); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+/* Celular: o texto ocupa a linha de cima; o status e a ação ficam embaixo */
+@media (max-width: 760px) {
+  .civil-parecido { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
+  .civil-parecido-texto { flex: 1 1 100%; }
+}
 /* Reencaminhamento: trajetória do caso (linha do tempo vertical) */
 .trajetoria-lista { margin: 0; padding: 16px 0 0 4px; list-style: none; }
 .trajetoria-etapa { position: relative; padding: 0 0 16px 24px; }
@@ -1311,10 +1235,6 @@ a.trajetoria-numero { color: #005bd3; text-decoration: none; }
 a.trajetoria-numero:hover { text-decoration: underline; }
 a.trajetoria-numero:focus-visible { outline: 2px solid #005bd3; outline-offset: 2px; }
 .trajetoria-detalhe, .trajetoria-motivo { margin: 2px 0 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
-/* Botões de ação empilhados, todos com a mesma largura (coluna lateral estreita) */
-.solicitacao-acoes .actions-row--pilha { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-.solicitacao-acoes .actions-row--pilha .btn { width: 100%; justify-content: center; }
-
 /* Botão que só libera quando o campo está válido: muda de aparência aos poucos, sem salto */
 .solicitacao-acoes .actions-row .btn { transition: opacity .2s ease, background-color .2s ease, border-color .2s ease; }
 .solicitacao-acoes .actions-row .btn:disabled { opacity: .45; cursor: not-allowed; }
@@ -1364,6 +1284,144 @@ a.trajetoria-numero:focus-visible { outline: 2px solid #005bd3; outline-offset: 
   .permissoes-cabecalho { flex-direction: column; align-items: flex-start; gap: 2px; }
 }
 
+/* Avaliação técnica do chamado: edição compacta dos próprios dados da página */
+.equipamento-dados--edicao > div { padding: 8px 0; }
+.equipamento-dados--edicao dd { font-weight: 400; display: grid; gap: 6px; }
+.equipamento-dados--edicao textarea { min-height: 64px; }
+.equipamento-dados .avaliacao-largura-total { grid-column: 1 / -1; }
+.equipamento-dados--edicao dt label { margin: 0; color: var(--text-secondary); font-size: 11px; font-weight: 400; }
+.avaliacao-linha { display: flex; gap: 6px; }
+.avaliacao-linha input { flex: 1; min-width: 0; }
+
+.avaliacao-tecnica { display: grid; gap: 14px; }
+.avaliacao-tecnica h3 { margin-bottom: 0; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+/* O título já traz a divisória: a lista de dados logo abaixo não repete */
+.avaliacao-tecnica > .equipamento-dados > div:first-child { padding-top: 0; border-top: 0; }
+/* Rótulos e campos da avaliação seguem os das informações (rótulo pequeno e cinza, campo de 13px) */
+.avaliacao-tecnica label, .avaliacao-bloco h4 { margin: 0 0 4px; font: inherit; font-size: 11px; font-weight: 400; color: var(--text-secondary); }
+.avaliacao-tecnica input, .avaliacao-tecnica select, .avaliacao-tecnica textarea { font-size: 13px; }
+.equipamento-dados dd.avaliacao-texto { font-weight: 400; white-space: pre-line; overflow-wrap: anywhere; }
+.avaliacao-remover { border: 0; background: none; padding: 2px 4px; color: var(--text-secondary); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.avaliacao-remover:hover { color: var(--text); }
+.avaliacao-adicionar { margin-bottom: 8px; display: grid; grid-template-columns: minmax(0, 1fr) 64px auto; gap: 6px; align-items: center; }
+.avaliacao-adicionar .btn { white-space: nowrap; }
+.avaliacao-textos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.avaliacao-textos .field { margin-bottom: 0; }
+.avaliacao-textos textarea { min-height: 56px; padding: 8px 10px; resize: vertical; }
+.avaliacao-encerrar { display: grid; grid-template-columns: 200px 160px minmax(0, 1fr); gap: 10px; align-items: end; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-subtle, transparent); }
+.avaliacao-encerrar .field { margin-bottom: 0; }
+.avaliacao-encerrar .avaliacao-encerrar-motivo { grid-column: auto; }
+/* Painel de um campo só (motivo, instruções): ocupa a largura toda em vez da primeira coluna da grade */
+.avaliacao-encerrar--simples { grid-template-columns: minmax(0, 1fr); align-items: start; }
+.avaliacao-tecnica .btn-primary, .avaliacao-tecnica .btn-primary:hover { border-color: #303030; background: #303030; color: #fff; box-shadow: 0 1px 0 rgba(0, 0, 0, .08); }
+/* Lançar item executado: mesmos rótulos e campos compactos da avaliação técnica */
+.lancar-itens-form { padding-top: 12px; border-top: 1px solid var(--border); margin-bottom: 16px; }
+.lancar-itens .field { margin: 0 0 12px; }
+.lancar-itens label { display: block; margin: 0 0 4px; font-size: 11px; font-weight: 400; color: var(--text-secondary); }
+.avaliacao-combo { position: relative; min-width: 0; }
+.avaliacao-combo-lista {
+  position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 4px; list-style: none; max-height: 240px; overflow-y: auto;
+  background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+}
+.avaliacao-combo-lista li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 8px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.avaliacao-combo-lista li.ativo, .avaliacao-combo-lista li:hover { background: #f1f1f1; }
+.avaliacao-combo-codigo { color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.avaliacao-combo-texto { overflow-wrap: anywhere; }
+.avaliacao-acoes { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.avaliacao-acoes .avaliacao-acoes-esquerda { margin-right: auto; }
+.avaliacao-adicionar input, .avaliacao-adicionar input::placeholder { font-size: 12px; }
+@media (max-width: 720px) {
+  .avaliacao-adicionar { grid-template-columns: minmax(0, 1fr) 64px; }
+  .avaliacao-adicionar .btn { grid-column: 1 / -1; }
+  .avaliacao-textos { grid-template-columns: 1fr; }
+  .avaliacao-encerrar { grid-template-columns: 1fr; }
+  /* Sugestões do item: código e descrição em cima, unidade e preço embaixo */
+  .avaliacao-combo-lista li { grid-template-columns: 52px minmax(0, 1fr); gap: 0 8px; }
+    .avaliacao-acoes { flex-direction: column; align-items: stretch; }
+  .avaliacao-acoes .btn { width: 100%; justify-content: center; }
+  .avaliacao-acoes .avaliacao-acoes-esquerda { margin-right: 0; }
+}
+
+/* Setores no detalhe da unidade */
+.setores-novo { display: flex; gap: 8px; margin-bottom: 12px; }
+.setores-novo input { flex: 1; min-width: 0; }
+.setores-lista { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: 8px; }
+.setores-lista li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; }
+.setores-lista li + li { border-top: 1px solid var(--border); }
+.setores-nome { min-width: 0; overflow-wrap: anywhere; font-size: 12px; }
+.setores-inativo { color: var(--text-secondary); }
+
+/* Seleção de várias opções (ex.: setores afetados) */
+.multi-selecao { position: relative; min-width: 0; }
+.multi-selecao-botao {
+  display: block; width: 100%; text-align: left; font: inherit; color: var(--text);
+  padding: 10px 40px 10px 14px; min-height: 42px;
+  border: 1px solid var(--border); border-radius: 10px; background-color: var(--surface); cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.multi-selecao-botao:focus-visible { outline: 3px solid rgba(48, 48, 48, .12); border-color: #303030; }
+.multi-selecao-valor, .multi-selecao-vazio { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.multi-selecao-vazio { color: var(--text-secondary); }
+.multi-selecao-lista {
+  position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 4px);
+  max-height: 220px; overflow-y: auto; padding: 4px;
+  background: #fff; border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .12);
+}
+div.multi-selecao label.multi-selecao-opcao { display: flex; align-items: center; gap: 10px; margin: 0; padding: 8px 10px; border-radius: 6px; color: var(--text); font-size: 15px; font-weight: 400; cursor: pointer; }
+div.multi-selecao label.multi-selecao-opcao:hover { background: #f1f1f1; }
+div.multi-selecao label.multi-selecao-opcao input { flex: none; width: 16px; height: 16px; margin: 0; padding: 0; border: 0; accent-color: #303030; outline: none; }
+div.multi-selecao label.multi-selecao-opcao input:focus-visible { outline: 2px solid #303030; outline-offset: 2px; }
+.multi-selecao-sem { margin: 0; padding: 8px 10px; color: var(--text-secondary); font-size: inherit; }
+.equipamento-dados--edicao .multi-selecao-botao { min-height: 32px; padding: 6px 36px 6px 10px; font-size: 13px; }
+.equipamento-dados--edicao div.multi-selecao label.multi-selecao-opcao { font-size: 13px; }
+/* Na abertura de solicitação os campos têm 13px e 34px de altura */
+.nova-solicitacao .multi-selecao-botao { height: 34px; min-height: 34px; padding: 0 36px 0 12px; font-size: 12px; line-height: 32px; }
+.nova-solicitacao div.multi-selecao label.multi-selecao-opcao { font-size: 12px; }
+.nova-solicitacao .multi-selecao-botao { border-color: #c9cccf; border-radius: 8px; }
+.nova-solicitacao .multi-selecao-vazio { color: #8a8a8a; }
+.nova-solicitacao .multi-selecao-lista { border-color: #c9cccf; border-radius: 8px; }
+.equipamento-dados--edicao .multi-selecao-vazio { color: var(--text); }
+
+/* Fotos anexadas no chamado civil: sem o recuo e o marcador padrão de lista */
+.civil-fotos-lista { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+
+/* Menu "Ações" no topo do detalhe */
+.menu-acoes { position: relative; }
+.menu-acoes-botao { display: inline-flex; align-items: center; gap: 8px; }
+.menu-acoes-seta { width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(45deg); }
+.menu-acoes-lista {
+  position: absolute; z-index: 30; right: 0; top: calc(100% + 6px); min-width: 230px; padding: 4px;
+  background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
+}
+.menu-acoes-item {
+  display: grid; gap: 2px; width: 100%; padding: 9px 12px; border: 0; border-radius: 6px; background: none;
+  color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.menu-acoes-item:hover:not(:disabled), .menu-acoes-item:focus-visible { background: #f1f1f1; outline: none; }
+.menu-acoes-item:disabled { color: var(--text-secondary); opacity: .6; cursor: not-allowed; }
+.menu-acoes-dica { color: var(--text-secondary); font-size: 11px; }
+.inventario-lista-acoes { display: flex; align-items: center; gap: 8px; }
+
+/* Painéis de ação (abertos pelo menu "Ações") ficam logo abaixo do cabeçalho, separados do conteúdo */
+.solicitacao-lateral > .solicitacao-acoes { display: grid; gap: 16px; }
+.solicitacao-lateral > .solicitacao-acoes:not(:empty) { margin-bottom: 16px; }
+.solicitacao-lateral:empty { display: none; }
+@media (max-width: 600px) {
+  /* No celular os botões do cabeçalho quebram para a esquerda: o menu abre para a direita do botão */
+  .menu-acoes-lista { left: 0; right: auto; }
+}
+
+/* Ordem de serviço do chamado civil: a versão de papel só existe na impressão */
+.equipamento-dados > .os-documento { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center; }
+.os-documento > dt, .os-documento > dd:not(.os-documento-acoes) { grid-column: 1; }
+.equipamento-dados > .os-documento > dd.os-documento-acoes { grid-column: 2; grid-row: 1 / span 3; margin: 0; }
+.equipamento-dados > .os-documento > dd.os-documento-acoes.solicitacao-acoes { grid-column: 1 / -1; grid-row: auto; margin-top: 8px; }
+.equipamento-dados dd .btn-link { padding: 0; color: var(--accent); font-size: inherit; font-weight: 550; }
+.equipamento-dados dd .dado-apoio + .dado-apoio { margin-top: 0; }
+
+/* Reportar bug: dados do detalhe e anexos */
 .equipamento-dados dd { overflow-wrap: anywhere; }
 .relato-largura-total { grid-column: 1 / -1; }
 .equipamento-dados .relato-texto { font-weight: 400; line-height: 1.6; white-space: pre-wrap; }

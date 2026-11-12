@@ -4,6 +4,11 @@ const ROTULO_EVENTO: Record<string, string> = {
   ABRIR_MANUTENCAO: 'Manutenção solicitada',
   ABRIR_MANUTENCAO_CIVIL: 'Chamado de manutenção civil aberto',
   AGUARDAR_PROVIDENCIAS: 'Chamado aguardando providências',
+  CONCLUIR_AVALIACAO_TECNICA: 'Avaliação técnica concluída',
+  EDITAR_AVALIACAO_TECNICA: 'Chamado corrigido na avaliação técnica',
+  ENCERRAR_NA_AVALIACAO: 'Chamado encerrado na avaliação técnica',
+  INCLUIR_MATERIAL_AVALIACAO: 'Item previsto na avaliação',
+  REMOVER_MATERIAL_AVALIACAO: 'Item previsto removido',
   REJEITAR_ORCAMENTO: 'Orçamento recusado',
   INCLUIR_LINHA_RELATORIO: 'Serviço ou material incluído',
   REMOVER_LINHA_RELATORIO: 'Serviço ou material removido',
@@ -60,13 +65,3 @@ export function nomeEquipamento(m: ComEquipamento) {
   return m.equipamento.tipoEquipamento?.nome ?? m.equipamento.descricao;
 }
 
-export const ROTULO_CATEGORIA_CIVIL: Record<string, string> = {
-  HIDRAULICA: 'Hidráulica',
-  ELETRICA: 'Elétrica',
-  INFILTRACAO: 'Infiltração',
-  ALVENARIA_PINTURA: 'Alvenaria e pintura',
-  COBERTURA: 'Cobertura',
-  ESQUADRIAS_VIDROS: 'Esquadrias e vidros',
-  CLIMATIZACAO_CIVIL: 'Climatização',
-  OUTROS: 'Outros',
-};

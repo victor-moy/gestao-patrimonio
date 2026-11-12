@@ -1,0 +1,77 @@
+/* Versão de papel da ordem de serviço: invisível na tela, A4 ao imprimir */
+.os-papel { display: none; }
+
+/* Página só da OS (nomeada, para não afetar outras impressões, como a etiqueta do QR Code). Margem zero: sem espaço para o
+   cabeçalho e o rodapé do navegador (data, hora e endereço); a margem do papel é o padding da folha. */
+@page os { size: A4; margin: 0; }
+
+@media print {
+  /* Só vale enquanto a OS está sendo impressa (classe no body, ver imprimirOs) */
+  body.imprimindo-os { background: #fff !important; }
+  body.imprimindo-os #root { display: none !important; }
+  .os-papel, .os-papel * { visibility: visible; }
+  body.imprimindo-os .os-papel {
+    display: block;
+    page: os;
+    box-sizing: border-box;
+    width: 100%;
+    padding: 12mm 14mm;
+    color: #111;
+    background: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-size: 9.5pt;
+    line-height: 1.35;
+  }
+
+  .os-papel-topo { display: flex; align-items: center; justify-content: space-between; padding-bottom: 10px; border-bottom: 2px solid #111; }
+  .os-papel-marca { display: flex; align-items: center; gap: 10px; }
+  .os-papel-marca img { width: 38px; height: 38px; }
+  .os-papel-marca strong { display: block; font-size: 13pt; letter-spacing: -.2px; }
+  .os-papel-marca span { display: block; color: #444; font-size: 8.5pt; }
+  .os-papel-titulo { text-align: right; }
+  .os-papel-titulo span { display: block; color: #444; font-size: 8.5pt; letter-spacing: 1.5px; text-transform: uppercase; }
+  .os-papel-titulo strong { display: block; font-size: 18pt; letter-spacing: -.3px; }
+
+  .os-papel section { margin-top: 12px; break-inside: avoid; }
+  .os-papel h2 {
+    margin: 0 0 4px;
+    padding: 3px 8px;
+    background: #ececec;
+    border-left: 3px solid #111;
+    font-size: 8.5pt;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .os-papel-tabela { width: 100%; border: 1px solid #777; border-collapse: separate; border-spacing: 0; }
+  .os-papel-tabela th, .os-papel-tabela td { padding: 6px 8px; border: 0; border-right: 1px solid #777; border-bottom: 1px solid #777; text-align: left; vertical-align: middle; }
+  .os-papel-tabela tr > :last-child { border-right: 0; }
+  .os-papel-tabela tbody tr:last-child > * { border-bottom: 0; }
+  .os-papel-tabela th { width: 17%; background: #f6f6f6; color: #333; font-size: 8.5pt; font-weight: 600; }
+  .os-papel-tabela td { width: 33%; }
+
+  .os-papel-texto { box-sizing: border-box; min-height: 40px; padding: 6px 8px; border: 1px solid #777; white-space: pre-line; overflow-wrap: anywhere; }
+
+  .os-papel-preencher td { height: 30px; }
+  .os-papel-lacuna { display: inline-block; width: 46%; margin-right: 4%; padding-top: 12px; border-bottom: 1px solid #777; color: #888; font-size: 7.5pt; }
+  .os-papel-opcao { display: inline-flex; align-items: center; gap: 6px; margin-right: 28px; }
+  .os-papel-opcao i { display: inline-block; width: 11px; height: 11px; border: 1.2px solid #111; }
+
+  .os-papel-itens { table-layout: fixed; }
+  .os-papel-itens thead th { width: auto; background: #f6f6f6; font-size: 8.5pt; }
+  .os-papel-itens td { width: auto; height: 24px; }
+  .os-papel-itens .os-papel-n { width: 34px; text-align: center; color: #666; }
+  .os-papel-itens .os-papel-q { width: 70px; text-align: center; }
+
+  .os-papel-linhas { box-sizing: border-box; border: 1px solid #777; padding: 0 8px; }
+  .os-papel-linhas div { height: 26px; border-bottom: 1px solid #bbb; }
+  .os-papel-linhas div:last-child { border-bottom: 0; }
+
+  .os-papel-assinaturas { display: flex; gap: 40px; margin-top: 40px; break-inside: avoid; }
+  .os-papel-assinaturas div { flex: 1; padding-top: 6px; border-top: 1px solid #111; text-align: center; }
+  .os-papel-assinaturas span { display: block; font-weight: 600; }
+  .os-papel-assinaturas small { display: block; color: #666; font-size: 7.5pt; }
+
+  .os-papel-rodape { margin-top: 18px; padding-top: 6px; border-top: 1px solid #ccc; color: #777; font-size: 7.5pt; text-align: center; }
+}

@@ -138,14 +138,6 @@ export const IconeUnidades = () => (
   </Icone>
 );
 
-export const IconeCategorias = () => (
-  <Icone>
-    <path d="M12 2 2 7l10 5 10-5z" />
-    <path d="m2 17 10 5 10-5" />
-    <path d="m2 12 10 5 10-5" />
-  </Icone>
-);
-
 export const IconeSetaCima = () => (
   <Icone>
     <path d="M12 19V5" />

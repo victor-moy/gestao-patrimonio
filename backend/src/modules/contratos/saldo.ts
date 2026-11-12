@@ -12,7 +12,7 @@ export async function comprometidoPorItem(cliente: Cliente, itemIds: string[], e
     SELECT contrato_item_id AS item, SUM(COALESCE(NULLIF(custo_final, 0), orcamento_valor, 0)) AS total
     FROM manutencao
     WHERE contrato_item_id IN (${Prisma.join(itemIds)})
-      AND status NOT IN ('NEGADA', 'BAIXADO')
+      AND status NOT IN ('NEGADA', 'ENCERRADA', 'BAIXADO')
       AND NOT (status = 'CONCLUIDA' AND reencaminhamento_confirmado_em IS NOT NULL AND COALESCE(custo_final, 0) = 0)
       AND (${excluirManutencaoId ?? null}::text IS NULL OR id <> ${excluirManutencaoId ?? null}::text)
     GROUP BY contrato_item_id`;

@@ -2,6 +2,7 @@ import { pode, type Permissao } from '../utils/permissoes';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import './Gestao.css';
 import './Polaris.css';
+import './Padrao.css';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
@@ -28,8 +29,7 @@ import {
   IconeRelatorios,
   IconeUnidades,
   IconeUsuarios,
-  IconeSolicitacoes,
-} from './icons';
+  IconeSolicitacoes, IconeManutencoes } from './icons';
 
 interface TabDef {
   para: string;
@@ -94,8 +94,15 @@ const SECOES_CONFIGURACOES: SecaoConfiguracoes[] = [
     sub: [
       { para: '/configuracoes/servicos/prestadores', rotulo: 'Prestadores' },
       { para: '/configuracoes/servicos/tipos', rotulo: 'Tipos' },
-      { para: '/configuracoes/servicos/escopos', rotulo: 'Escopos' },
     ],
+  },
+  {
+    para: '/configuracoes/chamados',
+    prefixo: '/configuracoes/chamados',
+    rotulo: 'Chamados',
+    icone: <IconeManutencoes />,
+    permissoes: ['CONFIGURACOES_GERENCIAR'],
+    sub: [{ para: '/configuracoes/chamados/tipos-civis', rotulo: 'Tipos civis' }],
   },
   { para: '/configuracoes/atendimento', rotulo: 'Atendimento', icone: <IconeConversas />, permissoes: ['CONFIGURACOES_GERENCIAR'] },
   { para: '/configuracoes/relatos', rotulo: 'Bugs reportados', icone: <IconeSolicitacoes />, permissoes: ['USUARIOS_ADMINISTRAR'] },

@@ -54,15 +54,22 @@ export const ROTULO_TIPO_UNIDADE: Record<string, string> = {
 
 export const ROTULO_STATUS_MANUTENCAO: Record<string, string> = {
   PENDENTE_APROVACAO: 'Pendente Aprovação',
-  AGUARDANDO_PROVIDENCIAS: 'Aguardando Providências',
+  // Pseudo-status: o chamado aberto pela contestação da Unidade, enquanto espera a triagem (ver statusManutencaoExibido)
+  CONTESTADO: 'Contestado',
+  AGUARDANDO_AVALIACAO_TECNICA: 'Aguardando Avaliação Técnica',
+  AGUARDANDO_VISTORIA: 'Aguardando Vistoria',
+  AVALIADO: 'Avaliado, a encaminhar',
   NEGADA: 'Negada',
+  ENCERRADA: 'Encerrada',
   AGUARDANDO_ORCAMENTO: 'Aguardando Orçamento',
   ORCAMENTO_REGISTRADO: 'Orçamento Registrado',
   AGUARDANDO_EXECUCAO: 'Aguardando Execução',
   EM_EXECUCAO: 'Em Andamento',
+  EXECUTADO: 'Doc. pendente',
   AGUARDANDO_RETORNO: 'Aguardando Retorno',
   AGUARDANDO_MEDICAO: 'Aguardando Medição',
   REENCAMINHAMENTO_SOLICITADO: 'Reencaminhamento Solicitado',
+  BLOQUEADO: 'Bloqueado',
   CONCLUIDA: 'Concluída',
   BAIXADO: 'Baixado',
 };
@@ -96,7 +103,7 @@ export const ROTULO_TIPO_SOLICITACAO: Record<string, string> = {
 };
 
 export const ROTULO_PERFIL: Record<string, string> = {
-  OPERADOR: 'Administrador',
+  OPERADOR: 'Operador',
   UNIDADE: 'Unidade de Atendimento',
   GALPAO: 'Galpão',
   TERCEIRIZADA: 'Terceirizada',
@@ -121,3 +128,9 @@ export const ROTULO_MOVIMENTACAO: Record<string, string> = {
 // Código legível da requisição (SOL-0012 / MAN-0007), usado para referenciá-la em conversas e relatos.
 export const codigoSolicitacao = (numero: number) => `SOL-${String(numero).padStart(4, '0')}`;
 export const codigoManutencao = (numero: number) => `MAN-${String(numero).padStart(4, '0')}`;
+
+/** Status mostrado de um chamado: o que nasceu da contestação da Unidade aparece como "Contestado" até a triagem decidir. */
+export function statusManutencaoExibido(m: { status: string; abertoPorContestacao?: boolean }) {
+  const valor = m.status === 'PENDENTE_APROVACAO' && m.abertoPorContestacao ? 'CONTESTADO' : m.status;
+  return { valor, texto: ROTULO_STATUS_MANUTENCAO[valor] };
+}

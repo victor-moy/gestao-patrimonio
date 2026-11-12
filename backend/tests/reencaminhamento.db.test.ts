@@ -15,7 +15,7 @@ rodar('Reencaminhamento de chamados (PostgreSQL real)', () => {
   let reencaminhamento: typeof import('../src/modules/manutencoes/manutencoes.reencaminhamento');
   let saldo: typeof import('../src/modules/contratos/saldo');
   const sufixo = randomUUID().slice(0, 8);
-  const ids = { unidade: '', admin: '', prestador: '', contrato: '', servico: '', escopo: '', item: '' };
+  const ids = { unidade: '', admin: '', prestador: '', contrato: '', servico: '', item: '', categoria: '' };
   const criados: string[] = [];
   const admin = (): AuthPayload => ({ sub: ids.admin, perfil: Perfil.OPERADOR, unidadeId: null, nome: 'Admin' }) as AuthPayload;
 
@@ -28,7 +28,7 @@ rodar('Reencaminhamento de chamados (PostgreSQL real)', () => {
         titulo: 'Ar-condicionado não liga',
         descricaoProblema: 'Não liga',
         localAfetado: 'Consultório 2',
-        categoriaCivil: 'ELETRICA',
+        categoriaCivilId: ids.categoria,
         ...extra,
       },
     });
@@ -51,9 +51,9 @@ rodar('Reencaminhamento de chamados (PostgreSQL real)', () => {
       data: { numero: `C-${sufixo}`, prestadorId: prestador.id, objeto: 'teste', vigenciaInicio: new Date('2026-01-01'), vigenciaFim: new Date('2027-01-01') },
     });
     const servico = await prisma.servicoContrato.create({ data: { nome: `Serviço ${sufixo}` } });
-    const escopo = await prisma.escopoServico.create({ data: { nome: `Escopo ${sufixo}`, cobreCivil: true } });
-    const item = await prisma.contratoItem.create({ data: { contratoId: contrato.id, servicoId: servico.id, escopoId: escopo.id, valor: 1000 } });
-    Object.assign(ids, { unidade: unidade.id, admin: usuario.id, prestador: prestador.id, contrato: contrato.id, servico: servico.id, escopo: escopo.id, item: item.id });
+    const item = await prisma.contratoItem.create({ data: { contratoId: contrato.id, servicoId: servico.id, valor: 1000 } });
+    const categoria = await prisma.categoriaCivil.create({ data: { nome: `Elétrica ${sufixo}` } });
+    Object.assign(ids, { categoria: categoria.id, unidade: unidade.id, admin: usuario.id, prestador: prestador.id, contrato: contrato.id, servico: servico.id, item: item.id });
   });
 
   afterAll(async () => {
@@ -65,10 +65,10 @@ rodar('Reencaminhamento de chamados (PostgreSQL real)', () => {
     await prisma.contratoItem.deleteMany({ where: { id: ids.item } });
     await prisma.contrato.deleteMany({ where: { id: ids.contrato } });
     await prisma.servicoContrato.deleteMany({ where: { id: ids.servico } });
-    await prisma.escopoServico.deleteMany({ where: { id: ids.escopo } });
     await prisma.prestadorServico.deleteMany({ where: { id: ids.prestador } });
     await prisma.usuario.deleteMany({ where: { id: ids.admin } });
     await prisma.unidade.deleteMany({ where: { id: ids.unidade } });
+    await prisma.categoriaCivil.deleteMany({ where: { id: ids.categoria } });
     await prisma.$disconnect();
   });
 
@@ -95,7 +95,7 @@ rodar('Reencaminhamento de chamados (PostgreSQL real)', () => {
   });
 
   it('o pedido de reencaminhamento só vale uma vez, mesmo com cliques simultâneos', async () => {
-    const m = await novoChamado({ status: 'EM_EXECUCAO', contratoId: ids.contrato, contratoItemId: ids.item });
+    const m = await novoChamado({ status: 'AGUARDANDO_EXECUCAO', contratoId: ids.contrato, contratoItemId: ids.item });
     const terceirizada = { sub: ids.admin, perfil: Perfil.TERCEIRIZADA, prestadorId: ids.prestador, nome: 'Terc' } as AuthPayload;
     const tentativas = await Promise.allSettled([
       reencaminhamento.solicitarReencaminhamento(terceirizada, m.id, 'Defeito no equipamento, não na instalação'),

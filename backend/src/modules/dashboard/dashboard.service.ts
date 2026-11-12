@@ -151,7 +151,7 @@ async function alertasOperador(): Promise<AlertaHome[]> {
     pendenteSol,
     pendenteMan,
     orcamento,
-    providencias,
+    avaliacao,
     medicao,
     reencaminhamento,
     branet,
@@ -161,11 +161,14 @@ async function alertasOperador(): Promise<AlertaHome[]> {
     emprestimosAtrasados,
     atas,
     contratos,
+    avaliados,
+    vistorias,
+    documentosPendentes,
   ] = await Promise.all([
     prisma.solicitacao.count({ where: { status: 'PENDENTE_APROVACAO' } }),
     prisma.manutencao.count({ where: { status: 'PENDENTE_APROVACAO' } }),
     prisma.manutencao.count({ where: { status: 'ORCAMENTO_REGISTRADO' } }),
-    prisma.manutencao.count({ where: { status: 'AGUARDANDO_PROVIDENCIAS' } }),
+    prisma.manutencao.count({ where: { status: 'AGUARDANDO_AVALIACAO_TECNICA' } }),
     prisma.manutencao.count({ where: { status: 'AGUARDANDO_MEDICAO' } }),
     prisma.manutencao.count({ where: { status: 'REENCAMINHAMENTO_SOLICITADO' } }),
     prisma.solicitacao.count({ where: { status: 'RESERVADO' } }),
@@ -186,6 +189,9 @@ async function alertasOperador(): Promise<AlertaHome[]> {
       where: { ativo: true },
       include: { itens: { select: { id: true, valor: true } } },
     }),
+    prisma.manutencao.count({ where: { status: 'AVALIADO' } }),
+    prisma.manutencao.count({ where: { status: 'AGUARDANDO_VISTORIA' } }),
+    prisma.manutencao.count({ where: { status: 'EXECUTADO' } }),
   ]);
 
   const lista: AlertaHome[] = [];
@@ -214,11 +220,38 @@ async function alertasOperador(): Promise<AlertaHome[]> {
   );
   push(
     item(
-      'FILA_PROVIDENCIAS',
+      'FILA_AVALIACAO_TECNICA',
       'AVISO',
-      `${providencias} ${plural(providencias, 'chamado civil aguardando providências', 'chamados civis aguardando providências')}`,
-      providencias,
-      '/solicitacoes?tipo=MANUTENCAO&status=AGUARDANDO_PROVIDENCIAS',
+      `${avaliacao} ${plural(avaliacao, 'chamado aguardando avaliação técnica', 'chamados aguardando avaliação técnica')}`,
+      avaliacao,
+      '/solicitacoes?tipo=MANUTENCAO&status=AGUARDANDO_AVALIACAO_TECNICA',
+    ),
+  );
+  push(
+    item(
+      'FILA_AVALIADOS',
+      'AVISO',
+      `${avaliados} ${plural(avaliados, 'chamado avaliado aguardando encaminhamento', 'chamados avaliados aguardando encaminhamento')}`,
+      avaliados,
+      '/solicitacoes?tipo=MANUTENCAO&status=AVALIADO',
+    ),
+  );
+  push(
+    item(
+      'FILA_DOCUMENTOS_PENDENTES',
+      'AVISO',
+      `${documentosPendentes} ${plural(documentosPendentes, 'chamado executado com documentação pendente', 'chamados executados com documentação pendente')}`,
+      documentosPendentes,
+      '/solicitacoes?tipo=MANUTENCAO&status=EXECUTADO',
+    ),
+  );
+  push(
+    item(
+      'FILA_VISTORIA',
+      'AVISO',
+      `${vistorias} ${plural(vistorias, 'chamado aguardando vistoria', 'chamados aguardando vistoria')}`,
+      vistorias,
+      '/solicitacoes?tipo=MANUTENCAO&status=AGUARDANDO_VISTORIA',
     ),
   );
   push(

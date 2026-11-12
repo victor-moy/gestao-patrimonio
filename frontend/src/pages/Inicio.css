@@ -119,13 +119,7 @@
   font-weight: 650;
 }
 
-.inicio-estado-vazio .btn {
-  min-height: 32px;
-  margin-top: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-}
+.inicio-estado-vazio .btn { margin-top: 6px; }
 
 .inicio-esqueleto {
   display: grid;

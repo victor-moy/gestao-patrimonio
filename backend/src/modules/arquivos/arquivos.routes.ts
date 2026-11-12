@@ -46,7 +46,8 @@ arquivosRouter.get('/solicitacoes/:arquivo', autenticar, async (req, res) => {
   // A mesma foto pode estar em mais de um chamado (reencaminhamento copia a referência, não o arquivo):
   // o acesso vale se qualquer um deles puder ser lido por quem pede
   const manutencoes = await prisma.manutencao.findMany({
-    where: { fotos: { has: url } },
+    // Foto do chamado ou de um problema acrescentado a ele
+    where: { OR: [{ fotos: { has: url } }, { problemasExtras: { some: { fotos: { has: url } } } }] },
     select: { unidadeId: true, contrato: { select: { prestadorId: true } } },
   });
   if (manutencoes.length === 0) throw new AppError('Arquivo não encontrado.', 404);
@@ -63,15 +64,43 @@ arquivosRouter.get('/solicitacoes/:arquivo', autenticar, async (req, res) => {
 // Laudos de baixa: mesma regra de leitura da manutenção (Unidade só vê os da própria unidade)
 arquivosRouter.get('/laudos/:arquivo', autenticar, async (req, res) => {
   const nome = nomeSeguro(req.params.arquivo);
+  const { perfil, unidadeId, prestadorId } = req.usuario!;
+  // OS assinada: Unidade do chamado, prestador do contrato e quem trabalha com manutenção
+  // Cotações do orçamento prévio: prestador do contrato e quem trabalha com manutenção (a Unidade não vê valores de orçamento)
+  const cotacao = await prisma.cotacaoOrcamento.findFirst({
+    where: { arquivo: `/uploads/laudos/${nome}` },
+    select: { manutencao: { select: { contrato: { select: { prestadorId: true } } } } },
+  });
+  if (cotacao) {
+    if (perfil === Perfil.GALPAO || perfil === Perfil.UNIDADE) throw new AppError('Seu perfil não possui permissão para este arquivo.', 403);
+    if (perfil === Perfil.TERCEIRIZADA && (!prestadorId || cotacao.manutencao.contrato?.prestadorId !== prestadorId)) {
+      throw new AppError('Esta manutenção não pertence a um contrato do seu prestador.', 403);
+    }
+    return enviar(res, LAUDOS_DIR, nome);
+  }
+  const documento = await prisma.documentoOS.findFirst({
+    where: { arquivo: `/uploads/laudos/${nome}` },
+    select: { ordemServico: { select: { manutencao: { select: { unidadeId: true, contrato: { select: { prestadorId: true } } } } } } },
+  });
+  if (documento) {
+    const chamado = documento.ordemServico.manutencao;
+    if (perfil === Perfil.GALPAO) throw new AppError('Seu perfil não possui permissão para este arquivo.', 403);
+    if (perfil === Perfil.UNIDADE && chamado.unidadeId !== unidadeId) throw new AppError('Esta manutenção não pertence à sua unidade.', 403);
+    if (perfil === Perfil.TERCEIRIZADA && (!prestadorId || chamado.contrato?.prestadorId !== prestadorId)) {
+      throw new AppError('Esta manutenção não pertence a um contrato do seu prestador.', 403);
+    }
+    return enviar(res, LAUDOS_DIR, nome);
+  }
   const manutencao = await prisma.manutencao.findFirst({
     where: { laudoBaixa: `/uploads/laudos/${nome}` },
     select: { unidadeId: true },
   });
   if (!manutencao) throw new AppError('Arquivo não encontrado.', 404);
-  const { perfil, unidadeId } = req.usuario!;
   if (perfil === Perfil.UNIDADE && manutencao.unidadeId !== unidadeId) {
     throw new AppError('Esta manutenção não pertence à sua unidade.', 403);
   }
+  // Laudo de baixa é de equipamento: a terceirizada não o lê por este caminho
+  if (perfil === Perfil.TERCEIRIZADA) throw new AppError('Arquivo não encontrado.', 404);
   enviar(res, LAUDOS_DIR, nome);
 });
 

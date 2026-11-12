@@ -18,6 +18,7 @@ import {
   codigoManutencao,
   formatarData,
   ROTULO_STATUS_MANUTENCAO,
+  statusManutencaoExibido,
   ROTULO_STATUS_SOLICITACAO,
   ROTULO_TIPO_SOLICITACAO,
   codigoSolicitacao,
@@ -147,8 +148,8 @@ const daManutencao = (m: Manutencao): LinhaLista => ({
   tipo: TIPO_MANUTENCAO,
   tipoTexto: m.tipo === 'CIVIL' ? 'Manutenção civil' : ROTULO_TIPO_SOLICITACAO[TIPO_MANUTENCAO],
   unidade: m.unidade.nome,
-  statusValor: m.status,
-  statusTexto: ROTULO_STATUS_MANUTENCAO[m.status],
+  statusValor: statusManutencaoExibido(m).valor,
+  statusTexto: statusManutencaoExibido(m).texto,
   criadoEm: m.criadoEm,
   para: `/manutencoes/${m.id}`,
   rotuloLink: `Ver manutenção de ${tituloManutencao(m)}`,
@@ -174,6 +175,8 @@ export function Solicitacoes() {
     statusDaUrl in ROTULO_STATUS_MANUTENCAO ||
     OPCOES_STATUS_EXTRA.some((o) => o.valor === statusDaUrl);
   const [filtroStatus, setFiltroStatus] = useState(statusInicialValido ? statusDaUrl : '');
+  // Só chamados de manutenção: os que ninguém tocou ainda (sem mensagem no chat nem mudança de status)
+  const [semInteracao, setSemInteracao] = useState(false);
   const [visualizacoesAberto, setVisualizacoesAberto] = useState(false);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
   const controles = useRef<HTMLDivElement>(null);
@@ -195,6 +198,7 @@ export function Solicitacoes() {
     // Cada lado só é consultado quando o tipo e o status escolhidos existem nele
     const buscarSolicitacoes =
       veSolicitacoes &&
+      !semInteracao &&
       filtroTipo !== TIPO_MANUTENCAO &&
       (!filtroStatus || Boolean(extra) || filtroStatus in ROTULO_STATUS_SOLICITACAO);
     const buscarManutencoes =
@@ -204,6 +208,7 @@ export function Solicitacoes() {
       if (busca) p.set('busca', busca);
       if (tipo) p.set('tipo', tipo);
       if (statusBackend) p.set('status', statusBackend);
+      if (semInteracao && tipo === '') p.set('semInteracao', 'true');
       return p;
     };
     const pedidos: Array<Promise<LinhaLista[]>> = [];
@@ -229,7 +234,7 @@ export function Solicitacoes() {
       .finally(() => {
         if (idRequisicao === requisicao.current) setCarregando(false);
       });
-  }, [busca, filtroTipo, filtroStatus, veSolicitacoes, veManutencoes]);
+  }, [busca, filtroTipo, filtroStatus, semInteracao, veSolicitacoes, veManutencoes]);
 
   useEffect(() => {
     carregar();
@@ -305,7 +310,7 @@ export function Solicitacoes() {
       : filtroTipo
         ? statusDeSolicitacao.filter(([valor]) => STATUS_POR_TIPO[filtroTipo]?.includes(valor))
         : [...(veSolicitacoes ? statusDeSolicitacao : []), ...(veManutencoes ? STATUS_SO_DE_MANUTENCAO : [])];
-  const totalFiltros = Number(Boolean(filtroStatus));
+  const totalFiltros = Number(Boolean(filtroStatus)) + Number(semInteracao);
   const podeCriar = usuario?.perfil === 'UNIDADE' || pode(usuario, 'SOLICITACOES_GERENCIAR', 'MANUTENCAO_ESCREVER');
 
   return (
@@ -421,6 +426,12 @@ export function Solicitacoes() {
                   ))}
                 </select>
               </label>
+              {veManutencoes && (
+                <label className="gestao-filtro-select checkbox-linha interruptor-linha filtro-interruptor">
+                  <input type="checkbox" role="switch" checked={semInteracao} onChange={(e) => setSemInteracao(e.target.checked)} />
+                  <span>Chamados sem interação (sem mensagem nem mudança de status)</span>
+                </label>
+              )}
               <button type="button" className="btn btn-primary" onClick={() => setFiltrosAbertos(false)}>
                 Concluir
               </button>

@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { CampoAnexo } from './CampoAnexo';
 import { StatusPill } from './StatusPill';
-import type { CategoriaProblemaCivil, EtapaDoCaso, Equipamento, Manutencao, TipoManutencao } from '../types';
-import { codigoManutencao, formatarDataHora, ROTULO_STATUS_MANUTENCAO } from '../utils/format';
-import { ROTULO_CATEGORIA_CIVIL } from '../utils/manutencao';
+import type { EtapaDoCaso, Equipamento, Manutencao, TipoManutencao } from '../types';
+import { codigoManutencao, formatarDataHora, statusManutencaoExibido } from '../utils/format';
+import { useCategoriasCivis } from '../hooks/useCategoriasCivis';
 
 type Executar = (operacao: () => Promise<unknown>) => Promise<void>;
 
@@ -13,7 +13,7 @@ const MOTIVO_MIN = 10;
 const MOTIVO_MAX = 500;
 
 // Em quais status quem atende ainda pode pedir para passar o chamado adiante (espelha o backend)
-const STATUS_QUE_PODEM_PEDIR = ['AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_EXECUCAO'];
+const STATUS_QUE_PODEM_PEDIR = ['AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO'];
 
 // Só a terceirizada do contrato pede, e só enquanto o chamado está com ela
 export const podeReencaminhar = (m: Manutencao, ehTerceirizada: boolean) =>
@@ -81,7 +81,7 @@ export function TrajetoriaCaso({ manutencaoId, status }: { manutencaoId: string;
                 ) : (
                   <span className="trajetoria-numero">{rotulo}</span>
                 )}
-                <StatusPill valor={e.status}>{ROTULO_STATUS_MANUTENCAO[e.status]}</StatusPill>
+                <StatusPill valor={statusManutencaoExibido(e).valor}>{statusManutencaoExibido(e).texto}</StatusPill>
               </div>
               <p className="trajetoria-detalhe">{detalhe}</p>
               {e.motivoReencaminhamento && <p className="trajetoria-motivo">Motivo do reencaminhamento: {e.motivoReencaminhamento}</p>}
@@ -94,6 +94,54 @@ export function TrajetoriaCaso({ manutencaoId, status }: { manutencaoId: string;
   );
 }
 
+// Situação do reencaminhamento para o menu "Ações": quem pode pedir, confirmar e decidir o destino
+export function situacaoReencaminhamento(m: Manutencao, podeTriar: boolean, ehTerceirizada: boolean) {
+  const pendente = podeTriar && m.status === 'REENCAMINHAMENTO_SOLICITADO';
+  return {
+    podePedir: podeReencaminhar(m, ehTerceirizada),
+    confirmando: pendente && !m.reencaminhamentoConfirmadoEm,
+    decidindo: pendente && !!m.reencaminhamentoConfirmadoEm,
+  };
+}
+
+// Pedido de reencaminhamento de quem atende: painel que pede o motivo (aberto pelo menu "Ações")
+export function PedirReencaminhamento({
+  m,
+  executar,
+  ocupado,
+  fechar,
+}: {
+  m: Manutencao;
+  executar: Executar;
+  ocupado: boolean;
+  fechar: () => void;
+}) {
+  const [motivo, setMotivo] = useState('');
+
+  return (
+    <div className="actions-box actions-box--simples">
+      <div className="actions-title">Reencaminhar chamado</div>
+      <div className="field">
+        <label htmlFor="reenc-motivo">Motivo do reencaminhamento *</label>
+        <input id="reenc-motivo" autoFocus maxLength={MOTIVO_MAX} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+      </div>
+      <div className="actions-row">
+        <button type="button" className="btn btn-outline" onClick={fechar}>
+          Cancelar
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={ocupado || motivo.trim().length < MOTIVO_MIN}
+          onClick={() => executar(() => api.post(`/manutencoes/${m.id}/solicitar-reencaminhamento`, { motivo: motivo.trim() }))}
+        >
+          Confirmar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 type Destino = 'manutencao' | 'baixa';
 
 // Ações do reencaminhamento, por perfil e etapa: pedir (quem atende), confirmar e decidir o destino (Administrador)
@@ -102,33 +150,32 @@ export function AcoesReencaminhamento({
   executar,
   ocupado,
   podeTriar,
-  ehTerceirizada,
+  painel,
+  fechar,
 }: {
   m: Manutencao;
   executar: Executar;
   ocupado: boolean;
   podeTriar: boolean;
-  ehTerceirizada: boolean;
+  painel: string | null;
+  fechar: () => void;
 }) {
-  const [motivo, setMotivo] = useState('');
   const [destino, setDestino] = useState<Destino>('manutencao');
   const [tipoNovo, setTipoNovo] = useState<TipoManutencao>(m.tipo);
   const [equipamentoId, setEquipamentoId] = useState('');
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [falhaEquipamentos, setFalhaEquipamentos] = useState<string | null>(null);
   const [local, setLocal] = useState('');
-  const [categoria, setCategoria] = useState<CategoriaProblemaCivil | ''>('');
+  const [categoria, setCategoria] = useState('');
   const [laudo, setLaudo] = useState<File | null>(null);
 
-  const decidindo = podeTriar && m.status === 'REENCAMINHAMENTO_SOLICITADO' && !!m.reencaminhamentoConfirmadoEm;
-  const confirmando = podeTriar && m.status === 'REENCAMINHAMENTO_SOLICITADO' && !m.reencaminhamentoConfirmadoEm;
-  const podePedir = podeReencaminhar(m, ehTerceirizada);
+  const decidindo = podeTriar && m.status === 'REENCAMINHAMENTO_SOLICITADO' && !!m.reencaminhamentoConfirmadoEm && painel === 'decidir';
   const precisaEscolherEquipamento = decidindo && destino === 'manutencao' && tipoNovo === 'EQUIPAMENTO' && !m.equipamento;
   const precisaDadosCivis = decidindo && destino === 'manutencao' && tipoNovo === 'CIVIL' && (!m.localAfetado || !m.categoriaCivil);
+  const { categorias } = useCategoriasCivis(precisaDadosCivis);
 
   // Ao mudar de etapa, os formulários voltam ao início
   useEffect(() => {
-    setMotivo('');
     setDestino('manutencao');
     setTipoNovo(m.tipo);
     setEquipamentoId('');
@@ -146,7 +193,6 @@ export function AcoesReencaminhamento({
       .catch((e) => setFalhaEquipamentos(e instanceof Error ? e.message : 'Não foi possível carregar os equipamentos.'));
   }, [precisaEscolherEquipamento, m.unidade.id]);
 
-  const motivoValido = motivo.trim().length >= MOTIVO_MIN;
   const novoChamadoCompleto =
     (!precisaEscolherEquipamento || equipamentoId !== '') && (!precisaDadosCivis || (local.trim().length >= 2 && categoria !== ''));
   const baixaPossivel = !!m.equipamento;
@@ -162,54 +208,13 @@ export function AcoesReencaminhamento({
       await api.post(`/manutencoes/${m.id}/reencaminhar/manutencao`, {
         tipo: tipoNovo,
         ...(precisaEscolherEquipamento ? { equipamentoId } : {}),
-        ...(precisaDadosCivis ? { localAfetado: local.trim(), categoriaCivil: categoria } : {}),
+        ...(precisaDadosCivis ? { localAfetado: local.trim(), categoriaCivilId: categoria } : {}),
       });
     });
 
   return (
     <>
-      {podePedir && (
-        <div className="actions-box">
-          <div className="actions-title">Reencaminhar chamado</div>
-          <p className="itens-aviso">O Administrador decide o destino do chamado.</p>
-          <div className="field">
-            <label htmlFor="reenc-motivo">Motivo do reencaminhamento *</label>
-            <input
-              id="reenc-motivo"
-              maxLength={MOTIVO_MAX}
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-            />
-          </div>
-          <div className="actions-row">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={ocupado || !motivoValido}
-              onClick={() => executar(() => api.post(`/manutencoes/${m.id}/solicitar-reencaminhamento`, { motivo: motivo.trim() }))}
-            >
-              Reencaminhar
-            </button>
-          </div>
-        </div>
-      )}
-
-      {confirmando && (
-        <div className="actions-box">
-          <div className="actions-title">Reencaminhamento solicitado</div>
-          <p className="itens-aviso">Leia o motivo acima e confirme para escolher o que fazer com o chamado.</p>
-          <div className="actions-row">
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={ocupado}
-              onClick={() => executar(() => api.post(`/manutencoes/${m.id}/confirmar-reencaminhamento`))}
-            >
-              Confirmar reencaminhamento
-            </button>
-          </div>
-        </div>
-      )}
+      {painel === 'reencaminhar' && <PedirReencaminhamento m={m} executar={executar} ocupado={ocupado} fechar={fechar} />}
 
       {decidindo && (
         <div className="actions-box">
@@ -263,11 +268,11 @@ export function AcoesReencaminhamento({
                   </div>
                   <div className="field">
                     <label htmlFor="reenc-categoria">Tipo de problema *</label>
-                    <select id="reenc-categoria" value={categoria} onChange={(e) => setCategoria(e.target.value as CategoriaProblemaCivil | '')}>
+                    <select id="reenc-categoria" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
                       <option value="">Selecione…</option>
-                      {Object.entries(ROTULO_CATEGORIA_CIVIL).map(([chave, rotulo]) => (
-                        <option key={chave} value={chave}>
-                          {rotulo}
+                      {categorias.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nome}
                         </option>
                       ))}
                     </select>
@@ -290,6 +295,9 @@ export function AcoesReencaminhamento({
           )}
 
           <div className="actions-row">
+            <button type="button" className="btn btn-outline" onClick={fechar}>
+              Cancelar
+            </button>
             <button
               type="button"
               className="btn btn-primary"
