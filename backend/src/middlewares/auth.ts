@@ -76,8 +76,6 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
 // devolve vazia para quem não tem perfil. Lista de permissão, negado por padrão.
 const ROTAS_SEM_ACESSO: Array<[string, RegExp]> = [
   ['GET', /^\/auth\/me$/],
-  ['GET', /^\/auth\/impersonaveis$/],
-  ['POST', new RegExp(`^/auth/impersonar/${ID}$`)],
   ['GET', /^\/dashboard\/alertas$/],
   ['GET', /^\/avisos$/],
   ['POST', /^\/avisos\/ler-todas$/],

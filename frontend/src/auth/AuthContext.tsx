@@ -98,7 +98,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [logout]);
 
-  const podeTrocarUsuario = Boolean(usuario);
+  // Quem ainda não recebeu perfil (Sem acesso) não usa o "Entrar como"; o servidor também recusa
+  const podeTrocarUsuario = Boolean(usuario) && usuario?.perfil !== 'SEM_ACESSO';
   const value = useMemo(
     () => ({ usuario, carregando, impersonando, podeTrocarUsuario, sair, entrarComo, voltarAoMestre }),
     [usuario, carregando, impersonando, podeTrocarUsuario, sair, entrarComo, voltarAoMestre],

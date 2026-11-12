@@ -156,9 +156,19 @@ describe('Impersonação (qualquer usuário "entra como" um usuário de teste)',
     expect(filtro.where).toMatchObject({ OR: [{ usuarioTeste: true }, { id: 'op-1' }] });
   });
 
-  it('qualquer perfil lista e assume outro usuário (decisão temporária, só dados de teste)', async () => {
+  it('quem está sem acesso não lista nem assume ninguém: o "Entrar como" não existe para esse perfil', async () => {
     const uuid = '11111111-1111-4111-8111-111111111111';
-    for (const perfil of ['UNIDADE', 'GALPAO', 'TERCEIRIZADA', 'SEM_ACESSO'] as const) {
+    const lista = await request(app).get('/auth/impersonaveis').set(auth('SEM_ACESSO'));
+    expect(lista.status).toBe(403);
+    const res = await request(app).post(`/auth/impersonar/${uuid}`).set(auth('SEM_ACESSO')).send();
+    expect(res.status).toBe(403);
+    expect(prismaMock.usuario.findUnique).not.toHaveBeenCalled();
+    expect(prismaMock.usuario.findMany).not.toHaveBeenCalled();
+  });
+
+  it('os demais perfis listam e assumem um usuário de teste (decisão temporária, só dados de teste)', async () => {
+    const uuid = '11111111-1111-4111-8111-111111111111';
+    for (const perfil of ['UNIDADE', 'GALPAO', 'TERCEIRIZADA'] as const) {
       const opcoes = { unidadeId: 'u-1', prestadorId: 'p-1' };
       prismaMock.usuario.findMany.mockResolvedValueOnce([] as never);
       const lista = await request(app).get('/auth/impersonaveis').set(auth(perfil, opcoes));
@@ -315,7 +325,7 @@ describe('Login pelo Keycloak', () => {
       const res = await request(app).get(rota).set(auth('SEM_ACESSO'));
       expect([rota, res.status === 403]).toEqual([rota, false]);
     }
-    for (const rota of ['/equipamentos', '/solicitacoes', '/manutencoes', '/contratos', '/atas', '/estoque', '/usuarios', '/relatorios/visao-geral']) {
+    for (const rota of ['/equipamentos', '/solicitacoes', '/manutencoes', '/contratos', '/atas', '/estoque', '/usuarios', '/relatorios/visao-geral', '/auth/impersonaveis']) {
       const res = await request(app).get(rota).set(auth('SEM_ACESSO'));
       expect([rota, res.status]).toEqual([rota, 403]);
     }
