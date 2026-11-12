@@ -2,7 +2,7 @@ import path from 'path';
 import { Router } from 'express';
 import { Perfil } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
-import { FOTOS_DIR, LAUDOS_DIR } from '../../lib/uploads';
+import { FOTOS_DIR, LAUDOS_DIR, RELATOS_DIR } from '../../lib/uploads';
 import { autenticar } from '../../middlewares/auth';
 import { AppError } from '../../errors/AppError';
 
@@ -102,4 +102,19 @@ arquivosRouter.get('/laudos/:arquivo', autenticar, async (req, res) => {
   // Laudo de baixa é de equipamento: a terceirizada não o lê por este caminho
   if (perfil === Perfil.TERCEIRIZADA) throw new AppError('Arquivo não encontrado.', 404);
   enviar(res, LAUDOS_DIR, nome);
+});
+
+// Anexos de relato de problema: só quem administra usuários (o Administrador, que lê os relatos) abre
+arquivosRouter.get('/relatos/:arquivo', autenticar, async (req, res) => {
+  const nome = nomeSeguro(req.params.arquivo);
+  const { perfil, permissoes } = req.usuario!;
+  if (perfil !== Perfil.OPERADOR || !permissoes.includes('USUARIOS_ADMINISTRAR')) {
+    throw new AppError('Seu perfil não possui permissão para este arquivo.', 403);
+  }
+  const relato = await prisma.relatoProblema.findFirst({
+    where: { anexos: { has: `/uploads/relatos/${nome}` } },
+    select: { id: true },
+  });
+  if (!relato) throw new AppError('Arquivo não encontrado.', 404);
+  enviar(res, RELATOS_DIR, nome);
 });

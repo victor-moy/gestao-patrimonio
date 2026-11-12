@@ -15,6 +15,8 @@ interface Props {
   falha: string | null;
   // Ações secundárias (ex.: Excluir) exibidas antes de Cancelar
   acoesExtras?: ReactNode;
+  // Texto do botão principal (padrão: Salvar)
+  rotuloSalvar?: string;
   children: ReactNode;
   onEnviar: (e: React.FormEvent) => void;
 }
@@ -32,6 +34,7 @@ export function PaginaCadastro({
   carregando,
   falha,
   acoesExtras,
+  rotuloSalvar = 'Salvar',
   children,
   onEnviar,
 }: Props) {
@@ -53,7 +56,7 @@ export function PaginaCadastro({
             className="btn btn-primary"
             disabled={enviando || carregando || Boolean(falha) || desabilitarSalvar}
           >
-            {enviando ? 'Salvando…' : 'Salvar'}
+            {enviando ? 'Salvando…' : rotuloSalvar}
           </button>
         </div>
       </div>

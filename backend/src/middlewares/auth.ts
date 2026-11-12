@@ -68,6 +68,8 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['GET', /^\/avisos$/],
   ['POST', /^\/avisos\/ler-todas$/],
   ['POST', new RegExp(`^/avisos/${ID}/ler$`)],
+  // Relatar problema (só o envio; a leitura é do Administrador)
+  ['POST', /^\/relatos$/],
 ];
 
 // Entrou pelo Keycloak e ainda não recebeu perfil: só a tela inicial (alertas e atualizações), que o próprio backend
@@ -81,6 +83,7 @@ const ROTAS_SEM_ACESSO: Array<[string, RegExp]> = [
   ['POST', /^\/avisos\/ler-todas$/],
   ['POST', new RegExp(`^/avisos/${ID}/ler$`)],
   ['GET', /^\/conversas(\/nao-lidas)?$/],
+  ['POST', /^\/relatos$/],
 ];
 
 function rotaPermitida(rotas: Array<[string, RegExp]>, metodo: string, caminho: string) {

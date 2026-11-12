@@ -651,3 +651,19 @@ export interface CotacaoOrcamento {
   arquivo: string;
   enviadoEm: string;
 }
+
+export type StatusRelato = 'ABERTO' | 'EM_ANALISE' | 'RESOLVIDO';
+
+export interface RelatoProblema {
+  id: string;
+  perfil: Perfil;
+  tela: string;
+  esperado: string | null;
+  aconteceu: string;
+  navegador: string | null;
+  anexos: string[];
+  status: StatusRelato;
+  criadoEm: string;
+  atualizadoEm: string;
+  usuario: { id: string; nome: string; email: string };
+}

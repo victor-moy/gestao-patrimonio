@@ -176,26 +176,26 @@ enum StatusNotificacao {
 
 model Usuario {
   cotacoesEnviadas CotacaoOrcamento[] @relation("CotacaoEnviadaPor")
-  ordensGeradas OrdemServico[] @relation("OrdemGeradaPor")
-  documentosOS DocumentoOS[] @relation("DocumentoEnviadoPor")
-  id          String            @id @default(uuid())
-  nome        String
-  email       String            @unique
-  matricula   String            @unique
+  ordensGeradas    OrdemServico[]     @relation("OrdemGeradaPor")
+  documentosOS     DocumentoOS[]      @relation("DocumentoEnviadoPor")
+  id               String             @id @default(uuid())
+  nome             String
+  email            String             @unique
+  matricula        String             @unique
   // Legado: ninguém entra por senha (o login é só pelo Keycloak); a coluna sai numa migração futura
-  senhaHash   String?           @map("senha_hash")
+  senhaHash        String?            @map("senha_hash")
   // Identificador fixo do usuário no Keycloak (claim `sub`), gravado no primeiro login
-  keycloakSub String?           @unique @map("keycloak_sub")
-  perfil      Perfil
-  ativo       Boolean           @default(true)
+  keycloakSub      String?            @unique @map("keycloak_sub")
+  perfil           Perfil
+  ativo            Boolean            @default(true)
   // Só para o perfil OPERADOR: o que ele pode fazer (catálogo em src/lib/permissoes.ts)
-  permissoes  String[]          @default([])
-  unidadeId   String?           @map("unidade_id")
-  unidade     Unidade?          @relation(fields: [unidadeId], references: [id])
+  permissoes       String[]           @default([])
+  unidadeId        String?            @map("unidade_id")
+  unidade          Unidade?           @relation(fields: [unidadeId], references: [id])
   // Só para o perfil TERCEIRIZADA: o prestador de serviço que o usuário representa
-  prestadorId String?           @map("prestador_id")
-  prestador   PrestadorServico? @relation(fields: [prestadorId], references: [id])
-  criadoEm    DateTime          @default(now()) @map("criado_em")
+  prestadorId      String?            @map("prestador_id")
+  prestador        PrestadorServico?  @relation(fields: [prestadorId], references: [id])
+  criadoEm         DateTime           @default(now()) @map("criado_em")
 
   movimentacoes          Movimentacao[]
   movimentacoesEstoque   MovimentacaoEstoque[] @relation("MovEstoqueUsuario")
@@ -208,10 +208,10 @@ model Usuario {
   leiturasConversa       LeituraConversa[]
   unidadesResponsavel    Unidade[]             @relation("UnidadeResponsavel")
   avisos                 AvisoUsuario[]
+  relatosProblema        RelatoProblema[]
+  problemasCriados       ManutencaoProblema[]  @relation("ProblemaCriadoPor")
 
   @@index([prestadorId])
-  problemasCriados ManutencaoProblema[] @relation("ProblemaCriadoPor")
-
   @@map("usuario")
 }
 
@@ -351,105 +351,105 @@ model Movimentacao {
 }
 
 model Manutencao {
-  id                           String                  @id @default(uuid())
+  id                           String               @id @default(uuid())
   // Número sequencial legível para referenciar a manutenção (MAN-0001)
-  numero                       Int                     @unique @default(autoincrement())
-  tipo                         TipoManutencao          @default(EQUIPAMENTO)
+  numero                       Int                  @unique @default(autoincrement())
+  tipo                         TipoManutencao       @default(EQUIPAMENTO)
   // Nulo na manutenção civil; Restrict preserva o histórico se o equipamento for excluído
-  equipamentoId                String?                 @map("equipamento_id")
-  equipamento                  Equipamento?            @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
+  equipamentoId                String?              @map("equipamento_id")
+  equipamento                  Equipamento?         @relation(fields: [equipamentoId], references: [id], onDelete: Restrict)
   // Civil: local afetado, tipo de problema e fotos (caminhos em /uploads/solicitacoes, protegidos)
-  localAfetado                 String?                 @map("local_afetado")
-  categoriaCivilId             String?                 @map("categoria_civil_id")
-  categoriaCivil               CategoriaCivil?         @relation(fields: [categoriaCivilId], references: [id], onDelete: Restrict)
+  localAfetado                 String?              @map("local_afetado")
+  categoriaCivilId             String?              @map("categoria_civil_id")
+  categoriaCivil               CategoriaCivil?      @relation(fields: [categoriaCivilId], references: [id], onDelete: Restrict)
   // Civil: respostas às perguntas da categoria e outros problemas da mesma categoria acrescentados ao chamado
   respostas                    RespostaChamado[]
   problemasExtras              ManutencaoProblema[]
   // Civil: a ordem de serviço (uma por chamado) com a execução e os documentos
   ordemServico                 OrdemServico?
   // Civil: orçamento prévio (3 cotações por rodada). A rodada sobe a cada pedido de novos orçamentos
-  instrucoesOrcamento          String?                 @map("instrucoes_orcamento")
-  rodadaOrcamento              Int                     @default(0) @map("rodada_orcamento")
-  motivoRejeicaoOrcamento      String?                 @map("motivo_rejeicao_orcamento")
-  cotacaoAprovadaId            String?                 @map("cotacao_aprovada_id")
+  instrucoesOrcamento          String?              @map("instrucoes_orcamento")
+  rodadaOrcamento              Int                  @default(0) @map("rodada_orcamento")
+  motivoRejeicaoOrcamento      String?              @map("motivo_rejeicao_orcamento")
+  cotacaoAprovadaId            String?              @map("cotacao_aprovada_id")
   // Risco à vida: segue ao prestador sem orçamento prévio, com a justificativa (a publicação é feita depois)
-  dispensaOrcamentoMotivo      String?                 @map("dispensa_orcamento_motivo")
+  dispensaOrcamentoMotivo      String?              @map("dispensa_orcamento_motivo")
   cotacoes                     CotacaoOrcamento[]
-  fotos                        String[]                @default([])
+  fotos                        String[]             @default([])
   // Avaliação técnica: parecer, orientações para a terceirizada e setor corrigido pelo avaliador
-  parecerTecnico               String?                 @map("parecer_tecnico")
+  parecerTecnico               String?              @map("parecer_tecnico")
   // O que a avaliação técnica pediu ao solicitante ao devolver o chamado à triagem (limpo ao aprovar de novo)
-  informacoesSolicitadas       String?                 @map("informacoes_solicitadas")
-  parecerVistoria              String?                 @map("parecer_vistoria")
-  orientacoesTerceirizada      String?                 @map("orientacoes_terceirizada")
+  informacoesSolicitadas       String?              @map("informacoes_solicitadas")
+  parecerVistoria              String?              @map("parecer_vistoria")
+  orientacoesTerceirizada      String?              @map("orientacoes_terceirizada")
   // Setores afetados (um ou mais); localAfetado guarda os nomes em texto para listas e buscas
   setores                      ManutencaoSetor[]
   // Encerramento na avaliação; duplicado/unificado apontam para o chamado que segue vivo
-  tipoEncerramento             TipoEncerramento?       @map("tipo_encerramento")
-  motivoEncerramento           String?                 @map("motivo_encerramento")
-  chamadoOriginalId            String?                 @map("chamado_original_id")
-  chamadoOriginal              Manutencao?             @relation("ChamadoOriginal", fields: [chamadoOriginalId], references: [id], onDelete: Restrict)
-  encerradosPorEste            Manutencao[]            @relation("ChamadoOriginal")
+  tipoEncerramento             TipoEncerramento?    @map("tipo_encerramento")
+  motivoEncerramento           String?              @map("motivo_encerramento")
+  chamadoOriginalId            String?              @map("chamado_original_id")
+  chamadoOriginal              Manutencao?          @relation("ChamadoOriginal", fields: [chamadoOriginalId], references: [id], onDelete: Restrict)
+  encerradosPorEste            Manutencao[]         @relation("ChamadoOriginal")
   // Civil: contestação da Unidade e autorização da medição
   // ("problema resolvido" é a confirmação da Unidade; a medição é autorizada pelo Administrador)
   // Civil: o que o Administrador pediu para ajustar na finalização informada pelo prestador
-  motivoAjuste                 String?                 @map("motivo_ajuste")
-  contestacaoUnidade           String?                 @map("contestacao_unidade")
-  conferidoMedicaoEm           DateTime?               @map("conferido_medicao_em")
-  conferidoMedicaoPorId        String?                 @map("conferido_medicao_por_id")
+  motivoAjuste                 String?              @map("motivo_ajuste")
+  contestacaoUnidade           String?              @map("contestacao_unidade")
+  conferidoMedicaoEm           DateTime?            @map("conferido_medicao_em")
+  conferidoMedicaoPorId        String?              @map("conferido_medicao_por_id")
   // Reencaminhamento: o atendimento pede para passar o chamado adiante (motivo em texto) e o Administrador
   // confirma. Ao decidir, o atendimento fecha como CONCLUIDA e nasce um novo chamado (reencaminhadoDe) ou uma baixa.
-  motivoReencaminhamento       String?                 @map("motivo_reencaminhamento")
-  reencaminhamentoSolicitadoEm DateTime?               @map("reencaminhamento_solicitado_em")
-  reencaminhamentoConfirmadoEm DateTime?               @map("reencaminhamento_confirmado_em")
+  motivoReencaminhamento       String?              @map("motivo_reencaminhamento")
+  reencaminhamentoSolicitadoEm DateTime?            @map("reencaminhamento_solicitado_em")
+  reencaminhamentoConfirmadoEm DateTime?            @map("reencaminhamento_confirmado_em")
   // Atendimento anterior da cadeia e raiz do caso (nulo = o próprio chamado é a raiz)
-  reencaminhadoDeId            String?                 @map("reencaminhado_de_id")
-  reencaminhadoDe              Manutencao?             @relation("Reencaminhamento", fields: [reencaminhadoDeId], references: [id], onDelete: Restrict)
-  reencaminhamentos            Manutencao[]            @relation("Reencaminhamento")
+  reencaminhadoDeId            String?              @map("reencaminhado_de_id")
+  reencaminhadoDe              Manutencao?          @relation("Reencaminhamento", fields: [reencaminhadoDeId], references: [id], onDelete: Restrict)
+  reencaminhamentos            Manutencao[]         @relation("Reencaminhamento")
   // Nasceu da contestação da Unidade: enquanto espera a triagem, o status é exibido como "Contestado"
-  abertoPorContestacao         Boolean                 @default(false) @map("aberto_por_contestacao")
-  casoId                       String?                 @map("caso_id")
-  caso                         Manutencao?             @relation("CasoRaiz", fields: [casoId], references: [id], onDelete: Restrict)
-  atendimentosDoCaso           Manutencao[]            @relation("CasoRaiz")
+  abertoPorContestacao         Boolean              @default(false) @map("aberto_por_contestacao")
+  casoId                       String?              @map("caso_id")
+  caso                         Manutencao?          @relation("CasoRaiz", fields: [casoId], references: [id], onDelete: Restrict)
+  atendimentosDoCaso           Manutencao[]         @relation("CasoRaiz")
   // Bloqueio: guarda o status de antes, o motivo e o tempo parado (o prazo/SLA, quando existir, desconta esse tempo)
-  statusAntesBloqueio          StatusManutencao?       @map("status_antes_bloqueio")
-  motivoBloqueio               String?                 @map("motivo_bloqueio")
-  bloqueadoEm                  DateTime?               @map("bloqueado_em")
-  tempoBloqueadoSegundos       Int                     @default(0) @map("tempo_bloqueado_segundos")
+  statusAntesBloqueio          StatusManutencao?    @map("status_antes_bloqueio")
+  motivoBloqueio               String?              @map("motivo_bloqueio")
+  bloqueadoEm                  DateTime?            @map("bloqueado_em")
+  tempoBloqueadoSegundos       Int                  @default(0) @map("tempo_bloqueado_segundos")
   // Civil: desde quando aguarda a confirmação da Unidade; passados 7 dias corridos sem resposta, resolve sozinho
-  aguardandoRetornoEm          DateTime?               @map("aguardando_retorno_em")
-  resolvidoAutomaticamenteEm   DateTime?               @map("resolvido_automaticamente_em")
-  unidadeId                    String                  @map("unidade_id")
-  unidade                      Unidade                 @relation(fields: [unidadeId], references: [id])
-  solicitanteId                String                  @map("solicitante_id")
-  solicitante                  Usuario                 @relation("ManutencaoSolicitante", fields: [solicitanteId], references: [id])
-  descricaoProblema            String                  @map("descricao_problema")
+  aguardandoRetornoEm          DateTime?            @map("aguardando_retorno_em")
+  resolvidoAutomaticamenteEm   DateTime?            @map("resolvido_automaticamente_em")
+  unidadeId                    String               @map("unidade_id")
+  unidade                      Unidade              @relation(fields: [unidadeId], references: [id])
+  solicitanteId                String               @map("solicitante_id")
+  solicitante                  Usuario              @relation("ManutencaoSolicitante", fields: [solicitanteId], references: [id])
+  descricaoProblema            String               @map("descricao_problema")
   // Nome dado por quem abre o pedido, para reconhecê-lo nas listas (opcional; sem ele vale o nome do equipamento)
-  titulo                       String?                 @db.VarChar(80)
+  titulo                       String?              @db.VarChar(80)
   // Legado: a abertura não pede mais justificativa; mantida para os chamados antigos
   justificativa                String?
-  status                       StatusManutencao        @default(PENDENTE_APROVACAO)
-  motivoNegacao                String?                 @map("motivo_negacao")
-  decididoPorId                String?                 @map("decidido_por_id")
-  decididoPor                  Usuario?                @relation("ManutencaoDecididaPor", fields: [decididoPorId], references: [id])
-  contratoId                   String?                 @map("contrato_id")
-  contrato                     Contrato?               @relation(fields: [contratoId], references: [id])
+  status                       StatusManutencao     @default(PENDENTE_APROVACAO)
+  motivoNegacao                String?              @map("motivo_negacao")
+  decididoPorId                String?              @map("decidido_por_id")
+  decididoPor                  Usuario?             @relation("ManutencaoDecididaPor", fields: [decididoPorId], references: [id])
+  contratoId                   String?              @map("contrato_id")
+  contrato                     Contrato?            @relation(fields: [contratoId], references: [id])
   // Item do contrato (serviço) que cobre esta manutenção; o contrato acima é o dele
-  contratoItemId               String?                 @map("contrato_item_id")
-  contratoItem                 ContratoItem?           @relation(fields: [contratoItemId], references: [id])
-  orcamentoValor               Decimal?                @map("orcamento_valor") @db.Decimal(12, 2)
-  orcamentoDescricao           String?                 @map("orcamento_descricao")
+  contratoItemId               String?              @map("contrato_item_id")
+  contratoItem                 ContratoItem?        @relation(fields: [contratoItemId], references: [id])
+  orcamentoValor               Decimal?             @map("orcamento_valor") @db.Decimal(12, 2)
+  orcamentoDescricao           String?              @map("orcamento_descricao")
   // Laudo de baixa (RF16)
-  laudoBaixa                   String?                 @map("laudo_baixa")
+  laudoBaixa                   String?              @map("laudo_baixa")
   // RN11: confirmação dupla de retorno
-  confirmadoUnidade            Boolean                 @default(false) @map("confirmado_unidade")
-  confirmadoGestor             Boolean                 @default(false) @map("confirmado_gestor")
-  estadoPosManutencao          EstadoConservacao?      @map("estado_pos_manutencao")
-  custoFinal                   Decimal?                @map("custo_final") @db.Decimal(12, 2)
-  dataEnvio                    DateTime?               @map("data_envio")
-  dataConclusao                DateTime?               @map("data_conclusao")
-  criadoEm                     DateTime                @default(now()) @map("criado_em")
-  atualizadoEm                 DateTime                @updatedAt @map("atualizado_em")
+  confirmadoUnidade            Boolean              @default(false) @map("confirmado_unidade")
+  confirmadoGestor             Boolean              @default(false) @map("confirmado_gestor")
+  estadoPosManutencao          EstadoConservacao?   @map("estado_pos_manutencao")
+  custoFinal                   Decimal?             @map("custo_final") @db.Decimal(12, 2)
+  dataEnvio                    DateTime?            @map("data_envio")
+  dataConclusao                DateTime?            @map("data_conclusao")
+  criadoEm                     DateTime             @default(now()) @map("criado_em")
+  atualizadoEm                 DateTime             @updatedAt @map("atualizado_em")
 
   mensagens           MensagemChat[]
   leituras            LeituraConversa[]
@@ -821,11 +821,11 @@ model AvisoUsuario {
 
 // Categoria do chamado civil, cadastrada pelo Administrador (antes era uma lista fixa no código)
 model CategoriaCivil {
-  id          String               @id @default(uuid())
-  nome        String               @unique
-  ativo       Boolean              @default(true)
-  ordem       Int                  @default(0)
-  criadoEm    DateTime             @default(now()) @map("criado_em")
+  id          String              @id @default(uuid())
+  nome        String              @unique
+  ativo       Boolean             @default(true)
+  ordem       Int                 @default(0)
+  criadoEm    DateTime            @default(now()) @map("criado_em")
   perguntas   PerguntaCategoria[]
   manutencoes Manutencao[]
 
@@ -852,14 +852,14 @@ model PerguntaCategoria {
 
 // Resposta dada na abertura. Guarda o texto da pergunta como estava na época (a pergunta pode mudar depois)
 model RespostaChamado {
-  id           String             @id @default(uuid())
-  manutencaoId String             @map("manutencao_id")
-  manutencao   Manutencao         @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
-  perguntaId   String?            @map("pergunta_id")
-  pergunta     PerguntaCategoria? @relation(fields: [perguntaId], references: [id], onDelete: SetNull)
-  perguntaTexto String            @map("pergunta_texto")
-  resposta     String
-  ordem        Int                @default(0)
+  id            String             @id @default(uuid())
+  manutencaoId  String             @map("manutencao_id")
+  manutencao    Manutencao         @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+  perguntaId    String?            @map("pergunta_id")
+  pergunta      PerguntaCategoria? @relation(fields: [perguntaId], references: [id], onDelete: SetNull)
+  perguntaTexto String             @map("pergunta_texto")
+  resposta      String
+  ordem         Int                @default(0)
 
   @@index([manutencaoId])
   @@map("resposta_chamado")
@@ -867,14 +867,14 @@ model RespostaChamado {
 
 // Outro problema da mesma categoria, acrescentado a um chamado civil (o primeiro fica nos campos do próprio chamado)
 model ManutencaoProblema {
-  id           String      @id @default(uuid())
-  manutencaoId String      @map("manutencao_id")
-  manutencao   Manutencao  @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+  id           String     @id @default(uuid())
+  manutencaoId String     @map("manutencao_id")
+  manutencao   Manutencao @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
   descricao    String
-  fotos        String[]    @default([])
-  criadoPorId  String      @map("criado_por_id")
-  criadoPor    Usuario     @relation("ProblemaCriadoPor", fields: [criadoPorId], references: [id])
-  criadoEm     DateTime    @default(now()) @map("criado_em")
+  fotos        String[]   @default([])
+  criadoPorId  String     @map("criado_por_id")
+  criadoPor    Usuario    @relation("ProblemaCriadoPor", fields: [criadoPorId], references: [id])
+  criadoEm     DateTime   @default(now()) @map("criado_em")
 
   @@index([manutencaoId])
   @@map("manutencao_problema")
@@ -893,24 +893,24 @@ enum TipoDocumentoOS {
 // Ordem de serviço do chamado civil, uma por chamado. A assinatura é em papel: o sistema guarda o que foi planejado,
 // o que aconteceu e os documentos enviados depois.
 model OrdemServico {
-  id                String             @id @default(uuid())
+  id                 String             @id @default(uuid())
   // Número sequencial legível (OS-0001), gerado pelo banco, imutável
-  numero            Int                @unique @default(autoincrement())
-  manutencaoId      String             @unique @map("manutencao_id")
-  manutencao        Manutencao         @relation(fields: [manutencaoId], references: [id], onDelete: Restrict)
-  equipe            String
-  dataPrevista      DateTime           @map("data_prevista") @db.Date
-  escopo            String
-  geradaPorId       String             @map("gerada_por_id")
-  geradaPor         Usuario            @relation("OrdemGeradaPor", fields: [geradaPorId], references: [id])
-  geradaEm          DateTime           @default(now()) @map("gerada_em")
+  numero             Int                @unique @default(autoincrement())
+  manutencaoId       String             @unique @map("manutencao_id")
+  manutencao         Manutencao         @relation(fields: [manutencaoId], references: [id], onDelete: Restrict)
+  equipe             String
+  dataPrevista       DateTime           @map("data_prevista") @db.Date
+  escopo             String
+  geradaPorId        String             @map("gerada_por_id")
+  geradaPor          Usuario            @relation("OrdemGeradaPor", fields: [geradaPorId], references: [id])
+  geradaEm           DateTime           @default(now()) @map("gerada_em")
   // Execução (preenchida quando o prestador marca "Executado")
-  entradaEm         DateTime?          @map("entrada_em")
-  saidaEm           DateTime?          @map("saida_em")
-  resultado         ResultadoExecucao?
-  observacaoExecucao String?           @map("observacao_execucao")
-  executadaEm       DateTime?          @map("executada_em")
-  documentos        DocumentoOS[]
+  entradaEm          DateTime?          @map("entrada_em")
+  saidaEm            DateTime?          @map("saida_em")
+  resultado          ResultadoExecucao?
+  observacaoExecucao String?            @map("observacao_execucao")
+  executadaEm        DateTime?          @map("executada_em")
+  documentos         DocumentoOS[]
 
   @@map("ordem_servico")
 }
@@ -951,4 +951,33 @@ model CotacaoOrcamento {
   @@index([manutencaoId, rodada])
   @@index([arquivo])
   @@map("cotacao_orcamento")
+}
+
+enum StatusRelato {
+  ABERTO
+  EM_ANALISE
+  RESOLVIDO
+}
+
+// Relato de problema enviado por quem está testando/usando o sistema (item "Reportar bug" do menu do usuário).
+// Guarda o contexto automático (tela, perfil, navegador) para o time reproduzir o erro sem perguntar de novo.
+model RelatoProblema {
+  id           String       @id @default(uuid())
+  usuarioId    String       @map("usuario_id")
+  usuario      Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  // Perfil no momento do envio (o perfil do usuário pode mudar depois)
+  perfil       Perfil
+  tela         String
+  esperado     String?
+  aconteceu    String
+  navegador    String?
+  // Prints e PDFs enviados junto (caminhos em /uploads/relatos, protegidos por autorização)
+  anexos       String[]     @default([])
+  status       StatusRelato @default(ABERTO)
+  criadoEm     DateTime     @default(now()) @map("criado_em")
+  atualizadoEm DateTime     @updatedAt @map("atualizado_em")
+
+  @@index([status, criadoEm])
+  @@index([usuarioId])
+  @@map("relato_problema")
 }

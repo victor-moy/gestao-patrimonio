@@ -109,12 +109,14 @@
   left: auto;
   width: 200px;
 }
-.app-shell--gestao .topbar-user .user-menu button {
+.app-shell--gestao .topbar-user .user-menu button,
+.app-shell--gestao .topbar-user .user-menu a {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.app-shell--gestao .topbar-user .user-menu button svg {
+.app-shell--gestao .topbar-user .user-menu button svg,
+.app-shell--gestao .topbar-user .user-menu a svg {
   width: 16px;
   height: 16px;
   color: #616161;
@@ -1418,3 +1420,37 @@ div.multi-selecao label.multi-selecao-opcao input:focus-visible { outline: 2px s
 .equipamento-dados > .os-documento > dd.os-documento-acoes.solicitacao-acoes { grid-column: 1 / -1; grid-row: auto; margin-top: 8px; }
 .equipamento-dados dd .btn-link { padding: 0; color: var(--accent); font-size: inherit; font-weight: 550; }
 .equipamento-dados dd .dado-apoio + .dado-apoio { margin-top: 0; }
+
+/* Reportar bug: dados do detalhe e anexos */
+.equipamento-dados dd { overflow-wrap: anywhere; }
+.relato-largura-total { grid-column: 1 / -1; }
+.equipamento-dados .relato-texto { font-weight: 400; line-height: 1.6; white-space: pre-wrap; }
+.equipamento-dados .relato-navegador { color: var(--text-secondary); font-size: 12px; font-weight: 400; }
+.anexos-bug { display: grid; gap: 10px; }
+.anexos-bug-lista { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.anexos-bug-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px 0 6px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.anexos-bug-miniatura {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--surface-subtle);
+}
+.anexos-bug-pdf { color: var(--text-secondary); font-size: 8px; font-weight: 600; }
+.anexos-bug-tamanho { flex: 0 0 auto; color: var(--text-secondary); font-size: 11px; }
+.anexos-bug-remover { padding: 0 2px; border: 0; background: none; color: var(--text-secondary); font-size: 11px; cursor: pointer; }
+.anexos-bug-remover:hover { color: var(--text); text-decoration: underline; }
+.anexos-bug .btn.anexos-bug-botao { min-height: 32px; padding: 6px 12px; font-size: 12px; font-weight: 600; }
+.relato-anexo-pdf { display: inline-flex; align-items: center; gap: 10px; height: 34px; padding: 0 14px 0 6px; border: 1px solid var(--border); border-radius: 8px; }
+.relato-anexo-pdf .btn-link { font-size: 12px; font-weight: 600; }
