@@ -188,6 +188,8 @@ model Usuario {
   keycloakSub      String?            @unique @map("keycloak_sub")
   perfil           Perfil
   ativo            Boolean            @default(true)
+  // Conta de teste: só estas aparecem no "Entrar como" (e só nelas se pode entrar). Marcada em Configurações › Usuários.
+  usuarioTeste     Boolean            @default(false) @map("usuario_teste")
   // Só para o perfil OPERADOR: o que ele pode fazer (catálogo em src/lib/permissoes.ts)
   permissoes       String[]           @default([])
   unidadeId        String?            @map("unidade_id")

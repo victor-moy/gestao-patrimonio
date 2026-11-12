@@ -48,6 +48,25 @@ describe('Usuários (RF02)', () => {
     expect(prismaMock.usuario.create.mock.calls[0][0].data).not.toHaveProperty('senhaHash');
   });
 
+  it('o usuário de teste nasce desmarcado e pode ser marcado no cadastro e na edição, com auditoria', async () => {
+    mockUsuarioFindFirst(prismaMock.usuario.findFirst);
+    prismaMock.usuario.create.mockResolvedValue({ id: 'u-novo' } as never);
+    await request(app).post('/usuarios').set(auth('OPERADOR')).send({ email: 'a@joinville.sc.gov.br', perfil: 'OPERADOR' });
+    expect(prismaMock.usuario.create.mock.calls[0][0].data).toMatchObject({ usuarioTeste: false });
+    await request(app).post('/usuarios').set(auth('OPERADOR')).send({ email: 'b@joinville.sc.gov.br', perfil: 'OPERADOR', usuarioTeste: true });
+    expect(prismaMock.usuario.create.mock.calls[1][0].data).toMatchObject({ usuarioTeste: true });
+
+    mockUsuarioFindFirst(prismaMock.usuario.findFirst);
+    prismaMock.usuario.findUnique.mockResolvedValue({ id: 'u-1', perfil: 'UNIDADE', ativo: true, usuarioTeste: false, permissoes: [], prestadorId: null, unidadeId: UUID } as never);
+    prismaMock.unidade.findFirst.mockResolvedValue(null);
+    prismaMock.usuario.update.mockResolvedValue({ id: 'u-1', usuarioTeste: true } as never);
+    const res = await request(app).patch('/usuarios/u-1').set(auth('OPERADOR')).send({ usuarioTeste: true });
+    expect(res.status).toBe(200);
+    expect(prismaMock.usuario.update.mock.calls[0][0].data).toMatchObject({ usuarioTeste: true });
+    expect(prismaMock.logAuditoria.create).toHaveBeenCalled();
+    expect((await request(app).patch('/usuarios/u-1').set(auth('OPERADOR')).send({ usuarioTeste: 'sim' })).status).toBe(422);
+  });
+
   it('exige unidade para perfis UNIDADE e GALPAO', async () => {
     mockUsuarioFindFirst(prismaMock.usuario.findFirst);
     const res = await request(app)

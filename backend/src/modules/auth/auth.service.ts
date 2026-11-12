@@ -119,14 +119,17 @@ async function criarUsuarioSemAcesso(
   return usuario;
 }
 
-// "Entrar como": qualquer usuário autenticado pode assumir qualquer usuário ativo. Decisão temporária, válida
-// enquanto o sistema só tem dados de teste; remova antes de entrar com dados reais (ver AGENTS.md).
+// "Entrar como": qualquer usuário autenticado pode assumir um usuário ativo marcado como "usuário de teste"
+// (Configurações › Usuários). Decisão temporária, válida enquanto o sistema só tem dados de teste; remova ou
+// restrinja ao Administrador antes de entrar com dados reais (ver AGENTS.md).
 
 // Lista enxuta (sem e-mail nem matrícula) dos usuários ativos em que o ator pode entrar, para o menu do usuário.
 // O próprio ator entra na lista (`proprio`), primeiro, para quem está dentro de outro usuário poder voltar à sua conta.
 export async function listarImpersonaveis(ator: AuthPayload) {
+  const idDoAtor = ator.impersonadoPor?.id ?? ator.sub;
   const usuarios = await prisma.usuario.findMany({
-    where: { ativo: true },
+    // Só as contas de teste, mais a do próprio ator (para quem está dentro de outro usuário poder voltar)
+    where: { ativo: true, OR: [{ usuarioTeste: true }, { id: idDoAtor }] },
     select: {
       id: true,
       nome: true,
@@ -138,7 +141,7 @@ export async function listarImpersonaveis(ator: AuthPayload) {
   });
   const lista = usuarios.map(({ unidade, prestador, ...u }) => ({
     ...u,
-    proprio: u.id === (ator.impersonadoPor?.id ?? ator.sub),
+    proprio: u.id === idDoAtor,
     unidadeNome: unidade?.nome ?? null,
     prestadorNome: prestador?.nome ?? null,
   }));
@@ -161,5 +164,9 @@ export async function impersonar(usuarioId: string, ator: AuthPayload) {
     perfil: ator.perfil,
   };
   if (usuario.id === original.id) return gerarSessao(usuario);
+  // Só se entra em conta marcada como de teste (a lista já esconde as outras; aqui vale para chamadas diretas)
+  if (!usuario.usuarioTeste) {
+    throw new AppError('Este usuário não é de teste: só é possível entrar como usuários de teste.', 403);
+  }
   return gerarSessao(usuario, original);
 }

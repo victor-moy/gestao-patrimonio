@@ -70,6 +70,11 @@ export function Usuarios() {
                   >
                     {u.nome}
                   </Link>
+                  {u.usuarioTeste && (
+                    <span className="usuario-selo-teste">
+                      <StatusPill valor="USUARIO_TESTE">Teste</StatusPill>
+                    </span>
+                  )}
                 </div>
                 <div className="cadastro-sub">{u.email}</div>
               </>

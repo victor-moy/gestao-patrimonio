@@ -18,6 +18,8 @@ export interface Usuario {
   // Só no perfil OPERADOR: o que ele pode fazer
   permissoes?: string[];
   ativo?: boolean;
+  // Conta de teste: só estas aparecem no "Entrar como"
+  usuarioTeste?: boolean;
 }
 
 export type TipoUnidade =

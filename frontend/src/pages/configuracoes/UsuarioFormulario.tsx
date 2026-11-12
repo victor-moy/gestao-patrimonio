@@ -19,7 +19,7 @@ const GRUPOS_NA_TELA: Array<{ grupo: string; permissoes: ReadonlyArray<{ id: str
 ];
 import type { UsuarioLista } from './Usuarios';
 
-const VAZIO = { nome: '', email: '', matricula: '', perfil: '', unidadeId: '', prestadorId: '', ativo: true, permissoes: [] as string[] };
+const VAZIO = { nome: '', email: '', matricula: '', perfil: '', unidadeId: '', prestadorId: '', ativo: true, usuarioTeste: false, permissoes: [] as string[] };
 
 export function UsuarioFormulario() {
   const { id } = useParams();
@@ -62,6 +62,7 @@ export function UsuarioFormulario() {
       unidadeId: encontrado.unidadeId ?? '',
       prestadorId: encontrado.prestadorId ?? '',
       ativo: encontrado.ativo,
+      usuarioTeste: encontrado.usuarioTeste ?? false,
       permissoes: IDS_PERMISSOES.filter((p) => encontrado.permissoes?.includes(p)),
     };
     setUsuario(encontrado);
@@ -87,6 +88,7 @@ export function UsuarioFormulario() {
           unidadeId: form.unidadeId || null,
           prestadorId: form.perfil === 'TERCEIRIZADA' ? form.prestadorId || null : null,
           ativo: form.ativo,
+          usuarioTeste: form.usuarioTeste,
           ...(form.perfil === 'OPERADOR' ? { permissoes: form.permissoes } : {}),
         });
       } else {
@@ -96,6 +98,7 @@ export function UsuarioFormulario() {
           perfil: form.perfil,
           unidadeId: form.perfil === 'UNIDADE' || form.perfil === 'GALPAO' ? form.unidadeId || null : null,
           prestadorId: form.perfil === 'TERCEIRIZADA' ? form.prestadorId || null : null,
+          usuarioTeste: form.usuarioTeste,
           ...(form.perfil === 'OPERADOR' ? { permissoes: form.permissoes } : {}),
         });
       }
@@ -235,6 +238,17 @@ export function UsuarioFormulario() {
               </select>
             </div>
           )}
+          <div className="novo-equipamento-largura-total">
+            <label className="permissoes-opcao">
+              <input
+                type="checkbox"
+                checked={form.usuarioTeste}
+                onChange={(e) => setForm({ ...form, usuarioTeste: e.target.checked })}
+                disabled={bloqueado}
+              />
+              Usuário de teste
+            </label>
+          </div>
         </div>
       </section>
       {form.perfil === 'OPERADOR' && (
