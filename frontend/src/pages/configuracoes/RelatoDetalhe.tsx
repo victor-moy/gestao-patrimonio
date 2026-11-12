@@ -33,7 +33,7 @@ export function RelatoDetalhe() {
     setEnviando(true);
     try {
       await api.patch(`/relatos/${id}/status`, { status });
-      navigate('/configuracoes/relatos');
+      void navigate('/configuracoes/relatos');
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Não foi possível salvar o status.');
     } finally {
@@ -46,7 +46,7 @@ export function RelatoDetalhe() {
       id="relato-detalhe"
       titulo="Bug reportado"
       formId="form-relato-detalhe"
-      onCancelar={() => navigate('/configuracoes/relatos')}
+      onCancelar={() => void navigate('/configuracoes/relatos')}
       onEnviar={aoEnviar}
       desabilitarSalvar={!relato || status === relato.status}
       enviando={enviando}

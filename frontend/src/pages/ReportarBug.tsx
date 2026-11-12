@@ -48,7 +48,7 @@ export function ReportarBug() {
       anexos.forEach((arquivo) => dados.append('anexos', arquivo));
       await api.post('/relatos', dados);
       // Volta para onde a pessoa estava antes de reportar
-      navigate(tela);
+      void navigate(tela);
     } catch (err) {
       setErro(err instanceof Error ? err.message : 'Não foi possível enviar o relato.');
     } finally {
@@ -62,7 +62,7 @@ export function ReportarBug() {
       titulo="Reportar bug"
       formId="form-relato"
       rotuloSalvar="Enviar"
-      onCancelar={() => navigate(tela)}
+      onCancelar={() => void navigate(tela)}
       onEnviar={aoEnviar}
       desabilitarSalvar={aconteceu.trim().length < 5}
       enviando={enviando}
