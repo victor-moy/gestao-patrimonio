@@ -34,6 +34,9 @@ import { ServicosContrato } from './pages/configuracoes/ServicosContrato';
 import { ServicoContratoFormulario } from './pages/configuracoes/ServicoContratoFormulario';
 import { EscoposServico } from './pages/configuracoes/EscoposServico';
 import { EscopoServicoFormulario } from './pages/configuracoes/EscopoServicoFormulario';
+import { ReportarBug } from './pages/ReportarBug';
+import { Relatos } from './pages/configuracoes/Relatos';
+import { RelatoDetalhe } from './pages/configuracoes/RelatoDetalhe';
 import { Atendimento } from './pages/configuracoes/Atendimento';
 import { Tipos } from './pages/configuracoes/Tipos';
 import { TipoFormulario } from './pages/configuracoes/TipoFormulario';
@@ -85,6 +88,7 @@ function RotasProtegidas() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Inicio />} />
+          <Route path="/reportar-bug" element={<ReportarBug />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
@@ -135,6 +139,9 @@ function RotasProtegidas() {
           <Route path="/configuracoes/itens/tipos" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><Tipos /></Restrita>} />
           <Route path="/configuracoes/itens/tipos/novo" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><TipoFormulario /></Restrita>} />
           <Route path="/configuracoes/itens/tipos/:id" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><TipoFormulario /></Restrita>} />
+          <Route path="/reportar-bug" element={<ReportarBug />} />
+          <Route path="/configuracoes/relatos" element={<Restrita permissoes={['USUARIOS_ADMINISTRAR']}><Relatos /></Restrita>} />
+          <Route path="/configuracoes/relatos/:id" element={<Restrita permissoes={['USUARIOS_ADMINISTRAR']}><RelatoDetalhe /></Restrita>} />
           <Route path="/conversas" element={<Conversas />} />
           <Route path="/conversas/:contexto/:id" element={<ConversaPagina />} />
           <Route path="/atas" element={<RotaRestrita perfis={['OPERADOR']} permissoes={['ATAS_GERENCIAR']}><Atas /></RotaRestrita>} />

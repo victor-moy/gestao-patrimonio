@@ -11,10 +11,12 @@ const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
 export const TIPOS_DIR = path.join(UPLOADS_DIR, 'tipos');
 export const FOTOS_DIR = path.join(UPLOADS_DIR, 'solicitacoes');
 export const LAUDOS_DIR = path.join(UPLOADS_DIR, 'laudos');
+export const RELATOS_DIR = path.join(UPLOADS_DIR, 'relatos');
 
 fs.mkdirSync(TIPOS_DIR, { recursive: true });
 fs.mkdirSync(FOTOS_DIR, { recursive: true });
 fs.mkdirSync(LAUDOS_DIR, { recursive: true });
+fs.mkdirSync(RELATOS_DIR, { recursive: true });
 
 const EXTENSOES_IMAGEM: Record<string, string> = {
   'image/jpeg': '.jpg',
@@ -80,6 +82,23 @@ export const uploadFotosCivil = multer({
   fileFilter: (_req, file, cb) => {
     if (!EXTENSOES_IMAGEM[file.mimetype]) {
       cb(new AppError('Formato de imagem não suportado. Use JPEG, PNG ou WebP.', 422));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+// Anexos do relato de problema (prints e PDFs). O total por envio fica abaixo do limite do Nginx (10 MB).
+export const MAX_ANEXOS_RELATO = 3;
+export const uploadAnexosRelato = multer({
+  storage: multer.diskStorage({
+    destination: RELATOS_DIR,
+    filename: (_req, file, cb) => cb(null, `${crypto.randomUUID()}${EXTENSOES_ANEXO[file.mimetype] ?? '.pdf'}`),
+  }),
+  limits: { fileSize: 3 * 1024 * 1024, files: MAX_ANEXOS_RELATO },
+  fileFilter: (_req, file, cb) => {
+    if (!EXTENSOES_ANEXO[file.mimetype]) {
+      cb(new AppError('Formato não suportado. Use PDF, JPEG, PNG ou WebP.', 422));
       return;
     }
     cb(null, true);

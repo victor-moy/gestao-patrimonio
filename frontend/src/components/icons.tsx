@@ -94,6 +94,14 @@ export const IconeLogout = () => (
   </Icone>
 );
 
+export const IconeBug = () => (
+  <Icone width="16" height="16">
+    <path d="M9 7V6a3 3 0 0 1 6 0v1" />
+    <path d="M7 10a5 5 0 0 1 10 0v4a5 5 0 0 1-10 0z" />
+    <path d="M12 10v9M7 13H3M17 13h4M7.5 8L5 6M16.5 8L19 6M7.5 17.5L5 20M16.5 17.5L19 20" />
+  </Icone>
+);
+
 export const IconeChevron = () => (
   <Icone width="16" height="16">
     <path d="M6 9l6 6 6-6" />

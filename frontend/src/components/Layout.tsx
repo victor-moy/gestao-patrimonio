@@ -11,7 +11,9 @@ import { caminhoRelatorio, SUBMENUS_RELATORIOS } from '../utils/relatorios';
 import { EntrarComoMenu } from './EntrarComoMenu';
 import { ContagemNaoLidas } from './ContagemNaoLidas';
 import { LogoSistema } from './LogoSistema';
+import { caminhoRelato } from '../utils/relato';
 import {
+  IconeBug,
   IconeChevron,
   IconeAtas,
   IconeConfiguracoes,
@@ -96,6 +98,7 @@ const SECOES_CONFIGURACOES: SecaoConfiguracoes[] = [
     ],
   },
   { para: '/configuracoes/atendimento', rotulo: 'Atendimento', icone: <IconeConversas />, permissoes: ['CONFIGURACOES_GERENCIAR'] },
+  { para: '/configuracoes/relatos', rotulo: 'Bugs reportados', icone: <IconeSolicitacoes />, permissoes: ['USUARIOS_ADMINISTRAR'] },
 ];
 
 export function Layout() {
@@ -135,6 +138,8 @@ export function Layout() {
           ? 'Configurações'
         : location.pathname.startsWith('/conversas')
           ? 'Conversas'
+        : location.pathname.startsWith('/reportar-bug')
+          ? 'Reportar bug'
         : null;
 
   const fecharSidebar = () => setSidebarAberta(false);
@@ -324,6 +329,10 @@ export function Layout() {
               {menuAberto && (
                 <div className={`user-menu${podeTrocarUsuario ? ' user-menu--larga' : ''}`}>
                   {podeTrocarUsuario && <EntrarComoMenu aoEntrar={() => setMenuAberto(false)} />}
+                  {/* Já na própria página do bug, o link mantém a tela de origem em vez de apontar para si mesmo */}
+                  <Link to={caminhoRelato(location.pathname, location.search)} onClick={() => setMenuAberto(false)}>
+                    <IconeBug /> Reportar bug
+                  </Link>
                   <button type="button" onClick={sair}><IconeLogout /> Sair</button>
                 </div>
               )}

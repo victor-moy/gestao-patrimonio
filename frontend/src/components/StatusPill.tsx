@@ -58,6 +58,10 @@ const CORES: Record<string, 'green' | 'blue' | 'yellow' | 'red' | 'gray'> = {
   OK: 'green',
   BAIXO: 'yellow',
   ESGOTADO: 'red',
+  // Relatos de problema (ABERTO e EM_ANALISE: alguém precisa agir; RESOLVIDO: pronto)
+  ABERTO: 'yellow',
+  EM_ANALISE: 'blue',
+  RESOLVIDO: 'green',
   // Cadastros e empréstimos
   INATIVO: 'gray',
   ATRASADO: 'red',
