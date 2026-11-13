@@ -24,11 +24,11 @@ const limiteImpersonacao = limitarFrequencia({
 });
 const passa = (_req: unknown, _res: unknown, next: () => void) => next();
 
-// Falha em qualquer etapa do login institucional: o motivo fica no log do servidor e o navegador volta à tela de
-// login, sem detalhes na tela.
-function voltarAoLogin(res: Response, erro: unknown) {
+// Falha em qualquer etapa do login institucional: o motivo fica no log do servidor e o navegador volta ao sistema
+// com o aviso de erro, sem detalhes na tela.
+function voltarAoLogin(res: Response, erro: unknown, destino: string = oidc.urlErroDeLogin()) {
   console.warn('Falha no login institucional:', erro instanceof Error ? erro.message : erro);
-  res.redirect(oidc.urlTelaDeLogin());
+  res.redirect(destino);
 }
 
 function lerCookie(cabecalho: string | undefined, nome: string) {
@@ -71,7 +71,8 @@ authRouter.get('/oidc/logout', async (_req, res) => {
   try {
     res.redirect(await oidc.urlDeLogout());
   } catch (erro) {
-    voltarAoLogin(res, erro);
+    // Falhou ao sair: volta ao sistema sem aviso de "erro de login"
+    voltarAoLogin(res, erro, oidc.urlTelaDeLogin());
   }
 });
 

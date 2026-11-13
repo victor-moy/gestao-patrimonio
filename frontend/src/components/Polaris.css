@@ -968,7 +968,7 @@
 @media (prefers-reduced-motion: reduce) { .barra-carregamento::before { width: 100%; animation: none; opacity: .6; } }
 
 /* Tela inicial enquanto a sessão é verificada */
-.tela-carregando { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 100dvh; color: var(--text-secondary); font-size: 13px; }
+.tela-carregando { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; min-height: 100dvh; padding: 0 24px; text-align: center; color: var(--text-secondary); font-size: 13px; }
 .spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--text-secondary); border-radius: 50%; animation: girar .7s linear infinite; }
 @keyframes girar{ to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 1.6s; } }
@@ -1000,12 +1000,10 @@
 .gestao-lista tbody tr:nth-child(n+6) { animation-delay: .15s; }
 @media (prefers-reduced-motion: reduce) { .gestao-lista tbody tr { animation: none; } }
 
-/* Saída: o app some com um fade e a tela de login também entra suavemente */
+/* Saída: o app some com um fade antes de ir ao Keycloak */
 @keyframes app-saida{ from { opacity: 1; } to { opacity: 0; } }
 .app-shell.app-shell--saindo { animation: app-saida .35s ease forwards; pointer-events: none; }
-.login-page { animation: app-entrada .5s ease both; }
-@media (prefers-reduced-motion: reduce) { .app-shell.app-shell--saindo,
-.login-page { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .app-shell.app-shell--saindo { animation: none; } }
 
 /* "Não encontrou o item?" */
 .item-ausente { margin: 10px 0 0; color: var(--text-secondary); font-size: 12px; }
@@ -1458,3 +1456,6 @@ div.multi-selecao label.multi-selecao-opcao input:focus-visible { outline: 2px s
 /* Selo "Teste" da lista de usuários: versão reduzida do selo de status */
 .usuario-selo-teste .inventario-status { gap: 5px; padding: 2px 7px; font-size: 10px; }
 .usuario-selo-teste .inventario-status > span { width: 5px; height: 5px; }
+
+.tela-carregando-linha { display: inline-flex; align-items: center; gap: 10px; }
+.tela-carregando-mensagem { margin: 0; }

@@ -1,19 +1,54 @@
-import { render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from '../App';
 import { setToken } from '../api/client';
 import { mockFetch } from './mock-fetch';
+import { irParaLoginInstitucional } from '../utils/navegacao';
+
+vi.mock('../utils/navegacao', () => ({
+  recarregarNoInicio: vi.fn(),
+  encerrarSessaoInstitucional: vi.fn(),
+  irParaLoginInstitucional: vi.fn(),
+}));
 
 describe('Login institucional (Keycloak)', () => {
   afterEach(() => {
     setToken(null);
     window.history.replaceState(null, '', '/');
+    vi.mocked(irParaLoginInstitucional).mockClear();
   });
 
-  it('oferece o login institucional como caminho principal', () => {
+  it('sem sessão não há tela de login: mostra só o carregando e segue direto ao Keycloak', async () => {
     mockFetch({});
     render(<App />);
-    expect(screen.getByRole('link', { name: 'Entrar' })).toHaveAttribute('href', '/api/auth/oidc/login');
+    expect(screen.queryByRole('link', { name: 'Entrar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Gestão Patrimonial' })).not.toBeInTheDocument();
+    await waitFor(() => expect(irParaLoginInstitucional).toHaveBeenCalledWith('/api'));
+    expect(screen.getByRole('status')).toHaveTextContent('Carregando');
+  });
+
+  it('se o login falhou, mostra o erro com "Tentar novamente" e não redireciona sozinho (sem ciclo)', async () => {
+    window.history.replaceState(null, '', '/?erro=login');
+    mockFetch({});
+    render(<App />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível entrar');
+    expect(screen.getByRole('link', { name: 'Tentar novamente' })).toHaveAttribute('href', '/api/auth/oidc/login');
+    expect(irParaLoginInstitucional).not.toHaveBeenCalled();
+  });
+
+  it('token vencido (401) leva a um novo login; erro do servidor mostra a falha em vez de repetir o login', async () => {
+    localStorage.setItem('sgp_token', 'vencido');
+    mockFetch({ '/auth/me': { status: 401, body: { mensagem: 'Sessão expirada' } } });
+    const primeira = render(<App />);
+    await waitFor(() => expect(irParaLoginInstitucional).toHaveBeenCalledWith('/api'));
+    primeira.unmount();
+
+    vi.mocked(irParaLoginInstitucional).mockClear();
+    localStorage.setItem('sgp_token', 'valido');
+    mockFetch({ '/auth/me': { status: 500, body: { mensagem: 'Erro interno' } } });
+    render(<App />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível entrar');
+    expect(irParaLoginInstitucional).not.toHaveBeenCalled();
   });
 
   it('guarda o token do fragmento ao voltar do Keycloak e limpa o endereço', async () => {
@@ -32,11 +67,11 @@ describe('Login institucional (Keycloak)', () => {
     expect(window.location.hash).toBe('');
   });
 
-  it('voltar ao login sem token em /login/retorno limpa o endereço e mostra a mesma tela de sempre', async () => {
+  it('voltar ao login sem token em /login/retorno limpa o endereço e segue ao Keycloak de novo', async () => {
     window.history.replaceState(null, '', '/login/retorno');
     mockFetch({});
     render(<App />);
-    expect(await screen.findByRole('link', { name: 'Entrar' })).toBeInTheDocument();
+    await waitFor(() => expect(irParaLoginInstitucional).toHaveBeenCalled());
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(window.location.pathname).toBe('/');
     expect(localStorage.getItem('sgp_token')).toBeNull();
@@ -62,17 +97,5 @@ describe('Login institucional (Keycloak)', () => {
     for (const name of ['Inventário', 'Solicitações', 'Estoque', 'Atas', 'Contratos', 'Relatórios', 'Conversas', 'Configurações']) {
       expect(screen.queryByRole('link', { name })).not.toBeInTheDocument();
     }
-  });
-});
-
-describe('Tela de login (RF01)', () => {
-  it('só oferece a conta institucional: sem campos de e-mail e senha', () => {
-    mockFetch({});
-    render(<App />);
-    expect(screen.getByRole('heading', { name: 'Gestão Patrimonial' })).toBeInTheDocument();
-    expect(screen.queryByLabelText('E-mail')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument();
-    expect(screen.queryByText(/contingência/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/em caso de dificuldade/i)).toBeInTheDocument();
   });
 });

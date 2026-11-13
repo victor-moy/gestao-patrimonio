@@ -27,7 +27,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-sgp}:${POSTGRES_PASSWORD:-sgp}@db:5432/${POSTGRES_DB:-sgp}?schema=public
       API_PORT: 3333
       JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-30m}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       # Login pelo Keycloak da Prefeitura (obrigatório: a API não inicia sem ele)
       OIDC_ISSUER: ${OIDC_ISSUER:?defina OIDC_ISSUER no .env}

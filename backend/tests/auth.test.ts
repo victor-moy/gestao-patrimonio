@@ -339,12 +339,12 @@ describe('Login pelo Keycloak', () => {
     expect(res.body).toEqual([]);
   });
 
-  it('qualquer falha do login institucional volta à tela de login, sem detalhes e sem sessão', async () => {
+  it('qualquer falha do login institucional volta ao sistema com o aviso de erro (sem ciclo), sem detalhes e sem sessão', async () => {
     jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     for (const rota of ['/auth/oidc/login', '/auth/callback?code=abc&state=xyz']) {
       const res = await request(app).get(rota);
       expect([rota, res.status]).toEqual([rota, 302]);
-      expect(res.headers.location).toBe('/');
+      expect(res.headers.location).toBe('/?erro=login');
       expect(res.headers['set-cookie'] ?? []).not.toEqual(expect.arrayContaining([expect.stringContaining('token')]));
     }
   });
