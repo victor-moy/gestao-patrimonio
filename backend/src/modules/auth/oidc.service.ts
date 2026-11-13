@@ -125,5 +125,9 @@ export function urlRetornoFrontend(token: string) {
   return url.toString();
 }
 
-// Qualquer falha volta para a tela de login, que é uma só.
+// Depois de sair, o navegador volta ao sistema (que leva direto ao Keycloak).
 export const urlTelaDeLogin = () => env.oidc.postLogoutUri || '/';
+
+// Falha no login: volta ao sistema com o aviso de erro. Sem ele o sistema levaria de novo ao Keycloak e a falha viraria um ciclo.
+export const urlErroDeLogin = () =>
+  env.oidc.postLogoutUri ? new URL('/?erro=login', env.oidc.postLogoutUri).toString() : '/?erro=login';

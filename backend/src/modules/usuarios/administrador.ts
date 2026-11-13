@@ -3,7 +3,7 @@ import { Perfil } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { AppError } from '../../errors/AppError';
 
-// As permissões do token valem por 30 min. Nas rotas de usuários isso é perigoso (quem perdeu a permissão ou foi
+// As permissões do token valem pela duração da sessão (12 h por padrão). Nas rotas de usuários isso é perigoso (quem perdeu a permissão ou foi
 // desativado poderia devolvê-la a si mesmo), então o Operador é conferido no banco a cada pedido.
 export async function confirmarAdministradorNoBanco(req: Request, _res: Response, next: NextFunction) {
   if (req.usuario?.perfil === Perfil.OPERADOR) {

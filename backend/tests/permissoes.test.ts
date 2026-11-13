@@ -117,7 +117,7 @@ describe('Permissões do Operador', () => {
 });
 
 describe('Cadastro de usuário com permissões', () => {
-  // O Operador que administra usuários é conferido no banco a cada pedido (o token vale 30 min)
+  // O Operador que administra usuários é conferido no banco a cada pedido (o token vale pela duração da sessão, 12 h)
   beforeEach(() => mockUsuarioFindFirst(prismaMock.usuario.findFirst));
 
   const existente = (sobre: Record<string, unknown> = {}) => ({

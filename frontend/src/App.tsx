@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { BarraCarregamento } from './components/BarraCarregamento';
 import { Layout } from './components/Layout';
+import { TelaCarregando } from './components/TelaCarregando';
 import { Login } from './pages/Login';
 import { Inicio } from './pages/Inicio';
 import { Inventario } from './pages/Inventario';
@@ -70,17 +71,12 @@ function ConfiguracoesInicio() {
 }
 
 function RotasProtegidas() {
-  const { usuario, carregando } = useAuth();
+  const { usuario, carregando, falhaSessao } = useAuth();
   if (carregando) {
-    return (
-      <div className="tela-carregando" role="status">
-        <span className="spinner" aria-hidden />
-        Carregando…
-      </div>
-    );
+    return <TelaCarregando />;
   }
   if (!usuario) {
-    return <Login />;
+    return <Login falha={falhaSessao} />;
   }
   // Sem perfil ainda: só a tela inicial; qualquer outro endereço volta a ela
   if (usuario.perfil === 'SEM_ACESSO') {

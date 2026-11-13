@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
   API_URL,
+  ApiError,
   api,
   getToken,
   getTokenMestre,
@@ -15,6 +16,8 @@ import { encerrarSessaoInstitucional, recarregarNoInicio } from '../utils/navega
 interface AuthContextValue {
   usuario: Usuario | null;
   carregando: boolean;
+  // A sessão não pôde ser aberta por um erro (e não por token vencido): evita voltar ao Keycloak em ciclo
+  falhaSessao: boolean;
   impersonando: boolean;
   // O Administrador troca de usuário, também enquanto está dentro de outro usuário
   podeTrocarUsuario: boolean;
@@ -30,6 +33,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [falhaSessao, setFalhaSessao] = useState(false);
   const [impersonando, setImpersonando] = useState(() => Boolean(getTokenMestre()));
 
   const logout = useCallback(() => {
@@ -60,7 +64,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     api
       .get<Usuario>('/auth/me')
       .then(setUsuario)
-      .catch(() => setToken(null))
+      .catch((e) => {
+        setToken(null);
+        // Token vencido (401) é normal e leva a um novo login; qualquer outro erro mostra a falha
+        if (!(e instanceof ApiError && e.status === 401)) setFalhaSessao(true);
+      })
       .finally(() => setCarregando(false));
   }, [logout]);
 
@@ -101,8 +109,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Quem ainda não recebeu perfil (Sem acesso) não usa o "Entrar como"; o servidor também recusa
   const podeTrocarUsuario = Boolean(usuario) && usuario?.perfil !== 'SEM_ACESSO';
   const value = useMemo(
-    () => ({ usuario, carregando, impersonando, podeTrocarUsuario, sair, entrarComo, voltarAoMestre }),
-    [usuario, carregando, impersonando, podeTrocarUsuario, sair, entrarComo, voltarAoMestre],
+    () => ({ usuario, carregando, falhaSessao, impersonando, podeTrocarUsuario, sair, entrarComo, voltarAoMestre }),
+    [usuario, carregando, falhaSessao, impersonando, podeTrocarUsuario, sair, entrarComo, voltarAoMestre],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

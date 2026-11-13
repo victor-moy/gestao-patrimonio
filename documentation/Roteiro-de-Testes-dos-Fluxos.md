@@ -19,7 +19,7 @@ Como usar: siga os passos na ordem e marque `[x]`. Cada passo tem **quem age**, 
 
 ### 0.1 Usuários do ambiente de teste
 
-Para trocar de usuário sem sair: menu do usuário (canto superior direito) › **Entrar como**. A sessão dura 30 minutos; se expirar, entre de novo.
+Para trocar de usuário sem sair: menu do usuário (canto superior direito) › **Entrar como**. A sessão dura 12 horas; se expirar, entre de novo.
 
 | Nome | Perfil | O que faz nos testes |
 |---|---|---|

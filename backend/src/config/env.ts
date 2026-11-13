@@ -49,7 +49,7 @@ export const env = {
   corsOrigins,
   // Limites de frequência ficam desligados nos testes automatizados
   rateLimitAtivo: nodeEnv !== 'test',
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '30m',
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '12h',
   smtp: {
     enabled: process.env.SMTP_ENABLED === 'true',
     host: process.env.SMTP_HOST ?? '',

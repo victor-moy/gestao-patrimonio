@@ -13,3 +13,8 @@ export function recarregarNoInicio() {
 export function encerrarSessaoInstitucional(urlApi: string) {
   window.location.assign(`${urlApi}/auth/oidc/logout`);
 }
+
+/** Sem sessão: segue direto ao login do Keycloak (o sistema não tem tela de login própria). */
+export function irParaLoginInstitucional(urlApi: string) {
+  window.location.assign(`${urlApi}/auth/oidc/login`);
+}
