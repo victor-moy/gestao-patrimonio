@@ -10,6 +10,8 @@ import { caminhoRelatorio, RELATORIO_PADRAO, SUBMENUS_RELATORIOS } from '../util
 // Página dos relatórios: cada submenu do menu lateral abre um relatório em pages/relatorios/
 export function Relatorios() {
   const { relatorio } = useParams<{ relatorio: string }>();
+  // O relatório único de manutenções virou dois painéis; o endereço antigo abre o civil
+  if (relatorio === 'manutencoes') return <Navigate to={caminhoRelatorio('manutencao-civil')} replace />;
   const atual = SUBMENUS_RELATORIOS.find((item) => item.valor === relatorio);
   if (!atual) return <Navigate to={caminhoRelatorio(RELATORIO_PADRAO)} replace />;
 

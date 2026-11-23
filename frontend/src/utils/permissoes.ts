@@ -23,6 +23,7 @@ export const GRUPOS_PERMISSOES = [
   { grupo: 'Inventário', permissoes: [{ id: 'INVENTARIO_GERENCIAR', rotulo: 'Gerenciar inventário' }] },
   { grupo: 'Configurações', permissoes: [{ id: 'CONFIGURACOES_GERENCIAR', rotulo: 'Gerenciar configurações' }] },
   { grupo: 'Usuários', permissoes: [{ id: 'USUARIOS_ADMINISTRAR', rotulo: 'Administrar usuários e permissões' }] },
+  { grupo: 'Suporte', permissoes: [{ id: 'SUPORTE_ATENDER', rotulo: 'Atender chamados de suporte' }] },
 ] as const;
 
 export type Permissao = (typeof GRUPOS_PERMISSOES)[number]['permissoes'][number]['id'];

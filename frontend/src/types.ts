@@ -672,12 +672,17 @@ export interface CotacaoOrcamento {
   enviadoEm: string;
 }
 
-export type StatusRelato = 'ABERTO' | 'EM_ANALISE' | 'RESOLVIDO';
+export type StatusRelato = 'ABERTO' | 'EM_ANALISE' | 'AGUARDANDO_RETORNO' | 'RESOLVIDO';
+export type CategoriaRelato = 'BUG' | 'MELHORIA' | 'NOVA_FUNCIONALIDADE' | 'DUVIDA' | 'OUTRO';
 
+// Chamado de suporte (no código, "relato")
 export interface RelatoProblema {
   id: string;
   numero: number;
   perfil: Perfil;
+  categoria: CategoriaRelato;
+  // Chamados antigos não têm título
+  titulo: string | null;
   tela: string;
   esperado: string | null;
   aconteceu: string;

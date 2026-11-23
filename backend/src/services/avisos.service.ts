@@ -21,6 +21,19 @@ export function codigoManutencao(numero: number) {
   return `MAN-${String(numero).padStart(4, '0')}`;
 }
 
+export function codigoChamadoSuporte(numero: number) {
+  return `SUP-${String(numero).padStart(4, '0')}`;
+}
+
+// Quem atende os chamados de suporte (Operador com a permissão SUPORTE_ATENDER)
+export async function idsAtendentesSuporte(cliente: Cliente = prisma) {
+  const usuarios = await cliente.usuario.findMany({
+    where: { ativo: true, perfil: Perfil.OPERADOR, permissoes: { has: 'SUPORTE_ATENDER' } },
+    select: { id: true },
+  });
+  return usuarios.map((u) => u.id);
+}
+
 export async function idsUsuariosPorPerfil(perfil: Perfil, cliente: Cliente = prisma) {
   const usuarios = await cliente.usuario.findMany({
     where: { ativo: true, perfil },

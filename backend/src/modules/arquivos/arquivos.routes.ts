@@ -104,17 +104,16 @@ arquivosRouter.get('/laudos/:arquivo', autenticar, async (req, res) => {
   enviar(res, LAUDOS_DIR, nome);
 });
 
-// Anexos de relato de problema: só quem administra usuários (o Administrador, que lê os relatos) abre
+// Anexos de chamado de suporte: quem abriu o chamado (qualquer perfil) ou o atendimento (SUPORTE_ATENDER)
 arquivosRouter.get('/relatos/:arquivo', autenticar, async (req, res) => {
   const nome = nomeSeguro(req.params.arquivo);
-  const { perfil, permissoes } = req.usuario!;
-  if (perfil !== Perfil.OPERADOR || !permissoes.includes('USUARIOS_ADMINISTRAR')) {
-    throw new AppError('Seu perfil não possui permissão para este arquivo.', 403);
-  }
+  const { perfil, permissoes, sub } = req.usuario!;
+  const atendente = perfil === Perfil.OPERADOR && permissoes.includes('SUPORTE_ATENDER');
   const relato = await prisma.relatoProblema.findFirst({
-    where: { anexos: { has: `/uploads/relatos/${nome}` } },
+    where: { anexos: { has: `/uploads/relatos/${nome}` }, ...(atendente ? {} : { usuarioId: sub }) },
     select: { id: true },
   });
+  // Quem não é dono nem atendente recebe o mesmo "não encontrado" de um arquivo que não existe
   if (!relato) throw new AppError('Arquivo não encontrado.', 404);
   enviar(res, RELATOS_DIR, nome);
 });

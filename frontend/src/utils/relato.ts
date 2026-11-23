@@ -10,20 +10,34 @@ export function problemaDoAnexo(arquivo: File) {
   return null;
 }
 
-// Tela de origem do bug: só caminhos internos do sistema (nunca endereço externo) e nunca a própria página do bug
+// Tela de origem do chamado: só caminhos internos do sistema (nunca endereço externo) e nunca as páginas do próprio suporte
 export function telaDeOrigem(valor: string | null | undefined) {
-  if (!valor || !valor.startsWith('/') || valor.startsWith('//') || valor.startsWith('/reportar-bug')) return '/';
+  if (!valor || !valor.startsWith('/') || valor.startsWith('//') || valor.startsWith('/suporte')) return '/';
   return valor.slice(0, 300);
 }
 
-// Endereço da página de bug levando a tela de onde a pessoa está (ou a de origem, se já estiver nela)
-export function caminhoRelato(pathname: string, search: string) {
-  if (pathname.startsWith('/reportar-bug')) return `${pathname}${search}`;
-  return `/reportar-bug?de=${encodeURIComponent(`${pathname}${search}`)}`;
+// Endereço do suporte (a lista dos chamados da pessoa) levando a tela de onde ela está, para o "Novo chamado" saber a origem.
+// Já dentro do suporte, o link mantém a origem em vez de apontar para si mesmo.
+export function caminhoSuporte(pathname: string, search: string) {
+  if (pathname.startsWith('/suporte/novo')) return `/suporte${search}`;
+  if (pathname.startsWith('/suporte')) return pathname === '/suporte' ? `/suporte${search}` : '/suporte';
+  return `/suporte?de=${encodeURIComponent(`${pathname}${search}`)}`;
 }
+
+// Protocolo do chamado (SUP-0007), como SOL-0012 e MAN-0007
+export const codigoSuporte = (numero: number) => `SUP-${String(numero).padStart(4, '0')}`;
+
+export const ROTULO_CATEGORIA_RELATO: Record<string, string> = {
+  BUG: 'Bug',
+  MELHORIA: 'Melhoria',
+  NOVA_FUNCIONALIDADE: 'Nova funcionalidade',
+  DUVIDA: 'Dúvida',
+  OUTRO: 'Outro',
+};
 
 export const ROTULO_STATUS_RELATO: Record<string, string> = {
   ABERTO: 'Aberto',
   EM_ANALISE: 'Em análise',
+  AGUARDANDO_RETORNO: 'Aguardando retorno',
   RESOLVIDO: 'Resolvido',
 };

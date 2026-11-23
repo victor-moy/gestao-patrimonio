@@ -213,6 +213,7 @@ model Usuario {
   unidadesResponsavel    Unidade[]             @relation("UnidadeResponsavel")
   avisos                 AvisoUsuario[]
   relatosProblema        RelatoProblema[]
+  mensagensRelato        MensagemRelato[]
   problemasCriados       ManutencaoProblema[]  @relation("ProblemaCriadoPor")
 
   @@index([prestadorId])
@@ -960,28 +961,62 @@ model CotacaoOrcamento {
 enum StatusRelato {
   ABERTO
   EM_ANALISE
+  // O atendimento pediu mais informações e espera quem abriu o chamado
+  AGUARDANDO_RETORNO
   RESOLVIDO
+}
+
+// Chamado de suporte (antes "relato de bug"): o tipo de pedido
+enum CategoriaRelato {
+  BUG
+  MELHORIA
+  NOVA_FUNCIONALIDADE
+  DUVIDA
+  OUTRO
 }
 
 // Relato de problema enviado por quem está testando/usando o sistema (item "Reportar bug" do menu do usuário).
 // Guarda o contexto automático (tela, perfil, navegador) para o time reproduzir o erro sem perguntar de novo.
+// Chamado de suporte: quem abre (qualquer perfil) conversa com o atendimento (permissão SUPORTE_ATENDER)
 model RelatoProblema {
-  id           String       @id @default(uuid())
-  usuarioId    String       @map("usuario_id")
-  usuario      Usuario      @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  id           String          @id @default(uuid())
+  // Protocolo humano (SUP-0001): gerado pelo banco, imutável e nunca reutilizado
+  numero       Int             @unique @default(autoincrement())
+  usuarioId    String          @map("usuario_id")
+  usuario      Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
   // Perfil no momento do envio (o perfil do usuário pode mudar depois)
   perfil       Perfil
+  categoria    CategoriaRelato @default(BUG)
+  // Chamados antigos (da época dos relatos de bug) não têm título: a tela mostra a tela de origem no lugar
+  titulo       String?         @db.VarChar(80)
   tela         String
   esperado     String?
   aconteceu    String
   navegador    String?
   // Prints e PDFs enviados junto (caminhos em /uploads/relatos, protegidos por autorização)
-  anexos       String[]     @default([])
-  status       StatusRelato @default(ABERTO)
-  criadoEm     DateTime     @default(now()) @map("criado_em")
-  atualizadoEm DateTime     @updatedAt @map("atualizado_em")
+  anexos       String[]        @default([])
+  status       StatusRelato    @default(ABERTO)
+  resolvidoEm  DateTime?       @map("resolvido_em")
+  criadoEm     DateTime        @default(now()) @map("criado_em")
+  atualizadoEm DateTime        @updatedAt @map("atualizado_em")
+
+  mensagens MensagemRelato[]
 
   @@index([status, criadoEm])
   @@index([usuarioId])
   @@map("relato_problema")
+}
+
+// Conversa do chamado de suporte. Mensagens são imutáveis (sem edição nem exclusão), como no chat dos pedidos.
+model MensagemRelato {
+  id        String         @id @default(uuid())
+  relatoId  String         @map("relato_id")
+  relato    RelatoProblema @relation(fields: [relatoId], references: [id], onDelete: Cascade)
+  autorId   String         @map("autor_id")
+  autor     Usuario        @relation(fields: [autorId], references: [id])
+  texto     String
+  criadoEm  DateTime       @default(now()) @map("criado_em")
+
+  @@index([relatoId, criadoEm])
+  @@map("mensagem_relato")
 }
