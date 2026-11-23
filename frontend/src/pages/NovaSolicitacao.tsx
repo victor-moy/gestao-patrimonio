@@ -41,15 +41,21 @@ export function NovaSolicitacao() {
   // Vindo do detalhe do equipamento (ou do QR), o item já chega escolhido nos tipos que usam um equipamento existente
   const [params] = useSearchParams();
   const equipamentoInicial = params.get('equipamento') ?? '';
+  // Unidade e qualquer Operador abrem manutenção. A unidade é a do usuário; o Operador sem unidade escolhe na abertura
+  const abreManutencao = usuario?.perfil === 'UNIDADE' || usuario?.perfil === 'OPERADOR';
+  const escolheUnidade = usuario?.perfil === 'OPERADOR' && !usuario.unidadeId;
+  const [unidadeEscolhidaId, setUnidadeEscolhidaId] = useState('');
   // Vindo do inventário ("Abrir manutenção"), o tipo já chega escolhido
   // Manutenção é um só tipo na tela; "civil" ou "patrimonial" se escolhe logo abaixo
   const [tipoBase, setTipo] = useState<TipoNovo | null>(
-    params.get('tipo') === 'MANUTENCAO' && usuario?.perfil === 'UNIDADE' ? 'MANUTENCAO' : null,
+    params.get('tipo') === 'MANUTENCAO' && abreManutencao ? 'MANUTENCAO' : null,
   );
   const [manutencaoCivil, setManutencaoCivil] = useState(false);
   const tipo: TipoNovo | null = tipoBase === 'MANUTENCAO' && manutencaoCivil ? 'MANUTENCAO_CIVIL' : tipoBase;
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const unidadeDoChamadoId = escolheUnidade ? unidadeEscolhidaId : (usuario?.unidadeId ?? '');
+  const unidadeDoChamadoNome = escolheUnidade ? unidades.find((u) => u.id === unidadeEscolhidaId)?.nome : usuario?.unidadeNome;
   const [categorias, setCategorias] = useState<Categoria[]>([]);
   const [anexo, setAnexo] = useState<File | null>(null);
   const [fotosCivil, setFotosCivil] = useState<File[]>([]);
@@ -118,8 +124,16 @@ export function NovaSolicitacao() {
 
   useEffect(() => {
     if (tipo !== 'MANUTENCAO_CIVIL') return;
-    api.get<Setor[]>('/setores').then((l) => setSetoresCivil(Array.isArray(l) ? l : [])).catch(() => setSetoresCivil([]));
-  }, [tipo]);
+    if (!unidadeDoChamadoId) {
+      setSetoresCivil([]);
+      return;
+    }
+    // A Unidade recebe só os da própria unidade (token); o Operador pede os da unidade escolhida e só usa os ativos
+    api
+      .get<Setor[]>(`/setores?unidadeId=${unidadeDoChamadoId}`)
+      .then((l) => setSetoresCivil(Array.isArray(l) ? l.filter((x) => x.ativo) : []))
+      .catch(() => setSetoresCivil([]));
+  }, [tipo, unidadeDoChamadoId]);
 
   useEffect(() => {
     if (falhaCategoriasCivis) setErro(falhaCategoriasCivis);
@@ -127,19 +141,20 @@ export function NovaSolicitacao() {
 
   useEffect(() => {
     setAcrescentarEm(null);
-    if (tipo !== 'MANUTENCAO_CIVIL' || !form.categoriaCivilId) {
+    if (tipo !== 'MANUTENCAO_CIVIL' || !form.categoriaCivilId || !unidadeDoChamadoId) {
       setAbertos([]);
       return;
     }
     let atual = true;
+    const daUnidade = escolheUnidade ? `&unidadeId=${unidadeDoChamadoId}` : '';
     api
-      .get<ChamadoAberto[]>(`/manutencoes/civil/abertos?categoriaCivilId=${form.categoriaCivilId}`)
+      .get<ChamadoAberto[]>(`/manutencoes/civil/abertos?categoriaCivilId=${form.categoriaCivilId}${daUnidade}`)
       .then((l) => atual && setAbertos(Array.isArray(l) ? l : []))
       .catch(() => atual && setAbertos([])); // é só um aviso: falhar não impede a abertura
     return () => {
       atual = false;
     };
-  }, [tipo, form.categoriaCivilId]);
+  }, [tipo, form.categoriaCivilId, unidadeDoChamadoId, escolheUnidade]);
 
   useEffect(() => {
     const falhou = (e: unknown) => setErro(e instanceof Error ? e.message : 'Não foi possível carregar os dados do formulário.');
@@ -230,7 +245,8 @@ export function NovaSolicitacao() {
         const problemas = [{ descricao: form.descricaoProblema, fotos: fotosCivil }, ...form.extras];
         if (acrescentarEm) {
           for (const p of problemas) await enviarProblema(acrescentarEm.id, p.descricao, p.fotos);
-          void navigate(`/manutencoes/${acrescentarEm.id}`);
+          // Operador sem a permissão de consultar não alcança o detalhe do chamado
+          void navigate(usuario?.perfil === 'UNIDADE' || pode(usuario, 'MANUTENCAO_CONSULTAR') ? `/manutencoes/${acrescentarEm.id}` : '/solicitacoes');
           return;
         }
         const dados = new FormData();
@@ -238,6 +254,7 @@ export function NovaSolicitacao() {
         dados.append('descricaoProblema', form.descricaoProblema);
         if (setoresCivil.length > 0) form.setorIds.forEach((setorId) => dados.append('setorIds', setorId));
         else dados.append('localAfetado', form.localAfetado.trim());
+        if (escolheUnidade) dados.append('unidadeId', unidadeDoChamadoId);
         dados.append('categoriaCivilId', form.categoriaCivilId);
         dados.append('respostas', JSON.stringify(form.respostas));
         fotosCivil.forEach((foto) => dados.append('fotos', foto));
@@ -249,7 +266,7 @@ export function NovaSolicitacao() {
           window.alert(
             `O chamado foi aberto, mas nem todos os outros problemas foram enviados: ${falha instanceof Error ? falha.message : 'erro'}. Acrescente-os no chamado.`,
           );
-          void navigate(`/manutencoes/${criado.id}`);
+          void navigate(usuario?.perfil === 'UNIDADE' || pode(usuario, 'MANUTENCAO_CONSULTAR') ? `/manutencoes/${criado.id}` : '/solicitacoes');
           return;
         }
         void navigate('/solicitacoes');
@@ -346,11 +363,12 @@ export function NovaSolicitacao() {
     // Cessão de Uso envolve entidade externa à secretaria — só o Gestor
     // de Patrimônio pode abrir.
     .filter((item) => item.tipo !== 'CESSAO_USO' || pode(usuario, 'SOLICITACOES_GERENCIAR'))
-    // Manutenção é aberta pela Unidade, para um equipamento da própria unidade
-    .filter((item) => item.tipo !== 'MANUTENCAO' || usuario?.perfil === 'UNIDADE');
+    // Manutenção é aberta pela Unidade ou por um Operador, para um equipamento da unidade do chamado
+    .filter((item) => item.tipo !== 'MANUTENCAO' || abreManutencao);
   // Itens emprestados à unidade aparecem no inventário, mas só a unidade dona abre manutenção
-  const equipamentosDaUnidade = equipamentos.filter((eq) => eq.unidade.id === usuario?.unidadeId);
+  const equipamentosDaUnidade = equipamentos.filter((eq) => eq.unidade.id === unidadeDoChamadoId);
   const manutencaoIncompleta =
+    ((tipo === 'MANUTENCAO' || tipo === 'MANUTENCAO_CIVIL') && !unidadeDoChamadoId) ||
     (tipo === 'MANUTENCAO' && (!form.equipamentoManutencaoId || form.descricaoProblema.trim().length < 5 || !itemNaUnidade)) ||
     (tipo === 'MANUTENCAO_CIVIL' && civilIncompleto(form, setoresCivil.length > 0, categoriasCivis, acrescentarEm !== null));
 
@@ -408,6 +426,27 @@ export function NovaSolicitacao() {
               >
                 <option value="PATRIMONIAL">Patrimonial</option>
                 <option value="CIVIL">Civil</option>
+              </select>
+            </div>
+          )}
+          {tipoBase === 'MANUTENCAO' && escolheUnidade && (
+            <div className="field nova-solicitacao-campo-tipo">
+              <label htmlFor="nova-solicitacao-unidade">Unidade *</label>
+              <select
+                id="nova-solicitacao-unidade"
+                value={unidadeEscolhidaId}
+                onChange={(e) => {
+                  setUnidadeEscolhidaId(e.target.value);
+                  setForm({ ...form, equipamentoManutencaoId: '', setorIds: [], localAfetado: '' });
+                }}
+                required
+              >
+                <option value="">Selecione...</option>
+                {unidades.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.nome}
+                  </option>
+                ))}
               </select>
             </div>
           )}
@@ -653,7 +692,7 @@ export function NovaSolicitacao() {
                     checked={itemNaUnidade}
                     onChange={(e) => setItemNaUnidade(e.target.checked)}
                   />
-                  <span>O item está na minha unidade{usuario?.unidadeNome ? `: ${usuario.unidadeNome}` : ''}</span>
+                  <span>{escolheUnidade ? 'O item está na unidade escolhida' : 'O item está na minha unidade'}{unidadeDoChamadoNome ? `: ${unidadeDoChamadoNome}` : ''}</span>
                 </label>
               </div>
               <div className="field">

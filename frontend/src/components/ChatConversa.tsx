@@ -15,11 +15,15 @@ interface ChatConversaProps {
   caminho: string;
   // Prefixo dos ids (único por tela)
   id: string;
+  // Conversas sem controle de leitura por pessoa (ex.: chamado de suporte): não marca como lida nem avisa o menu Conversas
+  semLeitura?: boolean;
+  // Texto no lugar do campo de mensagem quando a conversa não aceita novas mensagens
+  bloqueada?: string | null;
 }
 
 // Conversa dentro de uma solicitação ou manutenção. As mensagens são imutáveis e a
 // lista se atualiza sozinha enquanto a aba está visível (sem conexão persistente).
-export function ChatConversa({ caminho, id }: ChatConversaProps) {
+export function ChatConversa({ caminho, id, semLeitura = false, bloqueada = null }: ChatConversaProps) {
   const { usuario } = useAuth();
   const [mensagens, setMensagens] = useState<MensagemChat[] | null>(null);
   const [falha, setFalha] = useState<string | null>(null);
@@ -77,7 +81,7 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
   // ainda não viu). Falha em segundo plano é tentada de novo na próxima atualização.
   const marcarLida = useCallback(() => {
     const ate = ultima.current;
-    if (!ate || marcada.current === ate || document.visibilityState !== 'visible' || !noFim.current) return;
+    if (semLeitura || !ate || marcada.current === ate || document.visibilityState !== 'visible' || !noFim.current) return;
     marcada.current = ate;
     api
       .post(`${caminho}/lida`, { ate }, { silencioso: true })
@@ -85,7 +89,7 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
       .catch(() => {
         marcada.current = null;
       });
-  }, [caminho]);
+  }, [caminho, semLeitura]);
 
   useEffect(() => {
     if (mensagens) marcarLida();
@@ -128,7 +132,7 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
       noFim.current = true;
       acrescentar([criada]);
       setTexto('');
-      avisarConversasAtualizadas();
+      if (!semLeitura) avisarConversasAtualizadas();
     } catch (err) {
       setErroEnvio(err instanceof Error ? err.message : 'Não foi possível enviar a mensagem.');
     } finally {
@@ -181,6 +185,9 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
         </ol>
       )}
 
+      {bloqueada ? (
+        <p className="chat-estado chat-bloqueada" role="status">{bloqueada}</p>
+      ) : (
       <form className="chat-formulario" onSubmit={enviar}>
         <label className="gestao-sr-only" htmlFor={`${id}-texto`}>Mensagem</label>
         <div className="chat-entrada">
@@ -208,6 +215,7 @@ export function ChatConversa({ caminho, id }: ChatConversaProps) {
           <span className="chat-contador">{texto.length}/{LIMITE_TEXTO}</span>
         )}
       </form>
+      )}
     </section>
   );
 }

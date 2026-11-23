@@ -6,7 +6,8 @@ import * as avisos from '../../services/avisos.eventos';
 import { AuthPayload } from '../../middlewares/auth';
 import { buscarPorId, includePadrao } from './manutencoes.service';
 
-// Ordem de serviço do chamado civil. O prestador a gera (o chamado passa a "em rota"), executa, marca "Executado" e envia
+// Ordem de serviço do chamado civil. O prestador a gera (o chamado passa a "em rota"), inicia a execução ao chegar ao local
+// ("em execução"), executa, marca "Executado" e envia
 // depois a OS assinada em papel (PDF). Depois de enviado o documento não se edita: se o fiscal o recusar, o prestador envia
 // outro. Com a OS assinada válida o chamado segue para a confirmação da Unidade.
 
@@ -34,7 +35,7 @@ export async function gerarOS(usuario: AuthPayload, id: string, dados: { equipe:
       );
     }
     if (aguardando) {
-      const mudou = await tx.manutencao.updateMany({ where: { id, status: 'AGUARDANDO_EXECUCAO' }, data: { status: 'EM_EXECUCAO' } });
+      const mudou = await tx.manutencao.updateMany({ where: { id, status: 'AGUARDANDO_EXECUCAO' }, data: { status: 'EM_ROTA' } });
       if (mudou.count === 0) throw new AppError('O chamado mudou de situação. Atualize a página.', 409);
     }
     const os = await tx.ordemServico.create({ data: { manutencaoId: id, geradaPorId: usuario.sub, ...dados } });
@@ -45,7 +46,37 @@ export async function gerarOS(usuario: AuthPayload, id: string, dados: { equipe:
         entidade: 'manutencao',
         entidadeId: id,
         dadosAntes: { status: atual.status },
-        dadosDepois: { status: 'EM_EXECUCAO', osNumero: os.numero, dataPrevista: dados.dataPrevista },
+        dadosDepois: { status: aguardando ? 'EM_ROTA' : atual.status, osNumero: os.numero, dataPrevista: dados.dataPrevista },
+      },
+      tx,
+    );
+    return tx.manutencao.findUniqueOrThrow({ where: { id }, include: includePadrao });
+  });
+}
+
+// O prestador chegou ao local e inicia a execução: o chamado passa de "em rota" para "em execução" e a entrada fica
+// registrada na OS (o prestador a confirma ou corrige ao marcar o serviço como executado).
+export async function iniciarExecucao(usuario: AuthPayload, id: string) {
+  const manutencao = await buscarPorId(usuario, id);
+  exigirCivil(manutencao.tipo);
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM manutencao WHERE id = ${id} FOR UPDATE`;
+    const atual = await tx.manutencao.findUniqueOrThrow({ where: { id }, select: { status: true, ordemServico: { select: { id: true } } } });
+    if (atual.status !== 'EM_ROTA' || !atual.ordemServico) {
+      throw new AppError('Só é possível iniciar a execução de um chamado em rota, com a ordem de serviço gerada.', 422);
+    }
+    const mudou = await tx.manutencao.updateMany({ where: { id, status: 'EM_ROTA' }, data: { status: 'EM_EXECUCAO' } });
+    if (mudou.count === 0) throw new AppError('O chamado mudou de situação. Atualize a página.', 409);
+    const entradaEm = new Date();
+    await tx.ordemServico.update({ where: { id: atual.ordemServico.id }, data: { entradaEm } });
+    await registrarAuditoria(
+      {
+        usuarioId: usuario.sub,
+        acao: 'INICIAR_EXECUCAO',
+        entidade: 'manutencao',
+        entidadeId: id,
+        dadosAntes: { status: 'EM_ROTA' },
+        dadosDepois: { status: 'EM_EXECUCAO', entradaEm },
       },
       tx,
     );

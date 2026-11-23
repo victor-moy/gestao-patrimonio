@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { api } from '../../api/client';
 import { SelectTipoEquipamento } from '../../components/SelectItem';
 import type { Categoria, Unidade } from '../../types';
@@ -167,11 +167,17 @@ export function FiltrosGerais<T extends FiltrosBase>({
   onChange,
   unidades,
   categorias,
+  semItem = false,
+  extra,
 }: {
   filtros: T;
   onChange: (filtros: T) => void;
   unidades: Unidade[];
   categorias: Categoria[];
+  // Painel civil: não há item (equipamento) para filtrar
+  semItem?: boolean;
+  // Ocupa o lugar do Item quando ele não existe (ex.: o Setor no painel civil)
+  extra?: ReactNode;
 }) {
   return (
     <div className="relatorios-filtros-gerais">
@@ -191,6 +197,8 @@ export function FiltrosGerais<T extends FiltrosBase>({
           onChange={(ids) => onChange({ ...filtros, unidadeIds: ids })}
         />
       </div>
+      {semItem && extra}
+      {!semItem && (
       <div>
         <span className="campo-rotulo">Item</span>
         <SelectTipoEquipamento
@@ -201,6 +209,7 @@ export function FiltrosGerais<T extends FiltrosBase>({
           placeholder="Todos os itens"
         />
       </div>
+      )}
     </div>
   );
 }

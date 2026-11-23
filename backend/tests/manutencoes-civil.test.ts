@@ -157,9 +157,39 @@ describe('Manutenção civil', () => {
       });
     });
 
-    it('Administrador precisa indicar a unidade', async () => {
+    it('Operador sem unidade precisa indicar a unidade', async () => {
       const res = await request(app).post('/manutencoes/civil').set(admin()).send(corpo);
       expect(res.status).toBe(422);
+    });
+
+    const abrirComo = (token: Record<string, string>, unidadeEscolhida?: string) => {
+      const req = request(app)
+        .post('/manutencoes/civil')
+        .set(token)
+        .field('titulo', corpo.titulo)
+        .field('descricaoProblema', corpo.descricaoProblema)
+        .field('localAfetado', corpo.localAfetado)
+        .field('categoriaCivilId', corpo.categoriaCivilId);
+      return unidadeEscolhida ? req.field('unidadeId', unidadeEscolhida) : req;
+    };
+    const OUTRA = '11111111-1111-4111-8111-111111111111';
+
+    it('Operador sem unidade escolhe a unidade na abertura, mesmo sem a permissão "escrever"', async () => {
+      prismaMock.unidade.findUnique.mockResolvedValue({ id: OUTRA } as never);
+      prismaMock.categoriaCivil.findUnique.mockResolvedValue(categoriaAtiva());
+      prismaMock.manutencao.create.mockResolvedValue(civil() as never);
+      const res = await abrirComo(operador([]), OUTRA);
+      expect(res.status).toBe(201);
+      expect(prismaMock.manutencao.create.mock.calls[0][0].data).toMatchObject({ tipo: 'CIVIL', unidadeId: OUTRA });
+    });
+
+    it('Operador com unidade abre sempre para a própria, ignorando a unidade enviada', async () => {
+      prismaMock.unidade.findUnique.mockResolvedValue({ id: 'unidade-1' } as never);
+      prismaMock.categoriaCivil.findUnique.mockResolvedValue(categoriaAtiva());
+      prismaMock.manutencao.create.mockResolvedValue(civil() as never);
+      const res = await abrirComo(auth('OPERADOR', { permissoes: [], unidadeId: 'unidade-1' }), OUTRA);
+      expect(res.status).toBe(201);
+      expect(prismaMock.manutencao.create.mock.calls[0][0].data).toMatchObject({ unidadeId: 'unidade-1' });
     });
   });
 
@@ -476,7 +506,7 @@ describe('Manutenção civil', () => {
       prismaMock.ordemServico.create.mockResolvedValue({ id: 'os1', numero: 1 } as never);
       const ok = await iniciar();
       expect(ok.status).toBe(201);
-      expect(prismaMock.manutencao.updateMany.mock.calls[0][0]).toMatchObject({ where: { id: MAN, status: 'AGUARDANDO_EXECUCAO' }, data: { status: 'EM_EXECUCAO' } });
+      expect(prismaMock.manutencao.updateMany.mock.calls[0][0]).toMatchObject({ where: { id: MAN, status: 'AGUARDANDO_EXECUCAO' }, data: { status: 'EM_ROTA' } });
       expect(prismaMock.ordemServico.create.mock.calls[0][0].data).toMatchObject({
         manutencaoId: MAN,
         geradaPorId: 'terc-1',
@@ -493,6 +523,49 @@ describe('Manutenção civil', () => {
       expect((await request(app).post(`/manutencoes/${MAN}/gerar-os`).set(unidade()).send(OS_CORPO)).status).toBe(403);
       expect((await request(app).post(`/manutencoes/${MAN}/gerar-os`).set(admin()).send(OS_CORPO)).status).toBe(403);
       expect(prismaMock.manutencao.updateMany).not.toHaveBeenCalled();
+    });
+
+    describe('iniciar a execução (em rota → em execução)', () => {
+      const iniciarExecucao = (token = terc()) => request(app).post(`/manutencoes/${MAN}/iniciar-execucao`).set(token).send({});
+
+      it('o prestador do contrato inicia a execução: o chamado passa a "em execução" e a entrada fica na OS', async () => {
+        prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ status: 'EM_ROTA' }) as never);
+        prismaMock.manutencao.findUniqueOrThrow
+          .mockResolvedValueOnce({ status: 'EM_ROTA', ordemServico: { id: 'os1' } } as never)
+          .mockResolvedValueOnce(aguardando() as never);
+        prismaMock.manutencao.updateMany.mockResolvedValue({ count: 1 } as never);
+        prismaMock.ordemServico.update.mockResolvedValue({} as never);
+        const res = await iniciarExecucao();
+        expect(res.status).toBe(200);
+        expect(prismaMock.manutencao.updateMany.mock.calls[0][0]).toMatchObject({ where: { id: MAN, status: 'EM_ROTA' }, data: { status: 'EM_EXECUCAO' } });
+        const gravado = prismaMock.ordemServico.update.mock.calls[0][0] as { where: { id: string }; data: { entradaEm: Date } };
+        expect(gravado.where).toEqual({ id: 'os1' });
+        expect(gravado.data.entradaEm).toBeInstanceOf(Date);
+        expect(prismaMock.logAuditoria.create.mock.calls[0][0].data).toMatchObject({ acao: 'INICIAR_EXECUCAO' });
+      });
+
+      it.each(['AGUARDANDO_EXECUCAO', 'EM_EXECUCAO', 'EXECUTADO'])('recusa iniciar com o chamado em %s', async (status) => {
+        prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ status }) as never);
+        prismaMock.manutencao.findUniqueOrThrow.mockResolvedValueOnce({ status, ordemServico: { id: 'os1' } } as never);
+        expect((await iniciarExecucao()).status).toBe(422);
+        expect(prismaMock.manutencao.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('só o prestador do próprio contrato, e só no chamado civil', async () => {
+        prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ status: 'EM_ROTA', contrato: { ...contrato, prestadorId: 'outro' } }) as never);
+        expect((await iniciarExecucao()).status).toBe(403);
+        prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ status: 'EM_ROTA', tipo: 'EQUIPAMENTO' }) as never);
+        expect((await iniciarExecucao()).status).toBe(422);
+        expect((await iniciarExecucao(unidade())).status).toBe(403);
+        expect((await iniciarExecucao(admin())).status).toBe(403);
+        expect(prismaMock.manutencao.updateMany).not.toHaveBeenCalled();
+      });
+
+      it('em rota ainda não permite lançar serviços e materiais: só depois de iniciar', async () => {
+        prismaMock.manutencao.findUnique.mockResolvedValue(aguardando({ status: 'EM_ROTA' }) as never);
+        const res = await request(app).post(`/manutencoes/${MAN}/relatorio`).set(terc()).send({ descricao: 'Troca de sifão', unidade: 'un', quantidade: 1, valorUnitario: 10 });
+        expect(res.status).toBe(422);
+      });
     });
 
     it('a OS é uma por chamado: segunda OS é recusada; exige equipe, dia e escopo', async () => {

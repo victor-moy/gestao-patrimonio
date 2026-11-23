@@ -277,6 +277,10 @@ function ConteudoManutencao({
     item('desbloquear', 'Desbloquear chamado', direta(() => api.post(`/manutencoes/${m.id}/desbloquear`, {})));
   }
   if (ehTerceirizada && m.status === 'AGUARDANDO_EXECUCAO' && civil) item('gerar-os', 'Gerar OS', () => abrir('gerar-os'));
+  // Em rota: ao chegar ao local o prestador inicia a execução (a entrada fica registrada na OS)
+  if (ehTerceirizada && m.status === 'EM_ROTA' && civil) {
+    item('iniciar-execucao', 'Iniciar execução', direta(() => api.post(`/manutencoes/${m.id}/iniciar-execucao`, {})));
+  }
   // Chamado civil: as cotações são enviadas e decididas no bloco “Orçamento prévio”, não por este menu
   if (ehTerceirizada && m.status === 'AGUARDANDO_ORCAMENTO' && !civil) item('orcamento', 'Registrar orçamento', () => abrir('orcamento'));
   if (podeAvaliar && m.status === 'ORCAMENTO_REGISTRADO' && !civil) {

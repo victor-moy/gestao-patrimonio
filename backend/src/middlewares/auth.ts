@@ -44,6 +44,16 @@ declare module 'express-serve-static-core' {
 // Perfil externo (empresa prestadora): lista de permissão, negado por padrão. Vale em toda rota que usa
 // `autenticar`, inclusive as que não restringem perfil, para um endpoint novo nunca ficar aberto por esquecimento.
 const ID = '[0-9a-fA-F-]{36}';
+// Chamados de suporte valem para qualquer perfil, inclusive os restritos: a rota só entrega o que é do próprio usuário
+const ROTAS_SUPORTE: Array<[string, RegExp]> = [
+  ['POST', /^\/relatos$/],
+  ['GET', /^\/relatos\/meus$/],
+  ['GET', new RegExp(`^/relatos/${ID}$`)],
+  ['GET', new RegExp(`^/relatos/${ID}/mensagens$`)],
+  ['POST', new RegExp(`^/relatos/${ID}/mensagens$`)],
+  ['GET', /^\/uploads\/relatos\/[0-9a-f-]{36}\.(jpg|png|webp|pdf)$/],
+];
+
 const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['GET', /^\/auth\/me$/],
   // "Entrar como" vale para qualquer perfil, inclusive para voltar à conta original
@@ -52,7 +62,7 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['GET', /^\/manutencoes$/],
   ['GET', new RegExp(`^/manutencoes/${ID}$`)],
   ['GET', new RegExp(`^/manutencoes/${ID}/(historico|trajetoria)$`)],
-  ['POST', new RegExp(`^/manutencoes/${ID}/(orcamento|registrar-retorno|relatorio|gerar-os|documentos|cotacoes|solicitar-reencaminhamento)$`)],
+  ['POST', new RegExp(`^/manutencoes/${ID}/(orcamento|registrar-retorno|relatorio|gerar-os|iniciar-execucao|documentos|cotacoes|solicitar-reencaminhamento)$`)],
   ['DELETE', new RegExp(`^/manutencoes/${ID}/relatorio/${ID}$`)],
   // Fotos do chamado civil e documentos da OS (a rota confere se o chamado é de um contrato do prestador)
   ['GET', /^\/uploads\/laudos\/[0-9a-f-]{36}\.pdf$/],
@@ -68,8 +78,8 @@ const ROTAS_TERCEIRIZADA: Array<[string, RegExp]> = [
   ['GET', /^\/avisos$/],
   ['POST', /^\/avisos\/ler-todas$/],
   ['POST', new RegExp(`^/avisos/${ID}/ler$`)],
-  // Relatar problema (só o envio; a leitura é do Administrador)
-  ['POST', /^\/relatos$/],
+  // Chamados de suporte: abrir, ver os próprios (a rota confere que é o autor) e conversar com o atendimento
+  ...ROTAS_SUPORTE,
 ];
 
 // Entrou pelo Keycloak e ainda não recebeu perfil: só a tela inicial (alertas e atualizações), que o próprio backend
@@ -81,7 +91,7 @@ const ROTAS_SEM_ACESSO: Array<[string, RegExp]> = [
   ['POST', /^\/avisos\/ler-todas$/],
   ['POST', new RegExp(`^/avisos/${ID}/ler$`)],
   ['GET', /^\/conversas(\/nao-lidas)?$/],
-  ['POST', /^\/relatos$/],
+  ...ROTAS_SUPORTE,
 ];
 
 function rotaPermitida(rotas: Array<[string, RegExp]>, metodo: string, caminho: string) {

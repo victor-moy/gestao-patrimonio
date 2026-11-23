@@ -196,6 +196,7 @@ export type StatusManutencao =
   | 'AGUARDANDO_ORCAMENTO'
   | 'ORCAMENTO_REGISTRADO'
   | 'AGUARDANDO_EXECUCAO'
+  | 'EM_ROTA'
   | 'EM_EXECUCAO'
   | 'EXECUTADO'
   | 'AGUARDANDO_RETORNO'
@@ -593,6 +594,8 @@ export interface ManutencaoRelatorio {
   equipamento: string;
   tombamento: string | null;
   unidade: string;
+  // Chamado civil: tipo de problema
+  categoria?: string | null;
   prestador: string | null;
   contrato: string | null;
   orcamento: number | null;
@@ -602,6 +605,17 @@ export interface ManutencaoRelatorio {
   criadoEm: string;
   dataConclusao: string | null;
 }
+
+export type EtapaManutencao =
+  | 'aguardandoTriagem'
+  | 'aguardandoAvaliacao'
+  | 'aguardandoLiberacao'
+  | 'noPrestador'
+  | 'emRota'
+  | 'emExecucao'
+  | 'executados'
+  | 'aguardandoMedicao'
+  | 'parados';
 
 export interface RelatorioManutencoes {
   total: number;
@@ -614,6 +628,10 @@ export interface RelatorioManutencoes {
   custoTotal: number;
   tempoMedioDias: number | null;
   orcamentosAltos: number;
+  // Fila por etapa e totais para o painel gerencial
+  etapas: Record<EtapaManutencao, number>;
+  porStatus: Array<{ status: StatusManutencao; quantidade: number }>;
+  porUnidade: Array<{ unidadeId: string; unidade: string; quantidade: number; custo: number }>;
   porMes: Array<{ mes: string; quantidade: number; custo: number }>;
   porPrestador: Array<{ prestadorId: string; prestador: string; quantidade: number; custo: number }>;
   porItem: Array<{ tipoEquipamentoId: string; nome: string; quantidade: number; custo: number }>;
@@ -654,18 +672,26 @@ export interface CotacaoOrcamento {
   enviadoEm: string;
 }
 
-export type StatusRelato = 'ABERTO' | 'EM_ANALISE' | 'RESOLVIDO';
+export type StatusRelato = 'ABERTO' | 'EM_ANALISE' | 'AGUARDANDO_RETORNO' | 'RESOLVIDO';
+export type CategoriaRelato = 'BUG' | 'MELHORIA' | 'NOVA_FUNCIONALIDADE' | 'DUVIDA' | 'OUTRO';
 
+// Chamado de suporte (no código, "relato")
 export interface RelatoProblema {
   id: string;
+  numero: number;
   perfil: Perfil;
+  categoria: CategoriaRelato;
+  // Chamados antigos não têm título
+  titulo: string | null;
   tela: string;
   esperado: string | null;
   aconteceu: string;
   navegador: string | null;
   anexos: string[];
   status: StatusRelato;
+  resolvidoEm: string | null;
   criadoEm: string;
   atualizadoEm: string;
   usuario: { id: string; nome: string; email: string };
+  _count?: { mensagens: number };
 }

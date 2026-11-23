@@ -1,4 +1,4 @@
-import { Prisma, TipoSolicitacao } from '@prisma/client';
+import { Prisma, StatusManutencao, TipoSolicitacao } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { numeroDaBusca } from '../../lib/numero';
 
@@ -398,7 +398,7 @@ export async function cessoes(
 
 // Relatório 7 — Manutenções: custo, prazo, prestadores e itens que mais geram manutenção.
 // Os 4 baldes são os mesmos do funil de solicitações, mais "baixada" separada (equipamento perdido).
-const STATUS_ANDAMENTO = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_EXECUCAO', 'EXECUTADO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO', 'REENCAMINHAMENTO_SOLICITADO', 'BLOQUEADO'] as const;
+const STATUS_ANDAMENTO = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_ROTA', 'EM_EXECUCAO', 'EXECUTADO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO', 'REENCAMINHAMENTO_SOLICITADO', 'BLOQUEADO'] as const;
 export type SituacaoManutencao = 'EM_ANDAMENTO' | 'CONCLUIDA' | 'NEGADA' | 'BAIXADO';
 
 // Os agregados somam até este limite de registros (os mais recentes); a tabela mostra só os primeiros.
@@ -416,6 +416,19 @@ function statusDaSituacao(situacao?: SituacaoManutencao): Prisma.ManutencaoWhere
 
 const arredondar = (n: number) => Math.round(n * 100) / 100;
 
+// Onde está cada chamado, em etapas que o painel gerencial mostra como fila (a soma dos status de cada etapa)
+const ETAPAS_MANUTENCAO = {
+  aguardandoTriagem: ['PENDENTE_APROVACAO'],
+  aguardandoAvaliacao: ['AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA'],
+  aguardandoLiberacao: ['AVALIADO'],
+  noPrestador: ['AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO'],
+  emRota: ['EM_ROTA'],
+  emExecucao: ['EM_EXECUCAO'],
+  executados: ['EXECUTADO', 'AGUARDANDO_RETORNO'],
+  aguardandoMedicao: ['AGUARDANDO_MEDICAO'],
+  parados: ['BLOQUEADO', 'REENCAMINHAMENTO_SOLICITADO'],
+} as const satisfies Record<string, readonly StatusManutencao[]>;
+
 export async function manutencoes(
   filtros: FiltrosPeriodo & {
     unidadeIds?: string[];
@@ -423,6 +436,10 @@ export async function manutencoes(
     prestadorId?: string;
     tipoManutencao?: 'EQUIPAMENTO' | 'CIVIL';
     situacao?: SituacaoManutencao;
+    // Status exato (o painel gerencial filtra por ele); vale no lugar da situação
+    status?: StatusManutencao;
+    setorIds?: string[];
+    categoriaCivilId?: string;
     busca?: string;
   },
 ) {
@@ -432,6 +449,8 @@ export async function manutencoes(
     ...(filtros.unidadeIds?.length ? { unidadeId: { in: filtros.unidadeIds } } : {}),
     ...(filtros.tipoEquipamentoId ? { equipamento: { tipoEquipamentoId: filtros.tipoEquipamentoId } } : {}),
     ...(filtros.tipoManutencao ? { tipo: filtros.tipoManutencao } : {}),
+    ...(filtros.setorIds?.length ? { setores: { some: { setorId: { in: filtros.setorIds } } } } : {}),
+    ...(filtros.categoriaCivilId ? { categoriaCivilId: filtros.categoriaCivilId } : {}),
     ...(filtros.prestadorId ? { contrato: { prestadorId: filtros.prestadorId } } : {}),
     ...(filtros.dataInicio || filtros.dataFim
       ? {
@@ -441,7 +460,7 @@ export async function manutencoes(
           },
         }
       : {}),
-    ...statusDaSituacao(filtros.situacao),
+    ...(filtros.status ? { status: filtros.status } : statusDaSituacao(filtros.situacao)),
     ...(busca
       ? {
           OR: [
@@ -471,6 +490,7 @@ export async function manutencoes(
       dataConclusao: true,
       orcamentoValor: true,
       custoFinal: true,
+      unidadeId: true,
       unidade: { select: { nome: true } },
       equipamento: {
         select: {
@@ -496,6 +516,8 @@ export async function manutencoes(
   const porMes = new Map<string, { quantidade: number; custo: number }>();
   const porPrestador = new Map<string, { prestador: string; quantidade: number; custo: number }>();
   const porItem = new Map<string, { nome: string; quantidade: number; custo: number }>();
+  const porUnidade = new Map<string, { unidade: string; quantidade: number; custo: number }>();
+  const contagemStatus = new Map<string, number>();
 
   const linhas = registros.map((m) => {
     const orcamento = m.orcamentoValor === null ? null : Number(m.orcamentoValor);
@@ -516,6 +538,10 @@ export async function manutencoes(
     else emAndamento += 1;
     custoTotal += custo;
     if (naoSugerida) orcamentosAltos += 1;
+
+    contagemStatus.set(m.status, (contagemStatus.get(m.status) ?? 0) + 1);
+    const daUnidade = porUnidade.get(m.unidadeId) ?? { unidade: m.unidade.nome, quantidade: 0, custo: 0 };
+    porUnidade.set(m.unidadeId, { ...daUnidade, quantidade: daUnidade.quantidade + 1, custo: daUnidade.custo + custo });
 
     const mes = m.criadoEm.toISOString().slice(0, 7);
     const doMes = porMes.get(mes) ?? { quantidade: 0, custo: 0 };
@@ -545,6 +571,7 @@ export async function manutencoes(
       abertoPorContestacao: m.abertoPorContestacao,
       tipo: m.tipo,
       equipamento: m.equipamento?.descricao ?? m.localAfetado ?? '',
+      categoria: m.categoriaCivil?.nome ?? null,
       tombamento: m.equipamento?.tombamento ?? null,
       unidade: m.unidade.nome,
       prestador: m.contrato?.prestador.nome ?? null,
@@ -567,6 +594,18 @@ export async function manutencoes(
     custoTotal: arredondar(custoTotal),
     tempoMedioDias: concluidas > 0 ? Math.round((somaDias / concluidas) * 10) / 10 : null,
     orcamentosAltos,
+    etapas: Object.fromEntries(
+      Object.entries(ETAPAS_MANUTENCAO).map(([etapa, statuses]) => [
+        etapa,
+        (statuses as readonly string[]).reduce((soma, st) => soma + (contagemStatus.get(st) ?? 0), 0),
+      ]),
+    ) as Record<keyof typeof ETAPAS_MANUTENCAO, number>,
+    porStatus: [...contagemStatus.entries()]
+      .map(([status, quantidade]) => ({ status, quantidade }))
+      .sort((a, b) => b.quantidade - a.quantidade),
+    porUnidade: [...porUnidade.entries()]
+      .map(([unidadeId, v]) => ({ unidadeId, unidade: v.unidade, quantidade: v.quantidade, custo: arredondar(v.custo) }))
+      .sort((a, b) => b.quantidade - a.quantidade || b.custo - a.custo),
     porMes: [...porMes.entries()]
       .map(([mes, v]) => ({ mes, quantidade: v.quantidade, custo: arredondar(v.custo) }))
       .sort((a, b) => a.mes.localeCompare(b.mes)),

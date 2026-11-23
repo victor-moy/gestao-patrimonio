@@ -19,6 +19,8 @@ export const TODAS_PERMISSOES = [
   'INVENTARIO_GERENCIAR',
   'CONFIGURACOES_GERENCIAR',
   'USUARIOS_ADMINISTRAR',
+  // Responder e decidir os chamados de suporte (antes cabia a quem administra usuários)
+  'SUPORTE_ATENDER',
 ] as const;
 export type Permissao = (typeof TODAS_PERMISSOES)[number];
 

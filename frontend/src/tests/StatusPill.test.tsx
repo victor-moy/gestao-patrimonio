@@ -8,6 +8,7 @@ describe('Cores de status', () => {
     expect(corDoStatus('ATIVO')).toBe('green');
     expect(corDoStatus('BOM')).toBe('green');
     expect(corDoStatus('EM_EXECUCAO')).toBe('blue');
+    expect(corDoStatus('EM_ROTA')).toBe('blue');
     expect(corDoStatus('AGUARDANDO_ORCAMENTO')).toBe('blue');
     expect(corDoStatus('EMPRESTADO')).toBe('blue');
     expect(corDoStatus('PENDENTE_APROVACAO')).toBe('yellow');

@@ -28,6 +28,7 @@ const CORES: Record<string, 'green' | 'blue' | 'yellow' | 'red' | 'gray'> = {
   AGUARDANDO_ORCAMENTO: 'blue',
   ORCAMENTO_REGISTRADO: 'yellow',
   AGUARDANDO_EXECUCAO: 'blue',
+  EM_ROTA: 'blue',
   EM_EXECUCAO: 'blue',
   EXECUTADO: 'yellow',
   AGUARDANDO_RETORNO: 'yellow',

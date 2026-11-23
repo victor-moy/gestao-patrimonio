@@ -33,9 +33,9 @@ import { Prestadores } from './pages/configuracoes/Prestadores';
 import { PrestadorFormulario } from './pages/configuracoes/PrestadorFormulario';
 import { ServicosContrato } from './pages/configuracoes/ServicosContrato';
 import { ServicoContratoFormulario } from './pages/configuracoes/ServicoContratoFormulario';
-import { ReportarBug } from './pages/ReportarBug';
-import { Relatos } from './pages/configuracoes/Relatos';
-import { RelatoDetalhe } from './pages/configuracoes/RelatoDetalhe';
+import { NovoChamado } from './pages/suporte/NovoChamado';
+import { Suporte } from './pages/suporte/Suporte';
+import { ChamadoDetalhe } from './pages/suporte/ChamadoDetalhe';
 import { Atendimento } from './pages/configuracoes/Atendimento';
 import { CategoriasCivis } from './pages/configuracoes/CategoriasCivis';
 import { CategoriaCivilFormulario } from './pages/configuracoes/CategoriaCivilFormulario';
@@ -84,7 +84,9 @@ function RotasProtegidas() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Inicio />} />
-          <Route path="/reportar-bug" element={<ReportarBug />} />
+          <Route path="/suporte" element={<Suporte />} />
+          <Route path="/suporte/novo" element={<NovoChamado />} />
+          <Route path="/suporte/:id" element={<ChamadoDetalhe />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
@@ -136,9 +138,13 @@ function RotasProtegidas() {
           <Route path="/configuracoes/itens/tipos" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><Tipos /></Restrita>} />
           <Route path="/configuracoes/itens/tipos/novo" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><TipoFormulario /></Restrita>} />
           <Route path="/configuracoes/itens/tipos/:id" element={<Restrita permissoes={['CONFIGURACOES_GERENCIAR']}><TipoFormulario /></Restrita>} />
-          <Route path="/reportar-bug" element={<ReportarBug />} />
-          <Route path="/configuracoes/relatos" element={<Restrita permissoes={['USUARIOS_ADMINISTRAR']}><Relatos /></Restrita>} />
-          <Route path="/configuracoes/relatos/:id" element={<Restrita permissoes={['USUARIOS_ADMINISTRAR']}><RelatoDetalhe /></Restrita>} />
+          <Route path="/suporte" element={<Suporte />} />
+          <Route path="/suporte/novo" element={<NovoChamado />} />
+          <Route path="/suporte/:id" element={<ChamadoDetalhe />} />
+          {/* Endereços antigos (relatos de bug e a lista que ficava em Configurações) */}
+          <Route path="/configuracoes/suporte" element={<Navigate to="/suporte" replace />} />
+          <Route path="/reportar-bug" element={<Navigate to="/suporte/novo" replace />} />
+          <Route path="/configuracoes/relatos" element={<Navigate to="/suporte" replace />} />
           <Route path="/conversas" element={<Conversas />} />
           <Route path="/conversas/:contexto/:id" element={<ConversaPagina />} />
           <Route path="/atas" element={<RotaRestrita perfis={['OPERADOR']} permissoes={['ATAS_GERENCIAR']}><Atas /></RotaRestrita>} />
