@@ -512,6 +512,11 @@ manutencoesRouter.post(
   },
 );
 
+// Civil — o prestador chegou ao local e inicia a execução ("em rota" → "em execução"); a entrada fica registrada na OS
+manutencoesRouter.post('/:id/iniciar-execucao', permitir(Perfil.TERCEIRIZADA), async (req, res) => {
+  res.json(paraPerfil(req.usuario!.perfil, await os.iniciarExecucao(req.usuario!, req.params.id)));
+});
+
 // Civil — OS assinada (em papel, digitalizada), em PDF. Depois de enviado não se edita.
 manutencoesRouter.post(
   '/:id/documentos',

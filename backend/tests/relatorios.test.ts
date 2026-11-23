@@ -436,7 +436,7 @@ describe('Relatório de manutenções', () => {
       unidadeId: { in: ['u1', 'u2'] },
       equipamento: { tipoEquipamentoId: UUID },
       contrato: { prestadorId: 'p-9' },
-      status: { in: ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_EXECUCAO', 'EXECUTADO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO', 'REENCAMINHAMENTO_SOLICITADO', 'BLOQUEADO'] },
+      status: { in: ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_ROTA', 'EM_EXECUCAO', 'EXECUTADO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO', 'REENCAMINHAMENTO_SOLICITADO', 'BLOQUEADO'] },
     });
     expect((where.criadoEm as { gte: Date }).gte).toEqual(new Date('2026-01-01'));
     expect((where.OR as unknown[])[0]).toEqual({ numero: 7 });
@@ -449,6 +449,7 @@ describe('Relatório de manutenções', () => {
       registro({ id: 'c', numero: 3, status: 'AGUARDANDO_VISTORIA' }),
       registro({ id: 'd', numero: 4, status: 'AGUARDANDO_EXECUCAO', custoFinal: '300', unidadeId: 'u-2', unidade: { nome: 'UBS Norte' } }),
       registro({ id: 'e', numero: 5, status: 'EM_EXECUCAO', unidadeId: 'u-2', unidade: { nome: 'UBS Norte' } }),
+      registro({ id: 'h', numero: 8, status: 'EM_ROTA', unidadeId: 'u-2', unidade: { nome: 'UBS Norte' } }),
       registro({ id: 'f', numero: 6, status: 'BLOQUEADO' }),
       registro({ id: 'g', numero: 7, status: 'CONCLUIDA', dataConclusao: new Date('2026-09-12T12:00:00Z') }),
     ] as never);
@@ -459,6 +460,7 @@ describe('Relatório de manutenções', () => {
       aguardandoAvaliacao: 1,
       aguardandoLiberacao: 0,
       noPrestador: 1,
+      emRota: 1,
       emExecucao: 1,
       executados: 0,
       aguardandoMedicao: 0,
@@ -467,7 +469,7 @@ describe('Relatório de manutenções', () => {
     expect(res.body.porStatus[0]).toEqual({ status: 'PENDENTE_APROVACAO', quantidade: 2 });
     expect(res.body.porUnidade).toEqual([
       { unidadeId: 'u-1', unidade: 'UBS Centro', quantidade: 5, custo: 0 },
-      { unidadeId: 'u-2', unidade: 'UBS Norte', quantidade: 2, custo: 300 },
+      { unidadeId: 'u-2', unidade: 'UBS Norte', quantidade: 3, custo: 300 },
     ]);
     expect((prismaMock.manutencao.findMany.mock.calls[0][0] as { where: Record<string, unknown> }).where).toMatchObject({ tipo: 'CIVIL' });
   });

@@ -15,6 +15,13 @@ export const STATUS_COM_DOCUMENTOS = ['EXECUTADO', 'AGUARDANDO_RETORNO', 'AGUARD
 
 // "2026-11-05T09:30" (campo datetime-local, horário do navegador) para o instante em ISO
 const paraIso = (local: string) => new Date(local).toISOString();
+// Instante em ISO para o formato do campo datetime-local (horário do navegador)
+function paraLocal(iso: string | null | undefined) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
 
 // Formulários abertos pelo menu "Ações" do prestador: gerar a OS e marcar o serviço como executado
 export function PaineisOS({
@@ -33,7 +40,9 @@ export function PaineisOS({
   const [equipe, setEquipe] = useState('');
   const [dia, setDia] = useState('');
   const [escopo, setEscopo] = useState(m.orientacoesTerceirizada || m.descricaoProblema || '');
-  const [entrada, setEntrada] = useState('');
+  // A entrada já vem da OS quando o prestador iniciou a execução; ele pode corrigi-la
+  const [entradaDigitada, setEntrada] = useState<string | null>(null);
+  const entrada = entradaDigitada ?? paraLocal(m.ordemServico?.entradaEm);
   const [saida, setSaida] = useState('');
   const [resultado, setResultado] = useState('');
   const [observacao, setObservacao] = useState('');
@@ -43,7 +52,7 @@ export function PaineisOS({
     return (
       <div className="actions-box">
         <div className="actions-title">Gerar ordem de serviço</div>
-        <p className="itens-aviso">Uma OS por chamado. Ao gerar, o chamado passa a “em rota” e a OS pode ser impressa para a assinatura da unidade.</p>
+        <p className="itens-aviso">Uma OS por chamado. Ao gerar, o chamado passa a “em rota” e a OS pode ser impressa para a assinatura da unidade. Ao chegar ao local, use “Iniciar execução”.</p>
         <div className="field">
           <label htmlFor="os-equipe">Equipe *</label>
           <input id="os-equipe" autoFocus maxLength={200} placeholder="Ex.: João e Pedro" value={equipe} onChange={(e) => setEquipe(e.target.value)} />

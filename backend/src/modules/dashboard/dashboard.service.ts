@@ -541,9 +541,10 @@ async function alertasTerceirizada(prestadorId: string): Promise<AlertaHome[]> {
   const em30dias = new Date(agora.getTime() + 30 * 24 * 60 * 60 * 1000);
   const filtroPrestador = { contrato: { prestadorId } };
 
-  const [orcamento, iniciar, emExecucao, contratos] = await Promise.all([
+  const [orcamento, iniciar, emRota, emExecucao, contratos] = await Promise.all([
     prisma.manutencao.count({ where: { ...filtroPrestador, status: 'AGUARDANDO_ORCAMENTO' } }),
     prisma.manutencao.count({ where: { ...filtroPrestador, status: 'AGUARDANDO_EXECUCAO' } }),
+    prisma.manutencao.count({ where: { ...filtroPrestador, status: 'EM_ROTA' } }),
     prisma.manutencao.count({ where: { ...filtroPrestador, status: 'EM_EXECUCAO' } }),
     prisma.contrato.findMany({
       where: { ativo: true, prestadorId },
@@ -571,6 +572,15 @@ async function alertasTerceirizada(prestadorId: string): Promise<AlertaHome[]> {
       `${iniciar} ${plural(iniciar, 'chamado aguardando início da execução', 'chamados aguardando início da execução')}`,
       iniciar,
       '/solicitacoes?tipo=MANUTENCAO&status=AGUARDANDO_EXECUCAO',
+    ),
+  );
+  push(
+    item(
+      'FILA_EM_ROTA',
+      'AVISO',
+      `${emRota} ${plural(emRota, 'chamado em rota', 'chamados em rota')}`,
+      emRota,
+      '/solicitacoes?tipo=MANUTENCAO&status=EM_ROTA',
     ),
   );
   push(

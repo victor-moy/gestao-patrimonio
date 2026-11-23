@@ -398,7 +398,7 @@ export async function cessoes(
 
 // Relatório 7 — Manutenções: custo, prazo, prestadores e itens que mais geram manutenção.
 // Os 4 baldes são os mesmos do funil de solicitações, mais "baixada" separada (equipamento perdido).
-const STATUS_ANDAMENTO = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_EXECUCAO', 'EXECUTADO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO', 'REENCAMINHAMENTO_SOLICITADO', 'BLOQUEADO'] as const;
+const STATUS_ANDAMENTO = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO', 'AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO', 'EM_ROTA', 'EM_EXECUCAO', 'EXECUTADO', 'AGUARDANDO_RETORNO', 'AGUARDANDO_MEDICAO', 'REENCAMINHAMENTO_SOLICITADO', 'BLOQUEADO'] as const;
 export type SituacaoManutencao = 'EM_ANDAMENTO' | 'CONCLUIDA' | 'NEGADA' | 'BAIXADO';
 
 // Os agregados somam até este limite de registros (os mais recentes); a tabela mostra só os primeiros.
@@ -422,6 +422,7 @@ const ETAPAS_MANUTENCAO = {
   aguardandoAvaliacao: ['AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA'],
   aguardandoLiberacao: ['AVALIADO'],
   noPrestador: ['AGUARDANDO_ORCAMENTO', 'ORCAMENTO_REGISTRADO', 'AGUARDANDO_EXECUCAO'],
+  emRota: ['EM_ROTA'],
   emExecucao: ['EM_EXECUCAO'],
   executados: ['EXECUTADO', 'AGUARDANDO_RETORNO'],
   aguardandoMedicao: ['AGUARDANDO_MEDICAO'],

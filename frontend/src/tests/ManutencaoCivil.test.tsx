@@ -639,6 +639,37 @@ describe('Manutenção civil', () => {
     });
   });
 
+  it('em rota, o prestador inicia a execução (sem lançar itens antes) e a OS leva a entrada para o formulário de executado', async () => {
+    const os = { id: 'os1', numero: 1, equipe: 'João', dataPrevista: '2026-11-10', escopo: 'Calha', geradaEm: '2026-11-09T12:00:00.000Z', entradaEm: null, saidaEm: null, resultado: null, observacaoExecucao: null, executadaEm: null, documentos: [] };
+    const chamadas = mockFetch({
+      ...entrarComo('TERCEIRIZADA', '/manutencoes/m1'),
+      '/sinapi': { body: [] },
+      '/manutencoes/m1/iniciar-execucao': { body: {} },
+      '/manutencoes/m1': { body: civil({ status: 'EM_ROTA', ordemServico: os }) },
+      ...historico,
+    });
+    render(<App />);
+
+    // em rota ainda não se lançam serviços nem se marca como executado
+    expect(screen.queryByRole('button', { name: 'Adicionar' })).not.toBeInTheDocument();
+    await acao('Iniciar execução');
+    await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/iniciar-execucao') && c.init?.method === 'POST')).toBe(true));
+  });
+
+  it('em execução não oferece iniciar a execução; a Unidade não inicia a execução do prestador', async () => {
+    mockFetch({ ...entrarComo('TERCEIRIZADA', '/manutencoes/m1'), '/sinapi': { body: [] }, '/manutencoes/m1': { body: civil({ status: 'EM_EXECUCAO', linhasRelatorio: [linha()] }) }, ...historico });
+    const { unmount } = render(<App />);
+    await screen.findByRole('button', { name: /Ações/ });
+    await userEvent.click(screen.getByRole('button', { name: /Ações/ }));
+    expect(screen.queryByRole('menuitem', { name: 'Iniciar execução' })).not.toBeInTheDocument();
+    unmount();
+
+    mockFetch({ ...entrarComo('UNIDADE', '/manutencoes/m1'), '/manutencoes/m1': { body: civil({ status: 'EM_ROTA' }) }, ...historico });
+    render(<App />);
+    await screen.findByText('Em Rota');
+    expect(screen.queryByRole('button', { name: /Iniciar execução/ })).not.toBeInTheDocument();
+  });
+
   it('em execução, o prestador informa os itens SINAPI executados e confirma o reparo concluído', async () => {
     const chamadas = mockFetch({
       ...entrarComo('TERCEIRIZADA', '/manutencoes/m1'),

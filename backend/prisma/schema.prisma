@@ -96,7 +96,9 @@ enum StatusManutencao {
   ORCAMENTO_REGISTRADO
   // Civil: encaminhado ao prestador, que ainda não iniciou o serviço
   AGUARDANDO_EXECUCAO
-  // Civil: com a OS gerada o prestador está em rota; (EM_EXECUCAO = "Em rota" para ele)
+  // Civil: o prestador gerou a OS e está a caminho; "Iniciar execução" (feito por ele, no local) leva a EM_EXECUCAO
+  EM_ROTA
+  // Civil: o prestador iniciou a execução no local. No chamado de equipamento é o reparo em andamento
   EM_EXECUCAO
   // Civil: serviço executado, falta enviar a OS assinada e o relatório de execução
   EXECUTADO

@@ -14,6 +14,7 @@ const ETAPAS: Array<{ chave: EtapaManutencao; rotulo: string }> = [
   { chave: 'aguardandoAvaliacao', rotulo: 'Aguardando avaliação técnica' },
   { chave: 'aguardandoLiberacao', rotulo: 'Avaliado, a liberar' },
   { chave: 'noPrestador', rotulo: 'Com o prestador' },
+  { chave: 'emRota', rotulo: 'Em rota' },
   { chave: 'emExecucao', rotulo: 'Em execução' },
   { chave: 'executados', rotulo: 'Executados' },
   { chave: 'aguardandoMedicao', rotulo: 'Aguardando medição' },

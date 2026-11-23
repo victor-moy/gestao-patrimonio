@@ -64,6 +64,7 @@ export const ROTULO_STATUS_MANUTENCAO: Record<string, string> = {
   AGUARDANDO_ORCAMENTO: 'Aguardando Orçamento',
   ORCAMENTO_REGISTRADO: 'Orçamento Registrado',
   AGUARDANDO_EXECUCAO: 'Aguardando Execução',
+  EM_ROTA: 'Em Rota',
   EM_EXECUCAO: 'Em Andamento',
   EXECUTADO: 'Doc. pendente',
   AGUARDANDO_RETORNO: 'Aguardando Retorno',
