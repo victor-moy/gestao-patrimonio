@@ -603,6 +603,8 @@
 .contrato-pagina .equipamento-secao { padding: 16px 20px; }
 .contrato-pagina .equipamento-secao + .equipamento-secao { margin-top: 16px; }
 .contrato-pagina .equipamento-secao h3 { margin-bottom: 8px; }
+/* Chamado de suporte: as caixas (chamado, anexos, conversa) ficam separadas, como nas páginas de cadastro */
+.suporte-pagina .equipamento-secao + .equipamento-secao { margin-top: 16px; }
 .contrato-pagina .novo-equipamento-grade { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .contrato-pagina .novo-equipamento-grade .field { padding: 8px 0; }
 .contrato-pagina .novo-equipamento-grade .field textarea { min-height: 0; }

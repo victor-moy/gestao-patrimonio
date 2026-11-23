@@ -68,8 +68,30 @@ export function ChamadoDetalhe() {
 
   const voltar = '/suporte';
 
+  const campos = relato
+    ? [
+        { rotulo: 'Categoria', valor: ROTULO_CATEGORIA_RELATO[relato.categoria] },
+        {
+          rotulo: 'Quem abriu',
+          valor: (
+            <>
+              {relato.usuario.nome}
+              <span className="dado-apoio">
+                {ROTULO_PERFIL[relato.perfil]}
+                {atendente ? ` · ${relato.usuario.email}` : ''}
+              </span>
+            </>
+          ),
+        },
+        { rotulo: 'Aberto em', valor: formatarDataHora(relato.criadoEm) },
+        ...(relato.resolvidoEm ? [{ rotulo: 'Resolvido em', valor: formatarDataHora(relato.resolvidoEm) }] : []),
+        { rotulo: 'Tela de origem', valor: relato.tela },
+        ...(atendente ? [{ rotulo: 'Navegador', valor: relato.navegador || 'Não informado', classe: 'relato-navegador' }] : []),
+      ]
+    : [];
+
   return (
-    <section className="gestao-page equipamento-pagina" aria-labelledby="chamado-titulo">
+    <section className="gestao-page equipamento-pagina suporte-pagina" aria-labelledby="chamado-titulo">
       <div className="equipamento-pagina-cabecalho">
         <div className="equipamento-titulo-linha">
           <h2 id="chamado-titulo">{relato ? `${codigoSuporte(relato.numero)} · ${relato.titulo ?? relato.tela}` : 'Chamado de suporte'}</h2>
@@ -97,40 +119,13 @@ export function ChamadoDetalhe() {
           <section className="equipamento-secao">
             <h3>Chamado</h3>
             <dl className="equipamento-dados">
-              <div>
-                <dt>Categoria</dt>
-                <dd>{ROTULO_CATEGORIA_RELATO[relato.categoria]}</dd>
-              </div>
-              <div>
-                <dt>Quem abriu</dt>
-                <dd>
-                  {relato.usuario.nome}
-                  <span className="dado-apoio">
-                    {ROTULO_PERFIL[relato.perfil]}
-                    {atendente ? ` · ${relato.usuario.email}` : ''}
-                  </span>
-                </dd>
-              </div>
-              <div>
-                <dt>Aberto em</dt>
-                <dd>{formatarDataHora(relato.criadoEm)}</dd>
-              </div>
-              {relato.resolvidoEm && (
-                <div>
-                  <dt>Resolvido em</dt>
-                  <dd>{formatarDataHora(relato.resolvidoEm)}</dd>
+              {campos.map((c, i) => (
+                // Se sobra um campo sozinho na última linha, ele ocupa a linha toda (o traço de cima vai de ponta a ponta)
+                <div key={c.rotulo} className={campos.length % 2 === 1 && i === campos.length - 1 ? 'relato-largura-total' : undefined}>
+                  <dt>{c.rotulo}</dt>
+                  <dd className={c.classe}>{c.valor}</dd>
                 </div>
-              )}
-              <div>
-                <dt>Tela de origem</dt>
-                <dd>{relato.tela}</dd>
-              </div>
-              {atendente && (
-                <div>
-                  <dt>Navegador</dt>
-                  <dd className="relato-navegador">{relato.navegador || 'Não informado'}</dd>
-                </div>
-              )}
+              ))}
               {relato.categoria === 'BUG' && (
                 <div className="relato-largura-total">
                   <dt>O que esperava</dt>
@@ -166,7 +161,7 @@ export function ChamadoDetalhe() {
             )}
           </section>
 
-          <section className="equipamento-secao suporte-conversa-secao">
+          <section className="equipamento-secao">
             <h3>Conversa</h3>
             <div className="suporte-conversa">
               <ChatConversa

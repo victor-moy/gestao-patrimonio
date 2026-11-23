@@ -95,3 +95,6 @@
 /* Conversa dentro do chamado de suporte: altura própria, para a lista rolar dentro da página */
 .suporte-conversa { display: flex; flex-direction: column; height: 440px; min-height: 0; }
 .chat-bloqueada { flex: 0 0 auto; padding: 14px 0 0; }
+/* No chamado de suporte o campo de mensagem ocupa a largura toda da caixa */
+.suporte-conversa .chat-formulario { align-items: stretch; }
+.suporte-conversa .chat-entrada { max-width: none; }
