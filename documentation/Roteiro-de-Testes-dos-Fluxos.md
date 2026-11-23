@@ -291,7 +291,7 @@ Destinos possíveis (cada um é um cenário):
 
 #### 6B.5 Execução (TC, a terceirizada)
 
-6. - [ ] **TC** vê o chamado `Aguardando Execução` › **Gerar OS**: equipe, dia da visita, escopo. Esperado: `Em Andamento` (em rota), OS-000x criada (uma por chamado).
+6. - [ ] **TC** vê o chamado `Aguardando Execução` › **Gerar OS**: equipe, dia da visita, escopo. Esperado: `Em Rota`, OS-000x criada (uma por chamado). Depois, **TC** usa **Iniciar execução** (a entrada fica na OS) e o chamado passa a `Em Andamento` (em execução); só então lança serviços e marca como executado.
 7. - [ ] **Qualquer perfil que veja o chamado** › menu **Ações** › **Imprimir OS**. Esperado: o diálogo de impressão abre com **uma página A4**, sem data/hora/endereço do navegador, com logo, tabelas, campos de entrada/saída, itens em branco, observações e as duas assinaturas.
 8. - [ ] **TC** lança os **serviços e materiais executados**, escolhidos da tabela SINAPI, **só com a quantidade**. TC **não vê preços**.
 9. - [ ] **TC** › **Marcar como executado**: entrada, saída (depois da entrada), resultado (total ou parcial) e observação. Esperado: `Doc. pendente`. O botão fica desabilitado sem itens lançados.

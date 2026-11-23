@@ -55,7 +55,7 @@ Onde está cada coisa: campos, rótulos, foco (grafite, em todo o sistema), bot�
 
 ### Submenus
 
-Relatórios abre submenus no menu lateral (Visão geral, Ampliação, Empréstimos, Cessões de uso, Manutenções); apenas o submenu selecionado fica marcado, o item pai não.
+Relatórios abre submenus no menu lateral (Visão geral, Ampliação, Empréstimos, Cessões de uso, Manutenção - Civil, Manutenção - Patrimônio); apenas o submenu selecionado fica marcado, o item pai não.
 
 ### Configurações
 
@@ -154,7 +154,9 @@ Quatro relatórios, um por submenu, só com o nome do relatório no título (sem
 - **cards de KPI pequenos** (rótulo + valor, barra fina de proporção quando fizer sentido); sem "no período", sem clique para detalhar;
 - gráficos sóbrios e modernos: barras horizontais finas em tons de cinza/grafite, legenda simples, sem eixos pesados;
 - tabelas no padrão de lista, sem contador "N registros" e sem colunas redundantes (Empréstimos e Cessões abrem com a coluna "Solicitação": o número em cinza e, embaixo, o título; o tombamento (Empréstimos) e o equipamento com o patrimônio (Cessões) seguem em colunas próprias; sem "Duração média"); cabeçalhos ordenáveis com ícone alinhado ao texto. No mobile as tabelas dos relatórios viram cartões (mesmo padrão das listas) e, em Itens e estoque, a ordenação passa a um seletor "Ordenar por" no card de filtros, já que o cabeçalho some;
+- tabelas e rankings longos **rolam dentro do próprio card** (altura máxima de 520 px, ou 70% da tela se for menor; ranking da Visão geral, 480 px), com o cabeçalho da tabela fixo, para a página não esticar;
 - unidades de medida só onde ajudam (quantidades sem "un.").
+- **Painéis de manutenção (Civil e Patrimônio)** têm muitos números, então não viram uma parede de cartões: no topo ficam só **quatro cartões de KPI** (total, em andamento, custo total, tempo médio); a **fila por etapa** é um único card com lista de barras finas (duas colunas no computador) e o **desfecho** (concluídas, negadas, baixadas) é uma lista simples ao lado, sem cartão por número. Todos os filtros ficam à vista, sem botão de recolher (no Civil: período, unidade, prestador, setor, tipo de problema, status, situação e busca; no Patrimônio: período, unidade, item, prestador, status, situação e busca).
 
 ## Estoque
 
