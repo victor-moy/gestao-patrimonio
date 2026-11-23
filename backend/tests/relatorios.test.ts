@@ -361,6 +361,7 @@ describe('Relatório de manutenções', () => {
     dataConclusao: null,
     orcamentoValor: null,
     custoFinal: null,
+    unidadeId: 'u-1',
     unidade: { nome: 'UBS Centro' },
     equipamento: {
       tombamento: '123/2024',
@@ -439,6 +440,59 @@ describe('Relatório de manutenções', () => {
     });
     expect((where.criadoEm as { gte: Date }).gte).toEqual(new Date('2026-01-01'));
     expect((where.OR as unknown[])[0]).toEqual({ numero: 7 });
+  });
+
+  it('painel gerencial: conta a fila por etapa, por status e por unidade', async () => {
+    prismaMock.manutencao.findMany.mockResolvedValue([
+      registro({ id: 'a', numero: 1, status: 'PENDENTE_APROVACAO' }),
+      registro({ id: 'b', numero: 2, status: 'PENDENTE_APROVACAO' }),
+      registro({ id: 'c', numero: 3, status: 'AGUARDANDO_VISTORIA' }),
+      registro({ id: 'd', numero: 4, status: 'AGUARDANDO_EXECUCAO', custoFinal: '300', unidadeId: 'u-2', unidade: { nome: 'UBS Norte' } }),
+      registro({ id: 'e', numero: 5, status: 'EM_EXECUCAO', unidadeId: 'u-2', unidade: { nome: 'UBS Norte' } }),
+      registro({ id: 'f', numero: 6, status: 'BLOQUEADO' }),
+      registro({ id: 'g', numero: 7, status: 'CONCLUIDA', dataConclusao: new Date('2026-09-12T12:00:00Z') }),
+    ] as never);
+    const res = await request(app).get('/relatorios/manutencoes?tipoManutencao=CIVIL').set(auth('OPERADOR'));
+    expect(res.status).toBe(200);
+    expect(res.body.etapas).toEqual({
+      aguardandoTriagem: 2,
+      aguardandoAvaliacao: 1,
+      aguardandoLiberacao: 0,
+      noPrestador: 1,
+      emExecucao: 1,
+      executados: 0,
+      aguardandoMedicao: 0,
+      parados: 1,
+    });
+    expect(res.body.porStatus[0]).toEqual({ status: 'PENDENTE_APROVACAO', quantidade: 2 });
+    expect(res.body.porUnidade).toEqual([
+      { unidadeId: 'u-1', unidade: 'UBS Centro', quantidade: 5, custo: 0 },
+      { unidadeId: 'u-2', unidade: 'UBS Norte', quantidade: 2, custo: 300 },
+    ]);
+    expect((prismaMock.manutencao.findMany.mock.calls[0][0] as { where: Record<string, unknown> }).where).toMatchObject({ tipo: 'CIVIL' });
+  });
+
+  it('painel gerencial: filtra por setor, tipo de problema e status exato', async () => {
+    prismaMock.manutencao.findMany.mockResolvedValue([] as never);
+    const SETOR = '33333333-3333-4333-8333-333333333333';
+    const res = await request(app)
+      .get(`/relatorios/manutencoes?tipoManutencao=CIVIL&setorId=${SETOR}&categoriaCivilId=${UUID}&status=AGUARDANDO_EXECUCAO&situacao=CONCLUIDA`)
+      .set(auth('OPERADOR'));
+    expect(res.status).toBe(200);
+    const where = (prismaMock.manutencao.findMany.mock.calls[0][0] as { where: Record<string, unknown> }).where;
+    expect(where).toMatchObject({
+      setores: { some: { setorId: { in: [SETOR] } } },
+      categoriaCivilId: UUID,
+      // o status exato vale no lugar da situação
+      status: 'AGUARDANDO_EXECUCAO',
+    });
+  });
+
+  it('painel gerencial: recusa status, setor e tipo de problema inválidos', async () => {
+    expect((await request(app).get('/relatorios/manutencoes?status=XYZ').set(auth('OPERADOR'))).status).toBe(422);
+    expect((await request(app).get('/relatorios/manutencoes?setorId=abc').set(auth('OPERADOR'))).status).toBe(422);
+    expect((await request(app).get('/relatorios/manutencoes?categoriaCivilId=abc').set(auth('OPERADOR'))).status).toBe(422);
+    expect(prismaMock.manutencao.findMany).not.toHaveBeenCalled();
   });
 
   it('recusa situação e data inválidas e limita a tabela a 200 linhas sem perder os totais', async () => {

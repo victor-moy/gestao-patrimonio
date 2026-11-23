@@ -213,9 +213,9 @@ describe('Relatórios (Administrador)', () => {
     });
     await abrirRelatorios();
     expect(window.location.pathname).toBe('/relatorios/visao-geral');
-    // Os quatro submenus aparecem sob "Relatórios"
+    // Os submenus aparecem sob "Relatórios"
     const submenus = within(screen.getByRole('group', { name: 'Submenus de Relatórios' })).getAllByRole('link');
-    expect(submenus.map((l) => l.textContent)).toEqual(['Visão geral', 'Ampliação', 'Empréstimos', 'Cessões de uso', 'Manutenções']);
+    expect(submenus.map((l) => l.textContent)).toEqual(['Visão geral', 'Ampliação', 'Empréstimos', 'Cessões de uso', 'Manutenção - Civil', 'Manutenção - Patrimônio']);
     expect(screen.getByRole('link', { name: 'Visão geral' })).toHaveClass('active');
     // O item pai não fica marcado junto com o submenu
     expect(within(screen.getByRole('navigation')).getByRole('link', { name: 'Relatórios' })).not.toHaveClass('active');
@@ -233,6 +233,9 @@ describe('Relatório de manutenções', () => {
     custoTotal: 2400,
     tempoMedioDias: 7.5,
     orcamentosAltos: 1,
+    etapas: { aguardandoTriagem: 2, aguardandoAvaliacao: 1, aguardandoLiberacao: 0, noPrestador: 3, emExecucao: 4, executados: 5, aguardandoMedicao: 6, parados: 7 },
+    porStatus: [{ status: 'ORCAMENTO_REGISTRADO', quantidade: 1 }],
+    porUnidade: [{ unidadeId: 'u1', unidade: 'UBS Norte', quantidade: 3, custo: 2400 }],
     porMes: [
       { mes: '2026-09', quantidade: 1, custo: 900 },
       { mes: '2026-10', quantidade: 2, custo: 1500 },
@@ -273,13 +276,13 @@ describe('Relatório de manutenções', () => {
       '/relatorios/manutencoes': { body: relatorio },
     });
     await abrirRelatorios();
-    await irParaSubmenu('Manutenções');
+    await irParaSubmenu('Manutenção - Patrimônio');
 
-    expect(await screen.findByRole('heading', { name: 'Manutenções', level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Manutenção - Patrimônio', level: 2 })).toBeInTheDocument();
     expect(await screen.findByText('Total de manutenções')).toBeInTheDocument();
     expect(screen.getByText(/2\.400,00/, { selector: '.stat-value' })).toBeInTheDocument();
     expect(screen.getByText('7,5 dias')).toBeInTheDocument();
-    expect(screen.getByText('Orçamentos a partir de 50% do preço de referência do item')).toBeInTheDocument();
+    expect(screen.getByText('Manutenção não sugerida')).toBeInTheDocument();
     // gráficos e prestadores
     expect(screen.getByText('Out/26')).toBeInTheDocument();
     expect(screen.getByTitle('Autoclave 75L')).toBeInTheDocument();
@@ -309,7 +312,7 @@ describe('Relatório de manutenções', () => {
       '/relatorios/manutencoes': { body: { ...relatorio, itens: [], itensTotal: 0 } },
     });
     await abrirRelatorios();
-    await irParaSubmenu('Manutenções');
+    await irParaSubmenu('Manutenção - Patrimônio');
     await screen.findByText('Total de manutenções');
     await screen.findByRole('option', { name: 'Tecnomed' });
 
@@ -340,9 +343,77 @@ describe('Relatório de manutenções', () => {
       },
     });
     await abrirRelatorios();
-    await irParaSubmenu('Manutenções');
+    await irParaSubmenu('Manutenção - Patrimônio');
     expect(await screen.findByText(/consideram as 5000 manutenções mais recentes/)).toBeInTheDocument();
     expect(screen.getByText('—', { selector: '.stat-value' })).toBeInTheDocument();
+  });
+});
+
+describe('Painel gerencial: manutenção civil', () => {
+  const vazio = {
+    total: 4, truncado: false, emAndamento: 4, concluidas: 0, negadas: 0, baixadas: 0, custoTotal: 0, tempoMedioDias: null, orcamentosAltos: 0,
+    etapas: { aguardandoTriagem: 2, aguardandoAvaliacao: 1, aguardandoLiberacao: 0, noPrestador: 0, emExecucao: 1, executados: 0, aguardandoMedicao: 0, parados: 3 },
+    porStatus: [], porUnidade: [{ unidadeId: 'u1', unidade: 'UBS Norte', quantidade: 4, custo: 0 }], porMes: [], porPrestador: [], porItem: [], itensTotal: 0, itens: [],
+  };
+
+  it('mostra só chamados civis, a fila por etapa, a tabela por unidade e os filtros de setor e tipo de problema', async () => {
+    const chamadas = mockFetch({
+      ...me,
+      ...dashboardVazio,
+      '/unidades': { body: unidades },
+      '/categorias-civis': { body: [{ id: 'c1', nome: 'Infiltração', perguntas: [] }] },
+      '/categorias': { body: [] },
+      '/prestadores': { body: [] },
+      '/setores': { body: [{ id: 's1', nome: 'Recepção', ativo: true, unidadeId: 'u1', unidade: { id: 'u1', nome: 'UBS Norte' } }] },
+      '/relatorios/visao-geral': { body: [] },
+      '/relatorios/ranking-unidades': { body: [] },
+      '/relatorios/resumo-item': { body: null, status: 404 },
+      '/relatorios/manutencoes': { body: vazio },
+    });
+    await abrirRelatorios();
+    await irParaSubmenu('Manutenção - Civil');
+    expect(await screen.findByRole('heading', { name: 'Manutenção - Civil', level: 2 })).toBeInTheDocument();
+
+    // fila por etapa (inclui os parados); o alerta de preço só existe no painel de patrimônio
+    const fila = await screen.findByRole('region', { name: 'Fila por etapa' });
+    expect(within(fila).getByText('Aguardando triagem').nextElementSibling).toHaveTextContent('2');
+    expect(within(fila).getByText('Em execução').nextElementSibling).toHaveTextContent('1');
+    expect(within(fila).getByText('Parados').nextElementSibling).toHaveTextContent('3');
+    expect(screen.queryByText('Manutenção não sugerida')).not.toBeInTheDocument();
+    // painel civil não filtra por item de equipamento
+    expect(screen.queryByText('Item', { selector: '.campo-rotulo' })).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Unidades', level: 3 })).toBeInTheDocument();
+
+    await userEvent.selectOptions(await screen.findByRole('option', { name: /Recepção/ }).then(() => screen.getByLabelText('Setor')), 's1');
+    await screen.findByRole('option', { name: 'Infiltração' });
+    await userEvent.selectOptions(screen.getByLabelText('Tipo de problema'), 'c1');
+    await userEvent.selectOptions(screen.getByLabelText('Status'), 'AGUARDANDO_EXECUCAO');
+    await waitFor(() => {
+      const ultima = chamadas.filter((c) => c.url.includes('/relatorios/manutencoes')).at(-1)!;
+      expect(ultima.url).toContain('tipoManutencao=CIVIL');
+      expect(ultima.url).toContain('setorId=s1');
+      expect(ultima.url).toContain('categoriaCivilId=c1');
+      expect(ultima.url).toContain('status=AGUARDANDO_EXECUCAO');
+    });
+  });
+
+  it('o painel de patrimônio pede só chamados de equipamento e o endereço antigo abre o civil', async () => {
+    const chamadas = mockFetch({
+      ...me,
+      ...dashboardVazio,
+      '/unidades': { body: unidades },
+      '/categorias': { body: [] },
+      '/prestadores': { body: [] },
+      '/relatorios/visao-geral': { body: [] },
+      '/relatorios/ranking-unidades': { body: [] },
+      '/relatorios/resumo-item': { body: null, status: 404 },
+      '/relatorios/manutencoes': { body: vazio },
+    });
+    await abrirRelatorios();
+    await irParaSubmenu('Manutenção - Patrimônio');
+    await screen.findByText('Total de manutenções');
+    expect(chamadas.filter((c) => c.url.includes('/relatorios/manutencoes')).at(-1)!.url).toContain('tipoManutencao=EQUIPAMENTO');
+    expect(screen.queryByLabelText('Setor')).not.toBeInTheDocument();
   });
 });
 

@@ -4,8 +4,24 @@ import { api } from '../../api/client';
 import { StatusPill } from '../../components/StatusPill';
 import { IconeBusca } from '../../components/icons';
 import { FiltrosGerais, paramsFiltros, useOpcoesFiltro } from './filtros';
-import type { ManutencaoRelatorio, PrestadorServico, RelatorioManutencoes, SituacaoManutencao } from '../../types';
-import { capitalizarPalavras, codigoManutencao, formatarMoeda, statusManutencaoExibido } from '../../utils/format';
+import { useCategoriasCivis } from '../../hooks/useCategoriasCivis';
+import type { EtapaManutencao, ManutencaoRelatorio, PrestadorServico, RelatorioManutencoes, Setor, SituacaoManutencao } from '../../types';
+import { capitalizarPalavras, codigoManutencao, formatarMoeda, ROTULO_STATUS_MANUTENCAO, statusManutencaoExibido } from '../../utils/format';
+
+// Etapas do painel gerencial, na ordem em que o chamado percorre o fluxo
+const ETAPAS: Array<{ chave: EtapaManutencao; rotulo: string }> = [
+  { chave: 'aguardandoTriagem', rotulo: 'Aguardando triagem' },
+  { chave: 'aguardandoAvaliacao', rotulo: 'Aguardando avaliação técnica' },
+  { chave: 'aguardandoLiberacao', rotulo: 'Avaliado, a liberar' },
+  { chave: 'noPrestador', rotulo: 'Com o prestador' },
+  { chave: 'emExecucao', rotulo: 'Em execução' },
+  { chave: 'executados', rotulo: 'Executados' },
+  { chave: 'aguardandoMedicao', rotulo: 'Aguardando medição' },
+  { chave: 'parados', rotulo: 'Parados' },
+];
+
+// Fora do filtro: pseudo-status só de exibição
+const OPCOES_STATUS = Object.entries(ROTULO_STATUS_MANUTENCAO).filter(([valor]) => valor !== 'CONTESTADO');
 
 const SITUACOES: Array<{ valor: '' | SituacaoManutencao; rotulo: string }> = [
   { valor: '', rotulo: 'Todas' },
@@ -26,11 +42,60 @@ const plural = (n: number, singular: string, pluralTexto: string) => `${n} ${n =
 const MESES_NO_GRAFICO = 12;
 const ITENS_NO_RANKING = 5;
 
-// Relatório 7 — Manutenções: situação, custo, prazo, prestadores e itens que mais geram manutenção.
-export function RelatorioManutencoes() {
+// Tabela de totais (manutenções e custo) por unidade ou por prestador
+function TabelaTotais({
+  titulo,
+  coluna,
+  linhas,
+  carregado,
+}: {
+  titulo: string;
+  coluna: string;
+  linhas: Array<{ chave: string; nome: string; quantidade: number; custo: number }>;
+  carregado: boolean;
+}) {
+  return (
+    <div className="card rel-tabela rel-tabela--prestadores">
+      <div className="rel-cabecalho rel-cabecalho--tabela">
+        <h3>{titulo}</h3>
+      </div>
+      {linhas.length > 0 ? (
+        <div className="rel-tabela-scroll rel-cartoes rel-cartoes--prestadores">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">{coluna}</th>
+                <th scope="col" className="rel-coluna-num">Manutenções</th>
+                <th scope="col" className="rel-coluna-num">Custo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {linhas.map((l) => (
+                <tr key={l.chave}>
+                  <td className="rc-principal rel-tabela-principal">{l.nome}</td>
+                  <td className="rc-a rel-coluna-num" data-label="Manutenções">{l.quantidade}</td>
+                  <td className="rc-b rel-coluna-num" data-label="Custo">{formatarMoeda(l.custo)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="empty-state">{carregado ? 'Sem manutenções para os filtros selecionados' : 'Carregando…'}</div>
+      )}
+    </div>
+  );
+}
+
+// Painel gerencial de manutenção, um para o chamado civil e outro para o de equipamento: fila por etapa, situação,
+// custo, prazo, unidades, prestadores e o que mais gera chamado.
+export function RelatorioManutencoes({ tipo }: { tipo: 'CIVIL' | 'EQUIPAMENTO' }) {
+  const civil = tipo === 'CIVIL';
   const [dados, setDados] = useState<RelatorioManutencoes | null>(null);
   const { unidades, categorias, erro: erroOpcoes } = useOpcoesFiltro();
   const [prestadores, setPrestadores] = useState<PrestadorServico[]>([]);
+  const [setores, setSetores] = useState<Setor[]>([]);
+  const { categorias: categoriasCivis } = useCategoriasCivis(civil);
   const [erro, setErro] = useState<string | null>(null);
   const [filtros, setFiltros] = useState({
     dataInicio: '',
@@ -39,6 +104,9 @@ export function RelatorioManutencoes() {
     tipoEquipamentoId: '',
     prestadorId: '',
     situacao: '' as '' | SituacaoManutencao,
+    status: '',
+    setorId: '',
+    categoriaCivilId: '',
     busca: '',
   });
 
@@ -49,8 +117,20 @@ export function RelatorioManutencoes() {
       .catch((e) => setErro(e instanceof Error ? e.message : 'Não foi possível carregar os prestadores.'));
   }, []);
 
+  useEffect(() => {
+    if (!civil) return;
+    api
+      .get<Setor[]>('/setores')
+      .then((l) => setSetores(Array.isArray(l) ? l : []))
+      .catch((e) => setErro(e instanceof Error ? e.message : 'Não foi possível carregar os setores.'));
+  }, [civil]);
+
   const carregar = useCallback(() => {
     const params = paramsFiltros(filtros);
+    params.set('tipoManutencao', tipo);
+    if (filtros.status) params.set('status', filtros.status);
+    if (civil && filtros.setorId) params.set('setorId', filtros.setorId);
+    if (civil && filtros.categoriaCivilId) params.set('categoriaCivilId', filtros.categoriaCivilId);
     if (filtros.prestadorId) params.set('prestadorId', filtros.prestadorId);
     if (filtros.situacao) params.set('situacao', filtros.situacao);
     setErro(null);
@@ -58,7 +138,7 @@ export function RelatorioManutencoes() {
       .get<RelatorioManutencoes>(`/relatorios/manutencoes?${params}`)
       .then(setDados)
       .catch((e) => setErro(e instanceof Error ? e.message : 'Não foi possível carregar o relatório.'));
-  }, [filtros]);
+  }, [filtros, tipo, civil]);
 
   useEffect(() => {
     carregar();
@@ -66,16 +146,34 @@ export function RelatorioManutencoes() {
 
   const percentual = (valor: number | undefined) =>
     dados && valor && dados.total > 0 ? Math.round((valor / dados.total) * 100) : 0;
-  const kpis = [
-    { rotulo: 'Em andamento', valor: dados?.emAndamento, classe: 'andamento' },
-    { rotulo: 'Concluídas', valor: dados?.concluidas, classe: 'concluida' },
-    { rotulo: 'Negadas', valor: dados?.negadas, classe: 'negada' },
-    { rotulo: 'Baixadas', valor: dados?.baixadas, classe: 'negada' },
+  // Desfecho dos chamados que já saíram da fila
+  const desfecho = [
+    { rotulo: 'Concluídas', valor: dados?.concluidas },
+    { rotulo: 'Negadas', valor: dados?.negadas },
+    { rotulo: 'Baixadas', valor: dados?.baixadas },
   ];
+  const maxEtapa = Math.max(1, ...ETAPAS.map((e) => dados?.etapas[e.chave] ?? 0));
   const meses = (dados?.porMes ?? []).slice(-MESES_NO_GRAFICO);
   const maxCusto = Math.max(1, ...meses.map((m) => m.custo));
   const itens = (dados?.porItem ?? []).slice(0, ITENS_NO_RANKING);
   const maxItem = Math.max(1, ...itens.map((i) => i.quantidade));
+
+  // Painel civil: o Setor ocupa o lugar do Item na primeira linha de filtros
+  const campoSetor = (
+    <div>
+      <span className="campo-rotulo">Setor</span>
+      <select aria-label="Setor" value={filtros.setorId} onChange={(e) => setFiltros({ ...filtros, setorId: e.target.value })}>
+        <option value="">Todos</option>
+        {setores
+          .filter((x) => filtros.unidadeIds.length === 0 || filtros.unidadeIds.includes(x.unidadeId))
+          .map((x) => (
+            <option key={x.id} value={x.id}>
+              {filtros.unidadeIds.length === 1 ? x.nome : `${x.nome} · ${x.unidade.nome}`}
+            </option>
+          ))}
+      </select>
+    </div>
+  );
 
   return (
     <>
@@ -85,8 +183,25 @@ export function RelatorioManutencoes() {
         </div>
       )}
       <div className="card card-pad rel-filtros">
-        <FiltrosGerais filtros={filtros} onChange={setFiltros} unidades={unidades} categorias={categorias} />
-        <div className="relatorios-filtros-gerais rel-filtros-extra">
+        <FiltrosGerais filtros={filtros} onChange={setFiltros} unidades={unidades} categorias={categorias} semItem={civil} extra={campoSetor} />
+        <div className={`relatorios-filtros-gerais rel-filtros-extra${civil ? '' : ' rel-filtros-extra--quatro'}`}>
+          {civil && (
+            <div>
+              <span className="campo-rotulo">Tipo de problema</span>
+              <select
+                aria-label="Tipo de problema"
+                value={filtros.categoriaCivilId}
+                onChange={(e) => setFiltros({ ...filtros, categoriaCivilId: e.target.value })}
+              >
+                <option value="">Todos</option>
+                {categoriasCivis.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <span className="campo-rotulo">Prestador de serviço</span>
             <select
@@ -98,6 +213,21 @@ export function RelatorioManutencoes() {
               {prestadores.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <span className="campo-rotulo">Status</span>
+            <select
+              aria-label="Status"
+              value={filtros.status}
+              onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}
+            >
+              <option value="">Todos</option>
+              {OPCOES_STATUS.map(([valor, rotulo]) => (
+                <option key={valor} value={valor}>
+                  {rotulo}
                 </option>
               ))}
             </select>
@@ -116,14 +246,14 @@ export function RelatorioManutencoes() {
               ))}
             </select>
           </div>
-          <div>
+          <div className={civil ? 'rel-filtro-largo' : undefined}>
             <span className="campo-rotulo">Busca</span>
             <label className="rel-busca rel-busca--campo">
               <IconeBusca />
               <input
                 type="text"
                 aria-label="Buscar manutenções"
-                placeholder="Número, tombamento ou descrição"
+                placeholder={civil ? 'Número, local ou descrição' : 'Número, tombamento ou descrição'}
                 value={filtros.busca}
                 onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })}
               />
@@ -138,36 +268,28 @@ export function RelatorioManutencoes() {
         </p>
       )}
 
-      <div className="stats-grid rel-kpis rel-kpis--cinco">
+      <div className="stats-grid rel-kpis rel-kpis--quatro">
         <div className="card stat-card">
           <div className="stat-label">Total de manutenções</div>
           <div className="stat-linha">
             <span className="stat-value">{dados?.total ?? '—'}</span>
           </div>
         </div>
-        {kpis.map((k) => (
-          <div className="card stat-card" key={k.rotulo}>
-            <div className="stat-label">
-              <span className={`stat-dot stat-dot--${k.classe}`} aria-hidden /> {k.rotulo}
-            </div>
-            <div className="stat-linha">
-              <span className="stat-value">{k.valor ?? '—'}</span>
-              <span className="stat-sub">{percentual(k.valor)}%</span>
-            </div>
-            <div className="stat-trilho" aria-hidden>
-              <div className={`stat-trilho-fill stat-trilho-fill--${k.classe}`} style={{ width: `${percentual(k.valor)}%` }} />
-            </div>
+        <div className="card stat-card">
+          <div className="stat-label">Em andamento</div>
+          <div className="stat-linha">
+            <span className="stat-value">{dados?.emAndamento ?? '—'}</span>
+            <span className="stat-sub">{percentual(dados?.emAndamento)}%</span>
           </div>
-        ))}
-      </div>
-
-      <div className="stats-grid rel-kpis rel-kpis--tres">
+          <div className="stat-trilho" aria-hidden>
+            <div className="stat-trilho-fill stat-trilho-fill--andamento" style={{ width: `${percentual(dados?.emAndamento)}%` }} />
+          </div>
+        </div>
         <div className="card stat-card">
           <div className="stat-label">Custo total</div>
           <div className="stat-linha">
             <span className="stat-value">{dados ? formatarMoeda(dados.custoTotal) : '—'}</span>
           </div>
-          <div className="stat-sub">Custo final, ou orçamento enquanto o reparo não termina</div>
         </div>
         <div className="card stat-card">
           <div className="stat-label">Tempo médio de conclusão</div>
@@ -176,23 +298,61 @@ export function RelatorioManutencoes() {
               {dados ? (dados.tempoMedioDias === null ? '—' : `${String(dados.tempoMedioDias).replace('.', ',')} dias`) : '—'}
             </span>
           </div>
-          <div className="stat-sub">Da abertura à conclusão, só as concluídas</div>
-        </div>
-        <div className="card stat-card">
-          <div className="stat-label">Manutenção não sugerida</div>
-          <div className="stat-linha">
-            <span className="stat-value">{dados?.orcamentosAltos ?? '—'}</span>
-          </div>
-          <div className="stat-sub">Orçamentos a partir de 50% do preço de referência do item</div>
         </div>
       </div>
 
+      <div className="rel-painel-topo">
+        <section aria-label="Fila por etapa" className="card card-pad rel-grafico-cartao">
+          <div className="rel-cabecalho">
+            <h3>Fila por etapa</h3>
+          </div>
+          <ol className="rel-itens-lista rel-etapas-lista">
+            {ETAPAS.map((e) => {
+              const quantidade = dados?.etapas[e.chave];
+              return (
+                <li key={e.chave}>
+                  <div className="rel-itens-linha">
+                    <span className="rel-itens-nome">{e.rotulo}</span>
+                    <span className="rel-itens-qtd">{quantidade ?? '—'}</span>
+                  </div>
+                  <div className="rel-itens-trilho" aria-hidden>
+                    <div className="rel-itens-fill" style={{ width: `${((quantidade ?? 0) / maxEtapa) * 100}%` }} />
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+
+        <section aria-label="Desfecho" className="card card-pad rel-grafico-cartao">
+          <div className="rel-cabecalho">
+            <h3>Desfecho</h3>
+          </div>
+          <dl className="rel-resumo-lista">
+            {desfecho.map((d) => (
+              <div key={d.rotulo}>
+                <dt>{d.rotulo}</dt>
+                <dd>
+                  {d.valor ?? '—'} <span>{percentual(d.valor)}%</span>
+                </dd>
+              </div>
+            ))}
+            {!civil && (
+              <div>
+                <dt>Manutenção não sugerida</dt>
+                <dd>
+                  {dados?.orcamentosAltos ?? '—'} <span>{percentual(dados?.orcamentosAltos)}%</span>
+                </dd>
+              </div>
+            )}
+          </dl>
+        </section>
+      </div>
+
       <div className="relatorios-graficos rel-graficos-manutencao">
-        <div className="rel-coluna-pilha">
         <div className="card card-pad rel-grafico-cartao">
           <div className="rel-cabecalho">
             <h3>Custo por mês</h3>
-            <p>Mês de abertura da manutenção{(dados?.porMes.length ?? 0) > MESES_NO_GRAFICO ? ` · últimos ${MESES_NO_GRAFICO} meses` : ''}</p>
           </div>
           {dados ? (
             meses.length > 0 ? (
@@ -218,41 +378,10 @@ export function RelatorioManutencoes() {
           )}
         </div>
 
-        <div className="card rel-tabela rel-tabela--prestadores">
-          <div className="rel-cabecalho rel-cabecalho--tabela">
-            <h3>Prestadores</h3>
-          </div>
-          {dados && dados.porPrestador.length > 0 ? (
-            <div className="rel-tabela-scroll rel-cartoes rel-cartoes--prestadores">
-              <table>
-                <thead>
-                  <tr>
-                    <th scope="col">Prestador</th>
-                    <th scope="col" className="rel-coluna-num">Manutenções</th>
-                    <th scope="col" className="rel-coluna-num">Custo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dados.porPrestador.map((p) => (
-                    <tr key={p.prestadorId}>
-                      <td className="rc-principal rel-tabela-principal">{p.prestador}</td>
-                      <td className="rc-a rel-coluna-num" data-label="Manutenções">{p.quantidade}</td>
-                      <td className="rc-b rel-coluna-num" data-label="Custo">{formatarMoeda(p.custo)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="empty-state">{dados ? 'Sem manutenções para os filtros selecionados' : 'Carregando…'}</div>
-          )}
-        </div>
-        </div>
 
         <div className="card card-pad rel-grafico-cartao">
           <div className="rel-cabecalho">
-            <h3>Itens com mais manutenções</h3>
-            <p>Candidatos a reposição</p>
+            <h3>{civil ? 'Tipos de problema com mais chamados' : 'Itens com mais manutenções'}</h3>
           </div>
           {dados ? (
             itens.length > 0 ? (
@@ -261,7 +390,7 @@ export function RelatorioManutencoes() {
                   <li key={item.tipoEquipamentoId}>
                     <div className="rel-itens-linha">
                       <span className="rel-itens-nome" title={item.nome}>
-                        {capitalizarPalavras(item.nome)}
+                        {capitalizarPalavras(civil ? item.nome.replace(/^Civil · /, '') : item.nome)}
                       </span>
                       <span className="rel-itens-qtd">{item.quantidade}</span>
                     </div>
@@ -281,6 +410,21 @@ export function RelatorioManutencoes() {
         </div>
       </div>
 
+      <div className="relatorios-graficos rel-graficos-manutencao">
+        <TabelaTotais
+          titulo="Unidades"
+          coluna="Unidade"
+          carregado={Boolean(dados)}
+          linhas={(dados?.porUnidade ?? []).map((u) => ({ chave: u.unidadeId, nome: u.unidade, quantidade: u.quantidade, custo: u.custo }))}
+        />
+        <TabelaTotais
+          titulo="Prestadores"
+          coluna="Prestador"
+          carregado={Boolean(dados)}
+          linhas={(dados?.porPrestador ?? []).map((p) => ({ chave: p.prestadorId, nome: p.prestador, quantidade: p.quantidade, custo: p.custo }))}
+        />
+      </div>
+
       <div className="card rel-tabela">
         <div className="rel-cabecalho rel-cabecalho--tabela">
           <h3>Manutenções</h3>
@@ -294,7 +438,7 @@ export function RelatorioManutencoes() {
               <thead>
                 <tr>
                   <th scope="col">Manutenção</th>
-                  <th scope="col">Item</th>
+                  <th scope="col">{civil ? 'Local' : 'Item'}</th>
                   <th scope="col">Unidade</th>
                   <th scope="col">Prestador</th>
                   <th scope="col" className="rel-coluna-num">Orçamento</th>
@@ -309,8 +453,9 @@ export function RelatorioManutencoes() {
                       <span className="rel-numero">{codigoManutencao(m.numero)}</span>
                       <div className="rel-tabela-principal">{m.titulo?.trim() || m.equipamento}</div>
                     </td>
-                    <td className="rc-equip" data-label="Item">
+                    <td className="rc-equip" data-label={civil ? 'Local' : 'Item'}>
                       {m.equipamento}
+                      {civil && m.categoria && <div className="rel-tabela-sub">{m.categoria}</div>}
                       {m.tombamento && <div className="rel-tabela-sub">{m.tombamento}</div>}
                     </td>
                     <td className="rc-a" data-label="Unidade">{m.unidade}</td>

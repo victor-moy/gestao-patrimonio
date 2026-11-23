@@ -593,6 +593,8 @@ export interface ManutencaoRelatorio {
   equipamento: string;
   tombamento: string | null;
   unidade: string;
+  // Chamado civil: tipo de problema
+  categoria?: string | null;
   prestador: string | null;
   contrato: string | null;
   orcamento: number | null;
@@ -602,6 +604,16 @@ export interface ManutencaoRelatorio {
   criadoEm: string;
   dataConclusao: string | null;
 }
+
+export type EtapaManutencao =
+  | 'aguardandoTriagem'
+  | 'aguardandoAvaliacao'
+  | 'aguardandoLiberacao'
+  | 'noPrestador'
+  | 'emExecucao'
+  | 'executados'
+  | 'aguardandoMedicao'
+  | 'parados';
 
 export interface RelatorioManutencoes {
   total: number;
@@ -614,6 +626,10 @@ export interface RelatorioManutencoes {
   custoTotal: number;
   tempoMedioDias: number | null;
   orcamentosAltos: number;
+  // Fila por etapa e totais para o painel gerencial
+  etapas: Record<EtapaManutencao, number>;
+  porStatus: Array<{ status: StatusManutencao; quantidade: number }>;
+  porUnidade: Array<{ unidadeId: string; unidade: string; quantidade: number; custo: number }>;
   porMes: Array<{ mes: string; quantidade: number; custo: number }>;
   porPrestador: Array<{ prestadorId: string; prestador: string; quantidade: number; custo: number }>;
   porItem: Array<{ tipoEquipamentoId: string; nome: string; quantidade: number; custo: number }>;
@@ -658,6 +674,7 @@ export type StatusRelato = 'ABERTO' | 'EM_ANALISE' | 'RESOLVIDO';
 
 export interface RelatoProblema {
   id: string;
+  numero: number;
   perfil: Perfil;
   tela: string;
   esperado: string | null;
@@ -665,7 +682,9 @@ export interface RelatoProblema {
   navegador: string | null;
   anexos: string[];
   status: StatusRelato;
+  resolvidoEm: string | null;
   criadoEm: string;
   atualizadoEm: string;
   usuario: { id: string; nome: string; email: string };
+  _count?: { mensagens: number };
 }

@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { StatusManutencao } from '@prisma/client';
+import { z } from 'zod';
 import { autenticar } from '../../middlewares/auth';
 import { permitirCom } from '../../middlewares/rbac';
 import { AppError } from '../../errors/AppError';
@@ -89,12 +91,25 @@ relatoriosRouter.get('/manutencoes', async (req, res) => {
   if (tipoManutencao && tipoManutencao !== 'EQUIPAMENTO' && tipoManutencao !== 'CIVIL') {
     throw new AppError('Tipo de manutenção inválido.', 422);
   }
+  const status = req.query.status as string | undefined;
+  if (status && !(Object.values(StatusManutencao) as string[]).includes(status)) {
+    throw new AppError('Status inválido.', 422);
+  }
+  const categoriaCivilId = (req.query.categoriaCivilId as string | undefined) || undefined;
+  if (categoriaCivilId && !z.string().uuid().safeParse(categoriaCivilId).success) {
+    throw new AppError('Tipo de problema inválido.', 422);
+  }
+  const setorIds = ((req.query.setorId as string | undefined) ?? '').split(',').filter(Boolean);
+  if (setorIds.some((id) => !z.string().uuid().safeParse(id).success)) throw new AppError('Setor inválido.', 422);
   const datas = periodo(req);
   for (const d of [datas.dataInicio, datas.dataFim]) {
     if (d && Number.isNaN(d.getTime())) throw new AppError('Data inválida.', 422);
   }
   res.json(
     await service.manutencoes({
+      status: status as StatusManutencao | undefined,
+      categoriaCivilId,
+      setorIds: setorIds.length ? setorIds : undefined,
       ...datas,
       unidadeIds: unidadeIds(req),
       tipoEquipamentoId: tipoEquipamentoId(req),

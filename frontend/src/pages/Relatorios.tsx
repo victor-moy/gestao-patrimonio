@@ -15,7 +15,7 @@ export function Relatorios() {
 
   return (
     <section
-      className={`gestao-page relatorios-page relatorios-page--${atual.valor}`}
+      className={`gestao-page relatorios-page relatorios-page--${atual.valor.startsWith('manutencao-') ? 'manutencoes' : atual.valor}`}
       aria-labelledby="relatorios-titulo"
     >
       <div className="page-header">
@@ -24,7 +24,8 @@ export function Relatorios() {
         </div>
       </div>
       {atual.valor === 'visao-geral' && <RelatorioVisaoGeral />}
-      {atual.valor === 'manutencoes' && <RelatorioManutencoes />}
+      {atual.valor === 'manutencao-civil' && <RelatorioManutencoes tipo="CIVIL" />}
+      {atual.valor === 'manutencao-patrimonial' && <RelatorioManutencoes tipo="EQUIPAMENTO" />}
       {atual.valor === 'emprestimos' && <RelatorioEmprestimos />}
       {atual.valor === 'cessoes' && <RelatorioCessoes />}
       {atual.valor === 'ampliacao' && <RelatorioAmpliacao />}

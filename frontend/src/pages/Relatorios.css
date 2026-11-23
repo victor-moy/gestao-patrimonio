@@ -415,7 +415,7 @@
 }
 
 /* Empréstimos */
-:is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.relatorios-page--emprestimos .rel-kpis--cinco { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 .relatorios-page--emprestimos .stat-value small { color: var(--text-muted); font-size: 11px; font-weight: 500; }
 .rel-busca { position: relative; display: block; margin: 16px 0 0; }
 .relatorios-filtros-gerais .rel-busca { margin-bottom: 6px; }
@@ -446,15 +446,15 @@
 .rel-tabela-status .inventario-status { white-space: nowrap; }
 /* Com 5 cards: 3 na primeira linha e 2 na segunda, cada linha ocupando a largura toda */
 @media (max-width: 1200px) {
-  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco > * { grid-column: span 2; }
-  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco > :nth-child(n + 4) { grid-column: span 3; }
+  .relatorios-page--emprestimos .rel-kpis--cinco { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .relatorios-page--emprestimos .rel-kpis--cinco > * { grid-column: span 2; }
+  .relatorios-page--emprestimos .rel-kpis--cinco > :nth-child(n + 4) { grid-column: span 3; }
 }
 @media (max-width: 700px) {
-  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco > *,
-  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco > :nth-child(n + 4) { grid-column: auto; }
-  :is(.relatorios-page--emprestimos, .relatorios-page--manutencoes) .rel-kpis--cinco > :last-child { grid-column: 1 / -1; }
+  .relatorios-page--emprestimos .rel-kpis--cinco { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .relatorios-page--emprestimos .rel-kpis--cinco > *,
+  .relatorios-page--emprestimos .rel-kpis--cinco > :nth-child(n + 4) { grid-column: auto; }
+  .relatorios-page--emprestimos .rel-kpis--cinco > :last-child { grid-column: 1 / -1; }
 }
 .rel-ordenar {
   display: inline-flex;
@@ -544,23 +544,19 @@
 .relatorios-page--manutencoes .rel-filtros-extra { margin-top: 16px; }
 .rel-busca--campo { margin: 0; }
 .relatorios-page--manutencoes .rel-busca--campo input { width: 100%; height: 34px; }
-.relatorios-page--manutencoes .rel-kpis--tres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.relatorios-page--manutencoes .rel-kpis--tres .stat-sub { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 11px; }
 .rel-grafico-apoio { margin-top: 4px; color: var(--text-secondary); font-size: 11px; }
 .rel-aviso { margin: 12px 0 0; color: var(--text-secondary); font-size: 12px; }
 .relatorios-page .rel-tabela .rel-coluna-num { text-align: right; white-space: nowrap; }
 .relatorios-page--manutencoes .rel-tabela + .rel-tabela { margin-top: 16px; }
 @media (max-width: 900px) {
   .relatorios-page--manutencoes .rel-filtros-extra { grid-template-columns: minmax(0, 1fr); }
-  .relatorios-page--manutencoes .rel-kpis--tres { grid-template-columns: minmax(0, 1fr); }
 }
 .relatorios-page .rel-tabela.rel-tabela--prestadores table { width: 100%; min-width: 0 !important; }
 .rel-tabela--prestadores td.rel-tabela-principal { white-space: normal; }
 
 /* Gráficos do relatório de manutenções: duas listas com barra fina, lado a lado */
-.relatorios-page--manutencoes .rel-graficos-manutencao { grid-template-columns: 1fr 1fr; align-items: start; }
-.rel-coluna-pilha { display: grid; gap: 16px; min-width: 0; }
-.rel-coluna-pilha > .rel-tabela { margin-top: 0; }
+.relatorios-page--manutencoes .rel-graficos-manutencao { grid-template-columns: 1fr 1fr; align-items: stretch; }
+.relatorios-page--manutencoes .rel-graficos-manutencao > .rel-tabela { margin-top: 0; }
 .rel-grafico-cartao { min-width: 0; }
 .rel-itens-lista { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin: 0; padding: 0; list-style: none; }
 .rel-itens-lista > li { min-width: 0; }
@@ -572,3 +568,40 @@
 @media (max-width: 900px) {
   .relatorios-page--manutencoes .rel-graficos-manutencao { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Painel gerencial de manutenção: fila por etapa (oito cartões em duas linhas no computador) */
+.relatorios-page--manutencoes .rel-etapas { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 720px) {
+  .relatorios-page--manutencoes .rel-etapas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Painéis de manutenção: quatro indicadores no topo, fila por etapa em lista com barra e desfecho em lista simples */
+.relatorios-page--manutencoes .rel-kpis--quatro { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.relatorios-page--manutencoes .rel-kpis--quatro .stat-sub { display: block; margin-top: 2px; color: var(--text-secondary); font-size: 11px; }
+.relatorios-page--manutencoes .rel-kpis--quatro .stat-linha .stat-sub { display: inline; margin: 0 0 0 8px; }
+.rel-painel-topo { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.rel-etapas-lista { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 28px; }
+.rel-resumo-lista { display: grid; margin: 0; }
+.rel-resumo-lista > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.rel-resumo-lista > div:last-child { border-bottom: 0; }
+.rel-resumo-lista dt { color: var(--text); font-size: 12px; font-weight: 500; }
+.rel-resumo-lista dd { margin: 0; color: var(--text); font-size: 13px; font-weight: 650; }
+.rel-resumo-lista dd span { margin-left: 4px; color: var(--text-secondary); font-size: 11px; font-weight: 500; }
+@media (max-width: 1100px) {
+  .relatorios-page--manutencoes .rel-kpis--quatro { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rel-painel-topo { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 720px) {
+  .rel-etapas-lista { grid-template-columns: minmax(0, 1fr); }
+}
+@media (min-width: 1101px) {
+  .relatorios-page--manutencoes .rel-filtros-extra--quatro { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 901px) {
+  .relatorios-page--manutencoes .rel-filtro-largo { grid-column: span 2; }
+}
+
+/* Tabelas e rankings longos rolam dentro do card, com o cabeçalho fixo, em vez de esticar a página */
+.rel-tabela-scroll { max-height: min(520px, 70vh); overflow: auto; }
+.relatorios-page .rel-tabela th { position: sticky; top: 0; z-index: 1; }
+.ranking-lista { max-height: min(480px, 70vh); overflow-y: auto; }
