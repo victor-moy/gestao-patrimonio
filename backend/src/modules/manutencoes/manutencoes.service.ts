@@ -167,8 +167,9 @@ export async function solicitar(
   if (tipo && !tipo.permitePreventiva && !tipo.permiteCorretiva) {
     throw new AppError(`O tipo de item "${tipo.nome}" não permite manutenção.`, 422);
   }
-  // Feedback 12/05/2026: a unidade só seleciona equipamentos do próprio inventário
-  if (usuario.perfil === 'UNIDADE' && equipamento.unidadeId !== usuario.unidadeId) {
+  // Feedback 12/05/2026: quem tem unidade (Unidade ou Operador vinculado) só seleciona equipamentos do próprio inventário.
+  // O Operador sem unidade escolhe qualquer equipamento ativo: a unidade do chamado é a do equipamento.
+  if ((usuario.perfil === 'UNIDADE' || usuario.unidadeId) && equipamento.unidadeId !== usuario.unidadeId) {
     throw new AppError('Só é possível solicitar manutenção para equipamentos da sua unidade.', 403);
   }
   // FA07/RN02 — status incompatível bloqueia antes de qualquer gravação
@@ -1217,10 +1218,17 @@ async function validarRespostas(categoriaId: string, respostas: Record<string, s
 
 // Chamados civis em aberto da mesma unidade e categoria, mostrados na abertura para evitar chamado repetido.
 // `aceitaProblemas` diz em quais ainda dá para acrescentar outro problema (antes de ir ao prestador).
+// Unidade e Operador vinculado abrem sempre para a própria unidade (token, nunca corpo/query). O Operador sem unidade
+// escolhe a unidade na abertura.
+function unidadeDoChamadoCivil(usuario: AuthPayload, escolhida?: string | null) {
+  if (usuario.perfil === 'UNIDADE') return usuario.unidadeId;
+  return usuario.unidadeId ?? escolhida ?? null;
+}
+
 const STATUS_QUE_ACEITAM_PROBLEMA: StatusManutencao[] = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO'];
 
 export async function abertosDaCategoria(usuario: AuthPayload, categoriaCivilId: string, unidadeIdPedida?: string) {
-  const unidadeId = usuario.perfil === 'UNIDADE' ? usuario.unidadeId : unidadeIdPedida;
+  const unidadeId = unidadeDoChamadoCivil(usuario, unidadeIdPedida);
   if (!unidadeId) throw new AppError('Informe a unidade.', 422);
   const abertos = await prisma.manutencao.findMany({
     where: { tipo: 'CIVIL', unidadeId, categoriaCivilId, status: { notIn: ['NEGADA', 'ENCERRADA', 'CONCLUIDA', 'BAIXADO'] } },
@@ -1283,8 +1291,8 @@ export async function solicitarCivil(
     fotos: string[];
   },
 ) {
-  // A Unidade abre sempre para a própria unidade (vem do token); só o Administrador escolhe outra
-  const unidadeId = usuario.perfil === 'UNIDADE' ? usuario.unidadeId : (dados.unidadeId ?? null);
+  // A unidade do chamado é a do próprio usuário (vem do token); só o Operador sem unidade escolhe na abertura
+  const unidadeId = unidadeDoChamadoCivil(usuario, dados.unidadeId);
   if (!unidadeId) throw new AppError('Informe a unidade do chamado.', 422);
   const unidade = await prisma.unidade.findUnique({ where: { id: unidadeId }, select: { id: true } });
   if (!unidade) throw new AppError('Unidade não encontrada.', 404);

@@ -94,9 +94,12 @@ describe('Permissões do Operador', () => {
     }
   });
 
-  it('abrir chamado exige "escrever"; "consultar" sozinho não abre', async () => {
-    const res = await request(app).post('/manutencoes').set(operador(['MANUTENCAO_CONSULTAR'])).send({});
-    expect(res.status).toBe(403);
+  it('qualquer Operador abre chamado (a permissão "escrever" não é exigida); Galpão e Terceirizada não', async () => {
+    // 422 = passou pela autorização e foi barrado só pela validação do corpo vazio
+    expect((await request(app).post('/manutencoes').set(operador(['MANUTENCAO_CONSULTAR'])).send({})).status).toBe(422);
+    expect((await request(app).post('/manutencoes').set(operador([])).send({})).status).toBe(422);
+    expect((await request(app).post('/manutencoes').set(auth('GALPAO', { unidadeId: 'g-1' })).send({})).status).toBe(403);
+    expect((await request(app).post('/manutencoes').set(auth('TERCEIRIZADA', { prestadorId: 'p-1' })).send({})).status).toBe(403);
   });
 
   it('Unidade e Galpão não dependem de permissão do Operador', async () => {

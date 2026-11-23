@@ -18,7 +18,7 @@ const select = { id: true, nome: true, ativo: true, unidadeId: true, unidade: { 
 // A lista também serve a quem avalia chamados, para escolher o setor
 setoresRouter.get(
   '/',
-  permitirCom(['CONFIGURACOES_GERENCIAR', 'MANUTENCAO_AVALIAR', 'MANUTENCAO_ESCREVER'], Perfil.UNIDADE),
+  permitirCom(['CONFIGURACOES_GERENCIAR', 'MANUTENCAO_AVALIAR', 'MANUTENCAO_ESCREVER'], Perfil.UNIDADE, Perfil.OPERADOR),
   async (req, res) => {
     // A Unidade só vê os setores ativos da própria unidade (vem do token, nunca da query)
     const daUnidade = req.usuario!.perfil === Perfil.UNIDADE;

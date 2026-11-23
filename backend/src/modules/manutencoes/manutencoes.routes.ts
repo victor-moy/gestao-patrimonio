@@ -132,7 +132,7 @@ const solicitarCivilSchema = z.object({
 // Manutenção civil: problema em unidade, sala ou instalação, sem equipamento. Fotos opcionais (multipart, campo "fotos")
 manutencoesRouter.post(
   '/civil',
-  permitirCom('MANUTENCAO_ESCREVER', Perfil.UNIDADE),
+  permitirCom('MANUTENCAO_ESCREVER', Perfil.UNIDADE, Perfil.OPERADOR),
   uploadFotosCivil.array('fotos', MAX_FOTOS_CIVIL),
   assinaturaImagem,
   async (req, res, next) => {
@@ -155,7 +155,7 @@ manutencoesRouter.post(
 );
 
 // Chamados civis em aberto da mesma unidade e categoria (mostrados na abertura, para acrescentar em vez de repetir)
-manutencoesRouter.get('/civil/abertos', permitirCom('MANUTENCAO_ESCREVER', Perfil.UNIDADE), async (req, res) => {
+manutencoesRouter.get('/civil/abertos', permitirCom('MANUTENCAO_ESCREVER', Perfil.UNIDADE, Perfil.OPERADOR), async (req, res) => {
   const { categoriaCivilId, unidadeId } = z
     .object({ categoriaCivilId: z.string().uuid(), unidadeId: z.string().uuid().optional() })
     .parse(req.query);
@@ -169,7 +169,7 @@ const novoProblemaSchema = z.object({
 // Outro problema da mesma categoria acrescentado a um chamado civil que ainda não foi ao prestador (fotos opcionais)
 manutencoesRouter.post(
   '/:id/problemas',
-  permitirCom('MANUTENCAO_ESCREVER', Perfil.UNIDADE),
+  permitirCom('MANUTENCAO_ESCREVER', Perfil.UNIDADE, Perfil.OPERADOR),
   uploadFotosCivil.array('fotos', MAX_FOTOS_CIVIL),
   assinaturaImagem,
   async (req, res, next) => {
@@ -189,10 +189,10 @@ manutencoesRouter.post(
   },
 );
 
-// UC05 — a Unidade solicita manutenção
+// UC05 — a Unidade ou qualquer Operador solicita manutenção (a unidade vem do token; o Operador sem unidade escolhe na abertura)
 manutencoesRouter.post(
   '/',
-  permitirCom('MANUTENCAO_ESCREVER', Perfil.UNIDADE),
+  permitirCom('MANUTENCAO_ESCREVER', Perfil.UNIDADE, Perfil.OPERADOR),
   validarBody(solicitarSchema),
   async (req, res) => {
     const manutencao = await service.solicitar(req.usuario!, req.body);

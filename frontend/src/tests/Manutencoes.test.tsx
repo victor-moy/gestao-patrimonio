@@ -330,19 +330,45 @@ describe('Manutenções', () => {
     expect(screen.getByText('Confirmação do administrador').nextElementSibling).toHaveTextContent('Confirmado');
   });
 
-  it('o Administrador não abre manutenção: o tipo não é oferecido nem pela rota antiga', async () => {
-    mockFetch({
+  it('o Operador sem unidade abre manutenção escolhendo a unidade; só aparecem os itens dela', async () => {
+    const chamadas = mockFetch({
       ...entrarComo('OPERADOR', '/manutencoes/nova'),
-      '/manutencoes': { body: [] },
+      '/manutencoes': (init) => (init?.method === 'POST' ? { status: 201, body: { id: 'novo' } } : { body: [] }),
       '/solicitacoes': { body: [] },
-      '/equipamentos': { body: [] },
-      '/unidades': { body: [] },
+      '/equipamentos': {
+        body: [
+          { id: 'e1', tombamento: '12345/2024', tipoEquipamento: { nome: 'Autoclave Vertical' }, unidade: { id: 'u1', nome: 'UBS Centro' } },
+          { id: 'e9', tombamento: '99999', tipoEquipamento: { nome: 'Balança' }, unidade: { id: 'u9', nome: 'Outra UBS' } },
+        ],
+      },
+      '/unidades': {
+        body: [
+          { id: 'u1', nome: 'UBS Centro' },
+          { id: 'u9', nome: 'Outra UBS' },
+        ],
+      },
       '/categorias': { body: [] },
     });
     render(<App />);
+
+    // o tipo Manutenção é oferecido e já vem escolhido pela rota de "nova manutenção"
     const tipo = await screen.findByLabelText('Tipo');
-    expect(tipo).toHaveValue('');
-    expect(within(tipo).queryByRole('option', { name: 'Manutenção' })).not.toBeInTheDocument();
+    expect(tipo).toHaveValue('MANUTENCAO');
+    // sem unidade no cadastro, a pessoa escolhe; antes disso não há itens nem envio
+    const unidade = await screen.findByLabelText('Unidade *');
+    expect(screen.queryByRole('option', { name: /12345\/2024/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled();
+    await userEvent.selectOptions(unidade, 'u9');
+    expect(await screen.findByRole('option', { name: /99999/ })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /12345\/2024/ })).not.toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText('Equipamento *'), 'e9');
+    await userEvent.type(screen.getByLabelText('Descrição do problema *'), 'Não pesa');
+    await userEvent.type(screen.getByLabelText('Título'), 'Balança da recepção');
+    expect(screen.getByRole('switch', { name: /O item está na unidade escolhida: Outra UBS/ })).toBeChecked();
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    const post = chamadas.find((c) => c.init?.method === 'POST' && c.url.endsWith('/manutencoes'));
+    expect(JSON.parse(String(post?.init?.body))).toEqual({ equipamentoId: 'e9', titulo: 'Balança da recepção', descricaoProblema: 'Não pesa' });
   });
 
   it('oferece nova tentativa quando a lista falha', async () => {

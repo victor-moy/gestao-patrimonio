@@ -160,6 +160,28 @@ describe('Fluxo de manutenção (UC05-UC09, RF11-RF19)', () => {
     expect(res.status).toBe(403);
   });
 
+  describe('Operador abre manutenção de equipamento', () => {
+    const corpoEquip = { equipamentoId: '4fa8b6a4-6f7e-4f7e-8b6a-46f7e4f7e8b6', titulo: 'Autoclave da sala 2', descricaoProblema: 'Não atinge a temperatura' };
+
+    it('sem unidade, escolhe qualquer equipamento: a unidade do chamado é a do equipamento', async () => {
+      prismaMock.equipamento.findUnique.mockResolvedValue({ ...equipamentoAtivo, unidadeId: 'outra' } as never);
+      prismaMock.manutencao.create.mockResolvedValue(manutencaoBase as never);
+      const res = await request(app).post('/manutencoes').set(auth('OPERADOR', { permissoes: [] })).send(corpoEquip);
+      expect(res.status).toBe(201);
+      expect(prismaMock.manutencao.create.mock.calls[0][0].data).toMatchObject({ unidadeId: 'outra' });
+    });
+
+    it('com unidade, só abre para equipamento da própria unidade', async () => {
+      prismaMock.equipamento.findUnique.mockResolvedValue({ ...equipamentoAtivo, unidadeId: 'outra' } as never);
+      const operadorDaUnidade = auth('OPERADOR', { permissoes: [], unidadeId: 'unidade-1' });
+      expect((await request(app).post('/manutencoes').set(operadorDaUnidade).send(corpoEquip)).status).toBe(403);
+      expect(prismaMock.manutencao.create).not.toHaveBeenCalled();
+      prismaMock.equipamento.findUnique.mockResolvedValue(equipamentoAtivo as never);
+      prismaMock.manutencao.create.mockResolvedValue(manutencaoBase as never);
+      expect((await request(app).post('/manutencoes').set(operadorDaUnidade).send(corpoEquip)).status).toBe(201);
+    });
+  });
+
   it('bloqueia nova solicitação para equipamento em manutenção (RN02/FA07)', async () => {
     prismaMock.equipamento.findUnique.mockResolvedValue({
       ...equipamentoAtivo,

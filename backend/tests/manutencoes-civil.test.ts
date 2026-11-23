@@ -157,9 +157,39 @@ describe('Manutenção civil', () => {
       });
     });
 
-    it('Administrador precisa indicar a unidade', async () => {
+    it('Operador sem unidade precisa indicar a unidade', async () => {
       const res = await request(app).post('/manutencoes/civil').set(admin()).send(corpo);
       expect(res.status).toBe(422);
+    });
+
+    const abrirComo = (token: Record<string, string>, unidadeEscolhida?: string) => {
+      const req = request(app)
+        .post('/manutencoes/civil')
+        .set(token)
+        .field('titulo', corpo.titulo)
+        .field('descricaoProblema', corpo.descricaoProblema)
+        .field('localAfetado', corpo.localAfetado)
+        .field('categoriaCivilId', corpo.categoriaCivilId);
+      return unidadeEscolhida ? req.field('unidadeId', unidadeEscolhida) : req;
+    };
+    const OUTRA = '11111111-1111-4111-8111-111111111111';
+
+    it('Operador sem unidade escolhe a unidade na abertura, mesmo sem a permissão "escrever"', async () => {
+      prismaMock.unidade.findUnique.mockResolvedValue({ id: OUTRA } as never);
+      prismaMock.categoriaCivil.findUnique.mockResolvedValue(categoriaAtiva());
+      prismaMock.manutencao.create.mockResolvedValue(civil() as never);
+      const res = await abrirComo(operador([]), OUTRA);
+      expect(res.status).toBe(201);
+      expect(prismaMock.manutencao.create.mock.calls[0][0].data).toMatchObject({ tipo: 'CIVIL', unidadeId: OUTRA });
+    });
+
+    it('Operador com unidade abre sempre para a própria, ignorando a unidade enviada', async () => {
+      prismaMock.unidade.findUnique.mockResolvedValue({ id: 'unidade-1' } as never);
+      prismaMock.categoriaCivil.findUnique.mockResolvedValue(categoriaAtiva());
+      prismaMock.manutencao.create.mockResolvedValue(civil() as never);
+      const res = await abrirComo(auth('OPERADOR', { permissoes: [], unidadeId: 'unidade-1' }), OUTRA);
+      expect(res.status).toBe(201);
+      expect(prismaMock.manutencao.create.mock.calls[0][0].data).toMatchObject({ unidadeId: 'unidade-1' });
     });
   });
 

@@ -32,7 +32,9 @@ describe('Setores', () => {
     expect((await request(app).post('/setores').set(auth('UNIDADE', { unidadeId: UNIDADE })).send(corpo)).status).toBe(403);
     prismaMock.setor.findMany.mockResolvedValue([] as never);
     expect((await request(app).get('/setores').set(operador(['MANUTENCAO_AVALIAR']))).status).toBe(200);
-    expect((await request(app).get('/setores').set(operador(['ATAS_GERENCIAR']))).status).toBe(403);
+    // Qualquer Operador abre chamado, então lista setores; Galpão não
+    expect((await request(app).get('/setores').set(operador(['ATAS_GERENCIAR']))).status).toBe(200);
+    expect((await request(app).get('/setores').set(auth('GALPAO', { unidadeId: 'g-1' }))).status).toBe(403);
   });
 
   it('a Unidade lista só os setores ativos da própria unidade, ignorando a query', async () => {
