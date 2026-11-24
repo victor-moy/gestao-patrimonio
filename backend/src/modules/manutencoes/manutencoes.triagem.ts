@@ -192,7 +192,7 @@ export async function unificar(usuario: AuthPayload, id: string, dados: { chamad
 
   const atualizada = await prisma.$transaction(async (tx) => {
     // Trava os dois chamados sempre na mesma ordem (sem impasse se alguém unificar o inverso ao mesmo tempo)
-    for (const trava of [id, dados.chamadoOriginalId].sort()) await tx.$queryRaw`SELECT id FROM manutencao WHERE id = ${trava} FOR UPDATE`;
+    for (const trava of [id, dados.chamadoOriginalId].sort((a, b) => a.localeCompare(b))) await tx.$queryRaw`SELECT id FROM manutencao WHERE id = ${trava} FOR UPDATE`;
     const original = await tx.manutencao.findUnique({
       where: { id: dados.chamadoOriginalId },
       select: { id: true, numero: true, tipo: true, unidadeId: true, status: true, _count: { select: { problemasExtras: true } } },
