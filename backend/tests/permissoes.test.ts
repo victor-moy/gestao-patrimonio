@@ -43,7 +43,11 @@ describe('Permissões do Operador', () => {
     prismaMock.manutencao.findMany.mockResolvedValue([] as never);
     mockUsuarioFindFirst(prismaMock.usuario.findFirst);
     // Leitura de contratos também vale para quem consulta chamados (para triar, avaliar e escolher o item do contrato)
-    const tambem: Record<string, string[]> = { '/contratos': ['MANUTENCAO_CONSULTAR', 'MANUTENCAO_AVALIAR'] };
+    // e ler a lista de chamados também vale para quem tria (a triagem precisa ver os chamados)
+    const tambem: Record<string, string[]> = {
+      '/contratos': ['MANUTENCAO_CONSULTAR', 'MANUTENCAO_AVALIAR'],
+      '/manutencoes': ['MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_TRIAR_EQUIPAMENTO'],
+    };
     const casos: Array<[string, string]> = [
       ['/atas', 'ATAS_GERENCIAR'],
       ['/contratos', 'CONTRATOS_GERENCIAR'],
@@ -72,23 +76,26 @@ describe('Permissões do Operador', () => {
   });
 
   it('cada passo da manutenção exige a sua permissão (triar, avaliar, fiscalizar)', async () => {
-    const passos: Array<[string, string]> = [
-      ['aprovar', 'MANUTENCAO_TRIAR'],
-      ['negar', 'MANUTENCAO_TRIAR'],
-      ['concluir-avaliacao', 'MANUTENCAO_AVALIAR'],
-      ['encerrar', 'MANUTENCAO_AVALIAR'],
-      ['confirmar-reencaminhamento', 'MANUTENCAO_TRIAR'],
-      ['validar-orcamento', 'MANUTENCAO_AVALIAR'],
-      ['reencaminhar/baixa', 'MANUTENCAO_AVALIAR'],
-      ['solicitar-ajustes', 'MANUTENCAO_FISCALIZAR'],
-      ['autorizar-medicao', 'MANUTENCAO_FISCALIZAR'],
-      ['confirmar-retorno', 'MANUTENCAO_FISCALIZAR'],
+    const TRIAR = ['MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_TRIAR_EQUIPAMENTO'];
+    const passos: Array<[string, string[]]> = [
+      ['aprovar', TRIAR],
+      ['negar', TRIAR],
+      ['bloquear', TRIAR],
+      ['desbloquear', TRIAR],
+      ['concluir-avaliacao', ['MANUTENCAO_AVALIAR']],
+      ['encerrar', ['MANUTENCAO_AVALIAR']],
+      ['confirmar-reencaminhamento', TRIAR],
+      ['validar-orcamento', ['MANUTENCAO_AVALIAR']],
+      ['reencaminhar/baixa', ['MANUTENCAO_AVALIAR']],
+      ['solicitar-ajustes', ['MANUTENCAO_FISCALIZAR']],
+      ['autorizar-medicao', ['MANUTENCAO_FISCALIZAR']],
+      ['confirmar-retorno', ['MANUTENCAO_FISCALIZAR']],
     ];
-    for (const [passo, permissao] of passos) {
-      // Quem tem todas as outras, menos a do passo, é barrado antes de tocar no banco
+    for (const [passo, exigidas] of passos) {
+      // Quem tem todas as outras, menos as do passo, é barrado antes de tocar no banco
       const sem = await request(app)
         .post(`/manutencoes/${UUID}/${passo}`)
-        .set(operador(TODAS_PERMISSOES.filter((p) => p !== permissao)))
+        .set(operador(TODAS_PERMISSOES.filter((p) => !exigidas.includes(p))))
         .send({});
       expect([passo, sem.status]).toEqual([passo, 403]);
     }

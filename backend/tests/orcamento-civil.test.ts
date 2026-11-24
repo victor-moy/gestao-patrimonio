@@ -16,7 +16,7 @@ const PDF = Buffer.from('%PDF-1.4\n% proposta de teste\n');
 const terc = () => auth('TERCEIRIZADA', { sub: 'terc-1', prestadorId: 'prestador-1' });
 const avaliador = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_AVALIAR'] });
 const fiscal = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_FISCALIZAR'] });
-const triador = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_TRIAR'] });
+const triador = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_TRIAR_EQUIPAMENTO'] });
 const unidade = () => auth('UNIDADE', { unidadeId: 'unidade-1' });
 
 const chamado = (extra: Record<string, unknown> = {}) =>

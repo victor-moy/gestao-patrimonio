@@ -7,7 +7,8 @@ export const GRUPOS_PERMISSOES = [
     permissoes: [
       { id: 'MANUTENCAO_CONSULTAR', rotulo: 'Consultar chamados' },
       { id: 'MANUTENCAO_ESCREVER', rotulo: 'Escrever chamados' },
-      { id: 'MANUTENCAO_TRIAR', rotulo: 'Triar chamados' },
+      { id: 'MANUTENCAO_TRIAR_CIVIL', rotulo: 'Triar chamados civis' },
+      { id: 'MANUTENCAO_TRIAR_EQUIPAMENTO', rotulo: 'Triar chamados de equipamentos' },
       { id: 'MANUTENCAO_AVALIAR', rotulo: 'Realizar avaliação técnica' },
       { id: 'MANUTENCAO_VISTORIAR', rotulo: 'Registrar vistorias' },
       { id: 'MANUTENCAO_MEDICAO_PREPARAR', rotulo: 'Preparar medições' },

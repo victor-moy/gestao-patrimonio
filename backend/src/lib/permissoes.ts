@@ -4,7 +4,9 @@
 export const TODAS_PERMISSOES = [
   'MANUTENCAO_CONSULTAR',
   'MANUTENCAO_ESCREVER',
-  'MANUTENCAO_TRIAR',
+  // Triar (aprovar, negar, bloquear, unificar e vincular) vale por tipo de chamado: civil ou de equipamento
+  'MANUTENCAO_TRIAR_CIVIL',
+  'MANUTENCAO_TRIAR_EQUIPAMENTO',
   'MANUTENCAO_AVALIAR',
   // As três seguintes ainda não têm ação correspondente no sistema: a permissão é guardada e passa a valer quando a função existir
   'MANUTENCAO_VISTORIAR',

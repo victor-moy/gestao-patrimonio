@@ -330,11 +330,16 @@ describe('Manutenção civil', () => {
     expect(within(informacoes).queryByText('Item')).not.toBeInTheDocument();
   });
 
-  it('triagem: oferece itens de contrato com saldo e mostra chamados parecidos', async () => {
+  it('triagem: oferece itens de contrato com saldo e mostra, ao lado, os chamados da unidade', async () => {
     const chamadas = mockFetch({
       ...entrarComo('OPERADOR', '/manutencoes/m1'),
-      '/manutencoes/m1/similares': {
-        body: [{ id: 'm9', numero: 9, titulo: 'Goteira na recepção', status: 'EM_EXECUCAO', localAfetado: 'Recepção', criadoEm: '2026-09-30T10:00:00.000Z' }],
+      '/manutencoes/m1/da-unidade': {
+        body: [
+          {
+            id: 'm9', numero: 9, titulo: 'Goteira na recepção', status: 'EM_EXECUCAO', localAfetado: 'Recepção', categoria: 'Infiltração', equipamento: null,
+            criadoEm: '2026-09-30T10:00:00.000Z', dataConclusao: null, relacao: { categoria: true, setor: true, equipamento: false, tipoEquipamento: false }, relacionado: true, vinculado: false,
+          },
+        ],
       },
       '/manutencoes/m1/aprovar': { body: {} },
       '/manutencoes/m1': { body: civil() },
@@ -343,9 +348,9 @@ describe('Manutenção civil', () => {
     });
     render(<App />);
 
+    expect(await screen.findByRole('heading', { name: /Chamados da unidade/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Abrir MAN-0009 · Goteira na recepção' })).toHaveAttribute('href', '/manutencoes/m9');
     await acao('Aprovar chamado');
-    expect(await screen.findByText(/Chamados parecidos em aberto/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Abrir MAN-0009 · Goteira na recepção' })).toHaveAttribute('href', '/manutencoes/m9');
     const confirmar = screen.getByRole('button', { name: 'Confirmar aprovação' });
     expect(confirmar).toBeDisabled();
     await userEvent.selectOptions(await screen.findByLabelText('Item do contrato *'), 'i1');
@@ -357,7 +362,7 @@ describe('Manutenção civil', () => {
   it('item de contrato sem saldo continua escolhível: o saldo não bloqueia a triagem', async () => {
     mockFetch({
       ...entrarComo('OPERADOR', '/manutencoes/m1'),
-      '/manutencoes/m1/similares': { body: [] },
+      '/manutencoes/m1/da-unidade': { body: [] },
       '/manutencoes/m1': { body: civil() },
       '/contratos': { body: [contrato(0)] },
       ...historico,
@@ -375,7 +380,7 @@ describe('Manutenção civil', () => {
   it('sem nenhum contrato vigente o chamado não pode ser aprovado', async () => {
     mockFetch({
       ...entrarComo('OPERADOR', '/manutencoes/m1'),
-      '/manutencoes/m1/similares': { body: [] },
+      '/manutencoes/m1/da-unidade': { body: [] },
       '/manutencoes/m1': { body: civil() },
       '/contratos': { body: [] },
       ...historico,
@@ -546,7 +551,7 @@ describe('Manutenção civil', () => {
       mockFetch({
         ...entrarComo('OPERADOR', '/manutencoes/m1'),
         ...apoio,
-        '/manutencoes/m1/similares': { body: [] },
+        '/manutencoes/m1/da-unidade': { body: [] },
         '/manutencoes/m1': { body: civil({ informacoesSolicitadas: 'Qual o andar da infiltração?' }) },
         ...historico,
       });
@@ -1192,5 +1197,147 @@ describe('Manutenção civil', () => {
     const informacoes = (await screen.findByRole('heading', { name: 'Informações da manutenção' })).closest('section') as HTMLElement;
     expect(within(informacoes).getByText('Problema resolvido (unidade)').nextElementSibling).toHaveTextContent('Confirmado');
     expect(within(informacoes).getByText('Medição autorizada').nextElementSibling).not.toHaveTextContent('Pendente');
+  });
+});
+
+describe('Triagem: chamados da unidade ao lado do chamado', () => {
+  const vizinho = (extra: Record<string, unknown> = {}) => ({
+    id: 'm9',
+    numero: 9,
+    titulo: 'Goteira na recepção',
+    status: 'EM_EXECUCAO',
+    localAfetado: 'Recepção',
+    categoria: 'Infiltração',
+    equipamento: null,
+    criadoEm: '2026-09-30T10:00:00.000Z',
+    dataConclusao: null,
+    relacao: { categoria: true, setor: true, equipamento: false, tipoEquipamento: false },
+    relacionado: true,
+    vinculado: false,
+    ...extra,
+  });
+  const lista = [
+    vizinho(),
+    vizinho({ id: 'm8', numero: 8, titulo: 'Pintura da sala', status: 'AGUARDANDO_EXECUCAO', relacao: { categoria: false, setor: false, equipamento: false, tipoEquipamento: false }, relacionado: false, categoria: 'Alvenaria' }),
+    vizinho({ id: 'm7', numero: 7, titulo: 'Calha entupida', status: 'CONCLUIDA', relacionado: false, relacao: { categoria: false, setor: false, equipamento: false, tipoEquipamento: false } }),
+    vizinho({ id: 'm6', numero: 6, titulo: 'Infiltração no corredor', status: 'EM_ROTA', relacionado: false, relacao: { categoria: true, setor: false, equipamento: false, tipoEquipamento: false } }),
+  ];
+  // As rotas do teste vêm primeiro: o mock usa a primeira que casa com o endereço (as mais específicas antes da geral)
+  const abrirTriagem = (rotas: Record<string, unknown> = {}) => {
+    const padrao: Record<string, unknown> = {
+      '/manutencoes/m1/da-unidade': { body: lista },
+      '/manutencoes/m1/vinculos': { body: [] },
+      '/manutencoes/m1': { body: civil() },
+      '/contratos': { body: [] },
+      ...historico,
+    };
+    const restantes = Object.fromEntries(Object.entries(padrao).filter(([k]) => !(k in rotas)));
+    return mockFetch({ ...entrarComo('OPERADOR', '/manutencoes/m1'), ...rotas, ...restantes } as Parameters<typeof mockFetch>[0]);
+  };
+
+  it('mostra todos os chamados da unidade, com o que têm em comum, e filtra por situação e por parecidos', async () => {
+    abrirTriagem();
+    render(<App />);
+    const painel = (await screen.findByRole('heading', { name: /Chamados da unidade/ })).closest('aside') as HTMLElement;
+    expect(await within(painel).findByText('Goteira na recepção')).toBeInTheDocument();
+    for (const t of ['Pintura da sala', 'Calha entupida', 'Infiltração no corredor']) expect(within(painel).getByText(t)).toBeInTheDocument();
+    // o que têm em comum
+    const marcas = within(painel).getAllByRole('list', { name: 'O que tem em comum' })[0];
+    expect(within(marcas).getByText('Mesma categoria')).toBeInTheDocument();
+    expect(within(marcas).getByText('Mesmo setor')).toBeInTheDocument();
+
+    const situacao = within(painel).getByLabelText('Situação');
+    await userEvent.selectOptions(situacao, 'CONCLUIDOS');
+    expect(within(painel).getByText('Calha entupida')).toBeInTheDocument();
+    expect(within(painel).queryByText('Goteira na recepção')).not.toBeInTheDocument();
+    await userEvent.selectOptions(situacao, 'PROGRAMADOS');
+    expect(within(painel).getByText('Pintura da sala')).toBeInTheDocument();
+    expect(within(painel).queryByText('Calha entupida')).not.toBeInTheDocument();
+    await userEvent.selectOptions(situacao, 'EM_ROTA');
+    expect(within(painel).getByText('Infiltração no corredor')).toBeInTheDocument();
+    await userEvent.selectOptions(situacao, 'EM_EXECUCAO');
+    expect(within(painel).getByText('Goteira na recepção')).toBeInTheDocument();
+    await userEvent.selectOptions(situacao, '');
+    await userEvent.click(within(painel).getByRole('switch', { name: 'Só parecidos' }));
+    expect(within(painel).getByText('Goteira na recepção')).toBeInTheDocument();
+    expect(within(painel).queryByText('Pintura da sala')).not.toBeInTheDocument();
+  });
+
+  it('abre o histórico de um chamado da lista sem sair da tela', async () => {
+    abrirTriagem({ '/manutencoes/m9/historico': { body: [{ id: 'e1', acao: 'ABRIR_MANUTENCAO_CIVIL', criadoEm: '2026-09-30T10:00:00.000Z', usuario: 'Rodrigo' }] } });
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Histórico de MAN-0009' }));
+    const historicoLista = await screen.findByRole('list', { name: 'Histórico de MAN-0009' });
+    expect(within(historicoLista).getByText('Chamado de manutenção civil aberto')).toBeInTheDocument();
+    expect(within(historicoLista).getByText(/Rodrigo/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Histórico de MAN-0009' }));
+    expect(screen.queryByRole('list', { name: 'Histórico de MAN-0009' })).not.toBeInTheDocument();
+  });
+
+  it('relaciona e desfaz a relação; o chamado relacionado aparece marcado e em "Chamados relacionados"', async () => {
+    let ligado = false;
+    const chamadas = abrirTriagem({
+      '/manutencoes/m1/da-unidade': () => ({ body: [vizinho({ vinculado: ligado }), ...lista.slice(1)] }),
+      '/manutencoes/m1/vincular': () => {
+        ligado = true;
+        return { status: 201, body: [] };
+      },
+      '/manutencoes/m1/vinculos/m9': () => {
+        ligado = false;
+        return { body: [] };
+      },
+      '/manutencoes/m1/vinculos': () => ({ body: ligado ? [{ id: 'm9', numero: 9, titulo: 'Goteira na recepção', status: 'EM_EXECUCAO', vinculadoEm: '2026-11-01T10:00:00.000Z' }] : [] }),
+    });
+    render(<App />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Relacionar com MAN-0009' }));
+    expect(JSON.parse(String(chamadas.find((c) => c.url.endsWith('/manutencoes/m1/vincular'))!.init!.body))).toEqual({ relacionadaId: 'm9' });
+    expect(await screen.findByText('Relacionado')).toBeInTheDocument();
+    const relacionados = (await screen.findByRole('heading', { name: 'Chamados relacionados' })).closest('section') as HTMLElement;
+    expect(within(relacionados).getByText(/Goteira na recepção/)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Desfazer relação com MAN-0009' }));
+    await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/vinculos/m9') && c.init?.method === 'DELETE')).toBe(true));
+    await waitFor(() => expect(screen.queryByText('Relacionado')).not.toBeInTheDocument());
+  });
+
+  it('unifica ao chamado escolhido, com a explicação do que acontece e um motivo opcional; concluído não aceita unificar', async () => {
+    const chamadas = abrirTriagem({ '/manutencoes/m1/unificar': { body: {} } });
+    render(<App />);
+    expect(await screen.findByRole('button', { name: 'Unificar com MAN-0007' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Unificar com MAN-0009' }));
+    const confirmacao = screen.getByRole('group', { name: 'Unificar com MAN-0009' });
+    expect(within(confirmacao).getByText(/encerrado como unificado/)).toBeInTheDocument();
+    expect(within(confirmacao).getByText(/o problema e as fotos deste chamado são acrescentados/)).toBeInTheDocument();
+    await userEvent.type(within(confirmacao).getByLabelText('Motivo (opcional)'), 'Mesmo vazamento');
+    await userEvent.click(within(confirmacao).getByRole('button', { name: 'Confirmar unificação' }));
+    await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/unificar'))).toBe(true));
+    expect(JSON.parse(String(chamadas.find((c) => c.url.endsWith('/unificar'))!.init!.body))).toEqual({ chamadoOriginalId: 'm9', motivo: 'Mesmo vazamento' });
+  });
+
+  it('o painel só aparece na triagem e para quem tria o tipo do chamado', async () => {
+    // triador só de equipamentos, chamado civil: sem painel
+    mockFetch({
+      ...entrarComo('OPERADOR', '/manutencoes/m1'),
+      '/auth/me': { body: { id: '1', nome: 'T', email: 't@j.gov', matricula: '1', perfil: 'OPERADOR', permissoes: ['MANUTENCAO_CONSULTAR', 'MANUTENCAO_TRIAR_EQUIPAMENTO'], unidadeId: null } },
+      '/manutencoes/m1/da-unidade': { body: lista },
+      '/manutencoes/m1/vinculos': { body: [] },
+      '/manutencoes/m1': { body: civil() },
+      ...historico,
+    });
+    const { unmount } = render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Infiltração na recepção' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Chamados da unidade/ })).not.toBeInTheDocument();
+    unmount();
+    // chamado que já está com o prestador: sem painel
+    mockFetch({
+      ...entrarComo('OPERADOR', '/manutencoes/m1'),
+      '/manutencoes/m1/da-unidade': { body: lista },
+      '/manutencoes/m1/vinculos': { body: [] },
+      '/manutencoes/m1': { body: civil({ status: 'AGUARDANDO_EXECUCAO' }) },
+      ...historico,
+    });
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Infiltração na recepção' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Chamados da unidade/ })).not.toBeInTheDocument();
   });
 });

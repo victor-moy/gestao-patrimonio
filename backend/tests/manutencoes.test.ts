@@ -15,6 +15,7 @@ const equipamentoAtivo = {
 
 const manutencaoBase = {
   id: 'man-1',
+  tipo: 'EQUIPAMENTO',
   equipamentoId: 'eq-1',
   unidadeId: 'unidade-1',
   solicitanteId: 'user-2',

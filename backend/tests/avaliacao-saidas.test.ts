@@ -9,7 +9,7 @@ const ITEM = '66666666-6666-4666-8666-666666666666';
 const OUTRO_ITEM = '55555555-5555-4555-8555-555555555555';
 
 const avaliador = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_AVALIAR'] });
-const triador = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_TRIAR'] });
+const triador = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_TRIAR_EQUIPAMENTO'] });
 const vistoriador = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_VISTORIAR'] });
 const sem = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_CONSULTAR'] });
 
@@ -109,7 +109,7 @@ describe('Saídas da avaliação técnica', () => {
       expect(prismaMock.manutencao.updateMany).not.toHaveBeenCalled();
     });
 
-    it('só quem tem MANUTENCAO_TRIAR; a avaliação não encaminha por esta rota', async () => {
+    it('só quem tria (civil ou equipamentos); a avaliação não encaminha por esta rota', async () => {
       preparar();
       expect((await encaminhar({}, avaliador())).status).toBe(403);
       expect((await encaminhar({}, sem())).status).toBe(403);

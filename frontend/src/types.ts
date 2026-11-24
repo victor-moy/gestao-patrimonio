@@ -572,14 +572,30 @@ export interface ConversaResumo {
   naoLidas: number;
 }
 
-export interface ChamadoParecido {
+// Chamado da mesma unidade e tipo mostrado ao lado da triagem, com o que tem em comum com o chamado triado
+export interface ChamadoDaUnidade {
   id: string;
   numero: number;
   titulo: string | null;
   status: StatusManutencao;
   abertoPorContestacao?: boolean;
   localAfetado: string | null;
+  categoria: string | null;
+  equipamento: string | null;
   criadoEm: string;
+  dataConclusao: string | null;
+  relacao: { categoria: boolean; setor: boolean; equipamento: boolean; tipoEquipamento: boolean };
+  relacionado: boolean;
+  // Já ligado ao chamado triado pela triagem (os dois continuam separados)
+  vinculado: boolean;
+}
+
+export interface ChamadoRelacionado {
+  id: string;
+  numero: number;
+  titulo: string | null;
+  status: StatusManutencao;
+  vinculadoEm: string;
 }
 
 export type SituacaoManutencao = 'EM_ANDAMENTO' | 'CONCLUIDA' | 'NEGADA' | 'BAIXADO';

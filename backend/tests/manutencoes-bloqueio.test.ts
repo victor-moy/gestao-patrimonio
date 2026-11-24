@@ -20,8 +20,8 @@ const chamado = (extra: Record<string, unknown> = {}) =>
     ...extra,
   }) as never;
 
-const triador = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_TRIAR'] });
-const consulta = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_CONSULTAR', 'MANUTENCAO_TRIAR'] });
+const triador = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_TRIAR_EQUIPAMENTO'] });
+const consulta = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_CONSULTAR', 'MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_TRIAR_EQUIPAMENTO'] });
 const semPermissao = () => auth('OPERADOR', { permissoes: ['MANUTENCAO_CONSULTAR'] });
 
 describe('Bloqueio de chamado na triagem', () => {
@@ -63,7 +63,7 @@ describe('Bloqueio de chamado na triagem', () => {
       expect(prismaMock.manutencao.updateMany).not.toHaveBeenCalled();
     });
 
-    it('recusa quem não tem MANUTENCAO_TRIAR e a terceirizada', async () => {
+    it('recusa quem não tem permissão de triar e a terceirizada', async () => {
       expect((await bloquear(semPermissao())).status).toBe(403);
       expect((await bloquear(auth('TERCEIRIZADA', { prestadorId: 'p1' }))).status).toBe(403);
       expect(prismaMock.manutencao.updateMany).not.toHaveBeenCalled();

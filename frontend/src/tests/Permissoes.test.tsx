@@ -87,7 +87,8 @@ describe('Cadastro de usuário: permissões do operador', () => {
     for (const rotulo of [
       'Consultar chamados',
       'Escrever chamados',
-      'Triar chamados',
+      'Triar chamados civis',
+      'Triar chamados de equipamentos',
       'Realizar avaliação técnica',
       'Registrar vistorias',
       'Preparar medições',
@@ -109,7 +110,7 @@ describe('Cadastro de usuário: permissões do operador', () => {
     await waitFor(() => expect(email).toBeEnabled());
     await userEvent.type(email, 'nova@joinville.sc.gov.br');
     await userEvent.selectOptions(screen.getByLabelText('Perfil de acesso'), 'OPERADOR');
-    await userEvent.click(screen.getByRole('checkbox', { name: 'Triar chamados' }));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Triar chamados civis' }));
     await userEvent.click(screen.getByRole('checkbox', { name: 'Gerenciar atas' }));
     expect(screen.getByText('2 permissões selecionadas')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /Salvar|Cadastrar|Criar/ }));
@@ -117,7 +118,7 @@ describe('Cadastro de usuário: permissões do operador', () => {
     const envio = chamadas.find((c) => c.init?.method === 'POST' && c.url.includes('/usuarios'))!;
     expect(JSON.parse(String(envio.init?.body))).toMatchObject({
       perfil: 'OPERADOR',
-      permissoes: ['MANUTENCAO_TRIAR', 'ATAS_GERENCIAR'],
+      permissoes: ['MANUTENCAO_TRIAR_CIVIL', 'ATAS_GERENCIAR'],
     });
   });
 
@@ -163,11 +164,19 @@ describe('Detalhe da manutenção conforme as permissões do operador', () => {
     expect(screen.queryByRole('button', { name: 'Ações' })).not.toBeInTheDocument();
   });
 
-  it('quem tria vê aprovar e negar', async () => {
-    mockFetch(rotas(['MANUTENCAO_CONSULTAR', 'MANUTENCAO_TRIAR']));
+  it('quem tria o tipo do chamado vê aprovar e negar', async () => {
+    mockFetch(rotas(['MANUTENCAO_CONSULTAR', 'MANUTENCAO_TRIAR_EQUIPAMENTO']));
     abrir('/manutencoes/m1');
     await userEvent.click(await screen.findByRole('button', { name: 'Ações' }));
     expect(await screen.findByRole('menuitem', { name: 'Aprovar chamado' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Negar chamado' })).toBeInTheDocument();
+  });
+
+  it('o triador civil não tria chamado de equipamento (e o contrário também vale)', async () => {
+    mockFetch(rotas(['MANUTENCAO_CONSULTAR', 'MANUTENCAO_TRIAR_CIVIL']));
+    abrir('/manutencoes/m1');
+    expect(await screen.findByText('Não atinge a temperatura adequada')).toBeInTheDocument();
+    // chamado de equipamento, triador só do civil: nenhuma ação, o menu nem aparece
+    expect(screen.queryByRole('button', { name: 'Ações' })).not.toBeInTheDocument();
   });
 });

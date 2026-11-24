@@ -240,8 +240,22 @@ export async function vincularItem(
   return { contratoItemId: item.id, contratoId: item.contratoId };
 }
 
+// Triar vale por tipo: o triador civil só atua em chamado civil e o de equipamentos só em chamado de equipamento
+const PERMISSAO_DE_TRIAGEM = { CIVIL: 'MANUTENCAO_TRIAR_CIVIL', EQUIPAMENTO: 'MANUTENCAO_TRIAR_EQUIPAMENTO' } as const;
+
+function podeTriar(usuario: AuthPayload, tipo: TipoManutencao) {
+  return usuario.perfil === 'OPERADOR' && usuario.permissoes.includes(PERMISSAO_DE_TRIAGEM[tipo]);
+}
+
+export function exigirTriagem(usuario: AuthPayload, tipo: TipoManutencao) {
+  if (!podeTriar(usuario, tipo)) {
+    throw new AppError(`Seu perfil não pode triar chamados ${tipo === 'CIVIL' ? 'civis' : 'de equipamentos'}.`, 403);
+  }
+}
+
 export async function aprovar(usuario: AuthPayload, id: string, contratoItemId: string) {
   const manutencao = await buscarPorId(usuario, id);
+  exigirTriagem(usuario, manutencao.tipo);
   const civil = manutencao.tipo === 'CIVIL';
   if (manutencao.status !== 'PENDENTE_APROVACAO') {
     throw new AppError('Somente solicitações pendentes podem ser aprovadas.', 422);
@@ -333,6 +347,8 @@ export async function encaminharAoPrestador(
   { de, acao, parecer, contratoItemId, dispensaOrcamento }: { de: StatusManutencao; acao: string; parecer?: string; contratoItemId?: string; dispensaOrcamento?: string },
 ) {
   const manutencao = await buscarPorId(usuario, id);
+  // Na fila "já avaliados" quem encaminha é o triador (do tipo do chamado); o fim da avaliação é de quem tem a permissão de avaliar
+  if (de === 'AVALIADO') exigirTriagem(usuario, manutencao.tipo);
   const itemId = contratoItemId ?? manutencao.contratoItemId;
   if (manutencao.status !== de || !itemId) {
     throw new AppError(
@@ -735,24 +751,6 @@ export async function encerrarNaAvaliacao(
   return atualizada;
 }
 
-// Civil — triagem: outros chamados abertos da mesma unidade e do mesmo tipo de problema (evita atendimento duplicado)
-export async function similares(usuario: AuthPayload, id: string) {
-  const manutencao = await buscarPorId(usuario, id);
-  exigirCivil(manutencao, 'A busca por chamados parecidos');
-  return prisma.manutencao.findMany({
-    where: {
-      id: { not: id },
-      tipo: 'CIVIL',
-      unidadeId: manutencao.unidadeId,
-      ...(manutencao.categoriaCivilId ? { categoriaCivilId: manutencao.categoriaCivilId } : {}),
-      status: { notIn: ['NEGADA', 'ENCERRADA', 'CONCLUIDA', 'BAIXADO'] },
-    },
-    select: { id: true, numero: true, titulo: true, status: true, abertoPorContestacao: true, localAfetado: true, criadoEm: true },
-    orderBy: { criadoEm: 'desc' },
-    take: 10,
-  });
-}
-
 // Devolve o equipamento a ativo se ele ainda estiver em manutenção (condição na gravação, sem corrida) e registra o retorno
 export async function liberarEquipamento(tx: Prisma.TransactionClient, equipamentoId: string, unidadeId: string, usuarioId: string, descricao: string) {
   const liberado = await tx.equipamento.updateMany({ where: { id: equipamentoId, status: 'EM_MANUTENCAO' }, data: { status: 'ATIVO' } });
@@ -768,6 +766,7 @@ const BLOQUEAVEIS: StatusManutencao[] = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALI
 
 export async function bloquear(usuario: AuthPayload, id: string, motivo: string) {
   const manutencao = await buscarPorId(usuario, id);
+  exigirTriagem(usuario, manutencao.tipo);
   if (!BLOQUEAVEIS.includes(manutencao.status)) {
     throw new AppError('Só é possível bloquear o chamado antes da execução.', 422);
   }
@@ -796,6 +795,7 @@ export async function bloquear(usuario: AuthPayload, id: string, motivo: string)
 
 export async function desbloquear(usuario: AuthPayload, id: string) {
   const manutencao = await buscarPorId(usuario, id);
+  exigirTriagem(usuario, manutencao.tipo);
   if (manutencao.status !== 'BLOQUEADO' || !manutencao.statusAntesBloqueio) {
     throw new AppError('O chamado não está bloqueado.', 422);
   }
@@ -831,6 +831,7 @@ export async function desbloquear(usuario: AuthPayload, id: string) {
 // FA01 — negação com motivo, só na triagem
 export async function negar(usuario: AuthPayload, id: string, motivo: string) {
   const manutencao = await buscarPorId(usuario, id);
+  exigirTriagem(usuario, manutencao.tipo);
   // Civil: com o chamado nas mãos do prestador o Administrador não o nega
   if (manutencao.tipo === 'CIVIL' && manutencao.status === 'AGUARDANDO_EXECUCAO') {
     throw new AppError('O chamado está com o prestador, aguardando execução. Só é possível negar na triagem.', 422);
@@ -1225,7 +1226,7 @@ function unidadeDoChamadoCivil(usuario: AuthPayload, escolhida?: string | null) 
   return usuario.unidadeId ?? escolhida ?? null;
 }
 
-const STATUS_QUE_ACEITAM_PROBLEMA: StatusManutencao[] = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO'];
+export const STATUS_QUE_ACEITAM_PROBLEMA: StatusManutencao[] = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO'];
 
 export async function abertosDaCategoria(usuario: AuthPayload, categoriaCivilId: string, unidadeIdPedida?: string) {
   const unidadeId = unidadeDoChamadoCivil(usuario, unidadeIdPedida);
@@ -1239,7 +1240,7 @@ export async function abertosDaCategoria(usuario: AuthPayload, categoriaCivilId:
   return abertos.map((m) => ({ ...m, aceitaProblemas: STATUS_QUE_ACEITAM_PROBLEMA.includes(m.status) }));
 }
 
-const MAX_PROBLEMAS_EXTRAS = 20;
+export const MAX_PROBLEMAS_EXTRAS = 20;
 
 // Acrescenta outro problema da mesma categoria a um chamado civil que ainda não foi ao prestador
 export async function adicionarProblema(usuario: AuthPayload, id: string, dados: { descricao: string; fotos: string[] }) {

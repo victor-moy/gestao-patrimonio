@@ -670,7 +670,7 @@ describe('Manutenções', () => {
       await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/desbloquear'))).toBe(true));
     });
 
-    it('quem não tem MANUTENCAO_TRIAR não vê Bloquear', async () => {
+    it('quem não tem permissão de triar não vê Bloquear', async () => {
       mockFetch({
         '/auth/me': {
           body: { id: '1', nome: 'Op', email: 'o@j.gov', matricula: '1', perfil: 'OPERADOR', permissoes: ['MANUTENCAO_CONSULTAR'] },

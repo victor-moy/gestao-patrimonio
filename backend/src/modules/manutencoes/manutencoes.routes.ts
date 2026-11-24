@@ -14,6 +14,7 @@ import {
   uploadLaudoPdf,
 } from '../../lib/uploads';
 import * as service from './manutencoes.service';
+import * as triagem from './manutencoes.triagem';
 import * as reencaminhamento from './manutencoes.reencaminhamento';
 import * as os from './manutencoes.os';
 import * as orcamento from './manutencoes.orcamento';
@@ -24,7 +25,10 @@ export const manutencoesRouter = Router();
 manutencoesRouter.use(autenticar);
 
 // Leitura: só quem trabalha com manutenção. O Galpão não tem acesso (e a terceirizada só vê as do seu contrato)
-const leitura = permitirCom('MANUTENCAO_CONSULTAR', Perfil.UNIDADE, Perfil.TERCEIRIZADA);
+const leitura = permitirCom(['MANUTENCAO_CONSULTAR', 'MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_TRIAR_EQUIPAMENTO'], Perfil.UNIDADE, Perfil.TERCEIRIZADA);
+
+// Triagem: o portão deixa passar quem tria algum tipo; o serviço confere o tipo do chamado (civil ou equipamento)
+const triar = permitirCom(['MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_TRIAR_EQUIPAMENTO']);
 
 // Minimização de dados: a terceirizada não precisa do e-mail institucional da unidade (usado só nos avisos do sistema)
 // e os valores: o prestador lança itens e quantidades, mas não vê nem altera preços, descontos, saldo ou custo do chamado
@@ -203,7 +207,7 @@ manutencoesRouter.post(
 // RN03 — somente o Administrador decide
 manutencoesRouter.post(
   '/:id/aprovar',
-  permitirCom('MANUTENCAO_TRIAR'),
+  triar,
   validarBody(z.object({ contratoItemId: z.string().uuid('selecione o item de contrato que cobre a manutenção') })),
   async (req, res) => {
     res.json(await service.aprovar(req.usuario!, req.params.id, req.body.contratoItemId));
@@ -230,7 +234,7 @@ manutencoesRouter.post('/:id/devolver-avaliado', permitirCom('MANUTENCAO_AVALIAR
 // O triador encaminha ao prestador um chamado já avaliado (pode trocar o item de contrato)
 manutencoesRouter.post(
   '/:id/encaminhar-avaliado',
-  permitirCom('MANUTENCAO_TRIAR'),
+  triar,
   validarBody(z.object({ contratoItemId: z.string().uuid().optional() })),
   async (req, res) => {
     res.json(await service.encaminharAvaliado(req.usuario!, req.params.id, req.body.contratoItemId));
@@ -321,28 +325,53 @@ manutencoesRouter.post(
   },
 );
 
-// Civil: chamados parecidos em aberto na mesma unidade (triagem)
-manutencoesRouter.get('/:id/similares', permitirCom('MANUTENCAO_TRIAR'), async (req, res) => {
-  res.json(await service.similares(req.usuario!, req.params.id));
+// Triagem: os outros chamados da unidade (mesmo tipo), com o que têm em comum com este
+manutencoesRouter.get('/:id/da-unidade', triar, async (req, res) => {
+  res.json(await triagem.chamadosDaUnidade(req.usuario!, req.params.id));
 });
+
+// Chamados relacionados (ligados pela triagem; continuam separados)
+manutencoesRouter.get('/:id/vinculos', leitura, async (req, res) => {
+  res.json(await triagem.listarVinculos(req.usuario!, req.params.id));
+});
+
+manutencoesRouter.post('/:id/vincular', triar, validarBody(z.object({ relacionadaId: z.string().uuid('informe o chamado a relacionar') })), async (req, res) => {
+  res.status(201).json(await triagem.vincular(req.usuario!, req.params.id, req.body.relacionadaId));
+});
+
+manutencoesRouter.delete('/:id/vinculos/:relacionadaId', triar, async (req, res) => {
+  const relacionadaId = z.string().uuid().safeParse(req.params.relacionadaId);
+  if (!relacionadaId.success) throw new AppError('Chamado inválido.', 422);
+  res.json(await triagem.desvincular(req.usuario!, req.params.id, relacionadaId.data));
+});
+
+// Triagem: duplicado. Encerra este chamado como unificado ao original (no civil, o problema vai para o original)
+manutencoesRouter.post(
+  '/:id/unificar',
+  triar,
+  validarBody(z.object({ chamadoOriginalId: z.string().uuid('informe o chamado original'), motivo: z.string().trim().max(500).optional() })),
+  async (req, res) => {
+    res.json(await triagem.unificar(req.usuario!, req.params.id, req.body));
+  },
+);
 
 // Triagem: parar o chamado com um motivo e retomá-lo depois, no mesmo ponto
 manutencoesRouter.post(
   '/:id/bloquear',
-  permitirCom('MANUTENCAO_TRIAR'),
+  triar,
   validarBody(z.object({ motivo: z.string().trim().min(3, 'informe o motivo do bloqueio').max(500) })),
   async (req, res) => {
     res.json(await service.bloquear(req.usuario!, req.params.id, req.body.motivo));
   },
 );
 
-manutencoesRouter.post('/:id/desbloquear', permitirCom('MANUTENCAO_TRIAR'), async (req, res) => {
+manutencoesRouter.post('/:id/desbloquear', triar, async (req, res) => {
   res.json(await service.desbloquear(req.usuario!, req.params.id));
 });
 
 manutencoesRouter.post(
   '/:id/negar',
-  permitirCom('MANUTENCAO_TRIAR'),
+  triar,
   validarBody(z.object({ motivo: z.string().min(3, 'informe o motivo da negação') })),
   async (req, res) => {
     res.json(await service.negar(req.usuario!, req.params.id, req.body.motivo));
@@ -590,7 +619,7 @@ manutencoesRouter.post(
 );
 
 // Reencaminhamento — o Administrador confirma o pedido e só depois decide o destino
-manutencoesRouter.post('/:id/confirmar-reencaminhamento', permitirCom('MANUTENCAO_TRIAR'), async (req, res) => {
+manutencoesRouter.post('/:id/confirmar-reencaminhamento', triar, async (req, res) => {
   res.json(await reencaminhamento.confirmarReencaminhamento(req.usuario!, req.params.id));
 });
 
@@ -604,7 +633,7 @@ const novoChamadoSchema = z.object({
 });
 
 // Reencaminhamento — decisão 1: abre um novo chamado de manutenção (sem prestador) na triagem
-manutencoesRouter.post('/:id/reencaminhar/manutencao', permitirCom('MANUTENCAO_TRIAR'), validarBody(novoChamadoSchema), async (req, res) => {
+manutencoesRouter.post('/:id/reencaminhar/manutencao', triar, validarBody(novoChamadoSchema), async (req, res) => {
   res.status(201).json(await reencaminhamento.reencaminharParaManutencao(req.usuario!, req.params.id, req.body));
 });
 

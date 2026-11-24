@@ -1,12 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { api } from '../api/client';
 import { ImagemProtegida } from './ArquivoProtegido';
 import { IconeFechar } from './icons';
-import { StatusPill } from './StatusPill';
 import { rotuloSinapi, SelecaoItem } from './SelecaoItem';
-import type { ChamadoParecido, Contrato, ItemSinapi, LinhaRelatorio, Manutencao } from '../types';
-import { codigoManutencao, formatarData, formatarMoeda, statusManutencaoExibido } from '../utils/format';
+import type { Contrato, ItemSinapi, LinhaRelatorio, Manutencao } from '../types';
+import { formatarData, formatarMoeda } from '../utils/format';
 
 type Executar = (operacao: () => Promise<unknown>) => Promise<void>;
 
@@ -269,7 +267,6 @@ export function AcoesCivil({
   const [motivo, setMotivo] = useState('');
   const [contratoItemId, setContratoItemId] = useState('');
   const [contratos, setContratos] = useState<Contrato[]>([]);
-  const [parecidos, setParecidos] = useState<ChamadoParecido[]>([]);
   const [falhaApoio, setFalhaApoio] = useState<string | null>(null);
 
   const emTriagem = podeTriar && m.status === 'PENDENTE_APROVACAO' && (painel === 'aprovar' || painel === 'negar');
@@ -289,14 +286,6 @@ export function AcoesCivil({
       .then(setContratos)
       .catch((e) => setFalhaApoio(e instanceof Error ? e.message : 'Não foi possível carregar os contratos.'));
   }, [emTriagem]);
-
-  useEffect(() => {
-    if (!emTriagem) return;
-    api
-      .get<ChamadoParecido[]>(`/manutencoes/${m.id}/similares`)
-      .then((l) => setParecidos(Array.isArray(l) ? l : []))
-      .catch(() => setParecidos([]));
-  }, [emTriagem, m.id]);
 
   // Itens elegíveis: contrato vigente. O saldo aparece como informação, mas não bloqueia a escolha
   const contratosElegiveis = contratos.filter((c) => c.status !== 'EXPIRADO' && c.itens.length > 0);
@@ -357,33 +346,6 @@ export function AcoesCivil({
       {emTriagem && (
         <div className="actions-box">
           <div className="actions-title">{modo === 'encaminhar' ? 'Aprovar chamado' : 'Negar chamado'}</div>
-          {parecidos.length > 0 && (
-            <section className="civil-parecidos" role="status" aria-labelledby="civil-parecidos-titulo">
-              <h4 id="civil-parecidos-titulo">
-                Chamados parecidos em aberto <span className="civil-parecidos-total">{parecidos.length}</span>
-              </h4>
-              <p>Mesmo tipo de problema nesta unidade. Confira antes de aprovar para não duplicar o atendimento.</p>
-              <ul>
-                {parecidos.map((p) => (
-                  <li key={p.id}>
-                    <Link
-                      to={`/manutencoes/${p.id}`}
-                      className="civil-parecido"
-                      aria-label={`Abrir ${codigoManutencao(p.numero)}${p.titulo ? ` · ${p.titulo}` : ''}`}
-                    >
-                      <span className="civil-parecido-texto">
-                        <span className="civil-parecido-numero">{codigoManutencao(p.numero)}</span>
-                        <span className="civil-parecido-sub">
-                          {[p.titulo, p.localAfetado, `aberto em ${formatarData(p.criadoEm)}`].filter(Boolean).join(' · ')}
-                        </span>
-                      </span>
-                      <StatusPill valor={statusManutencaoExibido(p).valor}>{statusManutencaoExibido(p).texto}</StatusPill>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
           <p className="itens-aviso">
             Confira se o serviço é manutenção (e não alteração de estrutura ou layout, que pode ter outra cobertura) e se
             tem contrato vigente.
