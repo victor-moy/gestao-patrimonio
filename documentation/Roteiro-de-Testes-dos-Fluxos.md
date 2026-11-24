@@ -26,7 +26,7 @@ Para trocar de usuário sem sair: menu do usuário (canto superior direito) › 
 | AA Unidade | Unidade, UBS Norte | Abre solicitações, confirma saída, recebimento, retorno e recolha |
 | Rodrigo Silva | Unidade, UBS Centro | Segunda unidade (destino do empréstimo, teste de isolamento entre unidades) |
 | CC Admin | Operador com todas as permissões | É o "Administrador": aprova, nega, lança no Branet, fiscaliza, avalia |
-| DD Triador | Operador: triar, escrever, consultar, solicitações | Triagem dos chamados de manutenção |
+| DD Triador | Operador: triar chamados civis e de equipamentos, escrever, consultar, solicitações | Triagem dos chamados de manutenção |
 | EE Avaliador | Operador: avaliar, vistoriar, solicitações, atas, estoque, inventário | Avaliação técnica e vistoria |
 | BB Terceirizado | Terceirizada, **LabEquip Serviços** | Manutenção de equipamento (contrato CONT-2024-045, só calibração) |
 
@@ -213,7 +213,7 @@ Atores da manutenção: **Unidade** (abre, confirma), **Triagem** (DD Triador ou
 | **6A.10 Reencaminhamento** | BB clica **Reencaminhar** (motivo). CC Admin confirma e escolhe **novo chamado** ou **baixa** | `Reencaminhamento Solicitado`. Novo chamado nasce `Pendente Aprovação`, sem contrato, ligado ao anterior (que fica `Concluída`); a **Trajetória do caso** mostra os dois. Pela baixa, segue o fluxo de baixa |
 | **6A.11 Equipamento em manutenção** | Com o chamado aberto, tente emprestar, recolher ou abrir outra manutenção do mesmo equipamento | Erro: equipamento em manutenção não participa de fluxo incompatível |
 | **6A.12 Equipamento emprestado** | A unidade que só detém o item tenta abrir manutenção | Não consegue: só a unidade dona |
-| **6A.13 Perfis** | Operador sem `MANUTENCAO_TRIAR` tenta aprovar; Unidade tenta aprovar; BB de outro prestador abre o chamado | Sem botões; BB de outro contrato não enxerga o chamado |
+| **6A.13 Perfis** | Operador sem a permissão de triar o tipo do chamado (civil ou equipamentos) tenta aprovar; Unidade tenta aprovar; BB de outro prestador abre o chamado | Sem botões; BB de outro contrato não enxerga o chamado |
 
 ### 6B. Manutenção civil
 
@@ -252,7 +252,11 @@ Problema na unidade, sala ou instalação, **sem equipamento**. O caminho depend
 | **6B.2.b Saldo** | O saldo do item **não bloqueia** a escolha na triagem; ele só é conferido quando surge um valor (orçamento ou custo final) |
 | **6B.2.c Bloquear** | `Bloqueado` com motivo obrigatório, em qualquer status antes da execução; **Desbloquear** volta ao mesmo status; o tempo parado é contado |
 | **6B.2.d Sem interação** | Filtro da lista mostra os chamados sem mensagem nem ação |
-| **6B.2.e Quem não pode** | Operador sem `MANUTENCAO_TRIAR` e Unidade não veem Aprovar/Negar/Bloquear |
+| **6B.2.e Quem não pode** | Operador sem a permissão de triar o tipo do chamado e Unidade não veem Aprovar/Negar/Bloquear |
+| **6B.2.f Chamados da unidade** | **DD Triador** abre um chamado `Pendente Aprovação` da UBS Norte, que já tem outros chamados civis (em execução, concluído, em rota) | Ao lado do chamado aparece **Chamados da unidade**, com todos os da mesma unidade e tipo. Filtre por **Programados**, **Em rota**, **Concluídos** e **Só parecidos**; os de mesma categoria ou setor vêm marcados e primeiro. **Histórico** abre os eventos sem sair da tela |
+| **6B.2.g Relacionar** | Em um chamado parecido, clique em **Relacionar** e depois em **Desfazer relação** | Aparece a marca **Relacionado** e, no detalhe dos dois chamados, o bloco **Chamados relacionados**; ao desfazer, some dos dois. Os chamados continuam separados |
+| **6B.2.h Unificar** | Em um chamado parecido ainda sem prestador, clique em **Unificar**, leia o aviso e confirme (motivo opcional) | O chamado novo vira `Encerrada` (unificado), aponta para o original e o problema e as fotos aparecem no original em **Outros problemas**. Concluído, negado ou encerrado não aceita unificar. No chamado de equipamento, o equipamento volta a ficar ativo |
+| **6B.2.i Triador do tipo certo** | Operador só com **Triar chamados de equipamentos** abre um chamado civil (e o contrário) | Não vê Aprovar, Negar, Bloquear nem o painel da unidade |
 
 #### 6B.3 Avaliação técnica (EE Avaliador ou CC Admin)
 
