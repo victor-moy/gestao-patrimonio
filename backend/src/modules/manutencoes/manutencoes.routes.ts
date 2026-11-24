@@ -14,6 +14,7 @@ import {
   uploadLaudoPdf,
 } from '../../lib/uploads';
 import * as service from './manutencoes.service';
+import * as triagem from './manutencoes.triagem';
 import * as reencaminhamento from './manutencoes.reencaminhamento';
 import * as os from './manutencoes.os';
 import * as orcamento from './manutencoes.orcamento';
@@ -324,10 +325,35 @@ manutencoesRouter.post(
   },
 );
 
-// Civil: chamados parecidos em aberto na mesma unidade (triagem)
-manutencoesRouter.get('/:id/similares', triar, async (req, res) => {
-  res.json(await service.similares(req.usuario!, req.params.id));
+// Triagem: os outros chamados da unidade (mesmo tipo), com o que têm em comum com este
+manutencoesRouter.get('/:id/da-unidade', triar, async (req, res) => {
+  res.json(await triagem.chamadosDaUnidade(req.usuario!, req.params.id));
 });
+
+// Chamados relacionados (ligados pela triagem; continuam separados)
+manutencoesRouter.get('/:id/vinculos', leitura, async (req, res) => {
+  res.json(await triagem.listarVinculos(req.usuario!, req.params.id));
+});
+
+manutencoesRouter.post('/:id/vincular', triar, validarBody(z.object({ relacionadaId: z.string().uuid('informe o chamado a relacionar') })), async (req, res) => {
+  res.status(201).json(await triagem.vincular(req.usuario!, req.params.id, req.body.relacionadaId));
+});
+
+manutencoesRouter.delete('/:id/vinculos/:relacionadaId', triar, async (req, res) => {
+  const relacionadaId = z.string().uuid().safeParse(req.params.relacionadaId);
+  if (!relacionadaId.success) throw new AppError('Chamado inválido.', 422);
+  res.json(await triagem.desvincular(req.usuario!, req.params.id, relacionadaId.data));
+});
+
+// Triagem: duplicado. Encerra este chamado como unificado ao original (no civil, o problema vai para o original)
+manutencoesRouter.post(
+  '/:id/unificar',
+  triar,
+  validarBody(z.object({ chamadoOriginalId: z.string().uuid('informe o chamado original'), motivo: z.string().trim().max(500).optional() })),
+  async (req, res) => {
+    res.json(await triagem.unificar(req.usuario!, req.params.id, req.body));
+  },
+);
 
 // Triagem: parar o chamado com um motivo e retomá-lo depois, no mesmo ponto
 manutencoesRouter.post(

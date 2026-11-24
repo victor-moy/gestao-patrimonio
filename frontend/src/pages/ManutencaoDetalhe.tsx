@@ -28,6 +28,8 @@ import { AvaliacaoTecnica, LinhasEditaveis, ResumoAvaliacaoTecnica } from '../co
 import { useEdicaoAvaliacao } from '../hooks/useEdicaoAvaliacao';
 import { AcoesCivil, RelatorioCivil } from '../components/ManutencaoCivil';
 import { type ItemAcao, MenuAcoes } from '../components/MenuAcoes';
+import { ChamadosDaUnidade } from '../components/ChamadosDaUnidade';
+import { ChamadosRelacionados } from '../components/ChamadosRelacionados';
 import { AcoesReencaminhamento, MotivoReencaminhamento, situacaoReencaminhamento, TrajetoriaCaso } from '../components/Reencaminhamento';
 
 export function ManutencaoDetalhe() {
@@ -132,6 +134,9 @@ function ConteudoManutencao({
   // Triar vale por tipo: o triador civil só atua em chamado civil, e o de equipamentos em chamado de equipamento
   const podeTriar = pode(usuario, m.tipo === 'CIVIL' ? 'MANUTENCAO_TRIAR_CIVIL' : 'MANUTENCAO_TRIAR_EQUIPAMENTO');
   const podeAvaliar = pode(usuario, 'MANUTENCAO_AVALIAR');
+  // Quem tria vê, ao lado do chamado, os outros chamados da unidade enquanto decide (aprovar, negar, unificar ou relacionar)
+  const mostrarUnidade = podeTriar && (m.status === 'PENDENTE_APROVACAO' || m.status === 'AVALIADO');
+  const [versaoRelacao, setVersaoRelacao] = useState(0);
   // Na avaliação técnica, os dados do chamado exibidos abaixo viram campos editáveis
   const editando = podeAvaliar && m.status === 'AGUARDANDO_AVALIACAO_TECNICA';
   const edicao = useEdicaoAvaliacao(m, editando);
@@ -346,6 +351,8 @@ function ConteudoManutencao({
       </div>
 
 
+      <div className={`triagem-colunas${mostrarUnidade ? ' triagem-colunas--com-unidade' : ''}`}>
+      <div className="triagem-principal">
       <div className="solicitacao-lateral">
           <div className="solicitacao-acoes">
             {podeTriar && STATUS_BLOQUEAVEIS.includes(m.status) && acao === 'bloquear' && (
@@ -798,6 +805,7 @@ function ConteudoManutencao({
           )}
 
           <TrajetoriaCaso manutencaoId={m.id} status={m.status} />
+          {!ehTerceirizada && <ChamadosRelacionados manutencaoId={m.id} versao={`${m.status}-${versaoRelacao}`} />}
         </div>
 
         <HistoricoRecolhivel id="historico-manutencao">
@@ -825,6 +833,9 @@ function ConteudoManutencao({
             </ol>
           )}
         </HistoricoRecolhivel>
+      </div>
+      </div>
+      {mostrarUnidade && <ChamadosDaUnidade m={m} executar={executar} ocupado={ocupado} aoMudarRelacao={() => setVersaoRelacao((v) => v + 1)} />}
       </div>
     </section>
   );

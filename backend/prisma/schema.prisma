@@ -214,6 +214,7 @@ model Usuario {
   avisos                 AvisoUsuario[]
   relatosProblema        RelatoProblema[]
   mensagensRelato        MensagemRelato[]
+  vinculosCriados        ManutencaoVinculo[]
   problemasCriados       ManutencaoProblema[]  @relation("ProblemaCriadoPor")
 
   @@index([prestadorId])
@@ -370,6 +371,9 @@ model Manutencao {
   // Civil: respostas às perguntas da categoria e outros problemas da mesma categoria acrescentados ao chamado
   respostas                    RespostaChamado[]
   problemasExtras              ManutencaoProblema[]
+  // Chamados ligados entre si pela triagem (continuam separados); a ligação vale nos dois sentidos
+  vinculos                     ManutencaoVinculo[]  @relation("VinculoDe")
+  vinculadoA                   ManutencaoVinculo[]  @relation("VinculadoA")
   // Civil: a ordem de serviço (uma por chamado) com a execução e os documentos
   ordemServico                 OrdemServico?
   // Civil: orçamento prévio (3 cotações por rodada). A rodada sobe a cada pedido de novos orçamentos
@@ -1019,4 +1023,21 @@ model MensagemRelato {
 
   @@index([relatoId, criadoEm])
   @@map("mensagem_relato")
+}
+
+// Ligação entre dois chamados da mesma unidade e do mesmo tipo, feita por quem tria. Os chamados seguem separados;
+// só ficam relacionados para quem os atende (a ligação vale nos dois sentidos, e há uma linha por par).
+model ManutencaoVinculo {
+  id            String     @id @default(uuid())
+  manutencaoId  String     @map("manutencao_id")
+  manutencao    Manutencao @relation("VinculoDe", fields: [manutencaoId], references: [id], onDelete: Cascade)
+  relacionadaId String     @map("relacionada_id")
+  relacionada   Manutencao @relation("VinculadoA", fields: [relacionadaId], references: [id], onDelete: Cascade)
+  criadoPorId   String     @map("criado_por_id")
+  criadoPor     Usuario    @relation(fields: [criadoPorId], references: [id])
+  criadoEm      DateTime   @default(now()) @map("criado_em")
+
+  @@unique([manutencaoId, relacionadaId])
+  @@index([relacionadaId])
+  @@map("manutencao_vinculo")
 }

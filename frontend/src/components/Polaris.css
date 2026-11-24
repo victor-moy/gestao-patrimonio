@@ -1202,7 +1202,7 @@ a.app-topbar-wordmark:hover strong { opacity: .85; }
   .relatorio-civil td.relatorio-civil-acoes { position: absolute; top: 6px; right: 8px; padding: 0; }
   .relatorio-civil tbody tr:has(.relatorio-civil-acoes) .relatorio-civil-descricao { padding-right: 36px; }
 }
-/* Triagem civil: chamados parecidos em aberto (lista neutra; cada linha inteira é o link) */
+/* Abertura do chamado civil: chamados já abertos da unidade (lista neutra; cada linha inteira é o link) */
 .civil-parecidos { margin: 0 0 12px; }
 .civil-parecidos h4 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text); font-size: 12px; font-weight: 650; }
 .civil-parecidos-total { min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e3e3e3; color: #303030; font-size: 10px; font-weight: 650; line-height: 18px; text-align: center; }
@@ -1221,6 +1221,43 @@ a.app-topbar-wordmark:hover strong { opacity: .85; }
   .civil-parecido { flex-wrap: wrap; justify-content: flex-start; gap: 8px; }
   .civil-parecido-texto { flex: 1 1 100%; }
 }
+/* Triagem: chamados da unidade ao lado do chamado (computador) ou abaixo dele (celular) */
+.triagem-colunas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.triagem-principal { min-width: 0; }
+@media (min-width: 1100px) {
+  .triagem-colunas--com-unidade { grid-template-columns: minmax(0, 1fr) 380px; }
+  .triagem-colunas--com-unidade > .unidade-chamados { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; }
+}
+.unidade-chamados h3 { display: flex; align-items: center; gap: 8px; }
+.unidade-chamados-total { min-width: 18px; padding: 0 6px; border-radius: 999px; background: #e3e3e3; color: #303030; font-size: 10px; font-weight: 650; line-height: 18px; text-align: center; }
+.unidade-chamados-filtros { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; margin-bottom: 12px; }
+.unidade-chamados-filtros .field { margin: 0; }
+.unidade-chamados-lista { margin: 0; padding: 0; list-style: none; }
+.unidade-chamado { display: grid; gap: 6px; padding: 12px 0; border-top: 1px solid var(--border, #e3e3e3); }
+.unidade-chamado:first-child { border-top: 0; padding-top: 0; }
+.unidade-chamado-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.unidade-chamado-link { display: grid; min-width: 0; gap: 2px; color: inherit; text-decoration: none; }
+.unidade-chamado-link:hover .unidade-chamado-numero { text-decoration: underline; }
+.unidade-chamado-link:focus-visible { outline: 2px solid #005bd3; outline-offset: 2px; border-radius: 4px; }
+.unidade-chamado-numero { color: #005bd3; font-size: 12px; font-weight: 650; }
+.unidade-chamado-titulo { overflow: hidden; color: var(--text); font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.unidade-chamado-sub { color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
+.unidade-chamado-marcas { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.unidade-chamado-marcas li { padding: 1px 8px; border-radius: 999px; background: #f1f1f1; color: #303030; font-size: 10px; font-weight: 600; }
+.unidade-chamado-marcas li.ligado { background: #e0f0ff; color: #00527c; }
+.unidade-chamado-acoes { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.unidade-chamado-acoes .btn-link { font-size: 11px; }
+.unidade-chamado-acoes .btn-link:disabled { color: var(--text-muted); cursor: not-allowed; text-decoration: none; }
+.unidade-historico { display: grid; gap: 6px; margin: 0; padding: 8px 0 0 12px; border-left: 2px solid var(--border, #e3e3e3); list-style: none; }
+.unidade-historico li { color: var(--text); font-size: 11px; }
+.unidade-historico time { display: block; color: var(--text-secondary); }
+.unidade-unificar { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--border, #e3e3e3); border-radius: 10px; background: #fafafa; }
+.unidade-unificar p { margin: 0; color: var(--text-secondary); font-size: 11px; line-height: 1.5; }
+.unidade-chamados-vazio { padding: 8px 0; color: var(--text-secondary); font-size: 12px; }
+/* Chamados relacionados no detalhe do chamado */
+.chamados-relacionados { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.chamados-relacionados a { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: inherit; text-decoration: none; font-size: 12px; }
+.chamados-relacionados a:hover .unidade-chamado-numero { text-decoration: underline; }
 /* Reencaminhamento: trajetória do caso (linha do tempo vertical) */
 .trajetoria-lista { margin: 0; padding: 16px 0 0 4px; list-style: none; }
 .trajetoria-etapa { position: relative; padding: 0 0 16px 24px; }

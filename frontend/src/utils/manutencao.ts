@@ -29,6 +29,9 @@ const ROTULO_EVENTO: Record<string, string> = {
   CONFIRMAR_REENCAMINHAMENTO: 'Reencaminhamento confirmado pelo administrador',
   REENCAMINHAR_MANUTENCAO: 'Reencaminhado em um novo chamado',
   ABRIR_MANUTENCAO_REENCAMINHADA: 'Chamado aberto por reencaminhamento',
+  UNIFICAR_CHAMADO: 'Chamado unificado a outro já aberto',
+  VINCULAR_CHAMADO: 'Chamado relacionado a outro',
+  DESVINCULAR_CHAMADO: 'Relação entre chamados desfeita',
 };
 
 // Texto do evento no histórico; no civil, retorno/confirmação usam rótulos do fluxo de resolução.

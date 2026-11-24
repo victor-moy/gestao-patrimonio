@@ -751,24 +751,6 @@ export async function encerrarNaAvaliacao(
   return atualizada;
 }
 
-// Civil — triagem: outros chamados abertos da mesma unidade e do mesmo tipo de problema (evita atendimento duplicado)
-export async function similares(usuario: AuthPayload, id: string) {
-  const manutencao = await buscarPorId(usuario, id);
-  exigirCivil(manutencao, 'A busca por chamados parecidos');
-  return prisma.manutencao.findMany({
-    where: {
-      id: { not: id },
-      tipo: 'CIVIL',
-      unidadeId: manutencao.unidadeId,
-      ...(manutencao.categoriaCivilId ? { categoriaCivilId: manutencao.categoriaCivilId } : {}),
-      status: { notIn: ['NEGADA', 'ENCERRADA', 'CONCLUIDA', 'BAIXADO'] },
-    },
-    select: { id: true, numero: true, titulo: true, status: true, abertoPorContestacao: true, localAfetado: true, criadoEm: true },
-    orderBy: { criadoEm: 'desc' },
-    take: 10,
-  });
-}
-
 // Devolve o equipamento a ativo se ele ainda estiver em manutenção (condição na gravação, sem corrida) e registra o retorno
 export async function liberarEquipamento(tx: Prisma.TransactionClient, equipamentoId: string, unidadeId: string, usuarioId: string, descricao: string) {
   const liberado = await tx.equipamento.updateMany({ where: { id: equipamentoId, status: 'EM_MANUTENCAO' }, data: { status: 'ATIVO' } });
@@ -1244,7 +1226,7 @@ function unidadeDoChamadoCivil(usuario: AuthPayload, escolhida?: string | null) 
   return usuario.unidadeId ?? escolhida ?? null;
 }
 
-const STATUS_QUE_ACEITAM_PROBLEMA: StatusManutencao[] = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO'];
+export const STATUS_QUE_ACEITAM_PROBLEMA: StatusManutencao[] = ['PENDENTE_APROVACAO', 'AGUARDANDO_AVALIACAO_TECNICA', 'AGUARDANDO_VISTORIA', 'AVALIADO'];
 
 export async function abertosDaCategoria(usuario: AuthPayload, categoriaCivilId: string, unidadeIdPedida?: string) {
   const unidadeId = unidadeDoChamadoCivil(usuario, unidadeIdPedida);
@@ -1258,7 +1240,7 @@ export async function abertosDaCategoria(usuario: AuthPayload, categoriaCivilId:
   return abertos.map((m) => ({ ...m, aceitaProblemas: STATUS_QUE_ACEITAM_PROBLEMA.includes(m.status) }));
 }
 
-const MAX_PROBLEMAS_EXTRAS = 20;
+export const MAX_PROBLEMAS_EXTRAS = 20;
 
 // Acrescenta outro problema da mesma categoria a um chamado civil que ainda não foi ao prestador
 export async function adicionarProblema(usuario: AuthPayload, id: string, dados: { descricao: string; fotos: string[] }) {

@@ -384,19 +384,6 @@ describe('Manutenção civil', () => {
       expect(negar.status).toBe(422);
       expect(prismaMock.manutencao.update).not.toHaveBeenCalled();
     });
-
-    it('lista chamados parecidos em aberto da mesma unidade e tipo de problema', async () => {
-      prismaMock.manutencao.findUnique.mockResolvedValue(civil() as never);
-      prismaMock.manutencao.findMany.mockResolvedValue([] as never);
-      const res = await request(app).get(`/manutencoes/${MAN}/similares`).set(admin());
-      expect(res.status).toBe(200);
-      expect(prismaMock.manutencao.findMany.mock.calls[0][0]?.where).toMatchObject({
-        unidadeId: 'unidade-1',
-        categoriaCivilId: CAT,
-        id: { not: MAN },
-      });
-      expect((await request(app).get(`/manutencoes/${MAN}/similares`).set(unidade())).status).toBe(403);
-    });
   });
 
   describe('execução e registro dos serviços executados', () => {

@@ -219,7 +219,7 @@ describe('Reencaminhamento de chamados', () => {
       ...entrarComo('OPERADOR', '/manutencoes/m1'),
       '/manutencoes/m1/trajetoria': { status: 500, body: { mensagem: 'erro' } },
       '/manutencoes/m1': { body: civil({ status: 'PENDENTE_APROVACAO', contrato: null }) },
-      '/manutencoes/m1/similares': { body: [] },
+      '/manutencoes/m1/da-unidade': { body: [] },
     });
     render(<App />);
 
