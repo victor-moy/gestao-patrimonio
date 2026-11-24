@@ -129,7 +129,8 @@ function ConteudoManutencao({
   const [contratoItemId, setContratoItemId] = useState('');
 
   // Cada decisão do Operador depende da sua permissão (o backend confere de novo)
-  const podeTriar = pode(usuario, 'MANUTENCAO_TRIAR');
+  // Triar vale por tipo: o triador civil só atua em chamado civil, e o de equipamentos em chamado de equipamento
+  const podeTriar = pode(usuario, m.tipo === 'CIVIL' ? 'MANUTENCAO_TRIAR_CIVIL' : 'MANUTENCAO_TRIAR_EQUIPAMENTO');
   const podeAvaliar = pode(usuario, 'MANUTENCAO_AVALIAR');
   // Na avaliação técnica, os dados do chamado exibidos abaixo viram campos editáveis
   const editando = podeAvaliar && m.status === 'AGUARDANDO_AVALIACAO_TECNICA';

@@ -242,7 +242,7 @@ describe('Manutenção civil', () => {
       const url = `/manutencoes/${MAN}/concluir-avaliacao`;
       const corpo = { parecer: 'Infiltração na laje, reparo viável' };
       expect((await request(app).post(url).set(unidade()).send(corpo)).status).toBe(403);
-      expect((await request(app).post(url).set(operador(['MANUTENCAO_TRIAR'])).send(corpo)).status).toBe(403);
+      expect((await request(app).post(url).set(operador(['MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_TRIAR_EQUIPAMENTO'])).send(corpo)).status).toBe(403);
 
       prismaMock.manutencao.findUnique.mockResolvedValue(civil({ status: 'PENDENTE_APROVACAO' }) as never);
       expect((await request(app).post(url).set(operador(['MANUTENCAO_AVALIAR'])).send(corpo)).status).toBe(422);
@@ -273,7 +273,7 @@ describe('Manutenção civil', () => {
 
       it('corrigir os campos exige a permissão e o status; campo desconhecido é recusado', async () => {
         const url = `/manutencoes/${MAN}/avaliacao`;
-        expect((await request(app).patch(url).set(operador(['MANUTENCAO_TRIAR'])).send({ titulo: 'x' })).status).toBe(403);
+        expect((await request(app).patch(url).set(operador(['MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_TRIAR_EQUIPAMENTO'])).send({ titulo: 'x' })).status).toBe(403);
         expect((await request(app).patch(url).set(avaliador()).send({ status: 'CONCLUIDA' })).status).toBe(422);
         prismaMock.manutencao.findUnique.mockResolvedValue(civil() as never);
         expect((await request(app).patch(url).set(avaliador()).send({ titulo: 'Novo' })).status).toBe(422);

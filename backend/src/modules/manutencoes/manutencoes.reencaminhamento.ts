@@ -4,7 +4,7 @@ import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
 import * as avisos from '../../services/avisos.eventos';
 import { AuthPayload } from '../../middlewares/auth';
-import { buscarPorId, emitirBaixa, includePadrao, liberarEquipamento } from './manutencoes.service';
+import { buscarPorId, emitirBaixa, exigirTriagem, includePadrao, liberarEquipamento } from './manutencoes.service';
 
 // Reencaminhamento: a terceirizada que atende pede para passar o chamado adiante (só texto), o Administrador confirma e então
 // decide o destino — abrir um novo chamado de manutenção ou baixar o equipamento. Cada atendimento continua
@@ -72,6 +72,7 @@ export async function solicitarReencaminhamento(usuario: AuthPayload, id: string
 
 export async function confirmarReencaminhamento(usuario: AuthPayload, id: string) {
   const manutencao = await buscarPorId(usuario, id);
+  exigirTriagem(usuario, manutencao.tipo);
   if (manutencao.status !== 'REENCAMINHAMENTO_SOLICITADO') {
     throw new AppError('Este chamado não tem reencaminhamento solicitado.', 422);
   }
@@ -154,6 +155,7 @@ function camposCivis(origem: Carregada, dados: DadosNovoChamado) {
 // de triagem do Administrador (PENDENTE_APROVACAO), onde ele escolhe o item de contrato como em qualquer chamado.
 export async function reencaminharParaManutencao(usuario: AuthPayload, id: string, dados: DadosNovoChamado) {
   const origem = await buscarPorId(usuario, id);
+  exigirTriagem(usuario, origem.tipo);
   exigirReencaminhamentoConfirmado(origem);
   const resultado = await prisma.$transaction(async (tx) => {
     const fechado = await tx.manutencao.updateMany({

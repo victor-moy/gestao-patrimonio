@@ -49,7 +49,7 @@ const categoriaSchema = z.object({
 // Lista: quem só abre chamados vê as categorias ativas e suas perguntas ativas; quem cadastra vê tudo
 categoriasCivisRouter.get(
   '/',
-  permitirCom(['CONFIGURACOES_GERENCIAR', 'MANUTENCAO_ESCREVER', 'MANUTENCAO_AVALIAR', 'MANUTENCAO_TRIAR', 'MANUTENCAO_CONSULTAR'], Perfil.UNIDADE, Perfil.OPERADOR),
+  permitirCom(['CONFIGURACOES_GERENCIAR', 'MANUTENCAO_ESCREVER', 'MANUTENCAO_AVALIAR', 'MANUTENCAO_TRIAR_CIVIL', 'MANUTENCAO_CONSULTAR'], Perfil.UNIDADE, Perfil.OPERADOR),
   async (req, res) => {
     const cadastra = req.usuario!.permissoes.includes('CONFIGURACOES_GERENCIAR');
     const todas = cadastra && req.query.todas === 'true';
