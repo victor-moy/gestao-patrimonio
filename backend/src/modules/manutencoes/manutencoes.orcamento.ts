@@ -3,6 +3,7 @@ import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
 import * as avisos from '../../services/avisos.eventos';
 import { AuthPayload } from '../../middlewares/auth';
+import { dadosInicioSla } from './manutencoes.prazo';
 import { buscarPorId, encaminharAoPrestador, includePadrao, vincularItem } from './manutencoes.service';
 
 // Orçamento prévio do chamado civil, para o serviço fora da SINAPI ou que o contrato exige aprovar antes. A avaliação técnica
@@ -97,7 +98,7 @@ export async function aprovarOrcamento(usuario: AuthPayload, id: string, valor: 
       : {};
     const gravado = await tx.manutencao.updateMany({
       where: { id, status: 'ORCAMENTO_REGISTRADO' },
-      data: { status: 'AGUARDANDO_EXECUCAO', cotacaoAprovadaId: entrega.id, orcamentoValor: valor, dataEnvio: new Date(), ...vinculo },
+      data: { status: 'AGUARDANDO_EXECUCAO', cotacaoAprovadaId: entrega.id, orcamentoValor: valor, dataEnvio: new Date(), ...(await dadosInicioSla(tx, manutencao, manutencao.contratoItemId)), ...vinculo },
     });
     if (gravado.count === 0) throw new AppError('Não há orçamento aguardando decisão.', 409);
     await registrarAuditoria(

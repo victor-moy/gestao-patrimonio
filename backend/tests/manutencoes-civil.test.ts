@@ -194,7 +194,7 @@ describe('Manutenção civil', () => {
   });
 
   describe('triagem, contrato e disponibilidade', () => {
-    const aprovar = () => request(app).post(`/manutencoes/${MAN}/aprovar`).set(admin()).send({ contratoItemId: ITEM });
+    const aprovar = () => request(app).post(`/manutencoes/${MAN}/aprovar`).set(admin()).send({ contratoItemId: ITEM, prioridade: 'MEDIA' });
 
     it('encaminha ao prestador com o item de contrato e não mexe em equipamento', async () => {
       prismaMock.manutencao.findUnique.mockResolvedValue(civil() as never);

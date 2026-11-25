@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { StatusPill } from '../components/StatusPill';
+import { chaveDeFila, compararFila, descreverSla, type ChaveDeFila } from '../utils/prazo';
 import {
   IconeBusca,
   IconeCheck,
@@ -121,6 +122,9 @@ interface LinhaLista {
   rotuloLink: string;
   emenda: boolean;
   automatica: boolean;
+  // Só manutenção civil: prazo do prestador e chave da fila (gravidade, prazo vencido, prioridade)
+  sla?: { texto: string; valor: string } | null;
+  fila?: ChaveDeFila;
 }
 
 const daSolicitacao = (s: Solicitacao): LinhaLista => ({
@@ -155,7 +159,17 @@ const daManutencao = (m: Manutencao): LinhaLista => ({
   rotuloLink: `Ver manutenção de ${tituloManutencao(m)}`,
   emenda: false,
   automatica: false,
+  sla: descreverSla(m.sla),
+  fila: m.tipo === 'CIVIL' ? chaveDeFila(m) : undefined,
 });
+
+// Lista geral: mais novo primeiro. Só na visão "Manutenção" a fila segue a gravidade, o prazo vencido e a prioridade do
+// chamado civil (o de equipamento não tem isso e vai depois, do mais novo ao mais antigo).
+function ordenarLinhas(linhas: LinhaLista[], filaDeManutencao: boolean) {
+  const porData = (a: LinhaLista, b: LinhaLista) => b.criadoEm.localeCompare(a.criadoEm);
+  if (!filaDeManutencao) return [...linhas].sort(porData);
+  return [...linhas].sort((a, b) => (a.fila && b.fila ? compararFila(a.fila, b.fila) : a.fila ? -1 : b.fila ? 1 : porData(a, b)));
+}
 
 export function Solicitacoes() {
   const { usuario } = useAuth();
@@ -222,7 +236,7 @@ export function Solicitacoes() {
     Promise.all(pedidos)
       .then((listas) => {
         if (idRequisicao !== requisicao.current) return;
-        setLinhas(listas.flat().sort((a, b) => b.criadoEm.localeCompare(a.criadoEm)));
+        setLinhas(ordenarLinhas(listas.flat(), filtroTipo === TIPO_MANUTENCAO));
         setPagina(1);
       })
       .catch((e) => {
@@ -482,6 +496,11 @@ export function Solicitacoes() {
                     </td>
                     <td className="cartao-status">
                       <StatusPill valor={l.statusValor}>{l.statusTexto}</StatusPill>
+                      {l.sla && (
+                        <span className="inventario-data solicitacoes-prazo">
+                          <StatusPill valor={l.sla.valor}>{l.sla.texto}</StatusPill>
+                        </span>
+                      )}
                     </td>
                     <td className="inventario-data cartao-data">{formatarData(l.criadoEm)}</td>
                   </tr>

@@ -70,6 +70,13 @@ enum TipoManutencao {
   CIVIL
 }
 
+// Chamado civil: definida pela triagem ao aprovar. Baixa é planejada (sem vencimento); Média e Muito Alta usam o prazo do item de contrato
+enum PrioridadeManutencao {
+  BAIXA
+  MEDIA
+  MUITO_ALTA
+}
+
 // Tipo da pergunta de uma categoria de chamado civil: lista de opções pré-definidas ou texto corrido
 enum TipoPergunta {
   OPCOES
@@ -425,6 +432,14 @@ model Manutencao {
   motivoBloqueio               String?              @map("motivo_bloqueio")
   bloqueadoEm                  DateTime?            @map("bloqueado_em")
   tempoBloqueadoSegundos       Int                  @default(0) @map("tempo_bloqueado_segundos")
+  // Civil: prioridade definida na triagem e SLA do prestador. O relógio começa na primeira vez que o chamado fica
+  // AGUARDANDO_EXECUCAO, com as horas congeladas do item de contrato; para quando o prestador marca como executado
+  prioridade                   PrioridadeManutencao?
+  slaInicioEm                  DateTime?            @map("sla_inicio_em")
+  slaHoras                     Int?                 @map("sla_horas")
+  slaFimEm                     DateTime?            @map("sla_fim_em")
+  // Tempo bloqueado depois do início do SLA (o bloqueio de antes do envio não conta); o prazo desconta esse tempo
+  slaBloqueadoSegundos         Int                  @default(0) @map("sla_bloqueado_segundos")
   // Civil: desde quando aguarda a confirmação da Unidade; passados 7 dias corridos sem resposta, resolve sozinho
   aguardandoRetornoEm          DateTime?            @map("aguardando_retorno_em")
   resolvidoAutomaticamenteEm   DateTime?            @map("resolvido_automaticamente_em")
@@ -669,6 +684,9 @@ model ContratoItem {
   valor              Decimal         @db.Decimal(14, 2)
   // Desconto da proposta vencedora sobre a tabela SINAPI; vale para os chamados civis encaminhados a este item
   descontoPercentual Decimal         @default(0) @map("desconto_percentual") @db.Decimal(5, 2)
+  // Prazo (SLA) do prestador, em horas, por prioridade do chamado civil; nulo = prazo não configurado
+  slaHorasMedia      Int?            @map("sla_horas_media")
+  slaHorasMuitoAlta  Int?            @map("sla_horas_muito_alta")
   criadoEm           DateTime        @default(now()) @map("criado_em")
 
   manutencoes Manutencao[]
@@ -834,6 +852,8 @@ model CategoriaCivil {
   nome        String              @unique
   ativo       Boolean             @default(true)
   ordem       Int                 @default(0)
+  // Só ordena a fila (0 normal ... 3 crítica); não muda prioridade nem prazo
+  gravidade   Int                 @default(0)
   criadoEm    DateTime            @default(now()) @map("criado_em")
   perguntas   PerguntaCategoria[]
   manutencoes Manutencao[]

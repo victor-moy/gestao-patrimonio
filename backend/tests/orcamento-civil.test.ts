@@ -82,7 +82,7 @@ describe('Barreira: serviço que exige orçamento prévio', () => {
     prismaMock.contratoItem.findUnique.mockResolvedValue({ ...(item(true) as object), servico: { exigeAvaliacaoTecnica: false, exigeOrcamentoPrevio: true } } as never);
     prismaMock.manutencao.update.mockResolvedValue(chamado());
 
-    const res = await request(app).post(`/manutencoes/${MAN}/aprovar`).set(triador()).send({ contratoItemId: ITEM });
+    const res = await request(app).post(`/manutencoes/${MAN}/aprovar`).set(triador()).send({ contratoItemId: ITEM, prioridade: 'MEDIA' });
 
     expect(res.status).toBe(200);
     expect(prismaMock.manutencao.update.mock.calls[0][0].data).toMatchObject({ status: 'AGUARDANDO_AVALIACAO_TECNICA' });

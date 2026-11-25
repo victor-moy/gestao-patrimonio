@@ -59,6 +59,7 @@ describe('Configurações › tipos de problema do chamado civil', () => {
     expect(salvar).toBeDisabled();
     await userEvent.type(screen.getByLabelText('Nome *'), 'Hidráulica');
     expect(salvar).toBeEnabled();
+    await userEvent.selectOptions(screen.getByLabelText('Gravidade'), '2');
 
     await userEvent.click(screen.getByRole('button', { name: '+ Adicionar pergunta' }));
     // pergunta de opções sem as duas opções mínimas bloqueia o salvar
@@ -81,6 +82,7 @@ describe('Configurações › tipos de problema do chamado civil', () => {
     expect(JSON.parse(String(chamadas.find((c) => c.init?.method === 'POST')!.init!.body))).toEqual({
       nome: 'Hidráulica',
       ativo: true,
+      gravidade: 2,
       perguntas: [
         { texto: 'O vazamento é contínuo?', tipo: 'OPCOES', opcoes: ['Sim', 'Não'], obrigatoria: true },
         { texto: 'Observação sobre o local', tipo: 'TEXTO', opcoes: [], obrigatoria: false },

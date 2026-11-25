@@ -616,7 +616,7 @@ describe('Contratos de terceirizadas', () => {
     expect(prismaMock.contratoItem.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ['it-3'] } } });
     expect(prismaMock.contratoItem.update).toHaveBeenCalledWith({
       where: { id: 'it-1' },
-      data: { valor: 10000.1, descontoPercentual: 0 },
+      data: { valor: 10000.1, descontoPercentual: 0, slaHorasMedia: null, slaHorasMuitoAlta: null },
     });
     expect(prismaMock.contratoItem.create).toHaveBeenCalledTimes(1);
     // os itens mantidos são travados antes de conferir o saldo comprometido

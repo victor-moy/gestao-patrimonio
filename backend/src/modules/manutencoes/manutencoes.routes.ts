@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { TipoDocumentoOS, EstadoConservacao, Perfil, StatusManutencao, TipoEncerramento, TipoManutencao } from '@prisma/client';
+import { TipoDocumentoOS, EstadoConservacao, Perfil, PrioridadeManutencao, StatusManutencao, TipoEncerramento, TipoManutencao } from '@prisma/client';
 import { autenticar } from '../../middlewares/auth';
 import { permitir, permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
@@ -18,6 +18,7 @@ import * as triagem from './manutencoes.triagem';
 import * as reencaminhamento from './manutencoes.reencaminhamento';
 import * as os from './manutencoes.os';
 import * as orcamento from './manutencoes.orcamento';
+import { calcularSla } from './manutencoes.prazo';
 import { MAX_ARQUIVOS_ORCAMENTO } from './manutencoes.orcamento';
 
 export const manutencoesRouter = Router();
@@ -41,7 +42,7 @@ type ComValores = {
   contratoItem?: Record<string, unknown> | null;
   tipo?: string;
 };
-function paraPerfil<T extends ComValores>(perfil: Perfil, manutencao: T): T {
+function semValoresIndevidos<T extends ComValores>(perfil: Perfil, manutencao: T): T {
   // As cotações do orçamento são do prestador, do fiscal e da avaliação; a Unidade não as vê, nem o valor aprovado no civil
   if (perfil === Perfil.UNIDADE) {
     return { ...manutencao, cotacoes: [], ...(manutencao.tipo === 'CIVIL' && { orcamentoValor: null }) } as T;
@@ -61,6 +62,11 @@ function paraPerfil<T extends ComValores>(perfil: Perfil, manutencao: T): T {
     return sem;
   });
   return { ...manutencao, unidade, custoFinal: null, orcamentoValor: null, contratoItem, linhasRelatorio } as T;
+}
+
+// Toda resposta de manutenção leva o prazo (SLA) calculado na hora; os dados do relógio ficam congelados no banco
+function paraPerfil<T extends ComValores>(perfil: Perfil, manutencao: T): T & { sla: ReturnType<typeof calcularSla> } {
+  return { ...semValoresIndevidos(perfil, manutencao), sla: calcularSla(manutencao as unknown as Parameters<typeof calcularSla>[0]) };
 }
 
 const STATUS_MANUTENCAO = new Set<string>(Object.values(StatusManutencao));
@@ -208,9 +214,14 @@ manutencoesRouter.post(
 manutencoesRouter.post(
   '/:id/aprovar',
   triar,
-  validarBody(z.object({ contratoItemId: z.string().uuid('selecione o item de contrato que cobre a manutenção') })),
+  validarBody(
+    z.object({
+      contratoItemId: z.string().uuid('selecione o item de contrato que cobre a manutenção'),
+      prioridade: z.nativeEnum(PrioridadeManutencao).optional(),
+    }),
+  ),
   async (req, res) => {
-    res.json(await service.aprovar(req.usuario!, req.params.id, req.body.contratoItemId));
+    res.json(await service.aprovar(req.usuario!, req.params.id, req.body.contratoItemId, req.body.prioridade));
   },
 );
 
@@ -278,6 +289,7 @@ const edicaoAvaliacaoSchema = z
     contratoItemId: z.string().uuid().optional(),
     orientacoesTerceirizada: z.string().trim().max(2000).nullable().optional(),
     parecerTecnico: z.string().trim().max(1000).nullable().optional(),
+    prioridade: z.nativeEnum(PrioridadeManutencao).optional(),
   })
   .strict();
 

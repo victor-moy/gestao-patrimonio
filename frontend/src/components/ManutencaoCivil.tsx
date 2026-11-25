@@ -3,7 +3,8 @@ import { api } from '../api/client';
 import { ImagemProtegida } from './ArquivoProtegido';
 import { IconeFechar } from './icons';
 import { rotuloSinapi, SelecaoItem } from './SelecaoItem';
-import type { Contrato, ItemSinapi, LinhaRelatorio, Manutencao } from '../types';
+import type { Contrato, ItemSinapi, LinhaRelatorio, Manutencao, PrioridadeManutencao } from '../types';
+import { PRIORIDADES } from '../utils/prazo';
 import { formatarData, formatarMoeda } from '../utils/format';
 
 type Executar = (operacao: () => Promise<unknown>) => Promise<void>;
@@ -266,6 +267,8 @@ export function AcoesCivil({
 }) {
   const [motivo, setMotivo] = useState('');
   const [contratoItemId, setContratoItemId] = useState('');
+  // A triagem define a prioridade ao aprovar; dela vem o prazo do prestador
+  const [prioridade, setPrioridade] = useState<PrioridadeManutencao | ''>('');
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [falhaApoio, setFalhaApoio] = useState<string | null>(null);
 
@@ -276,6 +279,7 @@ export function AcoesCivil({
   useEffect(() => {
     setMotivo('');
     setContratoItemId('');
+    setPrioridade('');
   }, [m.status, painel]);
 
   useEffect(() => {
@@ -350,7 +354,25 @@ export function AcoesCivil({
             Confira se o serviço é manutenção (e não alteração de estrutura ou layout, que pode ter outra cobertura) e se
             tem contrato vigente.
           </p>
-          {modo === 'encaminhar' ? campoItem : campoMotivo('Motivo da negação')}
+          {modo === 'encaminhar' ? (
+            <>
+              {campoItem}
+              <div className="field">
+                <label htmlFor="civil-prioridade">Prioridade *</label>
+                <select id="civil-prioridade" value={prioridade} onChange={(e) => setPrioridade(e.target.value as PrioridadeManutencao | '')}>
+                  <option value="">Selecione…</option>
+                  {PRIORIDADES.map(([valor, rotulo]) => (
+                    <option key={valor} value={valor}>
+                      {rotulo}
+                    </option>
+                  ))}
+                </select>
+                <p className="dado-apoio">Define o prazo do prestador. Baixa é planejada, sem vencimento.</p>
+              </div>
+            </>
+          ) : (
+            campoMotivo('Motivo da negação')
+          )}
           <div className="actions-row">
             <button type="button" className="btn btn-outline" onClick={fechar}>
               Cancelar
@@ -358,11 +380,11 @@ export function AcoesCivil({
             <button
               type="button"
               className="btn btn-primary"
-              disabled={ocupado || (modo === 'encaminhar' ? !contratoItemId : !motivo.trim())}
+              disabled={ocupado || (modo === 'encaminhar' ? !contratoItemId || !prioridade : !motivo.trim())}
               onClick={() =>
                 executar(() =>
                   modo === 'encaminhar'
-                    ? api.post(`/manutencoes/${m.id}/aprovar`, { contratoItemId })
+                    ? api.post(`/manutencoes/${m.id}/aprovar`, { contratoItemId, prioridade })
                     : api.post(`/manutencoes/${m.id}/negar`, { motivo }),
                 )
               }
