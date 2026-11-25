@@ -194,3 +194,9 @@ Verificar em 1440 px, 900 px e 390 px. Em mudanças visuais, registrar capturas 
 - paginação e filtros no backend (hoje as listas paginam no cliente);
 - divisão de bundle por rota;
 - validar a direção com usuários dos quatro perfis antes de consolidar novos componentes.
+
+## Inventário com painel gerencial
+
+A barra de busca e os filtros de unidade, categoria e família/tipo ficam visíveis antes dos indicadores e da lista. Situação e ordenação continuam no popover. Quatro indicadores e três distribuições em barras CSS compartilham os mesmos critérios da tabela; clicar num grupo aplica seu filtro. O painel usa contagens agregadas no backend, nunca a página visível. Zero, carregamento e erro são distintos. O cadastro/importação e a navegação para o detalhe permanecem iguais. No mobile os filtros e gráficos empilham e os indicadores ficam em duas colunas.
+
+A taxonomia existente é Categoria → TipoEquipamento. Nesta entrega o rótulo “Família / tipo de item” corresponde ao TipoEquipamento, sem criar classificação inferida ou alterar o banco. Uma família acima de vários tipos é outra evolução de domínio. Agrupamentos por unidade usam a proprietária; empréstimos não duplicam o tombamento. A nota do painel explicita esse critério.

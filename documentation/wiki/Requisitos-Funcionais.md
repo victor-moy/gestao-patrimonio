@@ -20,6 +20,7 @@ Extraído da seção 2.3–2.5 do [RFC v1.0](https://github.com/victor-moy/gesta
 | RF07 | O sistema deve garantir que o número de tombamento seja único e imutável após o cadastro. |
 | RF08 | O sistema deve permitir que a Unidade consulte o inventário dos equipamentos sob sua responsabilidade. |
 | RF09 | O sistema deve permitir que o Administrador consulte o inventário completo da rede, com filtros por unidade, tipo de equipamento, estado de conservação e status. |
+| RF09a | O inventário deve oferecer painel gerencial com filtros combinados por unidade proprietária, categoria e família/tipo de item (TipoEquipamento), busca rápida e situação; indicadores e distribuições quantitativas por unidade, categoria e tipo sobre todo o resultado, independentes da página da lista. Os mesmos limites de acesso do inventário devem restringir os indicadores; empréstimos não duplicam tombamentos. |
 | RF10 | O sistema deve registrar e exibir o histórico completo de movimentações e eventos de cada equipamento. |
 
 ## Manutenção
