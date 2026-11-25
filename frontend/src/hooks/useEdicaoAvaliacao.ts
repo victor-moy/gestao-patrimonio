@@ -8,6 +8,7 @@ export type CamposAvaliacao = {
   unidadeId: string;
   localAfetado: string;
   categoriaCivilId: string;
+  prioridade: string;
   setorIds: string[];
   contratoItemId: string;
   orientacoesTerceirizada: string;
@@ -20,6 +21,7 @@ const doChamado = (m: Manutencao): CamposAvaliacao => ({
   unidadeId: m.unidade.id,
   localAfetado: m.localAfetado ?? '',
   categoriaCivilId: m.categoriaCivilId ?? '',
+  prioridade: m.prioridade ?? '',
   setorIds: (m.setores ?? []).map((x) => x.setor.id),
   contratoItemId: m.contratoItem?.id ?? '',
   orientacoesTerceirizada: m.orientacoesTerceirizada ?? '',

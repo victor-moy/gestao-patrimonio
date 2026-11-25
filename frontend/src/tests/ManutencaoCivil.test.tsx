@@ -452,6 +452,24 @@ describe('Manutenção civil', () => {
       });
     });
 
+    it('corrige a prioridade e envia só ela', async () => {
+      const chamadas = mockFetch({
+        ...entrarComo('OPERADOR', '/manutencoes/m1'),
+        ...apoio,
+        '/manutencoes/m1/avaliacao': { body: {} },
+        '/manutencoes/m1': { body: { ...emAvaliacao(), prioridade: 'MEDIA' } },
+        ...historico,
+      });
+      render(<App />);
+
+      const prioridade = await screen.findByLabelText('Prioridade');
+      expect(prioridade).toHaveValue('MEDIA');
+      await userEvent.selectOptions(prioridade, 'MUITO_ALTA');
+      await userEvent.click(screen.getByRole('button', { name: 'Salvar e manter em análise' }));
+      await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/avaliacao') && c.init?.method === 'PATCH')).toBe(true));
+      expect(JSON.parse(chamadas.find((c) => c.url.endsWith('/avaliacao'))!.init!.body as string)).toEqual({ prioridade: 'MUITO_ALTA' });
+    });
+
     it('adiciona item previsto da tabela SINAPI', async () => {
       const chamadas = mockFetch({
         ...entrarComo('OPERADOR', '/manutencoes/m1'),
