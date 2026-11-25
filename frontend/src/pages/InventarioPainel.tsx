@@ -48,18 +48,17 @@ export function InventarioPainel({ filtros, selecionar, versao = 0 }: { filtros:
   }, [busca, unidadeId, categoriaId, tipoEquipamentoId, status, tentativa, versao]);
   if (erro) return <section className="inventario-painel-erro" role="alert"><span>Não foi possível carregar os indicadores. {erro}</span><button type="button" className="btn btn-outline" onClick={() => setTentativa(t => t + 1)}>Atualizar painel</button></section>;
   return <div className="inventario-painel" aria-label="Painel gerencial do inventário" aria-busy={carregando}>
-    <div className="inventario-painel-linha"><span className="inventario-painel-nota">Visão gerencial · todos os resultados dos filtros</span><span role="status" className="inventario-painel-nota">{carregando ? 'Atualizando indicadores…' : `Atualizado às ${new Date(resumo!.atualizadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}</span></div>
+    <div className="inventario-painel-linha"><span className="inventario-painel-nota">Visão gerencial · todos os resultados dos filtros</span><span role="status" className="inventario-painel-nota">{carregando ? 'Atualizando indicadores…' : ''}</span></div>
     <div className="inventario-indicadores">
-      {[['Itens cadastrados', resumo?.total, 'Tombamentos únicos na seleção'], ['Unidades', resumo?.unidades, 'Unidades proprietárias com itens'], ['Categorias', resumo?.categorias, 'Classificações na seleção'], ['Famílias / tipos', resumo?.familias, 'Tipos de item cadastrados']].map(([nome, valor, nota]) => <div className="inventario-indicador" key={String(nome)}><span>{nome}</span><strong>{carregando ? '—' : Number(valor).toLocaleString('pt-BR')}</strong><small>{nota}</small></div>)}
+      {[['Itens cadastrados', resumo?.total, 'Tombamentos únicos na seleção'], ['Unidades', resumo?.unidades, 'Unidades proprietárias com itens'], ['Categorias', resumo?.categorias, 'Classificações na seleção'], ['Tipos', resumo?.familias, 'Tipos de item cadastrados']].map(([nome, valor, nota]) => <div className="inventario-indicador" key={String(nome)}><span>{nome}</span><strong>{carregando ? '—' : Number(valor).toLocaleString('pt-BR')}</strong><small>{nota}</small></div>)}
     </div>
     {!carregando && resumo && <>
       <div className="inventario-painel-contexto" role="status"><span><b>{resumo.total.toLocaleString('pt-BR')}</b> itens correspondem à seleção atual.</span><span>{resumo.ativos} ativos · {resumo.emManutencao} em manutenção</span></div>
       <div className="inventario-graficos">
         <Distribuicao titulo="Itens por unidade" grupos={resumo.porUnidade} selecionar={id => selecionar('unidadeId', id)} />
         <Distribuicao titulo="Itens por categoria" grupos={resumo.porCategoria} selecionar={id => selecionar('categoriaId', id)} />
-        <Distribuicao titulo="Itens por família / tipo" grupos={resumo.porFamilia} selecionar={id => selecionar('tipoEquipamentoId', id)} />
+        <Distribuicao titulo="Itens por tipo" grupos={resumo.porFamilia} selecionar={id => selecionar('tipoEquipamentoId', id)} />
       </div>
     </>}
-    <p className="inventario-painel-nota">Clique em um grupo para filtrar o painel e a lista. Contagem por unidade proprietária; empréstimos mantêm a origem e não duplicam tombamentos. Família corresponde ao tipo de item do cadastro.</p>
   </div>;
 }

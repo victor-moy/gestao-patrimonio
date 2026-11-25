@@ -42,10 +42,10 @@ it('combina os filtros visíveis da página e limpa a família ao trocar de cate
   await screen.findByRole('option', { name: 'Climatização' });
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por unidade' }), 'u');
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por categoria' }), 'c');
-  await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por família' }), 't');
+  await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por tipo' }), 't');
   await userEvent.type(screen.getByRole('textbox', { name: 'Buscar equipamentos' }), 'Ar');
   await waitFor(() => expect(chamadas.some(c => c.url.includes('/equipamentos/painel?busca=Ar&unidadeId=u&categoriaId=c&tipoEquipamentoId=t'))).toBe(true));
   expect(chamadas.some(c => c.url.endsWith('/equipamentos?busca=Ar&unidadeId=u&categoriaId=c&tipoEquipamentoId=t'))).toBe(true);
   await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Filtrar por categoria' }), '');
-  expect(screen.getByRole('combobox', { name: 'Filtrar por família' })).toHaveValue('');
+  expect(screen.getByRole('combobox', { name: 'Filtrar por tipo' })).toHaveValue('');
 });

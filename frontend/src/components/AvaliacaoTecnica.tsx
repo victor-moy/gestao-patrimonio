@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import type { EdicaoAvaliacao } from '../hooks/useEdicaoAvaliacao';
 import type { ItemSinapi, Manutencao } from '../types';
 import { formatarMoeda } from '../utils/format';
+import { PRIORIDADES } from '../utils/prazo';
 import { nomeEquipamento } from '../utils/manutencao';
 import { useCategoriasCivis } from '../hooks/useCategoriasCivis';
 import { TabelaItens } from './ManutencaoCivil';
@@ -162,6 +163,19 @@ export function LinhasEditaveis({ m, edicao }: { m: Manutencao; edicao: EdicaoAv
             {m.categoriaCivil && !categorias.some((c) => c.id === m.categoriaCivil?.id) && (
               <option value={m.categoriaCivil.id}>{m.categoriaCivil.nome}</option>
             )}
+          </select>,
+        )}
+      {civil &&
+        linha(
+          'aval-prioridade',
+          'Prioridade',
+          <select id="aval-prioridade" value={form.prioridade} onChange={campo('prioridade')}>
+            {!form.prioridade && <option value="">Não definida</option>}
+            {PRIORIDADES.map(([valor, rotulo]) => (
+              <option key={valor} value={valor}>
+                {rotulo}
+              </option>
+            ))}
           </select>,
         )}
       {linha(
