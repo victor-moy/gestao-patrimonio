@@ -103,6 +103,16 @@ export interface Equipamento {
 
 export type TipoManutencao = 'EQUIPAMENTO' | 'CIVIL';
 
+// Chamado civil: prioridade definida na triagem; o prazo (SLA) do prestador é calculado pelo backend
+export type PrioridadeManutencao = 'BAIXA' | 'MEDIA' | 'MUITO_ALTA';
+export type SituacaoSla = 'AGUARDANDO' | 'PLANEJADO' | 'NAO_CONFIGURADO' | 'NO_PRAZO' | 'VENCIDO' | 'CUMPRIDO' | 'CUMPRIDO_COM_ATRASO' | 'ENCERRADO';
+export interface SlaChamado {
+  situacao: SituacaoSla;
+  venceEm: string | null;
+  minutosRestantes: number | null;
+  pausado: boolean;
+}
+
 export type TipoPergunta = 'OPCOES' | 'TEXTO';
 
 export interface PerguntaCategoria {
@@ -121,6 +131,8 @@ export interface CategoriaCivil {
   nome: string;
   ativo: boolean;
   ordem: number;
+  // 0 normal ... 3 crítica; só ordena a fila de chamados
+  gravidade: number;
   perguntas: PerguntaCategoria[];
   _count?: { manutencoes: number };
 }
@@ -242,8 +254,10 @@ export interface Manutencao {
   status: StatusManutencao;
   // Manutenção civil: local, tipo de problema, fotos protegidas e andamento da conferência
   localAfetado?: string | null;
-  categoriaCivil?: { id: string; nome: string } | null;
+  categoriaCivil?: { id: string; nome: string; gravidade?: number } | null;
   categoriaCivilId?: string | null;
+  prioridade?: PrioridadeManutencao | null;
+  sla?: SlaChamado | null;
   respostas?: RespostaChamado[];
   problemasExtras?: ProblemaExtra[];
   fotos?: string[];
@@ -512,6 +526,9 @@ export interface ContratoItem {
   valor: string;
   // Desconto da proposta sobre a tabela SINAPI, em %
   descontoPercentual: string;
+  // Prazo do prestador em horas por prioridade do chamado civil; nulo = não configurado
+  slaHorasMedia?: number | null;
+  slaHorasMuitoAlta?: number | null;
   // Valor do item menos o já comprometido pelas manutenções vinculadas
   saldo: number;
   servico: { id: string; nome: string };

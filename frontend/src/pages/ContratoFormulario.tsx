@@ -15,11 +15,14 @@ interface ItemForm {
   servicoId: string;
   valor: string;
   descontoPercentual: string;
+  // Prazo do prestador em horas por prioridade (vazio = não configurado)
+  slaHorasMedia: string;
+  slaHorasMuitoAlta: string;
   // Só para itens já gravados: valor menos o já comprometido pelas manutenções
   saldo?: number;
 }
 
-const ITEM_VAZIO: ItemForm = { servicoId: '', valor: '', descontoPercentual: '0' };
+const ITEM_VAZIO: ItemForm = { servicoId: '', valor: '', descontoPercentual: '0', slaHorasMedia: '', slaHorasMuitoAlta: '' };
 
 const VAZIO = {
   numero: '',
@@ -106,6 +109,8 @@ export function ContratoFormulario() {
             servicoId: i.servicoId,
             valor: String(i.valor),
             descontoPercentual: String(Number(i.descontoPercentual ?? 0)),
+            slaHorasMedia: i.slaHorasMedia ? String(i.slaHorasMedia) : '',
+            slaHorasMuitoAlta: i.slaHorasMuitoAlta ? String(i.slaHorasMuitoAlta) : '',
             saldo: i.saldo,
           })),
         };
@@ -174,6 +179,8 @@ export function ContratoFormulario() {
         servicoId: i.servicoId,
         valor: Number(i.valor),
         descontoPercentual: Number(i.descontoPercentual) || 0,
+        slaHorasMedia: i.slaHorasMedia.trim() ? Number(i.slaHorasMedia) : null,
+        slaHorasMuitoAlta: i.slaHorasMuitoAlta.trim() ? Number(i.slaHorasMuitoAlta) : null,
       })),
     };
     try {
@@ -330,13 +337,15 @@ export function ContratoFormulario() {
           )}
           <div
             className="itens-lista"
-            style={{ '--colunas': `minmax(0,1fr) 140px 130px ${editando ? '140px ' : ''}34px` } as CSSProperties}
+            style={{ '--colunas': `minmax(0,1fr) 140px 130px 110px 110px ${editando ? '140px ' : ''}34px` } as CSSProperties}
           >
             {form.itens.length > 0 && (
               <div className="itens-cabecalho" aria-hidden>
                 <span>Tipo de serviço</span>
                 <span>Valor (R$)</span>
                 <span>Desconto SINAPI (%)</span>
+                <span>Prazo média (h)</span>
+                <span>Prazo muito alta (h)</span>
                 {editando && <span>Saldo (R$)</span>}
                 <span />
               </div>
@@ -384,6 +393,32 @@ export function ContratoFormulario() {
                     inputMode="decimal"
                     value={item.descontoPercentual}
                     onChange={(e) => editarItem(i, { descontoPercentual: e.target.value })}
+                    disabled={bloqueado}
+                  />
+                </div>
+                <div className="itens-celula" data-rotulo="Prazo média (h)">
+                  <input
+                    aria-label="Prazo do prestador para prioridade média (horas)"
+                    type="number"
+                    min="1"
+                    max="8760"
+                    step="1"
+                    inputMode="numeric"
+                    value={item.slaHorasMedia}
+                    onChange={(e) => editarItem(i, { slaHorasMedia: e.target.value })}
+                    disabled={bloqueado}
+                  />
+                </div>
+                <div className="itens-celula" data-rotulo="Prazo muito alta (h)">
+                  <input
+                    aria-label="Prazo do prestador para prioridade muito alta (horas)"
+                    type="number"
+                    min="1"
+                    max="8760"
+                    step="1"
+                    inputMode="numeric"
+                    value={item.slaHorasMuitoAlta}
+                    onChange={(e) => editarItem(i, { slaHorasMuitoAlta: e.target.value })}
                     disabled={bloqueado}
                   />
                 </div>

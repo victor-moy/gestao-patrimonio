@@ -5,6 +5,8 @@ import { autenticar } from '../../middlewares/auth';
 import { permitirCom } from '../../middlewares/rbac';
 import { validarBody } from '../../middlewares/validate';
 import * as service from './equipamentos.service';
+import { consultarPainel } from './inventario-painel.service';
+import { AppError } from '../../errors/AppError';
 
 export const equipamentosRouter = Router();
 
@@ -20,6 +22,22 @@ equipamentosRouter.get('/', async (req, res) => {
     busca: req.query.busca as string | undefined,
   });
   res.json(equipamentos);
+});
+
+const painelSchema = z.object({
+  unidadeId: z.string().uuid().optional(),
+  categoriaId: z.string().uuid().optional(),
+  tipoEquipamentoId: z.string().uuid().optional(),
+  status: z.nativeEnum(StatusEquipamento).optional(),
+  estadoConservacao: z.nativeEnum(EstadoConservacao).optional(),
+  busca: z.string().trim().max(200).optional(),
+});
+
+// Antes de /:id: painel usa o mesmo escopo e critérios da listagem, sem paginação de indicadores.
+equipamentosRouter.get('/painel', permitirCom('INVENTARIO_GERENCIAR', Perfil.UNIDADE, Perfil.GALPAO), async (req, res) => {
+  const entrada = painelSchema.safeParse(req.query);
+  if (!entrada.success) throw new AppError('Filtros do inventário inválidos.', 422);
+  res.json(await consultarPainel(req.usuario!, entrada.data));
 });
 
 equipamentosRouter.get('/:id', async (req, res) => {

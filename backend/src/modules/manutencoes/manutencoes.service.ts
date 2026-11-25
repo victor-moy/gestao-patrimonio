@@ -2,12 +2,14 @@ import { comprometidoPorItem, saldoDoItem } from '../contratos/saldo';
 import {
   EstadoConservacao,
   Prisma,
+  PrioridadeManutencao,
   StatusManutencao,
   TipoEncerramento,
   TipoManutencao,
 } from '@prisma/client';
 import { prisma } from '../../lib/prisma';
 import { numeroDaBusca } from '../../lib/numero';
+import { dadosInicioSla, ordenarCivis } from './manutencoes.prazo';
 import { AppError } from '../../errors/AppError';
 import { registrarAuditoria } from '../../services/auditoria.service';
 import { notificar } from '../../services/notificacao.service';
@@ -26,7 +28,7 @@ export const includePadrao = {
   solicitante: { select: { nome: true } },
   decididoPor: { select: { nome: true } },
   setores: { select: { setor: { select: { id: true, nome: true } } } },
-  categoriaCivil: { select: { id: true, nome: true } },
+  categoriaCivil: { select: { id: true, nome: true, gravidade: true } },
   ordemServico: { include: { documentos: { orderBy: { enviadoEm: 'asc' as const } } } },
   cotacoes: { orderBy: [{ rodada: 'asc' as const }, { enviadoEm: 'asc' as const }] },
   respostas: { select: { id: true, perguntaTexto: true, resposta: true, ordem: true }, orderBy: { ordem: 'asc' as const } },
@@ -87,11 +89,13 @@ export async function listar(
         }
       : {}),
   };
-  return prisma.manutencao.findMany({
+  const lista = await prisma.manutencao.findMany({
     where,
     include: includePadrao,
     orderBy: { criadoEm: 'desc' },
   });
+  // A fila do chamado civil segue gravidade, prazo vencido e prioridade; a de equipamento continua do mais novo ao mais antigo
+  return filtros.tipo === 'CIVIL' ? ordenarCivis(lista) : lista;
 }
 
 export async function buscarPorId(usuario: AuthPayload, id: string) {
@@ -253,10 +257,13 @@ export function exigirTriagem(usuario: AuthPayload, tipo: TipoManutencao) {
   }
 }
 
-export async function aprovar(usuario: AuthPayload, id: string, contratoItemId: string) {
+export async function aprovar(usuario: AuthPayload, id: string, contratoItemId: string, prioridade?: PrioridadeManutencao) {
   const manutencao = await buscarPorId(usuario, id);
   exigirTriagem(usuario, manutencao.tipo);
   const civil = manutencao.tipo === 'CIVIL';
+  // A prioridade (e o prazo do prestador que vem dela) só existe no chamado civil e é decidida aqui, na triagem
+  if (civil && !prioridade) throw new AppError('Defina a prioridade do chamado.', 422);
+  if (!civil && prioridade) throw new AppError('A prioridade só vale para chamado civil.', 422);
   if (manutencao.status !== 'PENDENTE_APROVACAO') {
     throw new AppError('Somente solicitações pendentes podem ser aprovadas.', 422);
   }
@@ -273,8 +280,14 @@ export async function aprovar(usuario: AuthPayload, id: string, contratoItemId: 
     const m = await tx.manutencao.update({
       where: { id },
       data: exigeAvaliacaoTecnica
-        ? { status: 'AGUARDANDO_AVALIACAO_TECNICA', decididoPorId: usuario.sub, contratoItemId: vinculo.contratoItemId, informacoesSolicitadas: null }
-        : { ...dadosDeEnvio(civil), decididoPorId: usuario.sub, informacoesSolicitadas: null, ...vinculo },
+        ? { status: 'AGUARDANDO_AVALIACAO_TECNICA', decididoPorId: usuario.sub, contratoItemId: vinculo.contratoItemId, informacoesSolicitadas: null, ...(civil ? { prioridade } : {}) }
+        : {
+            ...dadosDeEnvio(civil),
+            decididoPorId: usuario.sub,
+            informacoesSolicitadas: null,
+            ...vinculo,
+            ...(civil ? { prioridade, ...(await dadosInicioSla(tx, manutencao, vinculo.contratoItemId, prioridade)) } : {}),
+          },
       include: includePadrao,
     });
     if (!civil) {
@@ -370,7 +383,7 @@ export async function encaminharAoPrestador(
     const { contratoItemId: item, contratoId } = await vincularItem(tx, itemId, id, { novaSelecao: itemId !== manutencao.contratoItemId });
     const gravado = await tx.manutencao.updateMany({
       where: { id, status: de },
-      data: { ...dadosDeEnvio(civil), contratoItemId: item, contratoId, ...(parecer ? { parecerTecnico: parecer } : {}), ...(dispensaOrcamento ? { dispensaOrcamentoMotivo: dispensaOrcamento } : {}) },
+      data: { ...dadosDeEnvio(civil), ...(await dadosInicioSla(tx, manutencao, item)), contratoItemId: item, contratoId, ...(parecer ? { parecerTecnico: parecer } : {}), ...(dispensaOrcamento ? { dispensaOrcamentoMotivo: dispensaOrcamento } : {}) },
     });
     if (gravado.count === 0) throw new AppError('Este chamado já mudou de situação. Atualize a página.', 409);
     const m = await tx.manutencao.findUnique({ where: { id }, include: includePadrao });
@@ -491,6 +504,7 @@ export interface EdicaoAvaliacao {
   contratoItemId?: string;
   orientacoesTerceirizada?: string | null;
   parecerTecnico?: string | null;
+  prioridade?: PrioridadeManutencao;
 }
 
 // "Em análise": grava as correções e continua na avaliação. Todos os campos do chamado podem ser corrigidos.
@@ -600,6 +614,12 @@ export async function editarAvaliacao(usuario: AuthPayload, id: string, dados: E
       if (campo === 'descricaoProblema' && valor === null) throw new AppError('A descrição do problema é obrigatória.', 422);
       (dadosNovos as Dados)[campo] = valor;
       mudou(campo, atual[campo], valor);
+    }
+
+    if (dados.prioridade !== undefined && dados.prioridade !== atual.prioridade) {
+      if (!civil) throw new AppError('A prioridade só vale para chamado civil.', 422);
+      dadosNovos.prioridade = dados.prioridade;
+      mudou('prioridade', atual.prioridade, dados.prioridade);
     }
 
     // No chamado civil o texto do local acompanha os setores escolhidos (listas e buscas usam esse texto)
@@ -810,6 +830,8 @@ export async function desbloquear(usuario: AuthPayload, id: string) {
         motivoBloqueio: null,
         bloqueadoEm: null,
         tempoBloqueadoSegundos: { increment: parado },
+        // Só o bloqueio depois do início do SLA desconta do prazo do prestador
+        ...(manutencao.slaInicioEm ? { slaBloqueadoSegundos: { increment: parado } } : {}),
       },
     });
     if (gravado.count === 0) throw new AppError('O chamado mudou de status. Atualize a página e tente de novo.', 409);
@@ -1498,6 +1520,8 @@ async function finalizarCivil(usuario: AuthPayload, manutencao: ManutencaoCarreg
       where: { id, status: 'EM_EXECUCAO' },
       data: {
         status: statusDestino,
+        // O relógio do SLA para na primeira execução; ajustes pedidos depois não o reabrem
+        ...(atual.slaFimEm ? {} : { slaFimEm: new Date() }),
         aguardandoRetornoEm: null,
         custoFinal: total,
         confirmadoUnidade: aposAjustesAdmin,

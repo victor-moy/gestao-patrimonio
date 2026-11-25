@@ -92,3 +92,8 @@
 .btn-link:hover { text-decoration: underline; }
 .btn-link:disabled { color: var(--text-muted); cursor: progress; }
 
+
+.solicitacoes-prazo {
+  display: block;
+  margin-top: 4px;
+}

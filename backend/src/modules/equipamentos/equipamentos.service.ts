@@ -29,9 +29,9 @@ function montarFiltroVisibilidade(usuario: AuthPayload): Prisma.EquipamentoWhere
   return {};
 }
 
-export async function listar(usuario: AuthPayload, filtros: FiltrosInventario) {
-  const where: Prisma.EquipamentoWhereInput = {
-    ...montarFiltroVisibilidade(usuario),
+export function montarFiltroInventario(usuario: AuthPayload, filtros: FiltrosInventario): Prisma.EquipamentoWhereInput {
+  const visibilidade = montarFiltroVisibilidade(usuario);
+  const criterios: Prisma.EquipamentoWhereInput = {
     ...(filtros.unidadeId ? { unidadeId: filtros.unidadeId } : {}),
     ...(filtros.tipoEquipamentoId ? { tipoEquipamentoId: filtros.tipoEquipamentoId } : {}),
     ...(filtros.categoriaId ? { tipoEquipamento: { categoriaId: filtros.categoriaId } } : {}),
@@ -48,6 +48,13 @@ export async function listar(usuario: AuthPayload, filtros: FiltrosInventario) {
         }
       : {}),
   };
+  // Busca e visibilidade têm OR próprios: nunca deixar a busca substituir o isolamento.
+  if (!Object.keys(criterios).length) return visibilidade;
+  return Object.keys(visibilidade).length ? { AND: [visibilidade, criterios] } : criterios;
+}
+
+export async function listar(usuario: AuthPayload, filtros: FiltrosInventario) {
+  const where = montarFiltroInventario(usuario, filtros);
   return prisma.equipamento.findMany({
     where,
     include: {

@@ -29,6 +29,7 @@ import { useEdicaoAvaliacao } from '../hooks/useEdicaoAvaliacao';
 import { AcoesCivil, RelatorioCivil } from '../components/ManutencaoCivil';
 import { type ItemAcao, MenuAcoes } from '../components/MenuAcoes';
 import { ChamadosDaUnidade } from '../components/ChamadosDaUnidade';
+import { descreverSla, ROTULO_PRIORIDADE } from '../utils/prazo';
 import { ChamadosRelacionados } from '../components/ChamadosRelacionados';
 import { AcoesReencaminhamento, MotivoReencaminhamento, situacaoReencaminhamento, TrajetoriaCaso } from '../components/Reencaminhamento';
 
@@ -671,6 +672,20 @@ function ConteudoManutencao({
               <div>
                 <dt>Item do contrato</dt>
                 <dd>{m.contratoItem.servico.nome}</dd>
+              </div>
+            )}
+            {m.tipo === 'CIVIL' && m.prioridade && (
+              <div>
+                <dt>Prioridade</dt>
+                <dd>{ROTULO_PRIORIDADE[m.prioridade]}</dd>
+              </div>
+            )}
+            {descreverSla(m.sla) && (
+              <div>
+                <dt>Prazo do prestador</dt>
+                <dd>
+                  <StatusPill valor={descreverSla(m.sla)!.valor}>{descreverSla(m.sla)!.texto}</StatusPill>
+                </dd>
               </div>
             )}
             {m.orcamentoValor && (

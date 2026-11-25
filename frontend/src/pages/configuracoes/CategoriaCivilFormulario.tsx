@@ -7,6 +7,7 @@ import { useCarga } from '../../hooks/useCarga';
 import { useMensagemTemporaria } from '../../hooks/useMensagemTemporaria';
 import type { CategoriaCivil, TipoPergunta } from '../../types';
 import { semAlteracoes } from '../../utils/form';
+import { ROTULO_GRAVIDADE } from '../../utils/prazo';
 
 // Pergunta no formulário: as opções ficam num campo de texto, uma por linha
 interface PerguntaForm {
@@ -20,10 +21,11 @@ interface PerguntaForm {
 interface Form {
   nome: string;
   ativo: boolean;
+  gravidade: number;
   perguntas: PerguntaForm[];
 }
 
-const VAZIO: Form = { nome: '', ativo: true, perguntas: [] };
+const VAZIO: Form = { nome: '', ativo: true, gravidade: 0, perguntas: [] };
 const PERGUNTA_NOVA: PerguntaForm = { texto: '', tipo: 'OPCOES', opcoes: '', obrigatoria: true };
 
 const listaDeOpcoes = (texto: string) => texto.split('\n').map((o) => o.trim()).filter(Boolean);
@@ -31,6 +33,7 @@ const listaDeOpcoes = (texto: string) => texto.split('\n').map((o) => o.trim()).
 const doCadastro = (c: CategoriaCivil): Form => ({
   nome: c.nome,
   ativo: c.ativo,
+  gravidade: c.gravidade ?? 0,
   perguntas: c.perguntas
     .filter((p) => p.ativo)
     .map((p) => ({ id: p.id, texto: p.texto, tipo: p.tipo, opcoes: p.opcoes.join('\n'), obrigatoria: p.obrigatoria })),
@@ -83,6 +86,7 @@ export function CategoriaCivilFormulario() {
     const payload = {
       nome: form.nome.trim(),
       ativo: form.ativo,
+      gravidade: form.gravidade,
       perguntas: form.perguntas.map((p) => ({
         ...(p.id ? { id: p.id } : {}),
         texto: p.texto.trim(),
@@ -153,6 +157,22 @@ export function CategoriaCivilFormulario() {
               disabled={bloqueado}
               required
             />
+          </div>
+          <div className="field">
+            <label htmlFor="categoria-civil-gravidade">Gravidade</label>
+            <select
+              id="categoria-civil-gravidade"
+              value={form.gravidade}
+              onChange={(e) => setForm({ ...form, gravidade: Number(e.target.value) })}
+              disabled={bloqueado}
+            >
+              {ROTULO_GRAVIDADE.map((rotulo, valor) => (
+                <option key={rotulo} value={valor}>
+                  {rotulo}
+                </option>
+              ))}
+            </select>
+            <p className="dado-apoio">Só define quais chamados aparecem primeiro na fila. Não muda a prioridade nem o prazo.</p>
           </div>
         </div>
       </section>

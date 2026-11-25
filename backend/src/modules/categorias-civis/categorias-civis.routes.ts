@@ -19,6 +19,7 @@ const selecao = {
   nome: true,
   ativo: true,
   ordem: true,
+  gravidade: true,
   perguntas: {
     orderBy: { ordem: 'asc' },
     select: { id: true, texto: true, tipo: true, opcoes: true, obrigatoria: true, ordem: true, ativo: true },
@@ -43,6 +44,8 @@ const perguntaSchema = z
 const categoriaSchema = z.object({
   nome: z.string().trim().min(2, 'informe o nome da categoria').max(60),
   ativo: z.boolean().optional(),
+  // Só ordena a fila de chamados: 0 normal, 1 alta, 2 muito alta, 3 crítica
+  gravidade: z.number().int().min(0).max(3).optional(),
   perguntas: z.array(perguntaSchema).max(30, 'No máximo 30 perguntas por categoria.').optional(),
 });
 
@@ -113,7 +116,7 @@ categoriasCivisRouter.post('/', permitirCom('CONFIGURACOES_GERENCIAR'), validarB
 
 categoriasCivisRouter.patch('/:id', permitirCom('CONFIGURACOES_GERENCIAR'), validarBody(categoriaSchema.partial()), async (req, res) => {
   const { perguntas, ...dados } = req.body as Partial<z.infer<typeof categoriaSchema>>;
-  const antes = await prisma.categoriaCivil.findUnique({ where: { id: req.params.id }, select: { id: true, nome: true, ativo: true } });
+  const antes = await prisma.categoriaCivil.findUnique({ where: { id: req.params.id }, select: { id: true, nome: true, ativo: true, gravidade: true } });
   if (!antes) throw new AppError('Categoria não encontrada.', 404);
   if (dados.nome) await exigirNomeLivre(dados.nome, antes.id);
   const atualizada = await prisma.$transaction(async (tx) => {
@@ -125,7 +128,7 @@ categoriasCivisRouter.patch('/:id', permitirCom('CONFIGURACOES_GERENCIAR'), vali
         acao: 'ATUALIZAR_CATEGORIA_CIVIL',
         entidade: 'categoria_civil',
         entidadeId: antes.id,
-        dadosAntes: { nome: antes.nome, ativo: antes.ativo },
+        dadosAntes: { nome: antes.nome, ativo: antes.ativo, gravidade: antes.gravidade },
         dadosDepois: { ...dados, ...(perguntas ? { perguntas: perguntas.length } : {}) },
       },
       tx,

@@ -200,7 +200,7 @@ describe('Saídas da avaliação técnica', () => {
     prismaMock.$queryRaw.mockResolvedValue([] as never);
     prismaMock.manutencao.update.mockResolvedValue(chamado({ status: 'AGUARDANDO_AVALIACAO_TECNICA' }));
 
-    const res = await request(app).post(`/manutencoes/${MAN}/aprovar`).set(triador()).send({ contratoItemId: ITEM });
+    const res = await request(app).post(`/manutencoes/${MAN}/aprovar`).set(triador()).send({ contratoItemId: ITEM, prioridade: 'MEDIA' });
 
     expect(res.status).toBe(200);
     expect(prismaMock.manutencao.update.mock.calls[0][0].data).toMatchObject({ status: 'AGUARDANDO_AVALIACAO_TECNICA', informacoesSolicitadas: null });

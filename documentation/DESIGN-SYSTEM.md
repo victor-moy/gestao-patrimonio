@@ -194,3 +194,13 @@ Verificar em 1440 px, 900 px e 390 px. Em mudanças visuais, registrar capturas 
 - paginação e filtros no backend (hoje as listas paginam no cliente);
 - divisão de bundle por rota;
 - validar a direção com usuários dos quatro perfis antes de consolidar novos componentes.
+
+## Prioridade e prazo do chamado civil
+
+A prioridade é escolhida na aprovação da triagem (campo obrigatório ao lado do item de contrato). O prazo aparece como selo (`StatusPill`, tons `SLA_*`) no detalhe do chamado e embaixo do status na lista: verde no prazo, amarelo pausado/não configurado/atrasado mas executado, vermelho vencido, cinza planejado ou ainda não iniciado. Texto e cor saem de `utils/prazo.ts`; o cálculo é do backend. Na lista geral a ordem continua do mais novo ao mais antigo; só na visão "Manutenção" o chamado civil segue gravidade, prazo vencido, prioridade e antiguidade (mesma regra do backend). As horas do prazo ficam na grade de itens do contrato (Média e Muito alta), e a gravidade no formulário do tipo de problema.
+
+## Inventário com painel gerencial
+
+A barra de busca e os filtros de unidade, categoria e família/tipo ficam visíveis antes dos indicadores e da lista. Situação e ordenação continuam no popover. Quatro indicadores e três distribuições em barras CSS compartilham os mesmos critérios da tabela; clicar num grupo aplica seu filtro. O painel usa contagens agregadas no backend, nunca a página visível. Zero, carregamento e erro são distintos. O cadastro/importação e a navegação para o detalhe permanecem iguais. No mobile os filtros e gráficos empilham e os indicadores ficam em duas colunas.
+
+A taxonomia existente é Categoria → TipoEquipamento. Nesta entrega o rótulo “Família / tipo de item” corresponde ao TipoEquipamento, sem criar classificação inferida ou alterar o banco. Uma família acima de vários tipos é outra evolução de domínio. Agrupamentos por unidade usam a proprietária; empréstimos não duplicam o tombamento. A nota do painel explicita esse critério.

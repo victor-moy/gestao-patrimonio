@@ -9,7 +9,7 @@ import {
   IconeChevron,
   IconeFiltros,
 } from '../components/icons';
-import type { Equipamento, Unidade } from '../types';
+import type { Categoria, Equipamento, Unidade } from '../types';
 import {
   formatarData,
   ROTULO_ESTADO,
@@ -19,6 +19,7 @@ import { EsqueletoTabela } from '../components/Esqueletos';
 import { useAlertaNativo } from '../hooks/useAlertaNativo';
 import { MiniaturaItem } from '../components/MiniaturaItem';
 import { StatusPill } from '../components/StatusPill';
+import { InventarioPainel } from './InventarioPainel';
 
 export function Inventario() {
   const { usuario } = useAuth();
@@ -27,6 +28,11 @@ export function Inventario() {
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [busca, setBusca] = useState('');
   const [filtroUnidade, setFiltroUnidade] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [filtroFamilia, setFiltroFamilia] = useState('');
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [erroCadastros, setErroCadastros] = useState('');
+  const [versaoPainel, setVersaoPainel] = useState(0);
   const [filtroStatus, setFiltroStatus] = useState('');
   const [ordenacao, setOrdenacao] = useState('');
   const [visualizacoesAberto, setVisualizacoesAberto] = useState(false);
@@ -49,6 +55,8 @@ export function Inventario() {
     const params = new URLSearchParams();
     if (busca) params.set('busca', busca);
     if (filtroUnidade) params.set('unidadeId', filtroUnidade);
+    if (filtroCategoria) params.set('categoriaId', filtroCategoria);
+    if (filtroFamilia) params.set('tipoEquipamentoId', filtroFamilia);
     if (filtroStatus) params.set('status', filtroStatus);
     api
       .get<Equipamento[]>(`/equipamentos?${params}`)
@@ -66,7 +74,7 @@ export function Inventario() {
       .finally(() => {
         if (idRequisicao === requisicao.current) setCarregando(false);
       });
-  }, [busca, filtroUnidade, filtroStatus]);
+  }, [busca, filtroUnidade, filtroStatus, filtroCategoria, filtroFamilia]);
 
   useEffect(() => {
     carregar();
@@ -75,12 +83,17 @@ export function Inventario() {
     };
   }, [carregar]);
 
-  useEffect(() => {
-    api
-      .get<Unidade[]>('/unidades')
-      .then(setUnidades)
-      .catch((e) => setErro(e instanceof Error ? e.message : 'Não foi possível carregar as unidades.'));
+  const carregarCadastros = useCallback(() => {
+    setErroCadastros('');
+    Promise.all([api.get<Unidade[]>('/unidades'), api.get<Categoria[]>('/categorias')])
+      .then(([us, cs]) => { setUnidades(us); setCategorias(cs); })
+      .catch((e: Error) => setErroCadastros(e.message));
   }, []);
+  useEffect(() => { carregarCadastros(); }, [carregarCadastros]);
+
+  const familias = categorias.filter(c => !filtroCategoria || c.id === filtroCategoria).flatMap(c => c.tipos ?? []);
+  function selecionarCategoria(id: string) { setFiltroCategoria(id); setFiltroFamilia(''); }
+  function limparSelecao() { setBusca(''); setFiltroUnidade(''); setFiltroCategoria(''); setFiltroFamilia(''); setFiltroStatus(''); setOrdenacao(''); }
 
   // Mensagem de sucesso vinda do cadastro (página própria); limpa o state para
   // não reaparecer ao recarregar ou voltar para esta tela.
@@ -121,6 +134,7 @@ export function Inventario() {
             : ''),
       );
       carregar();
+      setVersaoPainel(v => v + 1);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro na importação');
     }
@@ -161,7 +175,7 @@ export function Inventario() {
     },
   ];
   const visualizacaoAtual = atalhosStatus.find((atalho) => atalho.valor === filtroStatus);
-  const totalFiltros = Number(Boolean(filtroUnidade)) + Number(Boolean(filtroStatus && !visualizacaoAtual)) + Number(Boolean(ordenacao));
+  const totalFiltros = Number(Boolean(filtroUnidade)) + Number(Boolean(filtroStatus && !visualizacaoAtual)) + Number(Boolean(ordenacao)) + Number(Boolean(filtroCategoria)) + Number(Boolean(filtroFamilia));
 
   return (
     <section className="gestao-page inventario-page" aria-labelledby="inventario-titulo">
@@ -198,7 +212,7 @@ export function Inventario() {
       </div>
 
 
-      <div className="gestao-lista inventario-lista">
+      <div className="inventario-painel-controles">
         <div className="inventario-controles" ref={controles}>
           <div className="inventario-indexbar">
             <div
@@ -270,21 +284,6 @@ export function Inventario() {
           </div>
           {filtrosAbertos && (
             <div className="inventario-filtros-popover">
-            {usuario?.perfil !== 'UNIDADE' && (
-              <label className="gestao-filtro-select">
-                <span>Unidade</span>
-                <select
-                  aria-label="Filtrar por unidade"
-                  value={filtroUnidade}
-                  onChange={(e) => setFiltroUnidade(e.target.value)}
-                >
-                  <option value="">Todas as unidades</option>
-                  {unidades.map((u) => (
-                    <option key={u.id} value={u.id}>{u.nome}</option>
-                  ))}
-                </select>
-              </label>
-            )}
             <label className="gestao-filtro-select inventario-status-extra">
               <span>Situação</span>
               <select
@@ -314,7 +313,36 @@ export function Inventario() {
             <button type="button" className="btn btn-primary" onClick={() => setFiltrosAbertos(false)}>Concluir</button>
             </div>
           )}
+          <div className="inventario-painel-filtros">
+            {usuario?.perfil !== 'UNIDADE' && (
+              <div className="field">
+                <label htmlFor="inventario-unidade">Unidade</label>
+                <select
+                  id="inventario-unidade" aria-label="Filtrar por unidade"
+                  value={filtroUnidade}
+                  onChange={(e) => setFiltroUnidade(e.target.value)}
+                >
+                  <option value="">Todas as unidades</option>
+                  {unidades.map((u) => (
+                    <option key={u.id} value={u.id}>{u.nome}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="field"><label htmlFor="inventario-categoria">Categoria</label><select id="inventario-categoria" aria-label="Filtrar por categoria" value={filtroCategoria} onChange={e => selecionarCategoria(e.target.value)}>
+              <option value="">Todas as categorias</option>{categorias.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select></div>
+            <div className="field"><label htmlFor="inventario-familia">Família / tipo de item</label><select id="inventario-familia" aria-label="Filtrar por família" value={filtroFamilia} onChange={e => setFiltroFamilia(e.target.value)}>
+              <option value="">Todas as famílias / tipos</option>{familias.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
+            </select></div>
+            <button type="button" className="btn btn-outline" onClick={limparSelecao}>Limpar seleção</button>
+          </div>
+          {erroCadastros && <div role="alert" className="inventario-painel-erro">Falha ao carregar filtros: {erroCadastros}<button className="btn btn-outline" onClick={carregarCadastros}>Recarregar filtros</button></div>}
         </div>
+      </div>
+      <InventarioPainel filtros={{ busca, unidadeId: filtroUnidade, categoriaId: filtroCategoria, tipoEquipamentoId: filtroFamilia, status: filtroStatus }} versao={versaoPainel}
+        selecionar={(campo, id) => { if (campo === 'unidadeId') setFiltroUnidade(id); else if (campo === 'categoriaId') selecionarCategoria(id); else setFiltroFamilia(id); }} />
+      <div className="gestao-lista inventario-lista">
         <div
           className="gestao-tabela-scroll lista-cartoes lista-cartoes--inventario"
           role="region"
@@ -391,14 +419,11 @@ export function Inventario() {
                   Tentar novamente
                 </button>
               ) : (
-                (busca || filtroUnidade || filtroStatus || ordenacao) && (
+                (busca || filtroUnidade || filtroStatus || ordenacao || filtroCategoria || filtroFamilia) && (
                   <button
                     className="btn btn-primary inventario-vazio-acao"
                     onClick={() => {
-                      setBusca('');
-                      setFiltroUnidade('');
-                      setFiltroStatus('');
-                      setOrdenacao('');
+                      limparSelecao();
                     }}
                   >
                     Limpar filtros

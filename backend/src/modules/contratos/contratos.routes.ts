@@ -27,6 +27,8 @@ const selecaoItens = {
     servicoId: true,
     valor: true,
     descontoPercentual: true,
+    slaHorasMedia: true,
+    slaHorasMuitoAlta: true,
     servico: { select: { id: true, nome: true } },
   },
 } satisfies Prisma.Contrato$itensArgs;
@@ -75,6 +77,9 @@ const itemSchema = z.object({
   servicoId: z.string().uuid(),
   valor: z.number().nonnegative().max(999_999_999_999.99),
   descontoPercentual: z.number().min(0).max(100).default(0),
+  // Prazo do prestador em horas por prioridade do chamado civil; vazio = prazo não configurado
+  slaHorasMedia: z.number().int().positive().max(8760).nullable().default(null),
+  slaHorasMuitoAlta: z.number().int().positive().max(8760).nullable().default(null),
 });
 
 const listaItens = z.array(itemSchema).max(200);
@@ -105,6 +110,8 @@ function dadosItens(itens: ItemEntrada[]) {
     servicoId: i.servicoId,
     valor: Math.round(i.valor * 100) / 100,
     descontoPercentual: Math.round(i.descontoPercentual * 100) / 100,
+    slaHorasMedia: i.slaHorasMedia,
+    slaHorasMuitoAlta: i.slaHorasMuitoAlta,
   }));
 }
 
@@ -232,7 +239,7 @@ contratosRouter.patch(
               );
             }
           }
-          if (id) await tx.contratoItem.update({ where: { id }, data: { valor: item.valor, descontoPercentual: item.descontoPercentual } });
+          if (id) await tx.contratoItem.update({ where: { id }, data: { valor: item.valor, descontoPercentual: item.descontoPercentual, slaHorasMedia: item.slaHorasMedia, slaHorasMuitoAlta: item.slaHorasMuitoAlta } });
           else await tx.contratoItem.create({ data: { ...item, contratoId: antes.id } });
         }
       }

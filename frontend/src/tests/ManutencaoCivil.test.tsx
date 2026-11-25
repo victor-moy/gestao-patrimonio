@@ -330,6 +330,25 @@ describe('Manutenção civil', () => {
     expect(within(informacoes).queryByText('Item')).not.toBeInTheDocument();
   });
 
+  it('o detalhe mostra a prioridade e o prazo do prestador', async () => {
+    mockFetch({
+      ...entrarComo('OPERADOR', '/manutencoes/m1'),
+      '/manutencoes/m1': {
+        body: civil({
+          status: 'AGUARDANDO_EXECUCAO',
+          prioridade: 'MUITO_ALTA',
+          sla: { situacao: 'VENCIDO', venceEm: '2026-11-25T10:00:00.000Z', minutosRestantes: -75, pausado: false },
+        }),
+      },
+      ...historico,
+    });
+    render(<App />);
+
+    expect(await screen.findByText('Prioridade')).toBeInTheDocument();
+    expect(screen.getByText('Muito alta')).toBeInTheDocument();
+    expect(screen.getByText('Vencido há 1h 15min')).toBeInTheDocument();
+  });
+
   it('triagem: oferece itens de contrato com saldo e mostra, ao lado, os chamados da unidade', async () => {
     const chamadas = mockFetch({
       ...entrarComo('OPERADOR', '/manutencoes/m1'),
@@ -354,9 +373,12 @@ describe('Manutenção civil', () => {
     const confirmar = screen.getByRole('button', { name: 'Confirmar aprovação' });
     expect(confirmar).toBeDisabled();
     await userEvent.selectOptions(await screen.findByLabelText('Item do contrato *'), 'i1');
+    // Sem a prioridade a triagem não aprova: dela vem o prazo do prestador
+    expect(confirmar).toBeDisabled();
+    await userEvent.selectOptions(screen.getByLabelText('Prioridade *'), 'MUITO_ALTA');
     await userEvent.click(confirmar);
     await waitFor(() => expect(chamadas.some((c) => c.url.endsWith('/manutencoes/m1/aprovar'))).toBe(true));
-    expect(JSON.parse(chamadas.find((c) => c.url.endsWith('/aprovar'))!.init!.body as string)).toEqual({ contratoItemId: 'i1' });
+    expect(JSON.parse(chamadas.find((c) => c.url.endsWith('/aprovar'))!.init!.body as string)).toEqual({ contratoItemId: 'i1', prioridade: 'MUITO_ALTA' });
   });
 
   it('item de contrato sem saldo continua escolhível: o saldo não bloqueia a triagem', async () => {
@@ -374,6 +396,7 @@ describe('Manutenção civil', () => {
     expect(screen.queryByText(/Nenhum item de contrato/)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Confirmar aprovação' })).toBeDisabled();
     await userEvent.selectOptions(screen.getByLabelText(/Item do contrato/), 'i1');
+    await userEvent.selectOptions(screen.getByLabelText('Prioridade *'), 'MEDIA');
     expect(screen.getByRole('button', { name: 'Confirmar aprovação' })).toBeEnabled();
   });
 
