@@ -1,4 +1,4 @@
-/* Camada visual final das telas de gestão, inspirada em resource indexes do Polaris. */
+/* Camada visual final das telas de gestão. */
 .app-shell--gestao {
   --topbar-height: 56px;
   padding-top: var(--topbar-height);

@@ -1,7 +1,7 @@
 import { pode, type Permissao } from '../utils/permissoes';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import './Gestao.css';
-import './Polaris.css';
+import './Refinamentos.css';
 import './Padrao.css';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
