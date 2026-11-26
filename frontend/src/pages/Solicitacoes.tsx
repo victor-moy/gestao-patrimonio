@@ -100,6 +100,18 @@ const STATUS_POR_TIPO: Record<string, string[]> = {
 
 // Manutenção aparece na lista como mais um tipo de solicitação, mas é outro registro (MAN-0001, rota própria)
 const TIPO_MANUTENCAO = 'MANUTENCAO';
+// No filtro a manutenção é dividida em civil e patrimonial (equipamento); `MANUTENCAO` sozinho só chega por links antigos
+// e vale para as duas, sem opção própria no menu.
+const TIPO_MANUTENCAO_CIVIL = 'MANUTENCAO_CIVIL';
+const TIPO_MANUTENCAO_PATRIMONIAL = 'MANUTENCAO_PATRIMONIAL';
+const TIPOS_DE_MANUTENCAO: Array<[string, string]> = [
+  [TIPO_MANUTENCAO_CIVIL, 'Manutenção Civil'],
+  [TIPO_MANUTENCAO_PATRIMONIAL, 'Manutenção Patrimonial'],
+];
+const ehManutencao = (tipo: string) => tipo === TIPO_MANUTENCAO || TIPOS_DE_MANUTENCAO.some(([valor]) => valor === tipo);
+const tipoDaManutencaoNaApi = (tipo: string) =>
+  tipo === TIPO_MANUTENCAO_CIVIL ? 'CIVIL' : tipo === TIPO_MANUTENCAO_PATRIMONIAL ? 'EQUIPAMENTO' : '';
+const tipoValido = (tipo: string) => ehManutencao(tipo) || tipo in ROTULO_TIPO_SOLICITACAO;
 const TIPOS_DE_SOLICITACAO = Object.entries(ROTULO_TIPO_SOLICITACAO).filter(([valor]) => valor !== TIPO_MANUTENCAO);
 
 // Statuses de manutenção que não existem em solicitação (o resto tem o mesmo valor e o mesmo rótulo)
@@ -150,7 +162,7 @@ const daManutencao = (m: Manutencao): LinhaLista => ({
   numero: codigoManutencao(m.numero),
   titulo: tituloManutencao(m),
   tipo: TIPO_MANUTENCAO,
-  tipoTexto: m.tipo === 'CIVIL' ? 'Manutenção civil' : ROTULO_TIPO_SOLICITACAO[TIPO_MANUTENCAO],
+  tipoTexto: m.tipo === 'CIVIL' ? 'Manutenção Civil' : ROTULO_TIPO_SOLICITACAO[TIPO_MANUTENCAO],
   unidade: m.unidade.nome,
   statusValor: statusManutencaoExibido(m).valor,
   statusTexto: statusManutencaoExibido(m).texto,
@@ -181,9 +193,7 @@ export function Solicitacoes() {
   const [busca, setBusca] = useState('');
   const tipoDaUrl = params.get('tipo') ?? '';
   const statusDaUrl = params.get('status') ?? '';
-  const [filtroTipo, setFiltroTipo] = useState(
-    tipoDaUrl === TIPO_MANUTENCAO || tipoDaUrl in ROTULO_TIPO_SOLICITACAO ? tipoDaUrl : '',
-  );
+  const [filtroTipo, setFiltroTipo] = useState(tipoValido(tipoDaUrl) ? tipoDaUrl : '');
   const statusInicialValido =
     statusDaUrl in ROTULO_STATUS_SOLICITACAO ||
     statusDaUrl in ROTULO_STATUS_MANUTENCAO ||
@@ -213,16 +223,16 @@ export function Solicitacoes() {
     const buscarSolicitacoes =
       veSolicitacoes &&
       !semInteracao &&
-      filtroTipo !== TIPO_MANUTENCAO &&
+      !ehManutencao(filtroTipo) &&
       (!filtroStatus || Boolean(extra) || filtroStatus in ROTULO_STATUS_SOLICITACAO);
     const buscarManutencoes =
-      veManutencoes && (!filtroTipo || filtroTipo === TIPO_MANUTENCAO) && (!filtroStatus || filtroStatus in ROTULO_STATUS_MANUTENCAO);
-    const consulta = (statusBackend: string, tipo = '') => {
+      veManutencoes && (!filtroTipo || ehManutencao(filtroTipo)) && (!filtroStatus || filtroStatus in ROTULO_STATUS_MANUTENCAO);
+    const consulta = (statusBackend: string, tipo = '', deManutencao = false) => {
       const p = new URLSearchParams();
       if (busca) p.set('busca', busca);
       if (tipo) p.set('tipo', tipo);
       if (statusBackend) p.set('status', statusBackend);
-      if (semInteracao && tipo === '') p.set('semInteracao', 'true');
+      if (semInteracao && deManutencao) p.set('semInteracao', 'true');
       return p;
     };
     const pedidos: Array<Promise<LinhaLista[]>> = [];
@@ -231,12 +241,12 @@ export function Solicitacoes() {
       pedidos.push(api.get<Solicitacao[]>(`/solicitacoes?${p}`).then((l) => l.map(daSolicitacao)));
     }
     if (buscarManutencoes) {
-      pedidos.push(api.get<Manutencao[]>(`/manutencoes?${consulta(filtroStatus)}`).then((l) => l.map(daManutencao)));
+      pedidos.push(api.get<Manutencao[]>(`/manutencoes?${consulta(filtroStatus, tipoDaManutencaoNaApi(filtroTipo), true)}`).then((l) => l.map(daManutencao)));
     }
     Promise.all(pedidos)
       .then((listas) => {
         if (idRequisicao !== requisicao.current) return;
-        setLinhas(ordenarLinhas(listas.flat(), filtroTipo === TIPO_MANUTENCAO));
+        setLinhas(ordenarLinhas(listas.flat(), ehManutencao(filtroTipo)));
         setPagina(1);
       })
       .catch((e) => {
@@ -259,7 +269,7 @@ export function Solicitacoes() {
 
   // Deep link da Home (Pendências): aplica tipo/status da URL ao abrir a lista
   useEffect(() => {
-    setFiltroTipo(tipoDaUrl === TIPO_MANUTENCAO || tipoDaUrl in ROTULO_TIPO_SOLICITACAO ? tipoDaUrl : '');
+    setFiltroTipo(tipoValido(tipoDaUrl) ? tipoDaUrl : '');
     const statusOk =
       statusDaUrl in ROTULO_STATUS_SOLICITACAO ||
       statusDaUrl in ROTULO_STATUS_MANUTENCAO ||
@@ -301,7 +311,7 @@ export function Solicitacoes() {
   function selecionarTipo(tipo: string) {
     setFiltroTipo(tipo);
     const statusValido =
-      tipo === TIPO_MANUTENCAO ? filtroStatus in ROTULO_STATUS_MANUTENCAO : STATUS_POR_TIPO[tipo]?.includes(filtroStatus);
+      ehManutencao(tipo) ? filtroStatus in ROTULO_STATUS_MANUTENCAO : STATUS_POR_TIPO[tipo]?.includes(filtroStatus);
     if (tipo && filtroStatus && !statusValido) {
       setFiltroStatus('');
     }
@@ -310,16 +320,17 @@ export function Solicitacoes() {
   const opcoesTipo: Array<[string, string]> = [
     ['', 'Todas'],
     ...(veSolicitacoes ? TIPOS_DE_SOLICITACAO : []),
-    ...(veManutencoes ? ([[TIPO_MANUTENCAO, ROTULO_TIPO_SOLICITACAO[TIPO_MANUTENCAO]]] as Array<[string, string]>) : []),
+    ...(veManutencoes ? TIPOS_DE_MANUTENCAO : []),
   ];
-  const visualizacaoAtual = opcoesTipo.find(([valor]) => valor === filtroTipo);
+  const visualizacaoAtual =
+    opcoesTipo.find(([valor]) => valor === filtroTipo) ?? (filtroTipo === TIPO_MANUTENCAO ? [TIPO_MANUTENCAO, 'Manutenção'] : undefined);
   // Status oferecidos conforme o tipo: de solicitação (por tipo), de manutenção, ou a soma dos dois em "Todas"
   const statusDeSolicitacao: Array<[string, string]> = [
     ...Object.entries(ROTULO_STATUS_SOLICITACAO),
     ...OPCOES_STATUS_EXTRA.map(({ valor, texto }): [string, string] => [valor, texto]),
   ];
   const opcoesDeStatus: Array<[string, string]> =
-    filtroTipo === TIPO_MANUTENCAO
+    ehManutencao(filtroTipo)
       ? Object.entries(ROTULO_STATUS_MANUTENCAO)
       : filtroTipo
         ? statusDeSolicitacao.filter(([valor]) => STATUS_POR_TIPO[filtroTipo]?.includes(valor))

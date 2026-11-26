@@ -197,7 +197,7 @@ Verificar em 1440 px, 900 px e 390 px. Em mudanças visuais, registrar capturas 
 
 ## Prioridade e prazo do chamado civil
 
-A prioridade é escolhida na aprovação da triagem (campo obrigatório ao lado do item de contrato). O prazo aparece como selo (`StatusPill`, tons `SLA_*`) no detalhe do chamado e embaixo do status na lista: verde no prazo, amarelo pausado/não configurado/atrasado mas executado, vermelho vencido, cinza planejado ou ainda não iniciado. Texto e cor saem de `utils/prazo.ts`; o cálculo é do backend. Na lista geral a ordem continua do mais novo ao mais antigo; só na visão "Manutenção" o chamado civil segue gravidade, prazo vencido, prioridade e antiguidade (mesma regra do backend). As horas do prazo ficam na grade de itens do contrato (Média e Muito alta), e a gravidade no formulário do tipo de problema.
+A prioridade é escolhida na aprovação da triagem (campo obrigatório ao lado do item de contrato). O prazo aparece como selo (`StatusPill`, tons `SLA_*`) no detalhe do chamado e embaixo do status na lista: verde no prazo, amarelo pausado/não configurado/atrasado mas executado, vermelho vencido, cinza planejado ou ainda não iniciado. Texto e cor saem de `utils/prazo.ts`; o cálculo é do backend. Na lista geral a ordem continua do mais novo ao mais antigo; só nas visões "Manutenção Civil" e "Manutenção Patrimonial" o chamado civil segue gravidade, prazo vencido, prioridade e antiguidade (mesma regra do backend). As horas do prazo ficam na grade de itens do contrato (Média e Muito alta), e a gravidade no formulário do tipo de problema.
 
 ## Inventário com painel gerencial
 
