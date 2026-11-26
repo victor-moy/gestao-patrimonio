@@ -1,6 +1,6 @@
 # Sistema visual e decisões de UX do SGP
 
-Este documento registra a direção visual e as decisões de UX da plataforma. A referência é um painel administrativo no padrão de *resource indexes* do Shopify Polaris: sóbrio, compacto e adequado ao uso diário em operações patrimoniais. Toda tela nova deve seguir estas regras; se uma decisão mudar, atualize este arquivo junto com o código e os testes.
+Este documento registra a direção visual e as decisões de UX da plataforma. A referência é um painel administrativo no padrão de *resource indexes*: sóbrio, compacto e adequado ao uso diário em operações patrimoniais. Toda tela nova deve seguir estas regras; se uma decisão mudar, atualize este arquivo junto com o código e os testes.
 
 ## Princípios
 
@@ -13,7 +13,7 @@ Este documento registra a direção visual e as decisões de UX da plataforma. A
 
 ## Fundamentos
 
-Tokens globais em `frontend/src/styles.css`; padrões das telas autenticadas em `frontend/src/components/Gestao.css` (estrutura) e `frontend/src/components/Polaris.css` (refinamentos e novos padrões — é o arquivo a estender). Estilos específicos de uma área ficam ao lado da página (`pages/*.css`).
+Tokens globais em `frontend/src/styles.css`; padrões das telas autenticadas em `frontend/src/components/Gestao.css` (estrutura) e `frontend/src/components/Refinamentos.css` (refinamentos e novos padrões — é o arquivo a estender). Estilos específicos de uma área ficam ao lado da página (`pages/*.css`).
 
 - Fundo cinza neutro (`--bg`), superfície branca (`--surface`); o sistema tem um único tema, o claro.
 - Ação principal grafite (`#303030`); azul (`#005bd3`, a cor do ícone do sistema) na identidade (ícone, barra de carregamento, avatar) e em links de texto; verde só em estados positivos. O ícone do sistema é um cubo em três tons de azul com cantos arredondados: `frontend/public/favicon.svg` (favicon e `apple-touch-icon.png`) e o componente `LogoSistema`, que usa azuis mais claros porque o cabeçalho e o login são escuros.
@@ -89,7 +89,7 @@ Padrão do Inventário, reutilizado por Solicitações (que também lista as man
 - estado em *pill* suave com ponto colorido, sempre pelo componente `StatusPill` (cores em "Cores de status", abaixo);
 - rodapé com "N itens · Mostrando a–b" e paginação "Anterior / Página x de y / Próxima" (10 por página);
 - quatro estados visíveis: carregando, vazio, erro (com "Tentar novamente") e sucesso; nenhum erro de rede pode parecer lista vazia válida;
-- **no mobile (até 600 px) a tabela vira lista de cartões**, sem rolagem horizontal: cada linha é um bloco com o nome em destaque e o status à direita, os dados de apoio abaixo e o cartão inteiro como alvo de toque. O HTML continua sendo `<table>` (o cabeçalho fica oculto só visualmente). Ative com a classe `lista-cartoes` + uma variante (`--inventario`, `--atas`, `--estoque`, `--manutencoes`, `--fluxo`; Contratos usa a mesma variante `--atas`) no contêiner, `cartao-*` nas células e `data-label` onde o valor precisa de rótulo (Valor total, Saldo, Vencimento…). A disposição de cada tela fica em `Polaris.css`; as listas de Configurações usam a variante `--fluxo` (nome em destaque e demais campos em duas colunas; `larga: true` na coluna para ocupar a linha toda). Entre 601 e 900 px a tabela segue com colunas escondidas por largura;
+- **no mobile (até 600 px) a tabela vira lista de cartões**, sem rolagem horizontal: cada linha é um bloco com o nome em destaque e o status à direita, os dados de apoio abaixo e o cartão inteiro como alvo de toque. O HTML continua sendo `<table>` (o cabeçalho fica oculto só visualmente). Ative com a classe `lista-cartoes` + uma variante (`--inventario`, `--atas`, `--estoque`, `--manutencoes`, `--fluxo`; Contratos usa a mesma variante `--atas`) no contêiner, `cartao-*` nas células e `data-label` onde o valor precisa de rótulo (Valor total, Saldo, Vencimento…). A disposição de cada tela fica em `Refinamentos.css`; as listas de Configurações usam a variante `--fluxo` (nome em destaque e demais campos em duas colunas; `larga: true` na coluna para ocupar a linha toda). Entre 601 e 900 px a tabela segue com colunas escondidas por largura;
 - o rótulo do seletor de visualização (ex.: "Aguardando orçamento") termina em reticências quando não cabe no botão, sem empurrar a seta nem passar do elemento; o menu cresce até 320 px conforme o texto e corta com reticências além disso;
 - a busca (`Buscar e filtrar`) nunca impõe largura mínima: em telas estreitas ela encolhe e o texto é cortado dentro do campo, sem passar por cima do botão de filtros.
 
