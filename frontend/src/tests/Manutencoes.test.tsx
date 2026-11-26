@@ -418,7 +418,7 @@ describe('Manutenções', () => {
       expect(menu.getByRole('link', { name: 'Solicitações' })).toBeInTheDocument();
     });
 
-    it('o tipo Manutenção civil consulta só as manutenções, e um status de solicitação não consulta o lado das manutenções', async () => {
+    it('o tipo Manutenção Civil consulta só as manutenções, e um status de solicitação não consulta o lado das manutenções', async () => {
       const chamadas = mockFetch({
         ...entrarComo('OPERADOR', '/solicitacoes'),
         '/solicitacoes': { body: [solicitacao] },
@@ -428,7 +428,7 @@ describe('Manutenções', () => {
       await screen.findByText('Geladeira parou');
 
       await userEvent.click(screen.getByRole('button', { name: 'Todas' }));
-      await userEvent.click(screen.getByRole('menuitemradio', { name: 'Manutenção civil' }));
+      await userEvent.click(screen.getByRole('menuitemradio', { name: 'Manutenção Civil' }));
       await waitFor(() => expect(screen.queryByText('Consultório novo')).not.toBeInTheDocument());
       expect(chamadas.filter((c) => c.url.includes('/solicitacoes')).length).toBe(1); // só a consulta inicial
 
@@ -449,7 +449,7 @@ describe('Manutenções', () => {
       expect(chamadas.some((c) => c.url.includes('/solicitacoes'))).toBe(false);
       await userEvent.click(screen.getByRole('button', { name: 'Todas' }));
       const itens = screen.getAllByRole('menuitemradio').map((i) => i.textContent?.trim());
-      expect(itens).toEqual(['Todas', 'Manutenção civil', 'Manutenção patrimonial']);
+      expect(itens).toEqual(['Todas', 'Manutenção Civil', 'Manutenção Patrimonial']);
       const menu = within(screen.getByRole('navigation', { name: 'Navegação principal' }));
       expect(menu.getByRole('link', { name: 'Solicitações' })).toBeInTheDocument();
       expect(menu.queryByRole('link', { name: 'Manutenções' })).not.toBeInTheDocument();

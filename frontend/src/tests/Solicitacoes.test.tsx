@@ -457,14 +457,14 @@ it('o filtro de manutenção é dividido em civil e patrimonial e cada um consul
   await userEvent.click(await screen.findByRole('button', { name: 'Todas' }));
   const menu = await screen.findByRole('menu', { name: 'Visualizações das solicitações' });
   expect(within(menu).queryByRole('menuitemradio', { name: 'Manutenção' })).not.toBeInTheDocument();
-  expect(within(menu).getByRole('menuitemradio', { name: 'Manutenção civil' })).toBeInTheDocument();
+  expect(within(menu).getByRole('menuitemradio', { name: 'Manutenção Civil' })).toBeInTheDocument();
 
-  await userEvent.click(within(menu).getByRole('menuitemradio', { name: 'Manutenção patrimonial' }));
+  await userEvent.click(within(menu).getByRole('menuitemradio', { name: 'Manutenção Patrimonial' }));
   await waitFor(() => expect(chamadas.some((c) => c.url.includes('/manutencoes?tipo=EQUIPAMENTO'))).toBe(true));
   const ultima = chamadas.filter((c) => c.url.includes('/solicitacoes')).length;
 
-  await userEvent.click(await screen.findByRole('button', { name: 'Manutenção patrimonial' }));
-  await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Manutenção civil' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Manutenção Patrimonial' }));
+  await userEvent.click(await screen.findByRole('menuitemradio', { name: 'Manutenção Civil' }));
   await waitFor(() => expect(chamadas.some((c) => c.url.includes('/manutencoes?tipo=CIVIL'))).toBe(true));
   // manutenção não consulta as solicitações
   expect(chamadas.filter((c) => c.url.includes('/solicitacoes')).length).toBe(ultima);

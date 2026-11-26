@@ -105,8 +105,8 @@ const TIPO_MANUTENCAO = 'MANUTENCAO';
 const TIPO_MANUTENCAO_CIVIL = 'MANUTENCAO_CIVIL';
 const TIPO_MANUTENCAO_PATRIMONIAL = 'MANUTENCAO_PATRIMONIAL';
 const TIPOS_DE_MANUTENCAO: Array<[string, string]> = [
-  [TIPO_MANUTENCAO_CIVIL, 'Manutenção civil'],
-  [TIPO_MANUTENCAO_PATRIMONIAL, 'Manutenção patrimonial'],
+  [TIPO_MANUTENCAO_CIVIL, 'Manutenção Civil'],
+  [TIPO_MANUTENCAO_PATRIMONIAL, 'Manutenção Patrimonial'],
 ];
 const ehManutencao = (tipo: string) => tipo === TIPO_MANUTENCAO || TIPOS_DE_MANUTENCAO.some(([valor]) => valor === tipo);
 const tipoDaManutencaoNaApi = (tipo: string) =>
@@ -162,7 +162,7 @@ const daManutencao = (m: Manutencao): LinhaLista => ({
   numero: codigoManutencao(m.numero),
   titulo: tituloManutencao(m),
   tipo: TIPO_MANUTENCAO,
-  tipoTexto: m.tipo === 'CIVIL' ? 'Manutenção civil' : ROTULO_TIPO_SOLICITACAO[TIPO_MANUTENCAO],
+  tipoTexto: m.tipo === 'CIVIL' ? 'Manutenção Civil' : ROTULO_TIPO_SOLICITACAO[TIPO_MANUTENCAO],
   unidade: m.unidade.nome,
   statusValor: statusManutencaoExibido(m).valor,
   statusTexto: statusManutencaoExibido(m).texto,
